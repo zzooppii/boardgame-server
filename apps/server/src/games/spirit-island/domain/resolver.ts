@@ -1,14 +1,17 @@
+import { branchClawOptions, branchClawAutomatic } from './branch-claw.js';
+import { tokenOptions } from './tokens.js';
 import { SPIRIT_ELEMENTS, SPIRIT_ELEMENT_LABELS, spiritDefinition, spiritPower, type PlayerId, type SpiritChoiceOption, type SpiritPiece } from '@hangul-rummikub/shared';
 import type { SpiritState, SpiritStep } from './state.js';
+import { setupScenario } from './settings.js';
 import { powerSteps } from './powers.js';
-import { step, prepend, player, land, presence, sacred, inRange, countPieces, invaders, makePiece, event, fear, damagePiece, removePiece, health, defense, matches, checkEnd, income, cardPower, requireRule } from './primitives.js';
+import { step, prepend, player, land, presence, sacred, inRange, countPieces, invaders, makePiece, event, fear, damagePiece, removePiece, health, defense, matches, checkEnd, income, cardPower, requireRule, oceanActive, presenceAllowed, addPresence, drowning, elements, distance } from './primitives.js';
 export type SpiritOption = SpiritChoiceOption & {
     apply(): void;
 };
 const kinds: readonly SpiritPiece['kind'][] = ['EXPLORER', 'TOWN', 'CITY', 'DAHAN'];
 const labels: Record<SpiritPiece['kind'], string> = { EXPLORER: '탐험가', TOWN: '마을', CITY: '도시', DAHAN: '다한' };
 const selectedKinds = (e: SpiritStep) => kinds.filter(k => e.tags.includes(k));
-const branchNames: Record<string, string> = { DAMAGE: '피해', REMOVE_BLIGHT: '오염 제거', DEFEND: '방어', FEAR: '공포', PUSH_DAHAN: '다한 밀기', PUSH_EXPLORER: '탐험가 밀기', PUSH_INVADERS: '탐험가/마을 밀기', GATHER_DAHAN: '다한 모으기', GATHER_INVADERS: '탐험가/마을 모으기', EACH_BUILDING: '각 마을/도시 피해', HUNT: '다한마다 서로 다른 침략자에게 피해 1' };
+const branchNames: Record<string, string> = { DAMAGE: '피해', REMOVE_BLIGHT: '오염 제거', DEFEND: '방어', FEAR: '공포', PUSH_TOWN: '마을 밀기', PUSH_DAHAN: '다한 밀기', PUSH_EXPLORER: '탐험가 밀기', PUSH_INVADERS: '탐험가/마을 밀기', GATHER_DAHAN: '다한 모으기', GATHER_INVADERS: '탐험가/마을 모으기', EACH_BUILDING: '각 마을/도시 피해', HUNT: '다한마다 서로 다른 침략자에게 피해 1' };
 export function branch(s: SpiritState, e: SpiritStep, key: string) {
     const [k, raw] = key.split(':'), n = Number(raw);
     requireRule(Number.isSafeInteger(n) && n >= 0);
@@ -20,8 +23,8 @@ export function branch(s: SpiritState, e: SpiritStep, key: string) {
         prepend(s, { ...e, kind: 'DAMAGE', n: countPieces(land(s, e.land), ['DAHAN']), key: 'HUNT', tags: ['DISTINCT'], used: [] });
     else if (k === 'EACH_BUILDING')
         prepend(s, { ...e, kind: 'EACH_DAMAGE', n, key: '', tags: ['TOWN', 'CITY'] });
-    else if (k === 'PUSH_DAHAN' || k === 'PUSH_EXPLORER' || k === 'PUSH_INVADERS' || k === 'GATHER_DAHAN' || k === 'GATHER_INVADERS')
-        prepend(s, { ...e, kind: 'MOVE', n, key: k.startsWith('GATHER') ? 'GATHER' : 'PUSH', tags: k.endsWith('DAHAN') ? ['DAHAN'] : k.endsWith('EXPLORER') ? ['EXPLORER', 'REQUIRED'] : ['EXPLORER', 'TOWN', 'REQUIRED'], used: [] });
+    else if (k === 'PUSH_TOWN' || k === 'PUSH_DAHAN' || k === 'PUSH_EXPLORER' || k === 'PUSH_INVADERS' || k === 'GATHER_DAHAN' || k === 'GATHER_INVADERS')
+        prepend(s, { ...e, kind: 'MOVE', n, key: k.startsWith('GATHER') ? 'GATHER' : 'PUSH', tags: k === 'PUSH_TOWN' ? ['TOWN','REQUIRED'] : k.endsWith('DAHAN') ? ['DAHAN'] : k.endsWith('EXPLORER') ? ['EXPLORER', 'REQUIRED'] : ['EXPLORER', 'TOWN', 'REQUIRED'], used: [] });
     else
         throw new Error('Unknown branch');
 }
@@ -43,15 +46,18 @@ function moveRemaining(s: SpiritState, e: SpiritStep, pieceId: string, dest: str
     prepend(s, { ...e, n: e.n - 1, used: [...e.used, pieceId, ...(e.tags.includes('SPREAD') ? [`land:${dest}`] : [])] }); }
 function extraFear(s: SpiritState, e: SpiritStep, piece: SpiritPiece, killed: boolean) { if (!killed)
     return; if (e.tags.includes('BONUS_FEAR'))
-    fear(s, 1, e.actor); if (e.tags.includes('MISTS') && (piece.kind === 'TOWN' || piece.kind === 'CITY')) {
+    fear(s, 1, e.actor, e.land); if (e.tags.includes('MISTS') && (piece.kind === 'TOWN' || piece.kind === 'CITY')) {
     const prior = s.flags.find(f => f.startsWith('mists:')), n = Number(prior?.split(':')[1] ?? 0);
     if (n < 4) {
-        fear(s, 1, e.actor);
+        fear(s, 1, e.actor, e.land);
         s.flags = s.flags.filter(f => !f.startsWith('mists:'));
         s.flags.push(`mists:${n + 1}`);
     }
 } }
-export function choiceTitle(e: SpiritStep): string { switch (e.kind) {
+export function choiceTitle(e: SpiritStep): string {
+ const titles:Record<string,string>={OCEAN_SETUP:'바다와 이어질 시작 해안을 고르세요',FOLLOW_DAHAN:'이동한 기물을 따라갈 현신을 선택하세요',FANGS_SETUP:'야수가 있는 시작 지역을 고르세요',GREEN_STOP:'현신을 희생해 침략자 행동을 막을까요?',HEART_SETUP:'지켜낼 섬의 심장을 고르세요',HEART_PRESENCE:'심장 가까이에 시작 현신을 놓으세요',RITUAL_ENERGY:'의식에 기여할 에너지를 선택하세요',RITUAL_PRESENCE:'의식에 희생할 현신을 선택하세요',BLITZ_EXPLORE:'추가 탐험가가 들어올 지역을 고르세요',MIDNIGHT_PLAY:'꿈에서 얻은 주요 능력을 즉시 준비할까요?'};
+ if(titles[e.key])return titles[e.key]!;
+ switch (e.kind) {
     case 'DAMAGE': return `피해 ${e.n} 남음 · 피해를 받을 기물을 선택하세요`;
     case 'MOVE': return `${e.key === 'GATHER' ? '모으기' : '밀기'} · 최대 ${e.n}개 · 기물과 목적지를 선택하세요`;
     case 'DESTROY': return `파괴할 기물을 선택하세요 · ${e.n >= 1000 ? '모두' : e.n + '개'}`;
@@ -73,6 +79,7 @@ export function choiceOptions(s: SpiritState): SpiritOption[] {
     const add = (label: string, apply: () => void, landId: string | null = null, pieceId: string | null = null) => list.push({ id: `o${list.length}`, label, landId, pieceId, apply });
     const optional = () => add('이 선택 마치기', () => undefined);
     const l = e.land ? land(s, e.land) : null, owner = e.target ?? e.actor, p = player(s, owner);
+    if (branchClawOptions(s,e,add)||tokenOptions(s,e,add)) return list;
     if (e.kind === 'DAMAGE' && e.n > 0 && l) {
         const areas = e.tags.includes('ADJACENT') ? [l, ...l.adjacent.map(id => land(s, id))] : [l];
         for (const area of areas)
@@ -82,13 +89,14 @@ export function choiceOptions(s: SpiritState): SpiritOption[] {
             }
     }
     else if ((e.kind === 'DESTROY' || e.kind === 'REMOVE' || e.kind === 'REPLACE') && e.n > 0 && l) {
-        for (const piece of l.pieces.filter(p => selectedKinds(e).includes(p.kind) && !(p.kind === 'DAHAN' && s.flags.includes(`immortal:${l.id}`))))
+        for (const piece of l.pieces.filter(p => selectedKinds(e).includes(p.kind) && !(s.flags.includes(`power:${e.actor}`)&&player(s,e.actor).spirit==='BRINGER'&&s.flags.includes(`dream-killed:${p.id}`)) && !(p.kind === 'DAHAN' && s.flags.includes(`immortal:${l.id}`))))
             add(`${labels[piece.kind]}${piece.damage ? ' (피해 ' + piece.damage + ')' : ''} ${e.kind === 'REPLACE' ? '교체' : e.kind === 'REMOVE' ? '제거' : '파괴'}`, () => {
                 removePiece(s, l, piece, e.kind === 'DESTROY', e.actor);
                 extraFear(s, e, piece, e.kind === 'DESTROY');
                 if (e.kind === 'REPLACE') {
-                    const kind = e.key === 'DAHAN' ? 'DAHAN' : e.key === 'DOWNGRADE' ? (piece.kind === 'CITY' ? 'TOWN' : 'EXPLORER') : 'EXPLORER';
-                    makePiece(s, l, kind);
+                    const kind = e.key==='SWEDEN_TOWN'?'TOWN':e.key === 'DAHAN' ? 'DAHAN' : e.key === 'DOWNGRADE' ? (piece.kind === 'CITY' ? 'TOWN' : 'EXPLORER') : 'EXPLORER';
+                    const replacement=makePiece(s, l, kind);
+                    if(piece.kind!=='DAHAN'&&kind!=='DAHAN')replacement.strife=piece.strife;
                     if (e.key === 'EXPLORER2')
                         makePiece(s, l, kind);
                 }
@@ -100,10 +108,11 @@ export function choiceOptions(s: SpiritState): SpiritOption[] {
             optional();
     }
     else if (e.kind === 'MOVE' && e.n > 0 && l) {
-        const gather = e.key === 'GATHER', sources = gather ? l.adjacent.map(id => land(s, id)) : [l];
+        const gather = e.key === 'GATHER', sources = gather ? l.adjacent.map(id => land(s, id)).filter(l=>oceanActive(s,l)) : [l];
         for (const source of sources)
-            for (const piece of source.pieces.filter(p => selectedKinds(e).includes(p.kind) && !e.used.includes(p.id))) {
+            for (const piece of source.pieces.filter(p => selectedKinds(e).includes(p.kind) && !e.used.includes(p.id) && (!e.tags.some(t=>t.startsWith('ONLY:')) || e.tags.includes(`ONLY:${p.id}`)))) {
                 let destinations = gather ? [l] : e.tags.includes('ANY_LAND') ? s.lands.filter(a => a.id !== source.id) : source.adjacent.map(id => land(s, id));
+                destinations = destinations.filter(l=>oceanActive(s,l));
                 if (e.tags.includes('SPREAD')) {
                     const unused = destinations.filter(d => !e.used.includes(`land:${d.id}`));
                     if (unused.length)
@@ -113,8 +122,14 @@ export function choiceOptions(s: SpiritState): SpiritOption[] {
                     destinations = destinations.filter(d => countPieces(d, ['TOWN', 'CITY']) > countPieces(source, ['TOWN', 'CITY']));
                 for (const dest of destinations)
                     add(`${source.id} ${labels[piece.kind]}${piece.damage ? ' (피해 ' + piece.damage + ')' : ''} → ${dest.id}`, () => {
+                        if(e.tags.includes('BC_CHASE')&&piece.kind!=='DAHAN')s.flags.push('bc-chased');
                         source.pieces = source.pieces.filter(q => q.id !== piece.id);
                         dest.pieces.push(piece);
+                        followDahan(s,e,source.id,dest.id,piece);
+                        if(dest.number===0) {
+                            if(piece.kind==='DAHAN' && e.tags.includes('TIDAL')) prepend(s,step('SPECIAL',e.actor,dest.id,1,'TIDAL_SAVE',e.target,[],[piece.id]));
+                            else drowning(s,dest,piece);
+                        }
                         if (e.tags.includes('HARBINGERS') && countPieces(dest, ['TOWN', 'CITY']) > 0 && !s.flags.includes('harbinger-fear')) {
                             fear(s, 1, e.actor);
                             s.flags.push('harbinger-fear');
@@ -139,13 +154,14 @@ export function choiceOptions(s: SpiritState): SpiritOption[] {
             const values = track === 'energyTrack' ? def.energy : def.plays;
             if (p[track] >= values.length - 1)
                 continue;
-            const candidates = l ? [l] : s.lands.filter(l => inRange(s, p.playerId, l, e.n));
+            const candidates = (l ? [l] : s.lands.filter(l => e.tags.includes('FANGS') ? l.number>0 : e.n===100 ? l.number===0 : inRange(s, p.playerId, l, e.n))).filter(l=>(e.key==='POWER'||presenceAllowed(s,p.playerId,l)) && (!e.tags.includes('FANGS')||l.terrain==='JUNGLE'||l.tokens.beasts>0)&&(!e.tags.includes('KEEPER_WILDS')||l.tokens.wilds>0||presence(l,owner)>0)&&(!e.tags.includes('NO_BLIGHT')||l.blight===0)&&(!e.tags.includes('GREEN') || ['JUNGLE','WETLAND'].includes(l.terrain)) && (!e.tags.includes('DAHAN') || countPieces(l,['DAHAN'])>0) && (!e.tags.includes('INHABITED') || l.pieces.length>0));
             for (const area of candidates)
                 add(`${track === 'energyTrack' ? '에너지' : '카드'} 트랙 → ${area.id}`, () => { p[track]++; addPresenceAt(s, p.playerId, area.id); }, area.id);
         }
+        if (p.spirit==='GREEN' && e.tags.includes('GROWTH') && p.destroyedPresence>0 && (!s.blighted||p.energy>0)) for(const area of s.lands.filter(l=>presenceAllowed(s,owner,l) && inRange(s,owner,l,e.n) && (!e.tags.includes('GREEN')||['JUNGLE','WETLAND'].includes(l.terrain)))) add(`파괴된 현신 재생 → ${area.id}`,()=>{if(s.blighted)p.energy--;p.destroyedPresence--;addPresenceAt(s,owner,area.id);},area.id);
         // Adding Presence may instead move an existing Presence, even with covered track spaces.
         for (const from of s.lands.filter(l => presence(l, p.playerId) > 0))
-            for (const to of s.lands.filter(l => l.id !== from.id && (e.land ? l.id === e.land : inRange(s, p.playerId, l, e.n))))
+            for (const to of s.lands.filter(l => l.id !== from.id && (e.key==='POWER'||presenceAllowed(s,p.playerId,l)) && (!e.tags.includes('FANGS')||l.terrain==='JUNGLE'||l.tokens.beasts>0)&&(!e.tags.includes('KEEPER_WILDS')||l.tokens.wilds>0||presence(l,owner)>0)&&(!e.tags.includes('NO_BLIGHT')||l.blight===0)&&(!e.tags.includes('GREEN') || ['JUNGLE','WETLAND'].includes(l.terrain)) && (!e.tags.includes('DAHAN') || countPieces(l,['DAHAN'])>0) && (!e.tags.includes('INHABITED') || l.pieces.length>0) && (e.land ? l.id === e.land : e.tags.includes('FANGS') ? l.number>0 : e.n===100 ? l.number===0 : inRange(s, p.playerId, l, e.n))))
                 add(`${from.id} 현신 → ${to.id}`, () => { const token = from.presence.find(t => t.playerId === p.playerId)!; token.count--; from.presence = from.presence.filter(t => t.count > 0); addPresenceAt(s, p.playerId, to.id); }, to.id);
         optional();
     }
@@ -173,8 +189,8 @@ export function choiceOptions(s: SpiritState): SpiritOption[] {
         }
     }
     else if (e.kind === 'LAND') {
-        let candidates = s.lands;
-        if (e.key === 'MANTLE')
+        let candidates = s.lands.filter(l=>l.number>0 || !['FEAR_LAND'].includes(e.key)&&oceanActive(s,l));
+        if (e.key === 'TIDAL' || e.key === 'MANTLE')
             candidates = candidates.filter(l => presence(l, owner) > 0);
         if (e.key === 'REPEAT_LAND_PAIN')
             candidates = l ? l.adjacent.map(id => land(s, id)).filter(l => l.blight > 0) : [];
@@ -190,7 +206,8 @@ export function choiceOptions(s: SpiritState): SpiritOption[] {
             candidates = candidates.filter(other => other.id !== l?.id);
         for (const area of candidates)
             add(area.id, () => {
-                if (e.key === 'MANTLE')
+                if (e.key === 'TIDAL') prepend(s,step('MOVE',owner,area.id,1,'PUSH',owner,['TOWN','TIDAL']),step('MOVE',owner,area.id,2,'PUSH',owner,['DAHAN','TIDAL']));
+                else if (e.key === 'MANTLE')
                     prepend(s, step('MOVE', owner, area.id, 1, 'PUSH', owner, ['EXPLORER']), step('MOVE', owner, area.id, 1, 'PUSH', owner, ['TOWN']));
                 else if (e.key === 'REPEAT_LAND_PAIN')
                     prepend(s, ...powerSteps(s, e.actor, 'the-land-thrashes-in-furious-pain', area.id, owner, 0));
@@ -220,7 +237,30 @@ export function choiceOptions(s: SpiritState): SpiritOption[] {
         optional();
     }
     else if (e.kind === 'SPECIAL') {
-        if (e.key === 'REMOVE_HEALTH' && l) {
+        if(e.key==='BLITZ_EXPLORE'){for(const id of e.tags)add(`${id} 추가 탐험가`,()=>makePiece(s,land(s,id),'EXPLORER'),id);}
+        else if(e.key==='SWEDEN_SETUP') {const areas=s.lands.filter(a=>a.board===e.tags[0]&&e.tags.includes(a.terrain));const min=Math.min(...areas.map(a=>invaders(a).length));for(const area of areas.filter(a=>invaders(a).length===min)) add(`${area.id}에 마을 추가`,()=>makePiece(s,area,'TOWN'),area.id);}
+        else if(e.key==='HEART_SETUP') {for(const area of s.lands.filter(a=>a.board===p.board&&!a.coastal)) add(`${area.id}을 섬의 심장으로 선택`,()=>{s.hearts.push(area.id);makePiece(s,area,'EXPLORER');const legal=s.lands.filter(a=>a.board===p.board&&presenceAllowed(s,owner,a));const min=Math.min(...legal.map(a=>distance(s,a.id,area.id)));prepend(s,step('SPECIAL',owner,area.id,min,'HEART_PRESENCE',owner));for(const pile of [s.minor,s.major]){const id=pile.shift();if(id)p.hand.push(id);}},area.id);}
+        else if(e.key==='HEART_PRESENCE' && l) {for(const area of s.lands.filter(a=>a.board===p.board&&presenceAllowed(s,owner,a)&&distance(s,a.id,l.id)===e.n))for(const track of ['energyTrack','cardTrack'] as const)if(p.spirit&&p[track]<(track==='energyTrack'?spiritDefinition(p.spirit).energy:spiritDefinition(p.spirit).plays).length-1)add(`${track==='energyTrack'?'에너지':'카드'} 트랙 → ${area.id}`,()=>{p[track]++;addPresenceAt(s,owner,area.id);},area.id);}
+        else if(e.key==='BLIGHT_PENALTY') {add('현신 1개 파괴',()=>prepend(s,step('SPECIAL',owner,null,0,'DESTROY_PRESENCE',owner)));if(s.blightCard==='MEMORY'&&[...p.hand,...p.played,...p.discard].length)add('능력 카드 1장 망각',()=>prepend(s,step('FORGET',owner,null,1)));}
+        else if(e.key==='ESCALATE') {let areas=s.lands.filter(a=>a.number>0&&a.board===e.tags[0]);if(s.settings.adversary==='PRUSSIA'){if(areas.some(a=>countPieces(a,['TOWN','CITY'])))for(const area of areas.filter(a=>!countPieces(a,['TOWN'])))add(`${area.id}에 마을 추가`,()=>makePiece(s,area,'TOWN'),area.id);}else if(s.settings.adversary==='ENGLAND'){const max=Math.max(...areas.map(a=>countPieces(a,['TOWN','CITY'])));if(max>0)for(const area of areas.filter(a=>countPieces(a,['TOWN','CITY'])===max))add(`${area.id} 추가 건설`,()=>prepend(s,step('SPECIAL',e.actor,area.id,0,'ESCALATE_BUILD')),area.id);}}
+        else if(e.key==='SWEDEN_MINE' && l) {for(const area of l.adjacent.map(id=>land(s,id)).filter(a=>a.number>0&&!countPieces(a,['TOWN','CITY'])))add(`${area.id}에 마을 추가`,()=>makePiece(s,area,'TOWN'),area.id);}
+        else if(e.key==='MILITARY' && l) {const areas=s.lands.filter(a=>a.number>0&&countPieces(a,['DAHAN']));const min=Math.min(...areas.map(a=>distance(s,l.id,a.id)));for(const area of areas.filter(a=>distance(s,l.id,a.id)===min))add(`${area.id} 군사 대응`,()=>makePiece(s,area,e.tags[0]==='TOWN'?'TOWN':'EXPLORER'),area.id);}
+        else if((e.key==='RITUAL_PAY'||e.key==='RITUAL_PRESENCE')&&l) {const i=s.players.findIndex(q=>q.playerId===owner),others=s.players.slice(i+1),have=e.key==='RITUAL_PAY'?p.energy:presence(l,owner),other=others.reduce((n,q)=>n+(e.key==='RITUAL_PAY'?q.energy:presence(l,q.playerId)),0);for(let n=Math.max(0,e.n-other);n<=Math.min(e.n,have);n++)add(`${e.key==='RITUAL_PAY'?'에너지':'현신'} ${n}개 바치기`,()=>{if(e.key==='RITUAL_PAY')p.energy-=n;else{addPresence(l,owner,-n);p.destroyedPresence+=n;}if(e.n>n){const next=others[0];requireRule(next);prepend(s,{...e,n:e.n-n,target:next.playerId});}},l.id);}
+        else if (e.key === 'FANGS_SETUP') { for(const area of s.lands.filter(l=>l.number>0&&l.tokens.beasts>0))add(`시작 현신 → ${area.id}`,()=>addPresenceAt(s,owner,area.id),area.id); }
+        else if (e.key === 'OCEAN_SETUP') { for(const area of s.lands.filter(l=>l.board===p.board && l.number>0 && l.coastal)) add(`初 현신 → ${area.id}`.replace('初','시작'),()=>addPresenceAt(s,owner,area.id),area.id); }
+        else if(e.key==='RECLAIM_GROW') { for(const id of p.discard) add(cardPower(s,id).title,()=>{p.discard=p.discard.filter(c=>c!==id);p.hand.push(id);}); optional(); }
+        else if(e.key==='REVEAL_FEAR') { for(const [i,key] of s.fearDeck.entries()) if(!s.revealedFear.includes(key)) add(`공포 덱 위에서 ${i+1}번째 카드 공개`,()=>{s.revealedFear.push(key);event(s,'FEAR',`공포 카드 공개 · ${SPIRIT_FEAR_NAMES[key]}`,e.actor);}); optional(); }
+        else if(e.key==='COPY_ELEMENT') { const available=elements(s,owner); for(const element of SPIRIT_ELEMENTS.filter(x=>available[x]>0)) add(SPIRIT_ELEMENT_LABELS[element],()=>p.elements.push(element)); optional(); }
+        else if(e.key==='GREEN_STOP' && l) { add('현신 1개 파괴 · '+(e.tags[0]==='RAVAGE'?'파괴':'건설')+' 막기',()=>{addPresence(l,owner,-1);p.destroyedPresence++;event(s,'GROW',`${l.id} 녹음으로 침략자 행동 차단`,owner,l.id);},l.id); add('침략자 행동 진행',()=>prepend(s,step('SPECIAL',e.actor,l.id,0,e.tags[0]!,null,['GREEN_ALLOWED']))); }
+        else if(e.key==='DESTROY_PRESENCE') { for(const area of s.lands.filter(a=>presence(a,owner)>0 && (!l||distance(s,a.id,l.id)<=e.n))) add(`${area.id} 현신 파괴`,()=>{addPresence(area,owner,-1);p.destroyedPresence++;},area.id); }
+        else if(e.key==='FOLLOW_DAHAN' && l) { const dest=land(s,e.used[0]!); if(presence(l,owner)>0 && presenceAllowed(s,owner,dest)) add(`${l.id} 현신 → ${dest.id}`,()=>{addPresence(l,owner,-1);addPresenceAt(s,owner,dest.id);},dest.id); optional(); }
+        else if(e.key==='TIDE_IN'||e.key==='TIDE_OUT') { const areas=s.lands.filter(a=>a.number===0&&!e.used.includes(a.id)); for(const ocean of areas) { const sources=e.key==='TIDE_IN'?ocean.adjacent.map(id=>land(s,id)):[ocean]; for(const from of sources.filter(a=>presence(a,owner)>0)) for(const to of (e.key==='TIDE_IN'?[ocean]:ocean.adjacent.map(id=>land(s,id)))) add(`${from.id} 현신 → ${to.id}`,()=>{addPresence(from,owner,-1);addPresenceAt(s,owner,to.id);prepend(s,{...e,used:[...e.used,ocean.id]});},to.id); add(`${ocean.id} 조수 이동 생략`,()=>prepend(s,{...e,used:[...e.used,ocean.id]}),ocean.id); } }
+        else if(e.key==='DROWN' && l) { for(const piece of l.pieces.filter(p=>selectedKinds(e).includes(p.kind))) add(`${labels[piece.kind]} 익사`,()=>drowning(s,l,piece),l.id,piece.id); }
+        else if(e.key==='TIDAL_SAVE' && l) { const piece=l.pieces.find(p=>p.id===e.used[0]); if(piece) { for(const area of s.lands.filter(a=>a.number>0&&a.coastal)) add(`다한 구출 → ${area.id}`,()=>{l.pieces=l.pieces.filter(p=>p.id!==piece.id);area.pieces.push(piece);followDahan(s,e,l.id,area.id,piece);},area.id); add('다한 익사',()=>drowning(s,l,piece)); } }
+        else if(e.key==='OVERGROW' && l) { add('현신 1개 추가',()=>prepend(s,step('PRESENCE',e.actor,l.id))); if(presence(l,e.actor)&&invaders(l).length) add('공포 3',()=>fear(s,3,e.actor,l.id)); }
+        else if(e.key==='MIDNIGHT' && l) { if(countPieces(l,['DAHAN'])) add('주요 능력 획득',()=>{prepend(s,step('GAIN',owner,null,1,'MAJOR'),step('SPECIAL',owner,l.id,0,'MIDNIGHT_AFTER',owner,[],[...p.hand,...p.discard,...p.played]));}); if(invaders(l).length) add('공포 2',()=>fear(s,2,e.actor,l.id)); }
+        else if(e.key==='MIDNIGHT_PLAY') { for(const id of p.hand.filter(id=>cardPower(s,id).deck==='MAJOR' && !e.used.includes(id) && cardPlayCost(s,id)<=p.energy)) add(`즉시 준비 · ${cardPower(s,id).title}`,()=>{p.energy-=cardPlayCost(s,id);p.hand=p.hand.filter(c=>c!==id);p.played.push(id);}); optional(); }
+        else if (e.key === 'REMOVE_HEALTH' && l) {
             for (const piece of invaders(l).filter(q => health(l, q) <= e.n))
                 add(`${labels[piece.kind]} 제거`, () => { removePiece(s, l, piece, false, e.actor); if (e.n > health(l, piece))
                     prepend(s, { ...e, n: e.n - health(l, piece) }); }, l.id, piece.id);
@@ -229,7 +269,8 @@ export function choiceOptions(s: SpiritState): SpiritOption[] {
         else if (e.key === 'SAFETY_GATHER' && l) {
             for (const source of l.adjacent.map(id => land(s, id)))
                 for (const piece of invaders(source).filter(q => q.kind !== 'CITY' && countPieces(l, ['TOWN', 'CITY']) > countPieces(source, ['TOWN', 'CITY'])))
-                    add(`${source.id} ${labels[piece.kind]} → ${l.id}`, () => { source.pieces = source.pieces.filter(q => q.id !== piece.id); l.pieces.push(piece); }, l.id, piece.id);
+                    add(`${source.id} ${labels[piece.kind]} → ${l.id}`, () => { if(e.tags.includes('BC_CHASE')&&piece.kind!=='DAHAN')s.flags.push('bc-chased');
+                        source.pieces = source.pieces.filter(q => q.id !== piece.id); l.pieces.push(piece); }, l.id, piece.id);
             optional();
         }
         else if (e.key === 'TAKE_CARD') {
@@ -252,9 +293,10 @@ export function choiceOptions(s: SpiritState): SpiritOption[] {
         }
         else if (e.key === 'GROWTH') {
             for (const [i, tag] of e.tags.entries())
-                add(growthLabel(tag), () => { const remaining = e.tags.filter((_, index) => i !== index); if (remaining.length)
-                    prepend(s, { ...e, tags: remaining }); const [kind, n] = tag.split(':'); if (kind === 'presence')
-                    prepend(s, step('PRESENCE', e.actor, null, Number(n)));
+                add(e.used.includes('FANGS')&&tag.startsWith('presence:')?'밀림 또는 야수 지역에 현신 추가 · 거리 제한 없음':growthLabel(tag), () => { const remaining = e.tags.filter((_, index) => i !== index); if (remaining.length)
+                    prepend(s, { ...e, tags: remaining }); const [kind, n] = tag.split(':'); if (['presence','green','dahan','inhabited'].includes(kind!)) prepend(s,step('PRESENCE',e.actor,null,Number(n),'',null,['GROWTH',...e.used,...(kind==='green'?['GREEN']:kind==='dahan'?['DAHAN']:kind==='inhabited'?['INHABITED']:[])]));
+                else if(kind==='reclaimone') prepend(s,step('SPECIAL',e.actor,null,0,'RECLAIM_GROW'));
+                else if(kind==='tide-in'||kind==='tide-out') prepend(s,step('SPECIAL',e.actor,null,0,kind==='tide-in'?'TIDE_IN':'TIDE_OUT'));
                 else if (kind === 'energy')
                     p.energy += Number(n);
                 else if (kind === 'reclaim') {
@@ -282,26 +324,29 @@ export function choiceOptions(s: SpiritState): SpiritOption[] {
         else if (e.key === 'WINGS_MOVE' && l && e.n) {
             const dest = land(s, e.used[0]!);
             for (const piece of l.pieces.filter(p => p.kind === 'DAHAN'))
-                add(`${l.id} 다한 → ${dest.id}`, () => { l.pieces = l.pieces.filter(p => p.id !== piece.id); dest.pieces.push(piece); if (e.n > 1)
+                add(`${l.id} 다한 → ${dest.id}`, () => { l.pieces = l.pieces.filter(p => p.id !== piece.id); dest.pieces.push(piece); followDahan(s,e,l.id,dest.id,piece); if (e.n > 1)
                     prepend(s, { ...e, n: e.n - 1 }); event(s, 'MOVE', `${l.id} → ${dest.id} 다한 이동`, e.actor, dest.id); }, dest.id, piece.id);
             optional();
         }
     }
     return list;
 }
-function growthLabel(tag: string) { const [k, n] = tag.split(':'); return k === 'presence' ? `현신 추가 · 사거리 ${n}` : k === 'energy' ? `에너지 +${n}` : k === 'reclaim' ? '사용한 카드 전부 회수' : '능력 카드 획득'; }
-function addPresenceAt(s: SpiritState, actor: PlayerId, id: string) { const l = land(s, id), p = l.presence.find(p => p.playerId === actor); if (p)
+function growthLabel(tag: string) { const [k, n] = tag.split(':'); return k==='green' ? '현신 추가 · 사거리 2 · 밀림/습지' : k==='dahan' ? `현신 추가 · 사거리 ${n} · 다한 지역` : k==='inhabited' ? '현신 추가 · 사거리 4 · 다한/침략자 지역' : k==='tide-in' ? '각 바다로 현신 모으기' : k==='tide-out' ? '각 바다에서 현신 밀기' : k==='reclaimone' ? '카드 1장 회수' : k === 'presence' ? n==='100'?'아무 바다에 현신 추가':`현신 추가 · 사거리 ${n}` : k === 'energy' ? `에너지 +${n}` : k === 'reclaim' ? '사용한 카드 전부 회수' : '능력 카드 획득'; }
+function addPresenceAt(s: SpiritState, actor: PlayerId, id: string) { const prior=presence(land(s,id),actor); const l = land(s, id), p = l.presence.find(p => p.playerId === actor); if (p)
     p.count++;
 else
-    l.presence.push({ playerId: actor, count: 1 }); event(s, 'GROW', `${id} 현신 배치`, actor, id); }
+    l.presence.push({ playerId: actor, count: 1 }); event(s, 'GROW', `${id} 현신 배치`, actor, id);if(player(s,actor).spirit==='KEEPER'&&prior===1)prepend(s,step('MOVE',actor,id,countPieces(l,['DAHAN']),'PUSH',actor,['DAHAN','REQUIRED'])); }
 export function automatic(s: SpiritState, e: SpiritStep): boolean {
+    if(branchClawAutomatic(s,e))return true;
     const l = e.land ? land(s, e.land) : null, owner = e.target ?? e.actor, p = player(s, owner);
     if (e.kind === 'CHECK') {
+        if(s.settings.scenario==='INSURRECTION') { const moved=s.flags.filter(f=>f.startsWith('raid:')); if(moved.length) {s.flags=s.flags.filter(f=>!f.startsWith('raid:')&&!f.startsWith('power:')); prepend(s,...moved.flatMap(f=>{const id=f.slice(5);const area=s.lands.find(l=>l.pieces.some(p=>p.id===id));return area?[step('DAMAGE',e.actor,area.id,1)]:[]}),e);return true;} }
+        s.flags=s.flags.filter(f=>!f.startsWith('power:'));
         checkEnd(s);
         return true;
     }
     if (e.kind === 'FEAR') {
-        fear(s, e.n, e.actor);
+        fear(s, e.n, e.actor, e.land);
         return true;
     }
     if (e.kind === 'DEFEND') {
@@ -335,10 +380,11 @@ export function automatic(s: SpiritState, e: SpiritStep): boolean {
     if (e.kind === 'BLIGHT' && e.key !== 'CASCADE') {
         if (!l || l.vitality)
             return true;
-        const cascade = l.blight > 0;
+        if(s.blightPool<=0) return true;
+        const cascade = l.blight > 0 && e.key!=='EXTRA';
         l.blight++;
         s.blightPool = Math.max(0, s.blightPool - 1);
-        for (const pr of l.presence) {
+        for (const pr of e.key==='EXTRA'?[]:l.presence) {
             if (pr.count > 0) {
                 pr.count--;
                 player(s, pr.playerId).destroyedPresence++;
@@ -346,6 +392,7 @@ export function automatic(s: SpiritState, e: SpiritStep): boolean {
         }
         l.presence = l.presence.filter(p => p.count > 0);
         event(s, 'BLIGHT', `${l.id} 오염 추가${cascade ? ' · 연쇄 발생' : ''}`, e.actor, l.id);
+        if(s.blightPool===0&&s.blightCard&&!s.blighted){s.blighted=true;const n=((s.blightCard==='SPIRAL'?5:4)-(s.settings.scenario==='BLITZ'?1:0))*s.players.length;s.blightPool=n;s.blightTotal+=n;event(s,'BLIGHT',s.blightCard==='SPIRAL'?'오염된 섬 · 쇠퇴의 소용돌이':'오염된 섬 · 먼지가 되는 기억');}
         if (cascade && s.blightPool > 0)
             prepend(s, { ...e, key: 'CASCADE', used: e.used.length ? e.used : [l.id] });
         return true;
@@ -360,8 +407,8 @@ export function automatic(s: SpiritState, e: SpiritStep): boolean {
                 return true;
             }
         }
-        if (e.key === 'MINOR') {
-            draw(s, e, 'MINOR');
+        if (e.key === 'MINOR' || e.key === 'MAJOR') {
+            draw(s, e, e.key);
             return true;
         }
         return false;
@@ -369,12 +416,23 @@ export function automatic(s: SpiritState, e: SpiritStep): boolean {
     if (e.kind !== 'SPECIAL')
         return false;
     switch (e.key) {
+        case 'SWEDEN_ESCALATE':if(l&&countPieces(l,['DAHAN'])>0&&invaders(l).length>=countPieces(l,['DAHAN']))prepend(s,step('REPLACE',e.actor,l.id,1,'SWEDEN_TOWN',null,['DAHAN']));return true;
+        case 'SCENARIO_SETUP': setupScenario(s); return true;
+        case 'RITUAL_FINISH': {s.terror=s.terror===1?2:s.terror===2?3:4;const earned=s.fearEarned.splice(0);prepend(s,...earned.map(key=>step('SPECIAL',e.actor,null,0,'FEAR_CARD',null,[key])),...(l?[step('MOVE',e.actor,l.id,countPieces(l,['DAHAN']),'PUSH',null,['DAHAN','REQUIRED','SPREAD'])]:[]),step('CHECK',e.actor));return true;}
+        case 'ESCALATE_BUILD': {if(l){const green=s.players.find(p=>p.spirit==='GREEN'&&sacred(s,l,p.playerId));if(green){prepend(s,step('SPECIAL',e.actor,l.id,0,'GREEN_STOP',green.playerId,['BUILD_LAND']));return true;}prepend(s,step('SPECIAL',e.actor,l.id,0,'BUILD_LAND'));}return true;}
+        case 'INVADER_START': if(s.blighted) prepend(s,...s.players.map(q=>step('SPECIAL',q.playerId,null,0,'BLIGHT_PENALTY',q.playerId))); return true;
+        case 'IMMIGRATION': { if(s.settings.adversary==='ENGLAND'&&s.settings.level>=3&&s.immigration) {const old=s.build;s.build=s.immigration;automatic(s,step('SPECIAL',e.actor,null,0,'BUILD'));if(s.settings.level===6&&!s.flags.includes('fear-resolved'))automatic(s,step('SPECIAL',e.actor,null,0,'BUILD'));s.build=old;}s.stage='RAVAGE';return true;}
+        case 'WORDS': if(l) s.flags.push(`words:${l.id}`); return true;
+        case 'DREAD': if(l) s.flags.push(`dread:${l.id}`); return true;
+        case 'AMBUSH': if(l) prepend(s,step('DESTROY',e.actor,l.id,countPieces(l,['DAHAN']),'',null,['EXPLORER'])); return true;
+        case 'MIDNIGHT_AFTER': { const key=s.cards.find(c=>c.key==='call-on-midnight-s-dream')?.cardId; if(key && ![...p.hand,...p.played,...p.discard].includes(key) && l) { p.energy+=countPieces(l,['DAHAN']); prepend(s,step('SPECIAL',owner,l.id,0,'MIDNIGHT_PLAY',owner,[],e.used)); } return true; }
         case 'STAGE_BUILD':
             s.stage = 'BUILD';
             event(s, 'PHASE', '건설 단계');
             return true;
         case 'GROWTH': return e.tags.length === 0;
         case 'END_GROW':
+            if(!p.grown)return true;
             p.energy += income(p);
             event(s, 'GROW', `성장 완료 · 에너지 수입 +${income(p)}`, owner);
             return true;
@@ -454,7 +512,12 @@ export function automatic(s: SpiritState, e: SpiritStep): boolean {
             return true;
         case 'RAVAGE':
             if (l && !l.skip) {
-                const total = countPieces(l, ['EXPLORER']) + 2 * countPieces(l, ['TOWN']) + 3 * countPieces(l, ['CITY']), amount = Math.max(0, total - defense(s, l));
+                const green=s.players.find(p=>p.spirit==='GREEN'&&sacred(s,l,p.playerId));
+                if(green&&!e.tags.includes('GREEN_ALLOWED')&&invaders(l).length) {prepend(s,step('SPECIAL',e.actor,l.id,0,'GREEN_STOP',green.playerId,['RAVAGE']));return true;}
+                const originalDahan=countPieces(l,['DAHAN']);
+                const sweden=s.settings.adversary==='SWEDEN', highSweden=sweden&&s.settings.level>=3;
+                const attackers=invaders(l),total=attackers.reduce((n,p)=>n+(p.strife>0?0:p.kind==='EXPLORER'?1:p.kind==='TOWN'?(highSweden?3:2):(highSweden?5:3)),0),amount=Math.max(0,total-defense(s,l));
+                for(const attacker of attackers)if(attacker.strife>0)attacker.strife--;
                 // Damage to Dahan must destroy as many as possible before assigning any remainder.
                 if (amount > 0 && !l.protectDahan && !s.flags.includes(`immortal:${l.id}`)) {
                     let remaining = amount;
@@ -466,15 +529,18 @@ export function automatic(s: SpiritState, e: SpiritStep): boolean {
                         remaining -= n;
                     }
                 }
-                if (total > 0)
-                    prepend(s, ...(amount >= 2 ? [step('BLIGHT', e.actor, l.id, 1)] : []), step('DAMAGE', e.actor, l.id, countPieces(l, ['DAHAN']) * 2), step('CHECK', e.actor));
+                const dead=originalDahan-countPieces(l,['DAHAN']), thunder=s.players.find(p=>p.spirit==='THUNDER');
+                if (attackers.length > 0) prepend(s, ...(amount >= 2 ? [step('BLIGHT', e.actor, l.id, 1),...(sweden&&s.settings.level>=1&&amount>=6?[step('BLIGHT',e.actor,l.id,1,'EXTRA')]:[]),...(sweden&&s.settings.level>=5?[step('SPECIAL',e.actor,l.id,0,'SWEDEN_MINE')]:[])] : []), ...(thunder?Array.from({length:dead},()=>step('SPECIAL',e.actor,l.id,1,'DESTROY_PRESENCE',thunder.playerId)):[]), step('DAMAGE', e.actor, l.id, (s.flags.includes(`words:${l.id}`)?originalDahan:countPieces(l, ['DAHAN'])) * 2), step('CHECK', e.actor));
                 event(s, 'DAMAGE', `${l.id} 파괴 · 피해 ${total}, 방어 ${defense(s, l)}`, e.actor, l.id);
             }
             return true;
         case 'BUILD':
-            for (const area of s.lands.filter(l => matches(l, s.build) && !l.skip && invaders(l).length)) {
+            for (const area of s.lands.filter(l => l.number>0 && matches(l, s.build) && !l.skip && (invaders(l).length || s.settings.adversary==='ENGLAND'&&s.settings.level>=1&&l.adjacent.filter(id=>land(s,id).number>0).reduce((n,id)=>n+countPieces(land(s,id),['TOWN','CITY']),0)>=2))) {
+                if (s.flags.includes(`no-build:${area.id}`))continue;
                 if (s.flags.includes('no-build-city') && countPieces(area, ['CITY']) || s.flags.includes('no-build-dahan') && countPieces(area, ['DAHAN']) || s.flags.includes('dahan-outnumber') && countPieces(area, ['DAHAN']) > countPieces(area, ['TOWN', 'CITY']) || s.flags.includes('no-build-coastal') && area.coastal)
                     continue;
+                const green=s.players.find(p=>p.spirit==='GREEN'&&sacred(s,area,p.playerId)); if(green) {s.queue.push(step('SPECIAL',e.actor,area.id,0,'GREEN_STOP',green.playerId,['BUILD_LAND']));continue;}
+                if(area.tokens.disease>0){area.tokens.disease--;event(s,'BUILD',`${area.id} 질병으로 건설 차단`,e.actor,area.id);continue;}
                 const city = countPieces(area, ['TOWN']) > countPieces(area, ['CITY']);
                 if (city && area.coastal && s.flags.includes('no-city-coastal'))
                     continue;
@@ -482,6 +548,7 @@ export function automatic(s: SpiritState, e: SpiritStep): boolean {
                 event(s, 'BUILD', `${area.id} ${city ? '도시' : '마을'} 건설`, e.actor, area.id);
             }
             return true;
+        case 'BUILD_LAND': if(l) {if(l.tokens.disease>0){l.tokens.disease--;return true;}makePiece(s,l,countPieces(l,['TOWN'])>countPieces(l,['CITY'])?'CITY':'TOWN');event(s,'BUILD',`${l.id} 건설`,e.actor,l.id);} return true;
         case 'EXPLORE': {
             const card = s.invaderDeck.shift();
             if (!card) {
@@ -491,18 +558,25 @@ export function automatic(s: SpiritState, e: SpiritStep): boolean {
                 event(s, 'LOSE', '침략자 덱이 소진되었습니다.');
                 return true;
             }
-            s.explore = card;
-            for (const area of s.lands.filter(l => matches(l, card) && !l.skip)) {
+            s.explore = card; const explored: string[]=[];
+            for (const area of s.lands.filter(l => l.number>0 && matches(l, card) && !l.skip)) {
                 if (s.flags.includes('no-explore-dahan') && countPieces(area, ['DAHAN']) >= 2)
                     continue;
                 if (area.coastal || countPieces(area, ['TOWN', 'CITY']) > 0 || area.adjacent.some(id => countPieces(land(s, id), ['TOWN', 'CITY']) > 0)) {
-                    makePiece(s, area, 'EXPLORER');
+                    if(area.tokens.wilds>0){area.tokens.wilds--;event(s,'EXPLORE',`${area.id} 야생으로 탐험 차단`,e.actor,area.id);continue;}
+                    makePiece(s, area, 'EXPLORER'); explored.push(area.id);
                     event(s, 'EXPLORE', `${area.id} 탐험가 진입`, e.actor, area.id);
                 }
             }
+            const after:SpiritStep[]=[];
+            if(s.settings.scenario==='BLITZ')for(const q of s.players){const ids=explored.filter(id=>id[0]===q.board);if(ids.length)after.push(step('SPECIAL',q.playerId,null,0,'BLITZ_EXPLORE',q.playerId,ids));}
+            if(card.stage===2&&!card.coastal){if(s.settings.adversary==='SWEDEN')after.push(...explored.map(id=>step('SPECIAL',e.actor,id,0,'SWEDEN_ESCALATE')));else if(s.settings.adversary!=='NONE')after.push(...s.players.map(q=>step('SPECIAL',q.playerId,null,0,'ESCALATE',q.playerId,[q.board])));}
+            prepend(s,...after);
             return true;
         }
         case 'ADVANCE_INVADERS':
+            if(s.settings.adversary==='ENGLAND'&&s.settings.level===3&&s.ravage?.stage===2) s.flags.push('immigration-ended');
+            if(s.settings.adversary==='ENGLAND'&&s.settings.level>=3) s.immigration=s.settings.level===3&&(s.ravage?.stage!==1||s.flags.includes('immigration-ended'))?null:s.ravage;
             if (s.ravage)
                 s.invaderDiscard.push(s.ravage);
             s.ravage = s.build;
@@ -517,6 +591,7 @@ export function automatic(s: SpiritState, e: SpiritStep): boolean {
             return true;
         case 'NEW_ROUND':
             for (const q of s.players) {
+                q.growthSelections=[];q.reclaimedCards=[];q.bonusPlays=0; q.greenRepeats=0; q.trackChoices=[];
                 q.discard.push(...q.played);
                 q.played = [];
                 q.resolved = [];
@@ -541,7 +616,7 @@ export function automatic(s: SpiritState, e: SpiritStep): boolean {
                 area.vitality = false;
                 area.dahanHealth = 0;
             }
-            s.flags = [];
+            s.flags = s.flags.filter(f=>f==='immigration-ended');
             s.vengeance = [];
             s.plans = [];
             s.round++;
@@ -553,6 +628,7 @@ export function automatic(s: SpiritState, e: SpiritStep): boolean {
                 prepend(s, step('DAMAGE', e.actor, l.id, countPieces(l, ['DAHAN']) * (e.n === 3 ? 2 : 1)));
             return true;
         case 'FEAR_CARD':
+            s.flags.push('fear-resolved');
             resolveFear(s, e);
             return true;
         default: return false;
@@ -560,7 +636,8 @@ export function automatic(s: SpiritState, e: SpiritStep): boolean {
 }
 export function settle(s: SpiritState) {
     let budget = 10000;
-    while (s.queue.length && s.phase === 'PLAYING') {
+    while ((s.queue.length || s.flags.some(f => f.startsWith('raid:'))) && s.phase === 'PLAYING') {
+        if (!s.queue.length) s.queue.push(step('CHECK', s.players[0]!.playerId));
         if (--budget <= 0)
             throw new Error('Spirit effect loop');
         const e = s.queue.shift()!;
@@ -673,3 +750,7 @@ function resolveFear(s: SpiritState, e: SpiritStep) {
     }
     prepend(s, ...s.players.map(p => step('LAND', p.playerId, null, level, 'FEAR_LAND', p.playerId, [key, ...(key === 'raid' || key === 'enheartened' && level >= 2 || key === 'belief' ? ['DISTINCT'] : [])])));
 }
+
+function followDahan(s: SpiritState,e: SpiritStep,from: string,to: string,piece: SpiritPiece) { if(piece.kind!=='DAHAN') return; if(s.settings.scenario==='INSURRECTION'&&!s.flags.includes(`raid:${piece.id}`)) s.flags.push(`raid:${piece.id}`); for(const p of s.players.filter(p=>p.spirit==='THUNDER'&&presence(land(s,from),p.playerId)>0)) prepend(s,step('SPECIAL',e.actor,from,0,'FOLLOW_DAHAN',p.playerId,[],[to])); }
+
+function cardPlayCost(s:SpiritState,id:string){const c=cardPower(s,id);return c.cost-(s.settings.scenario==='BLITZ'&&c.speed==='FAST'?1:0);}

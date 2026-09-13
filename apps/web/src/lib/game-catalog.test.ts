@@ -41,7 +41,7 @@ test("Web game catalog는 구현 완료된 스물일곱 게임을 같은 계층�
     { gameType: "SPLENDOR", displayName: "스플렌더", description: "보석을 모아 카드를 사고, 귀족의 후원을 얻는 2~4인 전략 게임입니다." },
     { gameType: "TRAIN", displayName: "티켓 투 라이드", description: "열차 카드를 모아 도시를 연결하고 나만의 대륙 횡단 철도를 완성하는 2~5인 전략 게임입니다." },
     { gameType: "CENTURY", displayName: "센추리", description: "향신료를 모으고 교환하며 나만의 상단을 만드는 2~5인 카드 전략 게임입니다." },
-    { gameType: "SPIRIT_ISLAND", displayName: "정령섬", description: "네 정령의 힘을 모아 침략자를 물리치는 1~4인 협동 전략 게임입니다." },
+    { gameType: "SPIRIT_ISLAND", displayName: "정령섬", description: "여덟 정령의 힘을 모아 침략자를 물리치는 1~4인 협동 전략 게임입니다." },
     { gameType: "SPACE_CREW", displayName: "스페이스 크루", description: "3~5명이 제한된 교신으로 50개 우주 탐사 미션에 함께 도전합니다." },
     { gameType: "JAIPUR", displayName: "자이푸르", description: "2명이 시장에서 상품을 교환하고 판매하며 인장 2개를 겨루는 카드 게임입니다." },
     { gameType: "LOVE_LETTER", displayName: "러브레터", description: "2~6명이 한 장의 비밀과 궁정의 인물들로 겨루는 추리 카드 게임입니다." },

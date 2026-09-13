@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { SpiritProjection } from '@hangul-rummikub/shared';
+import type { SpiritProjection, SpiritId } from '@hangul-rummikub/shared';
 export type SpiritCue = 'PICK' | 'SELECT' | 'GROW' | 'CARD' | 'POWER' | 'MOVE' | 'DAMAGE' | 'FEAR' | 'BLIGHT' | 'BUILD' | 'EXPLORE' | 'PHASE' | 'WIN' | 'LOSE' | 'PLAN' | 'ERROR';
 export function spiritTransitionCues(previous: SpiritProjection | null, next: SpiritProjection | null): SpiritCue[] {
     if (!previous || !next || previous.gameId !== next.gameId || next.gameRevision <= previous.gameRevision)
@@ -38,7 +38,7 @@ export class SpiritAudio {
         seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
         samples[i] = (seed / 2147483648 - 1) * Math.sin(Math.PI * i / samples.length) * .22;
     } const source = c.createBufferSource(), filter = c.createBiquadFilter(); source.buffer = b; filter.type = 'bandpass'; filter.frequency.value = 1700; source.connect(filter); filter.connect(m); source.onended = () => { source.disconnect(); filter.disconnect(); }; source.start(at); source.stop(at + .2); }
-    play(cues: readonly SpiritCue[]) {
+    play(cues: readonly SpiritCue[], spirit: SpiritId | null = null) {
         const c = this.context;
         if (!c || c.state !== 'running' || !this.volume)
             return;
@@ -54,7 +54,7 @@ export class SpiritAudio {
                 at += .35;
             }
             else if (cue === 'POWER') {
-                [1046.5, 1568, 2093].forEach((hz, i) => this.tone(hz, at + i * .07, .4, .15));
+                (spirit==='FANGS'?[164.81,246.94,329.63]:spirit==='KEEPER'?[130.81,196,261.63]:spirit==='RIVER'||spirit==='OCEAN'?[392,523.25,783.99]:spirit==='EARTH'||spirit==='GREEN'?[196,293.66,392]:spirit==='SHADOW'||spirit==='BRINGER'?[220,311.13,440]:[1046.5,1568,2093]).forEach((hz, i) => this.tone(hz, at + i * .07, .4, .15));
                 at += .5;
             }
             else if (cue === 'GROW') {
@@ -100,7 +100,7 @@ export function useSpiritSound(game: SpiritProjection | null, connected: boolean
     const audio = useRef<SpiritAudio | null>(null), previous = useRef(game), online = useRef(connected);
     useEffect(() => () => { audio.current?.dispose(); audio.current = null; }, []);
     useEffect(() => { const cues = spiritTransitionCues(previous.current, game); previous.current = game; if (connected && online.current)
-        audio.current?.play(cues); online.current = connected; }, [game, connected]);
+        audio.current?.play(cues, game?.playerStates.find(p=>p.playerId===game.log.filter(e=>e.kind==='POWER').at(-1)?.playerId)?.spirit ?? null); online.current = connected; }, [game, connected]);
     function unlock() { if (volume === 0)
         return; audio.current ??= new SpiritAudio(); audio.current.setVolume(volume / 100); audio.current.unlock(); }
     function play(cue: SpiritCue) { unlock(); audio.current?.play([cue]); }

@@ -1,9 +1,11 @@
+import { branchClawPower } from './branch-claw.js';
 import type { PlayerId, SpiritPiece } from '@hangul-rummikub/shared';
 import { spiritPower } from '@hangul-rummikub/shared';
 import type { SpiritState, SpiritStep } from './state.js';
-import { step, land, player, meets, countPieces, invaders, presence, sacred, requireRule } from './primitives.js';
+import { step, land, player, meets, countPieces, invaders, presence, sacred, requireRule, elements } from './primitives.js';
 /** Build a serializable sequence. Choices and post-move conditions are resolved against the current candidate. */
 export function powerSteps(s: SpiritState, actor: PlayerId, key: string, landId: string | null, target: PlayerId, level: number): SpiritStep[] {
+    const expanded=branchClawPower(s,actor,key,landId,target,level);if(expanded!==null)return expanded;
     const l = landId ? land(s, landId) : null, p = player(s, actor), bonus = (t: Parameters<typeof meets>[2]) => level > 0 && meets(s, actor, t);
     const e = (kind: SpiritStep['kind'], n = 0, k = '', tags: string[] = [], at = landId, to: PlayerId | null = target) => step(kind, actor, at, n, k, to, tags);
     const d = (n: number, tags: string[] = []) => e('DAMAGE', n, '', tags), f = (n: number) => e('FEAR', n), def = (n: number) => e('DEFEND', n), bl = () => e('BLIGHT', 1), clean = () => e('REMOVE_BLIGHT', 1);
@@ -14,8 +16,21 @@ export function powerSteps(s: SpiritState, actor: PlayerId, key: string, landId:
     const option = (...branches: string[]) => e('OPTION', 0, 'branches', branches);
     const jungle = !!l && ['JUNGLE', 'WETLAND'].includes(l.terrain), mountain = !!l && ['MOUNTAIN', 'JUNGLE'].includes(l.terrain), sands = !!l && ['JUNGLE', 'SANDS'].includes(l.terrain);
     const da = l ? countPieces(l, ['DAHAN']) : 0;
+    if (key === 'innate2') {
+        switch(p.spirit) {
+            case 'GREEN': return [def(level>=2?4:2),...(level>=3?[clean()]:[])];
+            case 'THUNDER': return [destroy(Math.floor(da/2),['TOWN']),...(level>=2?[destroy(Math.floor(da/3),['CITY'])]:[])];
+            case 'OCEAN': return [e('SPECIAL',1,'DROWN',level>=2?['TOWN','CITY']:['TOWN']),...(level>=3?[e('SPECIAL',1,'DROWN',['TOWN','CITY'])]:[])];
+            case 'BRINGER': return [f(level)];
+            default: throw new Error('Unknown second innate');
+        }
+    }
     if (key === 'innate') {
         switch (p.spirit) {
+            case 'GREEN': return [d(1,['BUILDINGS_ONLY'])];
+            case 'THUNDER': return [move(elements(s,actor).AIR,['DAHAN'],true),move(elements(s,actor).SUN,['DAHAN'])];
+            case 'OCEAN': return [f(level===3?4:level)];
+            case 'BRINGER': return [...(meets(s,actor,{MOON:2,AIR:2})?[special('REVEAL_FEAR')]:[]),...(level>=2?[special('COPY_ELEMENT',1)]:[])];
             case 'RIVER': return level >= 3 ? [each(2)] : level >= 2 ? [d(2), move(3, ['EXPLORER', 'TOWN'])] : [move(1, ['EXPLORER', 'TOWN'])];
             case 'LIGHTNING': return [destroy(1, level >= 2 ? ['TOWN', 'CITY'] : ['TOWN']), ...(level >= 3 ? [destroy(level - 2, ['TOWN', 'CITY'])] : [])];
             case 'EARTH': return [special('FREE_REPEAT', level >= 3 ? 6 : level === 2 ? 3 : 1)];
@@ -24,6 +39,22 @@ export function powerSteps(s: SpiritState, actor: PlayerId, key: string, landId:
         }
     }
     switch (key) {
+        case 'overgrow-in-a-night': return [special('OVERGROW')];
+        case 'gift-of-proliferation': return [e('PRESENCE',1,'',[],null,target)];
+        case 'fields-choked-with-growth': return [option('PUSH_TOWN:1','PUSH_DAHAN:3')];
+        case 'stem-the-flow-of-fresh-water': return l && ['MOUNTAIN','SANDS'].includes(l.terrain) ? [each(1,['TOWN','CITY'])] : [d(1,['BUILDINGS_ONLY'])];
+        case 'manifestation-of-power-and-glory': return [f(1),d(da*(l?presence(l,actor):0))];
+        case 'words-of-warning': return [def(3),special('WORDS')];
+        case 'sudden-ambush': return [e('MOVE',1,'GATHER',['DAHAN']),special('AMBUSH')];
+        case 'voice-of-thunder': return [option('PUSH_DAHAN:4',...(l&&invaders(l).length?['FEAR:2']:[]))];
+        case 'call-of-the-deeps': return [move(1,['EXPLORER'],true),...(l?.number===0?[e('MOVE',1,'GATHER',['EXPLORER'])]:[])];
+        case 'grasping-tide': return [f(2),def(4)];
+        case 'swallow-the-land-dwellers': return [e('SPECIAL',1,'DROWN',['EXPLORER']),e('SPECIAL',1,'DROWN',['TOWN']),e('SPECIAL',1,'DROWN',['DAHAN'])];
+        case 'tidal-boon': return [e('ENERGY',2),e('LAND',0,'TIDAL',[],null,target)];
+        case 'predatory-nightmares': return [d(2),move(2,['DAHAN'])];
+        case 'dread-apparitions': return [special('DREAD'),f(1)];
+        case 'dreams-of-the-dahan': return [option('GATHER_DAHAN:2',...(l&&countPieces(l,['TOWN','CITY'])?['FEAR:'+Math.min(3,da)]:[]))];
+        case 'call-on-midnight-s-dream': return [special('MIDNIGHT')];
         case 'shatter-homesteads': return [f(1), destroy(1, ['TOWN'])];
         case 'raging-storm': return [each(1)];
         case 'lightning-s-boon': return [special('FAST_GIFT', 2)];

@@ -98,7 +98,7 @@ export function toScheduledTurnDeadline(
     if (game.state.rulesVersion === "duet-2025-ko-v1") throw new Error("Duet has no turn deadline.");
     if (game.state.rulesVersion === "train-usa-classic-v1") throw new Error("Train has no turn deadline.");
     if (game.state.rulesVersion === "century-spice-road-v1") throw new Error("Century has no turn deadline.");
-    if (game.state.rulesVersion === "spirit-island-intro-v1") throw new Error("Spirit has no turn deadline.");
+    if (game.state.rulesVersion === "spirit-island-core-v2") throw new Error("Spirit has no turn deadline.");
     if (game.state.rulesVersion === "jaipur-base-v1") throw new Error("Jaipur has no turn deadline.");
     if (game.state.rulesVersion === "love-letter-21-v1") throw new Error("LoveLetter has no turn deadline.");
     if (game.state.rulesVersion === "guryongtu-base-v1") throw new Error("Guryongtu has no turn deadline.");
@@ -206,7 +206,7 @@ export async function scheduleCurrentTurnBestEffort(
       if (game.state.rulesVersion === "duet-2025-ko-v1") return false;
       if (game.state.rulesVersion === "train-usa-classic-v1") return false;
       if (game.state.rulesVersion === "century-spice-road-v1") return false;
-      if (game.state.rulesVersion === "spirit-island-intro-v1") return false;
+      if (game.state.rulesVersion === "spirit-island-core-v2") return false;
       if (game.state.rulesVersion === "jaipur-base-v1") return false;
       if (game.state.rulesVersion === "love-letter-21-v1") return false;
       if (game.state.rulesVersion === "guryongtu-base-v1") return false;
