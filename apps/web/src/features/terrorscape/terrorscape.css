@@ -13,3 +13,5 @@
 @media(max-width:760px){.tsc-map-scroll::before{content:"↔ 좌우로 밀어 저택 전체를 보세요";display:block;position:sticky;left:0;padding:10px 14px;color:var(--tsc-muted);font-size:10px;border-bottom:1px solid var(--tsc-line);background:#122021}}
 
 .tsc-aux-art{background-image:url('/images/terrorscape/skills.webp');background-size:300% 300%;border-radius:4px}.tsc-skill-art.tsc-aux-art{height:auto;aspect-ratio:1.2}
+
+.terror-screen label:has(>input[type=checkbox]){flex-direction:row;align-items:center;flex-wrap:wrap;gap:9px;margin:12px 0}.terror-screen input[type=checkbox]{flex:0 0 auto;width:16px;height:16px;margin:0;accent-color:var(--tsc-green)}.terror-screen label:has(>input[type=checkbox])>p{flex-basis:100%}.tsc-traits details{margin-bottom:12px}.tsc-traits summary{cursor:pointer;line-height:1.7}.tsc-traits button{margin:4px 3px 4px 0}.tsc-traits fieldset{max-height:220px;overflow:auto}

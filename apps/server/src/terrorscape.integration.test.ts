@@ -98,3 +98,12 @@ test('TERRORSCAPE socket: delayed older fanout cannot regress the hidden-state w
 
 // Invalid sync is a TCP-order barrier with an ACK but no snapshot emission.
 async function flushHost(h:Harness){assert.equal(h.failure(await h.call(h.host,'state:sync',{unexpected:true})),'INVALID_PAYLOAD');}
+
+test('TERRORSCAPE socket: new cast, private trait drafting, forged selection and reconnect preserve base-v2',async t=>{
+ const h=await harness(t,4);let s=await start(h);
+ for(const payload of [{type:'SET_CAST',killer:'MURDERER',characters:['SOPHIA','JOHNSON','WILLIAM']},{type:'SET_PLANS',enabled:true},{type:'SET_SEPARATE',enabled:true},{type:'SET_DIFFICULTY',difficulty:'NORMAL'},{type:'BEGIN_HUNT'}])s=h.success(await h.send(h.host,action(h,s,payload)));
+ assert.equal(terror(s).rulesVersion,'terrorscape-base-v2');assert.equal(terror(s).phase,'TRAIT_DRAFT');assert.equal(terror(s).killerType,'MURDERER');assert.deepEqual(terror(s).conditions.map(c=>c.character),['SOPHIA','JOHNSON','WILLIAM']);
+ const killer=terror(s).privateState;if(killer.role!=='KILLER')throw new Error('Expected killer');s=h.success(await h.send(h.host,action(h,s,{type:'CHOOSE_TRAITS',character:null,traits:[killer.killer.traitOffer[0]]})));
+ for(const member of h.members.slice(1)){const snap=await h.sync(member.client),g=terror(snap);if(g.privateState.role!=='SURVIVOR')throw new Error('Expected survivor');const offer=g.privateState.team.traits.find(p=>g.privateState.role==='SURVIVOR'&&g.privateState.team.survivors.some(c=>c.character===p.character&&c.playerId===member.playerId));assert.ok(offer);const hostBefore=terror(await h.sync());assert.equal(JSON.stringify(hostBefore).includes('"'+offer.offered[0]+'"'),false);assert.equal(h.failure(await h.send(h.host,action(h,await h.sync(),{type:'CHOOSE_TRAITS',character:offer.character,traits:[offer.offered[0]]}))),'RULE_VIOLATION');h.success(await h.send(member.client,action(h,snap,{type:'CHOOSE_TRAITS',character:offer.character,traits:[offer.offered[0]]})));}
+ s=await h.sync();assert.equal(terror(s).phase,'SURVIVORS');const member=h.members[1]!,before=terror(await h.sync(member.client));member.client.disconnect();const fresh=await h.connect();const resumed=h.success(await h.call(fresh,'session:resume',{credential:{...member.credential,roomCode:s.room.roomCode},lastSeenVersions:null}));assert.deepEqual(terror(resumed).privateState,before.privateState);assert.equal(terror(resumed).gameRevision,before.gameRevision);
+});
