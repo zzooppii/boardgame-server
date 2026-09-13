@@ -80,3 +80,11 @@ test('Feral UI: cabin artwork, expansion cast, private traps and silver defense 
  const s=playing();s.game.map='CABIN';s.game.rulesVersion='terrorscape-feral-v2';s.game.killerType='HUNTRESS';s.game.huntingTrapRooms=['R3','G4','B2','B3'];const html=render(s);assert.match(html,/cabin-floorplan.webp/);assert.match(html,/오두막 평면도/);assert.match(html,/feral-atlas.webp/);assert.match(html,/\? 함정/);assert.doesNotMatch(html,/NET_A|NET_B|그물 1|곰덫/);assert.match(html,/호숫가에서 수리/);assert.equal((html.match(/class="tsc-floor-door/g)??[]).length,13);
  const setup=playing(true);setup.game.phase='SETUP';assert.match(render(setup),/Feral Instincts/);assert.match(render(setup),/늑대인간/);assert.match(render(setup),/사냥꾼/);
 });
+
+test('Terrorscape setup UI: host assigns roles while players select only their own cast and ready',()=>{
+ const host=playing(true);host.game.phase='SETUP';let html=render(host);assert.match(html,/살인마 종류<select><option value="" disabled="" selected=""/);assert.match(html,/생존자 1 종류<select disabled=""/);assert.match(html,/disabled="">내 캐릭터 준비 완료/);assert.match(html,/disabled="">불을 끄고, 사냥 시작/);assert.doesNotMatch(html,/인물 구성 저장/);
+ const team=playing();team.game.phase='SETUP';html=render(team);assert.match(html,/살인마 종류<select disabled=""/);for(const slot of [1,2,3])assert.match(html,new RegExp(`생존자 ${slot} 종류<select>`));assert.match(html,/살인마 담당자<select disabled=""/);
+ team.game.killerSelected=true;team.game.survivorSelected=[true,true,true];html=render(team);assert.match(html,/class="tsc-primary">내 캐릭터 준비 완료/);team.game.setupReady=[team.self.playerId];assert.match(render(team),/준비 완료 취소/);
+ host.game.killerSelected=true;host.game.survivorSelected=[true,true,true];host.game.setupReady=host.room.players.map(p=>p.playerId);assert.match(render(host),/class="tsc-primary">불을 끄고, 사냥 시작/);host.game.killerType='HUNTRESS';host.game.trapsPrepared=false;assert.match(render(host),/disabled="">불을 끄고, 사냥 시작/);
+ host.room.players=host.room.players.map(p=>({...p,isHost:p.playerId!==host.self.playerId}));html=render(host);assert.match(html,/살인마 종류<select>/);assert.match(html,/살인마 담당자<select disabled=""/);assert.doesNotMatch(html,/불을 끄고, 사냥 시작/);
+});
