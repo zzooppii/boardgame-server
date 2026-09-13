@@ -18,7 +18,7 @@ function DrawEditor(props: { game: Extract<DrawRelayPlayingProjection, { phase: 
   const { game } = props, [drawing, setDrawing] = useState<Drawing>(game.privateState.draft);
   const [tool, setTool] = useState<"PEN" | "ERASER">("PEN"), [color, setColor] = useState<Drawing["strokes"][number]["color"]>("#202838"), [width, setWidth] = useState<4 | 10 | 22>(4);
   const [status, setStatus] = useState("저장됨"), [error, setError] = useState<string | null>(null), [submitting, setSubmitting] = useState(false), [clear, setClear] = useState(false);
-  const [focused, setFocused] = useState(false), studio = useRef<HTMLElement>(null);
+  const [focused, setFocused] = useState(() => typeof window !== "undefined" && window.matchMedia("(max-width: 768px), (pointer: coarse) and (max-height: 500px)").matches), studio = useRef<HTMLElement>(null);
   const closeFocus = useCallback(() => setFocused(false), []);
   useDrawingFocus(focused, studio, closeFocus);
   const ref = useRef({ drawing, dirty: false, revision: game.privateState.draftRevision, saving: false, alive: true,
@@ -63,19 +63,19 @@ function DrawEditor(props: { game: Extract<DrawRelayPlayingProjection, { phase: 
   }
   const locked = !props.enabled || submitting || submitCommand.current !== null;
   return <section ref={studio} className={`relay-studio${focused ? " relay-studio-focused" : ""}`} role={focused ? "dialog" : undefined} aria-modal={focused ? true : undefined} aria-label={focused ? "그림 크게 그리기" : undefined}>
-    <div className="relay-focus-header" hidden={!focused}><div><span>나만 보는 제시어</span><strong>{game.privateState.source.text}</strong></div><span className={`relay-focus-time${props.seconds !== null && props.seconds <= 10 ? " urgent" : ""}`} aria-label="남은 시간">{formatCountdownMmSs(props.seconds ?? 0)}</span><button onClick={closeFocus}>닫기</button></div>
+    <div className="relay-focus-header" hidden={!focused}><div><span>나만 보는 제시어</span><strong>{game.privateState.source.text}</strong></div><span className={`relay-focus-time${props.seconds !== null && props.seconds <= 10 ? " urgent" : ""}`} aria-label="남은 시간">{formatCountdownMmSs(props.seconds ?? 0)}</span><button onClick={closeFocus}>접기</button></div>
     <button className="relay-focus-open" hidden={focused} onClick={() => setFocused(true)}>그림 크게 그리기</button>
     <div className="relay-prompt"><span>나만 보는 제시어</span><h2>{game.privateState.source.text}</h2><p>글자 대신 그림으로 표현해보세요.</p></div>
     <div className="relay-paper"><RelayCanvas drawing={drawing} editable={!locked} tool={tool} color={color} width={width} onChange={update} onPencil={() => props.audio.play("PENCIL")} /></div>
     <div className="relay-tools" aria-label="그림 도구">
       <button disabled={locked} aria-pressed={tool === "PEN"} onClick={() => setTool("PEN")}>펜</button><button disabled={locked} aria-pressed={tool === "ERASER"} onClick={() => setTool("ERASER")}>지우개</button>
       <div className="relay-palette">{DRAW_COLORS.map((c, i) => <button key={c} disabled={locked} aria-label={["검정", "흰색", "빨강", "노랑", "초록", "파랑", "보라", "분홍"][i]} aria-pressed={color === c} style={{ "--ink": c } as React.CSSProperties} onClick={() => { setColor(c); setTool("PEN"); }} />)}</div>
-      {DRAW_WIDTHS.map(w => <button key={w} disabled={locked} aria-label={`펜 굵기 ${w}`} aria-pressed={width === w} onClick={() => setWidth(w)}><span style={{ width: w, height: w }} className="relay-width" /></button>)}
-      <button disabled={locked || !drawing.strokes.length} onClick={() => update(undoStroke(drawing))}>되돌리기</button><button disabled={locked || !drawing.strokes.length} onClick={() => setClear(true)}>모두 지우기</button>
+      <select className="relay-focus-width" aria-label="펜 굵기" hidden={!focused} disabled={locked} value={width} onChange={e => { const next = DRAW_WIDTHS.find(w => w === Number(e.target.value)); if (next !== undefined) setWidth(next); }}>{DRAW_WIDTHS.map((w, i) => <option key={w} value={w}>{["가는 펜", "중간 펜", "굵은 펜"][i]}</option>)}</select>
+      {DRAW_WIDTHS.map(w => <button className="relay-width-button" key={w} disabled={locked} aria-label={`펜 굵기 ${w}`} aria-pressed={width === w} onClick={() => setWidth(w)}><span style={{ width: w, height: w }} className="relay-width" /></button>)}
+      <button disabled={locked || !drawing.strokes.length} onClick={() => update(undoStroke(drawing))}>되돌리기</button><button className="relay-clear-inline" disabled={locked || !drawing.strokes.length} onClick={() => setClear(true)}>모두 지우기</button>
     </div>
-    <small className="relay-focus-hint" hidden={!focused}>도구는 좌우로 밀어서 선택하세요.</small>
     {clear && <div className="relay-notice" role="alert">그림을 모두 지울까요? <button onClick={() => { update(BLANK_DRAWING); setClear(false); }}>지우기 확인</button><button onClick={() => setClear(false)}>취소</button></div>}
-    <div className="relay-editor-footer"><span aria-live="polite">{status} · {drawing.strokes.length}/250 획</span><button className="relay-primary" disabled={!props.enabled || submitting || ref.current.saving} onClick={() => void submit()}>{submitCommand.current ? "그림 제출 다시 확인" : "그림 제출"}</button></div>
+    <div className="relay-editor-footer"><button hidden={!focused} className="relay-clear-focused" disabled={locked || !drawing.strokes.length} onClick={() => setClear(true)}>모두 지우기</button><span aria-live="polite">{status} · {drawing.strokes.length}/250 획</span><button className="relay-primary" disabled={!props.enabled || submitting || ref.current.saving} onClick={() => void submit()}>{submitCommand.current ? "그림 제출 다시 확인" : "그림 제출"}</button></div>
     {drawing.strokes.reduce((n, s) => n + s.points.length, 0) >= 11000 && <p>그림 용량 한도에 가까워졌어요. 필요 없는 획을 되돌릴 수 있어요.</p>}
     {error && <p className="relay-notice" role="alert">{error} <button disabled={!props.enabled || ref.current.saving} onClick={() => void save()}>저장 다시 확인</button></p>}
   </section>;

@@ -18,7 +18,7 @@ export function useDrawingFocus(active: boolean, studio: RefObject<HTMLElement |
       }
       branch = branch.parentElement;
     }
-    const controls = () => [...element.querySelectorAll<HTMLElement>('button:not(:disabled), [tabindex="0"]')].filter(el => el.getClientRects().length > 0);
+    const controls = () => [...element.querySelectorAll<HTMLElement>('button:not(:disabled), select:not(:disabled), [tabindex="0"]')].filter(el => el.getClientRects().length > 0);
     controls()[0]?.focus({ preventScroll: true });
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") { event.preventDefault(); close(); }

@@ -66,7 +66,7 @@ test("DRAW focus-mode entry is available only to the unsubmitted drawing editor"
   assert.match(css, /relay-studio-focused\{position:fixed/);
   assert.match(css, /height:100dvh/); assert.match(css, /container-type:size/);
   assert.match(css, /100cqh \* 10 \/ 7/); assert.match(css, /overscroll-behavior:none/);
-  assert.match(css, /relay-tools\{[^}]*overflow-x:auto/);
+  assert.match(css, /relay-tools\{[^}]*grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
 });
 test("GUESS only displays previous drawing, never prompt/history; Reveal prefix rejects future page", () => {
   const guess = html(playing("GUESS")); assert.match(guess, /이 그림은 무엇일까요|추측 제출/); assert.doesNotMatch(guess, /하늘을 나는 고양이/);
@@ -92,4 +92,23 @@ test("DRAW scoped responsive/reduced motion and canvas-only touch prevention", (
   const css = readFileSync(new URL("../../src/features/draw-relay/draw-relay.css", import.meta.url), "utf8");
   assert.match(css, /max-width:768px/); assert.match(css, /max-width:430px/); assert.match(css, /prefers-reduced-motion/); assert.match(css, /safe-area-inset-bottom/);
   assert.match(css, /\.relay-canvas\.editable\{touch-action:none/); assert.doesNotMatch(css, /body\s*\{/);
+});
+
+test("DRAW mobile starts focused while desktop retains manual entry", () => {
+  const previous = Object.getOwnPropertyDescriptor(globalThis, "window");
+  try {
+    for (const mobile of [true, false]) {
+      Object.defineProperty(globalThis, "window", { configurable: true, value: { matchMedia: () => ({ matches: mobile }) } });
+      const output = html(playing());
+      assert.equal(output.includes('role="dialog"'), mobile);
+      assert.equal(output.includes('aria-modal="true"'), mobile);
+      assert.equal((output.match(/aria-label="그림 그리기 영역"/g) ?? []).length, 1);
+      assert.match(output, /aria-label="펜 굵기"/);
+      assert.doesNotMatch(html(playing("DRAW", true)), /role="dialog"/);
+      assert.doesNotMatch(html(playing("GUESS")), /role="dialog"/);
+    }
+  } finally {
+    if (previous) Object.defineProperty(globalThis, "window", previous);
+    else Reflect.deleteProperty(globalThis, "window");
+  }
 });
