@@ -466,7 +466,7 @@ for(const key of stageEvents)for(const stage of [1,2,3] as const)for(const n of 
  let s=eventGame(n,key);s.eventInvaderStage=stage;s=eventChoose(s,'이벤트 선택 시작');s=drain(s);assert.equal(s.queue.length,0);assert.equal(s.stage,'FEAR');parseSpiritState(s);
 });
 test('Stage events: all configured event keys are configured once; core contains none',()=>{
- const s=branchClaw();assert.deepEqual([...s.eventDeck].sort(),[...SPIRIT_EVENT_KEYS].sort());assert.equal(s.eventDeck.length,18);assert.equal(chosen().eventDeck.length,0);
+ const s=branchClaw();assert.deepEqual([...s.eventDeck].sort(),[...SPIRIT_EVENT_KEYS].sort());assert.equal(s.eventDeck.length,19);assert.equal(chosen().eventDeck.length,0);
 });
 test('Stage events: Prussia early III counts as II, real late III and empty deck count as III',()=>{
  const s=branchClaw();s.settings.adversary='PRUSSIA';s.settings.level=2;s.invaderDeck=[{stage:3,terrains:['JUNGLE','SANDS'],coastal:false},{stage:2,terrains:['MOUNTAIN'],coastal:false}];assert.equal(currentInvaderStage(s),2);s.invaderDeck.shift();assert.equal(currentInvaderStage(s),2);s.invaderDeck=[{stage:3,terrains:['JUNGLE','SANDS'],coastal:false}];assert.equal(currentInvaderStage(s),3);s.invaderDeck=[];assert.equal(currentInvaderStage(s),3);
@@ -695,4 +695,36 @@ test('One-to-one replacement carries lethal damage and creates destruction fear 
 });
 test('Urbanization and Roots keep the old invader damage on the replacement',()=>{
  for(const kind of ['TOWN','EXPLORER'] as const){let s=eventGame();const l=land(s,'A5');l.pieces=[];l.eventHealthBonus=kind==='EXPLORER'?'EXPLORERS':null;makePiece(s,l,kind).damage=1;s.queue=[step('SPECIAL',s.players[0]!.playerId,kind==='TOWN'?l.id:null,1,kind==='TOWN'?'BCE2_UPGRADE':'BCE4_ROOTS',null,['A'])];settle(s);s=drain(s);assert.equal(land(s,'A5').pieces[0]?.damage,1);assert.equal(land(s,'A5').pieces[0]?.kind,kind==='TOWN'?'CITY':'TOWN');}
+});
+
+for(const teach of [false,true])for(const n of [1,2,3,4])test(`Farmers: ${teach?'teach':'spurn'}, ${n} spirits`,()=>{
+ let s=eventChoose(eventGame(n,'FARMERS'),'이벤트 선택 시작');assert.equal(s.queue[0]?.key,'BCE8_CHOICE');assert.equal(choiceOptions(s).length,2);assert.equal(s.eventPayment,null);s=drain(eventChoose(s,teach?'농사를 가르친다':'요청을 거절'));parseSpiritState(s);assert.equal(s.queue.length,0);assert.equal(s.phase,'PLAYING');assert.equal(view(s).eventRavageToBuild,teach);assert.ok(s.lands.every(l=>l.eventBuildingHealthLoss===!teach));assert.ok(v.safeParse(SpiritPlayingProjectionSchema,view(s)).success);
+});
+test('Farmers first round is discarded without a choice, payment or conversion',()=>{
+ const s=drain(eventGame(1,'FARMERS',1));assert.equal(view(s).eventRavageToBuild,false);assert.ok(s.lands.every(l=>!l.eventBuildingHealthLoss));assert.equal(s.eventPayment,null);
+});
+test('Farmers conversion survives an empty slot and Time, then builds without consuming pending damage',()=>{
+ let s=drain(eventChoose(eventChoose(eventGame(1,'FARMERS'),'이벤트 선택 시작'),'농사를 가르친다'));s.flags.push('event-next-city','event-next-town','event-next-city-extra');s.ravage=null;s.stage='RAVAGE';s=drain(apply(s,{kind:'ADVANCE'}));assert.equal(view(s).eventRavageToBuild,true);s.stage='TIME';s=drain(apply(s,{kind:'ADVANCE'}));assert.equal(s.currentEvent,null);assert.equal(view(s).eventRavageToBuild,true);
+ const l=land(s,'A1');l.pieces=[];makePiece(s,l,'CITY').strife=1;l.tokens.disease=1;s.ravage={stage:1,terrains:['MOUNTAIN'],coastal:false};s.stage='RAVAGE';s=drain(apply(s,{kind:'ADVANCE'}));assert.equal(land(s,'A1').tokens.disease,0);assert.equal(land(s,'A1').pieces.length,1);assert.equal(land(s,'A1').pieces[0]?.strife,1);assert.equal(land(s,'A1').blight,0);assert.equal(view(s).eventRavageToBuild,false);assert.equal(view(s).eventCityDamage,3);assert.equal(view(s).eventTownDamage,1);assert.equal(s.stage,'BUILD');
+ land(s,'A1').pieces[0]!.strife=0;land(s,'A1').defend=4;s.stage='RAVAGE';s=drain(apply(s,{kind:'ADVANCE'}));assert.equal(land(s,'A1').blight,1);assert.equal(view(s).eventCityDamage,0);assert.equal(view(s).eventTownDamage,0);
+});
+test('Farmers converted card uses normal build source and skip rules instead of Ruin Ravage',()=>{
+ let s=eventGame();s.queue=[];s.flags.push('event-next-build','ruin:A1');const a=land(s,'A1'),b=land(s,'A6');a.pieces=[];b.pieces=[];makePiece(s,a,'EXPLORER');s.ravage={stage:1,terrains:['MOUNTAIN'],coastal:false};s.stage='RAVAGE';s=drain(apply(s,{kind:'ADVANCE'}));assert.ok(land(s,'A1').pieces.some(p=>p.kind==='TOWN'));assert.equal(land(s,'A6').pieces.length,0);assert.equal(view(s).eventRavageToBuild,false);
+ s.flags.push('event-next-build');land(s,'A1').skip=true;const before=land(s,'A1').pieces.length;s.stage='RAVAGE';s=drain(apply(s,{kind:'ADVANCE'}));assert.equal(land(s,'A1').pieces.length,before);assert.equal(view(s).eventRavageToBuild,false);
+});
+test('Farmers conversion honors England adjacent buildings and does not consume Stricken disease as a Ravage',()=>{
+ let s=eventGame();s.queue=[];s.settings.adversary='ENGLAND';s.settings.level=1;s.flags.push('event-next-build','event-stricken');for(const l of s.lands)l.pieces=[];makePiece(s,land(s,'A2'),'TOWN');makePiece(s,land(s,'A2'),'CITY');land(s,'A1').tokens.disease=0;land(s,'A6').tokens.disease=1;s.ravage={stage:1,terrains:['MOUNTAIN'],coastal:false};s.stage='RAVAGE';s=drain(apply(s,{kind:'ADVANCE'}));assert.ok(land(s,'A1').pieces.some(p=>p.kind==='TOWN'));assert.equal(land(s,'A6').pieces.length,0);assert.equal(land(s,'A6').tokens.disease,1);
+});
+test('Farmers never converts an extra Ravage; it still waits for the normal card',()=>{
+ let s=eventGame();s.queue=[];s.flags.push('event-next-build');const l=land(s,'A1');l.pieces=[];makePiece(s,l,'TOWN');s.queue=[step('SPECIAL',s.players[0]!.playerId,l.id,0,'RAVAGE')];settle(s);s=drain(s);assert.equal(land(s,'A1').blight,1);assert.equal(view(s).eventRavageToBuild,true);assert.equal(land(s,'A1').pieces.length,1);
+});
+test('Farmers spurn health loss only affects buildings, stacks, kills damaged buildings and expires',()=>{
+ let s=eventGame();s.queue=[];const l=land(s,'A1');l.pieces=[];const town=makePiece(s,l,'TOWN');town.damage=1;const city=makePiece(s,l,'CITY'),dahan=makePiece(s,l,'DAHAN'),explorer=makePiece(s,l,'EXPLORER');const before=s.fear;s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'BCE8_HEALTH')];settle(s);assert.ok(!l.pieces.some(p=>p.id===town.id));assert.equal(s.fear,before+1);assert.equal(health(l,city),2);assert.equal(health(l,dahan),2);assert.equal(health(l,explorer),1);l.eventHealthLoss=true;assert.equal(health(l,city),1);l.invaderHealth=1;l.eventHealthBonus='BUILDINGS';assert.equal(health(l,city),3);s.stage='TIME';s=drain(apply(s,{kind:'ADVANCE'}));assert.equal(land(s,'A1').eventBuildingHealthLoss,false);
+});
+test('Farmers spurn uses distinct eligibility for Dahan damage and blight; teach needs only Dahan',()=>{
+ const s=eventGame(),actor=s.players[0]!.playerId;for(const l of s.lands)l.pieces=[];makePiece(s,land(s,'A1'),'TOWN');makePiece(s,land(s,'A1'),'DAHAN');makePiece(s,land(s,'A2'),'TOWN');makePiece(s,land(s,'A2'),'CITY');makePiece(s,land(s,'A3'),'DAHAN');
+ for(const [key,ids] of [['BCE8_DAHAN',['A1']],['BCE8_BLIGHT',['A2']],['BCE8_TOWN',['A1','A3']]] as const){s.queue=[step('SPECIAL',actor,null,0,key,null,['A'])];settle(s);assert.deepEqual(choiceOptions(s).map(o=>o.landId),ids);}
+});
+test('Farmers pending decision rejects another actor and stale revision without mutation',()=>{
+ const s=eventChoose(eventGame(2,'FARMERS'),'이벤트 선택 시작'),e=s.queue[0]!,actor=e.target??e.actor,other=s.players.find(p=>p.playerId!==actor)!.playerId,option=choiceOptions(s)[0]!,before=JSON.stringify(s);assert.equal(applySpiritAction(s,other,{kind:'CHOOSE',choiceId:`${s.transitionId}:${s.revision}`,optionId:option.id},now,s.transitionId).ok,false);assert.equal(applySpiritAction(s,actor,{kind:'CHOOSE',choiceId:'stale',optionId:option.id},now,s.transitionId).ok,false);assert.equal(JSON.stringify(s),before);
 });
