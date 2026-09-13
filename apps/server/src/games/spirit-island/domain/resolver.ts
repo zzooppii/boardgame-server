@@ -30,7 +30,7 @@ const kinds: readonly SpiritPiece['kind'][] = ['EXPLORER', 'TOWN', 'CITY', 'DAHA
 const labels: Record<SpiritPiece['kind'], string> = { EXPLORER: '탐험가', TOWN: '마을', CITY: '도시', DAHAN: '다한' };
 const selectedKinds = (e: SpiritStep) => kinds.filter(k => e.tags.includes(k));
 function buildIsSkipped(s: SpiritState, area: SpiritLand): boolean {
-    return area.skip || s.flags.includes(`no-build:${area.id}`)
+    return area.skip || s.flags.includes('quarantine-disease')&&area.tokens.disease>0 || s.flags.includes(`no-build:${area.id}`)
         || s.flags.includes('no-build-city') && countPieces(area, ['CITY']) > 0
         || s.flags.includes('no-build-dahan') && countPieces(area, ['DAHAN']) > 0
         || s.flags.includes('dahan-outnumber') && countPieces(area, ['DAHAN']) > countPieces(area, ['TOWN', 'CITY'])
@@ -543,6 +543,7 @@ export function automatic(s: SpiritState, e: SpiritStep): boolean {
                 prepend(s, step('MOVE', e.actor, l.id, countPieces(l, ['EXPLORER']), 'PUSH', null, ['EXPLORER', 'REQUIRED', 'SPREAD']));
             return true;
         case 'RAVAGE':
+            if(l&&s.flags.includes('quarantine-disease')&&l.tokens.disease>0){event(s,'FEAR',`${l.id} 격리로 파괴 생략`,e.actor,l.id);return true;}
             if(l?.ravageSkip){event(s,'FEAR',`${l.id} 조심스러운 발걸음으로 파괴 생략`,e.actor,l.id);return true;}
             if(l&&s.flags.includes('event-stricken')&&(l.tokens.disease>0||invaders(l).some(p=>p.strife>0))){event(s,'DAMAGE',`${l.id} 질병·분쟁으로 파괴 생략`,e.actor,l.id);return true;}
             if (l && !l.skip) {
@@ -589,6 +590,7 @@ export function automatic(s: SpiritState, e: SpiritStep): boolean {
             if(protectedInvaderCard(s,card))s.protectedInvader=null;
             s.explore = card; const explored: string[]=[];
             for (const area of s.lands.filter(l => l.number>0 && matches(l, card) && !l.skip)) {
+                if(s.flags.includes('quarantine-coast')&&area.coastal||s.flags.includes('quarantine-disease')&&area.tokens.disease>0)continue;
                 if (s.flags.includes('no-explore-dahan') && countPieces(area, ['DAHAN']) >= 2)
                     continue;
                 if (exploreHasSource(s,area)) {

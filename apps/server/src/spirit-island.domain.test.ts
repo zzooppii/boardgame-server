@@ -1,4 +1,5 @@
 import { SPIRIT_BRANCH_FEAR, SPIRIT_BRANCH_FEAR_KEYS } from '@hangul-rummikub/shared';
+import { exploreHasSource } from './games/spirit-island/domain/branch-claw-terror-events.js';
 import { currentInvaderStage } from './games/spirit-island/domain/branch-claw-stage-events.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -894,7 +895,7 @@ for(const terror of [1,2,3] as const)test(`War addition preserves terror ${terro
  let s=warGame();for(const l of s.lands)l.tokens.beasts=0;s.terror=terror;s.fearDeck=s.fearDeck.slice(-(terror===1?7:terror===2?4:1));const before=s.fearDeck.length;s=eventChoose(s,'격퇴');s=eventChoose(s,'에너지 1 지원 추가');s=eventChoose(s,'비용 확정');assert.equal(s.terror,terror);assert.equal(s.fearDeck.length,before+1);s=drain(s);s.queue=[step('FEAR',s.players[0]!.playerId,null,4)];settle(s);assert.equal(s.terror,terror);assert.equal(s.fearDeck.length,before);
 });
 test('War does not duplicate fear cards when every card is already in use',()=>{
- let s=warGame();for(const l of s.lands)l.tokens.beasts=0;s.fearDeck=spiritFearKeys(s.settings.expansion);s=eventChoose(s,'격퇴');s=eventChoose(s,'에너지 1 지원 추가');s=eventChoose(s,'비용 확정');assert.equal(s.fearDeck.length,22);assert.equal(new Set(s.fearDeck).size,22);assert.ok(s.log.some(e=>e.text.includes('미사용 공포 카드 없음')));
+ let s=warGame();for(const l of s.lands)l.tokens.beasts=0;s.fearDeck=spiritFearKeys(s.settings.expansion);s=eventChoose(s,'격퇴');s=eventChoose(s,'에너지 1 지원 추가');s=eventChoose(s,'비용 확정');assert.equal(s.fearDeck.length,23);assert.equal(new Set(s.fearDeck).size,23);assert.ok(s.log.some(e=>e.text.includes('미사용 공포 카드 없음')));
 });
 test('War discards a major per board, with public cost, before choosing that board coast',()=>{
  let s=warGame(2);const major=[...s.major],minor=[...s.minor];s=eventChoose(s,'공격을 허용');assert.equal(s.queue[0]!.key,'BCE14_ATTACK');assert.equal(s.queue[0]!.tags[0],'A');assert.equal(s.queue[0]!.n,cardPower(s,major[0]!).cost);assert.ok(s.majorDiscard.includes(major[0]!));assert.deepEqual(s.minor,minor);s=drain(s);assert.ok(s.log.some(e=>e.text.includes(`B 전쟁 피해 판정 · ${cardPower(s,major[1]!).title}`)));assert.deepEqual(s.minor,minor);
@@ -924,7 +925,7 @@ for(const key of SPIRIT_BRANCH_FEAR_KEYS)for(const level of [1,2,3] as const)for
  let s=branchFearGame(key,level,n);settle(s);s=drain(s);assert.equal(s.queue.length,0);assert.ok(s.fearDiscard.includes(key));assert.ok(s.log.some(l=>l.text.includes(`공포 수준 ${level}`)));parseSpiritState(s);
 });
 test('Expansion fear pool adds only completed cards and keeps deck size and core pool unchanged',()=>{
- assert.deepEqual(spiritFearKeys('CORE'),[...SPIRIT_FEAR_KEYS]);assert.equal(spiritFearKeys('BRANCH_CLAW').length,22);assert.equal(new Set(spiritFearKeys('BRANCH_CLAW')).size,22);let s=setup();const result=applySpiritAction(s,s.players[0]!.playerId,{kind:'CONFIGURE',settings:{...s.settings,expansion:'BRANCH_CLAW',blightCard:true,progression:false}},now,s.transitionId,values=>[...values].reverse());assert.ok(result.ok);s=result.state;assert.equal(s.fearDeck.length,9);for(const key of SPIRIT_BRANCH_FEAR_KEYS)assert.ok(s.fearDeck.includes(key));assert.equal(chosen().fearDeck.some(k=>SPIRIT_BRANCH_FEAR_KEYS.includes(k)),false);
+ assert.deepEqual(spiritFearKeys('CORE'),[...SPIRIT_FEAR_KEYS]);assert.equal(spiritFearKeys('BRANCH_CLAW').length,23);assert.equal(new Set(spiritFearKeys('BRANCH_CLAW')).size,23);let s=setup();const result=applySpiritAction(s,s.players[0]!.playerId,{kind:'CONFIGURE',settings:{...s.settings,expansion:'BRANCH_CLAW',blightCard:true,progression:false}},now,s.transitionId,values=>[...values].reverse());assert.ok(result.ok);s=result.state;assert.equal(s.fearDeck.length,9);for(const key of SPIRIT_BRANCH_FEAR_KEYS)assert.ok(s.fearDeck.includes(key));assert.equal(chosen().fearDeck.some(k=>SPIRIT_BRANCH_FEAR_KEYS.includes(k)),false);
 });
 test('Demoralized stacks defense and Time removes it',()=>{
  let s=branchFearGame('demoralized',3);land(s,'A1').defend=2;settle(s);assert.equal(land(s,'A1').defend,5);assert.equal(land(s,'A8').defend,3);s.stage='TIME';s=drain(apply(s,{kind:'ADVANCE'}));assert.ok(s.lands.every(l=>l.defend===0));
@@ -993,4 +994,17 @@ test('Tread Carefully remains on the chosen land after Dahan leave and blocks al
 });
 test('Tread Carefully does not block building or exploring',()=>{
  let s=branchFearGame('careful',3);const a=land(s,'A1');makePiece(s,a,'DAHAN');settle(s);s=eventChoose(s,'A1');const buildings=countPieces(land(s,'A1'),['TOWN','CITY']);s.queue=[step('SPECIAL',s.players[0]!.playerId,'A1',0,'ESCALATE_BUILD')];settle(s);s=drain(s);assert.equal(countPieces(land(s,'A1'),['TOWN','CITY']),buildings+1);assert.equal(land(s,'A1').skip,false);const explorers=countPieces(land(s,'A1'),['EXPLORER']);land(s,'A1').tokens.wilds=0;s.invaderDeck.unshift({stage:1,terrains:[land(s,'A1').terrain],coastal:false});s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'EXPLORE')];settle(s);s=drain(s);assert.equal(countPieces(land(s,'A1'),['EXPLORER']),explorers+1);parseSpiritState(s);
+});
+
+for(const level of [1,2,3] as const)test(`Quarantine ${level} blocks coastal explore, preserves wilds and exposes only its current level`,()=>{
+ const s=branchFearGame('quarantine',level);settle(s);const a=land(s,'A1');a.tokens.wilds=1;const explorers=countPieces(a,['EXPLORER']);s.invaderDeck.unshift({stage:1,terrains:[a.terrain],coastal:false});s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'EXPLORE')];settle(s);assert.equal(countPieces(a,['EXPLORER']),explorers);assert.equal(a.tokens.wilds,1);assert.equal(s.explore!.stage,1);const g=view(s);assert.equal(g.quarantineCoast,true);assert.equal(g.quarantineSource,level===2);assert.equal(g.quarantineDisease,level===3);
+});
+test('Quarantine II excludes diseased buildings as sources but not ocean reach or traversal',()=>{
+ const s=branchFearGame('quarantine',2);for(const l of s.lands){l.pieces=[];l.tokens.disease=0;}const target=land(s,'A8');target.coastal=false;const source=land(s,'A7');source.coastal=false;target.adjacent=['A7'];source.adjacent=['A8'];makePiece(s,source,'CITY');source.tokens.disease=1;settle(s);assert.equal(exploreHasSource(s,target),false);source.tokens.disease=0;assert.equal(exploreHasSource(s,target),true);source.tokens.disease=1;target.coastal=true;assert.equal(exploreHasSource(s,target),true);target.coastal=false;s.flags.push('event-distant-explore');source.coastal=true;assert.equal(exploreHasSource(s,target),true);
+});
+test('Quarantine III blocks current disease lands without consuming tokens and responds to disease removal',()=>{
+ let s=branchFearGame('quarantine',3);settle(s);const id='A1',actor=s.players[0]!.playerId;land(s,id).tokens.disease=1;makePiece(s,land(s,id),'TOWN').strife=1;const before=JSON.stringify(land(s,id));for(const key of ['RAVAGE','ESCALATE_BUILD','BUILD_LAND']){s.queue=[step('SPECIAL',actor,id,0,key)];settle(s);assert.equal(JSON.stringify(land(s,id)),before);}land(s,id).tokens.disease=0;const buildings=countPieces(land(s,id),['TOWN','CITY']);s.queue=[step('SPECIAL',actor,id,0,'BUILD_LAND')];settle(s);assert.equal(countPieces(land(s,id),['TOWN','CITY']),buildings+1);s.stage='TIME';s=drain(apply(s,{kind:'ADVANCE'}));assert.equal(view(s).quarantineCoast,false);assert.equal(view(s).quarantineDisease,false);parseSpiritState(s);
+});
+test('Quarantine III keeps diseased buildings as sources while preventing exploration into disease lands',()=>{
+ const s=branchFearGame('quarantine',3);for(const l of s.lands){l.pieces=[];l.tokens.disease=0;}const a=land(s,'A8'),source=land(s,'A7');a.coastal=false;a.adjacent=['A7'];source.coastal=false;source.adjacent=['A8'];source.tokens.disease=1;makePiece(s,source,'CITY');settle(s);assert.equal(exploreHasSource(s,a),true);a.tokens.disease=1;a.tokens.wilds=1;s.invaderDeck.unshift({stage:1,terrains:[a.terrain],coastal:false});s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'EXPLORE')];settle(s);assert.equal(countPieces(a,['EXPLORER']),0);assert.equal(a.tokens.wilds,1);
 });

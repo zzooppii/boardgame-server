@@ -5,6 +5,7 @@ type Add=(label:string,apply:()=>void,landId?:string|null,pieceId?:string|null)=
 const areas=(s:SpiritState)=>s.lands.filter(l=>l.number>0);
 export function branchFear(s:SpiritState,e:SpiritStep,key:string,level:number):boolean {
  if(!SPIRIT_BRANCH_FEAR_KEYS.includes(key))return false;
+ if(key==='quarantine'){s.flags.push('quarantine-coast');if(level===2)s.flags.push('quarantine-source');if(level===3)s.flags.push('quarantine-disease');return true;}
  if(key==='demoralized'){for(const l of areas(s))l.defend+=level;return true;}
  if(key==='departure'&&level>=2)for(const l of areas(s).filter(l=>l.coastal))l.defend+=2*(level-1);
  prepend(s,...s.players.map(p=>step('SPECIAL',p.playerId,null,level,'BCF_LAND',p.playerId,[key])),step('CHECK',e.actor));return true;

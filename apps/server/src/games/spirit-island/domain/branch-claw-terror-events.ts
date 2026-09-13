@@ -11,7 +11,7 @@ export function exploreHasSource(s:SpiritState,l:SpiritLand):boolean {
  const distance=s.flags.includes('event-distant-explore')?2:1;
  let frontier=[l];const visited=new Set([l.id]);
  for(let depth=0;depth<=distance;depth++){
-  if(frontier.some(a=>countPieces(a,['TOWN','CITY'])>0||depth<distance&&a.coastal))return true;
+  if(frontier.some(a=>countPieces(a,['TOWN','CITY'])>0&&!(s.flags.includes('quarantine-source')&&a.tokens.disease>0)||depth<distance&&a.coastal))return true;
   frontier=frontier.flatMap(a=>a.adjacent.map(id=>land(s,id))).filter(a=>{if(a.number===0||visited.has(a.id))return false;visited.add(a.id);return true;});
  }
  return false;

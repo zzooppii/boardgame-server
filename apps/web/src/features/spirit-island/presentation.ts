@@ -20,8 +20,8 @@ export function ravagePreview(g: SpiritProjection,l: SpiritLand) {
  const earth=g.playerStates.some(p=>p.spirit==='EARTH'&&(l.presence.find(x=>x.playerId===p.playerId)?.count??0)>=2);
  const high=g.settings.adversary==='SWEDEN'&&g.settings.level>=3;
  const attack=l.pieces.reduce((n,p)=>n+(p.strife>0?0:p.kind==='EXPLORER'?1:p.kind==='TOWN'?(high?3:2)+g.eventTownDamage:p.kind==='CITY'?(high?5:3)+g.eventCityDamage:0),0)+(l.pieces.some(p=>p.kind!=='DAHAN')?g.eventRavageBonus:0)+(g.eventFearfulMobs&&l.pieces.filter(p=>p.kind!=='DAHAN').length>=3?3:0)+(g.eventUnnatural&&l.pieces.some(p=>p.kind!=='DAHAN')&&l.presence.some(p=>p.count>0)?3:0),defend=l.defend+(earth?3:0)+(g.cannyDefense?l.pieces.filter(p=>p.kind==='DAHAN').length:0),damage=g.eventRavageToBuild||g.ravageRedirects.includes(l.id)?0:Math.max(0,attack-defend);
- const blocked=l.skip||l.ravageSkip&&!g.eventRavageToBuild||g.eventStricken&&(l.tokens.disease>0||l.pieces.some(p=>p.kind!=='DAHAN'&&p.strife>0));
- return {active,attack,defend,damage,convertsToBuild:active&&g.eventRavageToBuild,blight:active&&!blocked&&!l.vitality&&damage>=2,blocked};
+ const blocked=l.skip||g.quarantineDisease&&l.tokens.disease>0||l.ravageSkip&&!g.eventRavageToBuild||g.eventStricken&&(l.tokens.disease>0||l.pieces.some(p=>p.kind!=='DAHAN'&&p.strife>0));
+ return {active,attack,defend,damage,convertsToBuild:active&&g.eventRavageToBuild&&!(g.quarantineDisease&&l.tokens.disease>0),blight:active&&!blocked&&!l.vitality&&damage>=2,blocked};
 }
 export function preparationElements(g:SpiritProjection,ids:readonly string[]) {
  const cards=g.playerStates.flatMap(p=>[...p.hand,...p.played]);
