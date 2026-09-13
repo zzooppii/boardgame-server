@@ -40,8 +40,8 @@ export function stageEventOptions(s:SpiritState,e:SpiritStep,add:Add):boolean {
    else for(const to of adjacent(s,l))add(`${id} 야수 → ${to.id}`,()=>{rest();moveToken(s,l,to,'beasts',e.actor);},to.id);
   }
  } else if(e.key==='BCE2_RETREAT') {
-  const city=e.tags[1]==='CITY',froms=areas(s).filter(l=>l.board===e.tags[0]&&(city?countPieces(l,['CITY'])>0:l.blight>0));
-  const pairs=froms.flatMap(from=>adjacent(s,from).filter(to=>city?countPieces(to,['CITY'])===0:to.blight===0).map(to=>({from,to,n:Math.min(2,countPieces(from,['DAHAN']))})));
+  const city=e.tags[1]==='CITY',unsafe=(l:SpiritLand)=>e.tags[1]==='TOKENS'?l.tokens.beasts+l.tokens.disease+l.tokens.wilds>0:city?countPieces(l,['CITY'])>0:l.blight>0,froms=areas(s).filter(l=>l.board===e.tags[0]&&unsafe(l));
+  const pairs=froms.flatMap(from=>adjacent(s,from).filter(to=>!unsafe(to)).map(to=>({from,to,n:Math.min(2,countPieces(from,['DAHAN']))})));
   const max=Math.max(0,...pairs.map(p=>p.n));
   for(const {from,to,n} of pairs.filter(p=>p.n===max&&max>0))add(`${from.id} 다한 ${n}개 → ${to.id}`,()=>move(s,e,from,to,n,['DAHAN']),to.id);
  } else if(e.key==='BCE2_DISEASE') {
