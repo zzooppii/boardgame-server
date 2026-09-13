@@ -1,14 +1,14 @@
 import type { SpiritState, SpiritStep } from './state.js';
 import { step, prepend, invaders, countPieces, cardPower, defense, fear, event } from './primitives.js';
 import { moveToken } from './tokens.js';
-import { SPIRIT_FEAR_KEYS } from './resolver.js';
+import { spiritFearKeys } from './resolver.js';
 type Add=(label:string,apply:()=>void,landId?:string|null,pieceId?:string|null)=>unknown;
 const areas=(s:SpiritState)=>s.lands.filter(l=>l.number>0);
 const boards=(s:SpiritState)=>[...new Set(areas(s).map(l=>l.board))];
 export function warMain(s:SpiritState,e:SpiritStep,paid:boolean,shuffle:<T>(values:T[])=>T[]):boolean {
  if(s.currentEvent!=='WAR')return false;
  const effects:SpiritStep[]=[];
- if(paid){const used=[...s.fearDeck,...s.fearEarned,...s.fearDiscard],next=shuffle(SPIRIT_FEAR_KEYS.filter(k=>!used.includes(k)))[0];if(next){s.fearDeck.unshift(next);s.revealedFear=s.revealedFear.filter(k=>k!==next);event(s,'EVENT','공포 덱 위에 미사용 공포 카드 1장 추가 · 뒷면 유지',e.actor);}else event(s,'EVENT','미사용 공포 카드 없음 · 추가 생략',e.actor);}
+ if(paid){const used=[...s.fearDeck,...s.fearEarned,...s.fearDiscard],next=shuffle(spiritFearKeys(s.settings.expansion).filter(k=>!used.includes(k)))[0];if(next){s.fearDeck.unshift(next);s.revealedFear=s.revealedFear.filter(k=>k!==next);event(s,'EVENT','공포 덱 위에 미사용 공포 카드 1장 추가 · 뒷면 유지',e.actor);}else event(s,'EVENT','미사용 공포 카드 없음 · 추가 생략',e.actor);}
  else effects.push(...boards(s).map(b=>step('SPECIAL',e.actor,null,0,'BCE14_DISCARD',null,[b])));
  prepend(s,...effects,step('CHECK',e.actor),...boards(s).map(b=>step('SPECIAL',e.actor,null,0,'BCE14_BEAST',null,[b])),step('CHECK',e.actor),...s.players.map(p=>step('SPECIAL',p.playerId,null,0,'BCE14_DAHAN',p.playerId)),step('CHECK',e.actor),step('SPECIAL',e.actor,null,0,'BCE_END'));return true;
 }

@@ -16,3 +16,14 @@ export const SPIRIT_FEAR_HELP: Record<string, readonly [string,string,string]> =
  overseas:['모든 해안 방어 3.','모든 해안 방어 6. 해안 도시 건설 차단.','모든 해안 방어 9. 해안 건설 차단.'],
  trade:['도시가 있는 지역의 건설 차단.','각자 해안의 마을 1개를 탐험가로 교체.','각자 해안의 마을/도시 1개를 한 단계 작은 침략자로 교체.']
 };
+
+/** Implemented Branch & Claw cards; this is a public reference, not deck order. */
+export const SPIRIT_BRANCH_FEAR = {
+ demoralized:{name:'사기 저하',artwork:'SHADOW',effects:['모든 육지에 방어 1.','모든 육지에 방어 2.','모든 육지에 방어 3.']},
+ departure:{name:'떠날 채비',artwork:'RIVER',effects:['각자 해안 한 지역에 마을 1개를 모을 수 있습니다.','각자 해안 한 지역에 탐험가/마을 1개를 모을 수 있습니다. 모든 해안 방어 2.','각자 해안 한 지역에 탐험가/마을 최대 2개를 모을 수 있습니다. 모든 해안 방어 4.']},
+ pestilent:{name:'역병의 땅을 떠나다',artwork:'KEEPER',effects:['각자 질병 지역에서 탐험가/마을 1개 제거.','각자 질병 지역에서 체력 합계 최대 3 제거 또는 내륙 탐험가 1개 제거.','각자 질병 지역에서 체력 합계 최대 5 제거 또는 내륙 탐험가/마을 1개 제거.']},
+ dangerous:{name:'위험한 땅을 떠나다',artwork:'FANGS',effects:['각자 야수·질병·다한 2개 이상 중 하나가 있는 지역에서 탐험가 1개 제거.','각자 같은 조건의 지역에서 탐험가/마을 1개 제거.','각자 같은 조건의 지역에서 체력 합계 최대 4 제거.']}
+} as const;
+export const SPIRIT_BRANCH_FEAR_KEYS=Object.keys(SPIRIT_BRANCH_FEAR);
+export const SPIRIT_BRANCH_FEAR_COUNT=SPIRIT_BRANCH_FEAR_KEYS.length;
+Object.assign(SPIRIT_FEAR_HELP,Object.fromEntries(Object.entries(SPIRIT_BRANCH_FEAR).map(([key,c])=>[key,c.effects])));

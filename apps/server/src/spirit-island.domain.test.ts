@@ -1,3 +1,4 @@
+import { SPIRIT_BRANCH_FEAR, SPIRIT_BRANCH_FEAR_KEYS } from '@hangul-rummikub/shared';
 import { currentInvaderStage } from './games/spirit-island/domain/branch-claw-stage-events.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -5,7 +6,7 @@ import * as v from 'valibot';
 import { SPIRIT_EVENT_KEYS, type SpiritEventKey, GameIdSchema, PlayerIdSchema, ServerTimeSchema, TurnIdSchema, SPIRITS, SPIRIT_POWERS, SpiritFinishedProjectionSchema, SpiritPlayingProjectionSchema, spiritProjectionIsConsistent, type SpiritAction, type SpiritId } from '@hangul-rummikub/shared';
 import { createSpiritGame, applySpiritAction, parseSpiritState, powerOptions, type SpiritState } from './games/spirit-island/domain/game.js';
 import { projectSpirit } from './games/spirit-island/compatibility/projector.js';
-import { choiceOptions, settle, SPIRIT_FEAR_KEYS } from './games/spirit-island/domain/resolver.js';
+import { choiceOptions, settle, spiritFearKeys, SPIRIT_FEAR_KEYS } from './games/spirit-island/domain/resolver.js';
 import { powerSteps } from './games/spirit-island/domain/powers.js';
 import { step, makePiece, land, defense, presence, innateLevel, cardPower, health } from './games/spirit-island/domain/primitives.js';
 const now = v.parse(ServerTimeSchema, 1000);
@@ -887,13 +888,13 @@ test('War payment allows only energy, supports cancellation and rejects forged c
  const actor=s.queue[0]!.target!,other=s.players.find(p=>p.playerId!==actor)!.playerId,o=choiceOptions(s)[0]!,saved=JSON.stringify(s);assert.equal(applySpiritAction(s,other,{kind:'CHOOSE',choiceId:`${s.transitionId}:${s.revision}`,optionId:o.id},now,s.transitionId).ok,false);assert.equal(applySpiritAction(s,actor,{kind:'CHOOSE',choiceId:'stale',optionId:o.id},now,s.transitionId).ok,false);assert.equal(JSON.stringify(s),saved);
 });
 test('War adds a random unused fear card face-down using the injected shuffle, without earning it',()=>{
- let s=warGame(2);for(const l of s.lands)l.tokens.beasts=0;s=eventChoose(s,'격퇴');s=eventChoose(s,'에너지 1 지원 추가');s=eventChoose(s,'다음 정령');s=eventChoose(s,'에너지 1 지원 추가');const unused=SPIRIT_FEAR_KEYS.filter(k=>![...s.fearDeck,...s.fearEarned,...s.fearDiscard].includes(k)),before=s.fearDeck.length,earned=[...s.fearEarned],actor=s.queue[0]!.target!,option=choiceOptions(s).find(o=>o.label.includes('비용 확정'))!;let calls=0;const result=applySpiritAction(s,actor,{kind:'CHOOSE',choiceId:`${s.transitionId}:${s.revision}`,optionId:option.id},now,v.parse(TurnIdSchema,`turn-${++seq}`),values=>{calls++;return [...values].reverse();});assert.ok(result.ok);s=result.state;assert.equal(calls,1);assert.equal(s.fearDeck[0],unused.at(-1));assert.equal(s.fearDeck.length,before+1);assert.deepEqual(s.fearEarned,earned);assert.ok(!s.revealedFear.includes(s.fearDeck[0]!));assert.equal(s.players.reduce((n,p)=>n+p.energy,0),38);assert.equal(view(s).revealedFear.length,0);parseSpiritState(s);
+ let s=warGame(2);for(const l of s.lands)l.tokens.beasts=0;s=eventChoose(s,'격퇴');s=eventChoose(s,'에너지 1 지원 추가');s=eventChoose(s,'다음 정령');s=eventChoose(s,'에너지 1 지원 추가');const unused=spiritFearKeys(s.settings.expansion).filter(k=>![...s.fearDeck,...s.fearEarned,...s.fearDiscard].includes(k)),before=s.fearDeck.length,earned=[...s.fearEarned],actor=s.queue[0]!.target!,option=choiceOptions(s).find(o=>o.label.includes('비용 확정'))!;let calls=0;const result=applySpiritAction(s,actor,{kind:'CHOOSE',choiceId:`${s.transitionId}:${s.revision}`,optionId:option.id},now,v.parse(TurnIdSchema,`turn-${++seq}`),values=>{calls++;return [...values].reverse();});assert.ok(result.ok);s=result.state;assert.equal(calls,1);assert.equal(s.fearDeck[0],unused.at(-1));assert.equal(s.fearDeck.length,before+1);assert.deepEqual(s.fearEarned,earned);assert.ok(!s.revealedFear.includes(s.fearDeck[0]!));assert.equal(s.players.reduce((n,p)=>n+p.energy,0),38);assert.equal(view(s).revealedFear.length,0);parseSpiritState(s);
 });
 for(const terror of [1,2,3] as const)test(`War addition preserves terror ${terror} and delays the next fear threshold`,()=>{
  let s=warGame();for(const l of s.lands)l.tokens.beasts=0;s.terror=terror;s.fearDeck=s.fearDeck.slice(-(terror===1?7:terror===2?4:1));const before=s.fearDeck.length;s=eventChoose(s,'격퇴');s=eventChoose(s,'에너지 1 지원 추가');s=eventChoose(s,'비용 확정');assert.equal(s.terror,terror);assert.equal(s.fearDeck.length,before+1);s=drain(s);s.queue=[step('FEAR',s.players[0]!.playerId,null,4)];settle(s);assert.equal(s.terror,terror);assert.equal(s.fearDeck.length,before);
 });
 test('War does not duplicate fear cards when every card is already in use',()=>{
- let s=warGame();for(const l of s.lands)l.tokens.beasts=0;s.fearDeck=[...SPIRIT_FEAR_KEYS];s=eventChoose(s,'격퇴');s=eventChoose(s,'에너지 1 지원 추가');s=eventChoose(s,'비용 확정');assert.equal(s.fearDeck.length,15);assert.equal(new Set(s.fearDeck).size,15);assert.ok(s.log.some(e=>e.text.includes('미사용 공포 카드 없음')));
+ let s=warGame();for(const l of s.lands)l.tokens.beasts=0;s.fearDeck=spiritFearKeys(s.settings.expansion);s=eventChoose(s,'격퇴');s=eventChoose(s,'에너지 1 지원 추가');s=eventChoose(s,'비용 확정');assert.equal(s.fearDeck.length,19);assert.equal(new Set(s.fearDeck).size,19);assert.ok(s.log.some(e=>e.text.includes('미사용 공포 카드 없음')));
 });
 test('War discards a major per board, with public cost, before choosing that board coast',()=>{
  let s=warGame(2);const major=[...s.major],minor=[...s.minor];s=eventChoose(s,'공격을 허용');assert.equal(s.queue[0]!.key,'BCE14_ATTACK');assert.equal(s.queue[0]!.tags[0],'A');assert.equal(s.queue[0]!.n,cardPower(s,major[0]!).cost);assert.ok(s.majorDiscard.includes(major[0]!));assert.deepEqual(s.minor,minor);s=drain(s);assert.ok(s.log.some(e=>e.text.includes(`B 전쟁 피해 판정 · ${cardPower(s,major[1]!).title}`)));assert.deepEqual(s.minor,minor);
@@ -916,4 +917,40 @@ test('War partial land damage never accumulates and Earth sacred defense applies
 });
 test('War still discards a major when the board has no coastal buildings',()=>{
  let s=warGame();for(const l of s.lands){if(l.coastal)l.pieces=[];l.tokens.beasts=0;}const top=s.major[0]!;s=eventChoose(s,'공격을 허용');assert.ok(s.majorDiscard.includes(top));assert.ok(!s.queue.some(e=>e.key==='BCE14_ATTACK'));s=drain(s);parseSpiritState(s);
+});
+
+function branchFearGame(key:string,level:1|2|3,n=1){const s=eventGame(n);s.queue=[];s.stage='FEAR';s.terror=level;s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'FEAR_CARD',null,[key])];return s;}
+for(const key of SPIRIT_BRANCH_FEAR_KEYS)for(const level of [1,2,3] as const)for(const n of [1,2,3,4])test(`Branch fear ${key}, terror ${level}, ${n} spirits`,()=>{
+ let s=branchFearGame(key,level,n);settle(s);s=drain(s);assert.equal(s.queue.length,0);assert.ok(s.fearDiscard.includes(key));assert.ok(s.log.some(l=>l.text.includes(`공포 수준 ${level}`)));parseSpiritState(s);
+});
+test('Expansion fear pool adds only completed cards and keeps deck size and core pool unchanged',()=>{
+ assert.deepEqual(spiritFearKeys('CORE'),[...SPIRIT_FEAR_KEYS]);assert.equal(spiritFearKeys('BRANCH_CLAW').length,19);assert.equal(new Set(spiritFearKeys('BRANCH_CLAW')).size,19);let s=setup();const result=applySpiritAction(s,s.players[0]!.playerId,{kind:'CONFIGURE',settings:{...s.settings,expansion:'BRANCH_CLAW',blightCard:true,progression:false}},now,s.transitionId,values=>[...values].reverse());assert.ok(result.ok);s=result.state;assert.equal(s.fearDeck.length,9);for(const key of SPIRIT_BRANCH_FEAR_KEYS)assert.ok(s.fearDeck.includes(key));assert.equal(chosen().fearDeck.some(k=>SPIRIT_BRANCH_FEAR_KEYS.includes(k)),false);
+});
+test('Demoralized stacks defense and Time removes it',()=>{
+ let s=branchFearGame('demoralized',3);land(s,'A1').defend=2;settle(s);assert.equal(land(s,'A1').defend,5);assert.equal(land(s,'A8').defend,3);s.stage='TIME';s=drain(apply(s,{kind:'ADVANCE'}));assert.ok(s.lands.every(l=>l.defend===0));
+});
+test('Departure selects only coastal destinations, permits declining and does not require presence',()=>{
+ let s=branchFearGame('departure',3);for(const l of s.lands)l.pieces=[];makePiece(s,land(s,'A8'),'CITY');const to=land(s,'A1'),from=land(s,to.adjacent.find(id=>!land(s,id).coastal)!);makePiece(s,from,'TOWN');makePiece(s,from,'EXPLORER');settle(s);assert.ok(choiceOptions(s).filter(o=>o.landId).every(o=>land(s,o.landId).coastal));assert.ok(choiceOptions(s).some(o=>o.label.includes('생략')));s=eventChoose(s,'A1 해안');s=drain(s);assert.equal(land(s,'A1').pieces.length,2);assert.equal(land(s,'A1').defend,4);assert.equal(land(s,from.id).pieces.length,0);
+});
+test('Pestilent level one removal is mandatory, disease-scoped and generates no destruction fear',()=>{
+ let s=branchFearGame('pestilent',1);for(const l of s.lands){l.tokens.disease=0;l.pieces=[];}land(s,'A1').tokens.disease=1;makePiece(s,land(s,'A1'),'TOWN');makePiece(s,land(s,'A2'),'TOWN');makePiece(s,land(s,'A8'),'CITY');const before=s.fear;settle(s);assert.deepEqual(choiceOptions(s).map(o=>o.landId),['A1']);s=drain(eventChoose(s,'A1'));assert.equal(land(s,'A1').pieces.length,0);assert.equal(land(s,'A2').pieces.length,1);assert.equal(s.fear,before);
+});
+test('Pestilent offers health and inland alternatives without broadening either condition',()=>{
+ const s=branchFearGame('pestilent',2);for(const l of s.lands){l.tokens.disease=0;l.pieces=[];}land(s,'A1').tokens.disease=1;makePiece(s,land(s,'A1'),'CITY');makePiece(s,land(s,'A2'),'EXPLORER');makePiece(s,land(s,'A4'),'EXPLORER');makePiece(s,land(s,'A5'),'TOWN');settle(s);const options=choiceOptions(s);assert.ok(options.some(o=>o.landId==='A1'&&o.label.includes('체력')));assert.ok(options.some(o=>o.landId==='A4'&&o.label.includes('탐험가')));assert.ok(!options.some(o=>o.landId==='A2'||o.landId==='A5'));
+});
+test('Pestilent health budget uses modified full health, not remaining health after damage',()=>{
+ let s=branchFearGame('pestilent',2);for(const l of s.lands){l.tokens.disease=0;l.pieces=[];}const l=land(s,'A1');l.tokens.disease=1;const first=makePiece(s,l,'TOWN');first.damage=1;makePiece(s,l,'TOWN');makePiece(s,land(s,'A8'),'CITY');settle(s);s=eventChoose(s,'체력 합계 최대 3');s=eventChoose(s,'마을 제거');assert.equal(s.queue[0]!.n,1);assert.ok(!choiceOptions(s).some(o=>o.label.includes('마을 제거')));s=drain(s);assert.equal(land(s,'A1').pieces.length,1);
+ const t=branchFearGame('pestilent',2);for(const l of t.lands){l.tokens.disease=0;l.pieces=[];}const a=land(t,'A1');a.tokens.disease=1;a.invaderHealth=1;makePiece(t,a,'CITY');settle(t);assert.ok(!choiceOptions(t).some(o=>o.landId==='A1'));
+});
+for(const condition of ['beasts','disease','dahan'] as const)test(`Dangerous land eligibility uses ${condition}`,()=>{
+ let s=branchFearGame('dangerous',2);for(const l of s.lands){l.tokens.beasts=0;l.tokens.disease=0;l.pieces=[];}const a=land(s,'A1');if(condition==='dahan'){makePiece(s,a,'DAHAN');makePiece(s,a,'DAHAN');}else a.tokens[condition]=1;makePiece(s,a,'TOWN');makePiece(s,land(s,'A2'),'TOWN');makePiece(s,land(s,'A8'),'CITY');settle(s);assert.deepEqual(choiceOptions(s).map(o=>o.landId),['A1']);s=drain(s);assert.ok(!land(s,'A1').pieces.some(p=>p.kind==='TOWN'));
+});
+test('Dangerous level three permits zero removal and excludes wilds and one Dahan alone',()=>{
+ const s=branchFearGame('dangerous',3);for(const l of s.lands){l.tokens.beasts=0;l.tokens.disease=0;l.pieces=[];}land(s,'A1').tokens.wilds=1;makePiece(s,land(s,'A1'),'TOWN');makePiece(s,land(s,'A2'),'DAHAN');makePiece(s,land(s,'A2'),'CITY');settle(s);assert.equal(choiceOptions(s).length,1);assert.match(choiceOptions(s)[0]!.label,/생략/);
+});
+test('Branch fear choices enforce actor and revision and hide other player options',()=>{
+ let s=branchFearGame('dangerous',3,2);land(s,'A1').tokens.beasts=1;makePiece(s,land(s,'A1'),'TOWN');settle(s);assert.match(view(s).pending!.title,/위험한 땅을 떠나다 · 공포 3/);const o=choiceOptions(s)[0]!,before=JSON.stringify(s);assert.equal(applySpiritAction(s,s.players[1]!.playerId,{kind:'CHOOSE',choiceId:`${s.transitionId}:${s.revision}`,optionId:o.id},now,s.transitionId).ok,false);assert.equal(applySpiritAction(s,s.players[0]!.playerId,{kind:'CHOOSE',choiceId:'stale',optionId:o.id},now,s.transitionId).ok,false);assert.equal(JSON.stringify(s),before);assert.deepEqual(view(s,1).pending?.options,[]);s=eventChoose(s,'선택 생략');assert.equal(s.queue[0]!.target,s.players[1]!.playerId);
+});
+test('Revealed expansion fear projects all three effects without exposing hidden deck cards',()=>{
+ const s=branchFearGame('departure',2);s.queue=[];s.fearDeck=['pestilent','dangerous'];s.revealedFear=['pestilent'];const g=view(s);assert.equal(g.revealedFear.length,1);assert.equal(g.revealedFear[0]!.name,SPIRIT_BRANCH_FEAR.pestilent.name);assert.deepEqual(g.revealedFear[0]!.effects,[...SPIRIT_BRANCH_FEAR.pestilent.effects]);assert.ok(!JSON.stringify(g.revealedFear).includes(SPIRIT_BRANCH_FEAR.dangerous.name));assert.ok(v.safeParse(SpiritPlayingProjectionSchema,g).success);
 });
