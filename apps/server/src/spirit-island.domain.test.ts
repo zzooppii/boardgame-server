@@ -2,7 +2,7 @@ import { currentInvaderStage } from './games/spirit-island/domain/branch-claw-st
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import * as v from 'valibot';
-import { SPIRIT_EVENT_KEYS, type SpiritEventKey, GameIdSchema, PlayerIdSchema, ServerTimeSchema, TurnIdSchema, SPIRITS, SPIRIT_POWERS, SpiritPlayingProjectionSchema, spiritProjectionIsConsistent, type SpiritAction, type SpiritId } from '@hangul-rummikub/shared';
+import { SPIRIT_EVENT_KEYS, type SpiritEventKey, GameIdSchema, PlayerIdSchema, ServerTimeSchema, TurnIdSchema, SPIRITS, SPIRIT_POWERS, SpiritFinishedProjectionSchema, SpiritPlayingProjectionSchema, spiritProjectionIsConsistent, type SpiritAction, type SpiritId } from '@hangul-rummikub/shared';
 import { createSpiritGame, applySpiritAction, parseSpiritState, powerOptions, type SpiritState } from './games/spirit-island/domain/game.js';
 import { projectSpirit } from './games/spirit-island/compatibility/projector.js';
 import { choiceOptions, settle, SPIRIT_FEAR_KEYS } from './games/spirit-island/domain/resolver.js';
@@ -466,7 +466,7 @@ for(const key of stageEvents)for(const stage of [1,2,3] as const)for(const n of 
  let s=eventGame(n,key);s.eventInvaderStage=stage;s=eventChoose(s,'이벤트 선택 시작');s=drain(s);assert.equal(s.queue.length,0);assert.equal(s.stage,'FEAR');parseSpiritState(s);
 });
 test('Stage events: all configured event keys are configured once; core contains none',()=>{
- const s=branchClaw();assert.deepEqual([...s.eventDeck].sort(),[...SPIRIT_EVENT_KEYS].sort());assert.equal(s.eventDeck.length,8);assert.equal(chosen().eventDeck.length,0);
+ const s=branchClaw();assert.deepEqual([...s.eventDeck].sort(),[...SPIRIT_EVENT_KEYS].sort());assert.equal(s.eventDeck.length,12);assert.equal(chosen().eventDeck.length,0);
 });
 test('Stage events: Prussia early III counts as II, real late III and empty deck count as III',()=>{
  const s=branchClaw();s.settings.adversary='PRUSSIA';s.settings.level=2;s.invaderDeck=[{stage:3,terrains:['JUNGLE','SANDS'],coastal:false},{stage:2,terrains:['MOUNTAIN'],coastal:false}];assert.equal(currentInvaderStage(s),2);s.invaderDeck.shift();assert.equal(currentInvaderStage(s),2);s.invaderDeck=[{stage:3,terrains:['JUNGLE','SANDS'],coastal:false}];assert.equal(currentInvaderStage(s),3);s.invaderDeck=[];assert.equal(currentInvaderStage(s),3);
@@ -546,4 +546,47 @@ for(const key of ['TIGHT_KNIT','WELL_PREPARED'] as const)test(`Island events: ${
 });
 test('Island events: another actor or stale revision cannot change a sacrifice plan',()=>{
  let s=eventGame(2,'TIGHT_KNIT');s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'BCE3_PROTECT',null,['B'])];settle(s);s=eventChoose(s,'현신 2개로 보호');const option=choiceOptions(s).find(o=>o.landId);assert.ok(option);const before=JSON.stringify(s),action:SpiritAction={kind:'CHOOSE',choiceId:`${s.transitionId}:${s.revision}`,optionId:option.id};assert.equal(applySpiritAction(s,s.players[1]!.playerId,action,now,s.transitionId).ok,false);assert.equal(applySpiritAction(s,s.players[0]!.playerId,{...action,choiceId:'stale'},now,s.transitionId).ok,false);assert.equal(JSON.stringify(s),before);
+});
+
+for(const key of ['ROOTS','NEW_LANDS','SURGE_INLAND','POPULATION'] as const)for(const blighted of [false,true])for(let n=1;n<=4;n++)test(`Settlement events: ${key} / blighted ${blighted} / ${n} players resolves`,()=>{
+ let s=eventGame(n,key);s.blighted=blighted;s=drain(eventChoose(s,'이벤트 선택 시작'));assert.equal(s.queue.length,0);assert.equal(s.eventIslandState,blighted?'BLIGHTED':'HEALTHY');parseSpiritState(s);if(key==='POPULATION'&&blighted&&n>1){assert.equal(s.result?.reason,'PRESENCE');assert.ok(v.safeParse(SpiritFinishedProjectionSchema,view(s)).success);}else assert.ok(v.safeParse(SpiritPlayingProjectionSchema,view(s)).success);
+});
+test('Settlement events: roots replaces inland explorer preserving strife without fear',()=>{
+ let s=eventGame(1,'ROOTS');const l=land(s,'A5');l.pieces=[];const p=makePiece(s,l,'EXPLORER');p.strife=2;const initial=s.fear;s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'BCE4_ROOTS',null,['A'])];settle(s);assert.ok(choiceOptions(s).every(o=>o.landId&&!land(s,o.landId).coastal));s=eventChoose(s,'A5');assert.equal(land(s,'A5').pieces[0]?.kind,'TOWN');assert.equal(land(s,'A5').pieces[0]?.strife,2);assert.equal(s.fear,initial);
+});
+test('Settlement events: exploration pushes only to empty adjacent lands, preserving the piece',()=>{
+ let s=eventGame(1,'NEW_LANDS');const l=land(s,'A3');l.pieces=[];const p=makePiece(s,l,'EXPLORER');p.strife=1;makePiece(s,l,'EXPLORER');s.queue=[step('SPECIAL',s.players[0]!.playerId,l.id,0,'BCE4_SEARCH')];settle(s);const options=choiceOptions(s);assert.ok(options.length);assert.ok(options.every(o=>o.landId&&land(s,o.landId).pieces.every(p=>p.kind==='DAHAN')));const o=options.find(o=>o.pieceId===p.id)!;s=eventChoose(s,o.label);s=drain(s);assert.ok(land(s,o.landId).pieces.some(q=>q.id===p.id&&q.strife===1));assert.equal(land(s,l.id).pieces.length,1);
+});
+test('Settlement events: surge stops after one move when no farther inland destination exists',()=>{
+ let s=eventGame(1,'SURGE_INLAND');const p=makePiece(s,land(s,'A3'),'TOWN');p.strife=2;s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'BCE4_SURGE',null,['A'])];settle(s);s=eventChoose(s,'A3 마을 → A4');s=eventChoose(s,'→ A4');assert.equal(s.queue[0]?.key,'BCE4_SURGE_NEXT');assert.ok(land(s,'A4').pieces.some(q=>q.id===p.id&&q.strife===2));assert.deepEqual(choiceOptions(s).map(o=>o.label),['한 번 이동으로 마치기']);s=drain(s);assert.equal(s.queue.length,0);
+});
+test('Settlement events: roots protection requires three presence and confirms all three together',()=>{
+ let s=eventGame(3,'ROOTS');s.queue=[step('SPECIAL',s.players[0]!.playerId,null,3,'BCE3_PROTECT',null,['C','INLAND'])];settle(s);s=eventChoose(s,'현신 3개로 보호');const before=JSON.stringify(s.lands);for(let i=0;i<3;i++){const o=choiceOptions(s).find(o=>o.label.includes('현신 선택'));assert.ok(o);s=eventChoose(s,o.label);if(i<2)assert.ok(!choiceOptions(s).some(o=>o.label.includes('희생 확정')));}assert.equal(JSON.stringify(s.lands),before);s=eventChoose(s,'현신 3개 희생 확정');assert.equal(s.players[2]!.destroyedPresence,3);assert.equal(s.lands.filter(l=>l.board==='C').flatMap(l=>l.presence).length,0);parseSpiritState(s);
+});
+for(const mode of ['INLAND','COAST','BUILDINGS'])test(`Settlement events: blight filter ${mode}`,()=>{
+ const s=eventGame();s.queue=[step('SPECIAL',s.players[0]!.playerId,null,2,'BCE3_BLIGHT',null,['A',mode])];settle(s);const expected=s.lands.filter(l=>l.board==='A'&&(mode==='INLAND'?!l.coastal:mode==='COAST'?l.coastal:l.pieces.some(p=>p.kind==='TOWN'||p.kind==='CITY')||l.adjacent.some(id=>land(s,id).pieces.some(p=>p.kind==='TOWN'||p.kind==='CITY')))).map(l=>l.id);assert.deepEqual(choiceOptions(s).map(o=>o.landId),expected);
+});
+test('Settlement events: empty boards are excluded from roots and devastated shores blight',()=>{
+ for(const key of ['ROOTS','NEW_LANDS'] as const){let s=eventGame(2,key);s.blighted=true;for(const l of s.lands.filter(l=>l.board==='A'))l.pieces=l.pieces.filter(p=>p.kind==='DAHAN');s=eventChoose(s,'이벤트 선택 시작');assert.equal(s.queue[0]?.tags[0],'B');assert.equal(s.queue.filter(e=>e.key==='BCE3_PROTECT').length,1);}
+});
+test('Settlement events: power fade removes blight from supply and total, never from land',()=>{
+ let s=eventGame(1,'POPULATION');s.blighted=true;s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'BCE4_FADE',s.players[0]!.playerId)];settle(s);const before=JSON.stringify(s.lands),pool=s.blightPool,total=s.blightTotal;s=eventChoose(s,'게임에서 제거');assert.equal(s.blightPool,pool-1);assert.equal(s.blightTotal,total-1);assert.equal(JSON.stringify(s.lands),before);parseSpiritState(s);
+});
+test('Settlement events: power fade forgets two distinct powers and preserves card conservation',()=>{
+ let s=eventGame(1,'POPULATION');s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'BCE4_FADE',s.players[0]!.playerId)];settle(s);const before=s.players[0]!.hand.length;s=eventChoose(s,'능력 2장');s=drain(s);assert.equal(s.players[0]!.hand.length,before-2);parseSpiritState(s);
+});
+test('Settlement events: fade supply exhaustion causes loss and cannot borrow another spirit presence',()=>{
+ let s=eventGame(1,'POPULATION');s.blighted=true;s.blightTotal-=s.blightPool-1;s.blightPool=1;s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'BCE4_FADE',s.players[0]!.playerId),step('CHECK',s.players[0]!.playerId)];settle(s);assert.ok(!choiceOptions(s).some(o=>o.label==='내 현신 2개 파괴'));s=eventChoose(s,'게임에서 제거');assert.equal(s.result?.reason,'BLIGHT');parseSpiritState(s);
+});
+test('Settlement events: sandfever counts only mountains and sands, including ties',()=>{
+ const s=eventGame(1,'POPULATION');for(const l of s.lands)l.pieces=[];makePiece(s,land(s,'A1'),'TOWN');makePiece(s,land(s,'A4'),'CITY');for(let i=0;i<4;i++)makePiece(s,land(s,'A5'),'CITY');s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'BCE4_SANDFEVER',null,['A'])];settle(s);assert.deepEqual(choiceOptions(s).map(o=>o.landId),['A1','A4']);
+});
+test('Settlement events: distant hunt respects blight and retains Fangs presence-follow',()=>{
+ let s=branchClaw('FANGS');const from=s.lands.find(l=>presence(l,s.players[0]!.playerId)>0&&l.tokens.beasts>0)!;s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'BCE4_HUNT',null,[from.board])];settle(s);const o=choiceOptions(s).find(o=>o.label.startsWith(from.id));assert.ok(o);assert.equal(land(s,o.landId).blight,0);s=eventChoose(s,o.label);assert.equal(s.queue[0]?.key,'FOLLOW_DAHAN');s=drain(s);parseSpiritState(s);
+});
+test('Settlement events: grim toll damages both sides before the Dahan defense event',()=>{
+ let s=eventGame(1,'SURGE_INLAND');const l=land(s,'A5');l.pieces=[];l.tokens.disease=1;makePiece(s,l,'TOWN');makePiece(s,l,'DAHAN');s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'BCE4_GRIM',null,['A']),step('SPECIAL',s.players[0]!.playerId,null,0,'BCE4_DAHAN')];settle(s);s=eventChoose(s,'A5');s=drain(s);assert.equal(land(s,'A5').pieces.length,0);assert.ok(s.flags.includes('event-canny'));assert.equal(land(s,'A5').tokens.disease,1);
+});
+test('Settlement events: each spirit can choose forgetting independently and continue after power fade',()=>{
+ let s=eventGame(2,'POPULATION');s.blighted=true;s=eventChoose(s,'이벤트 선택 시작');let choices=0;while(s.queue.length&&s.phase==='PLAYING'){const options=choiceOptions(s),fade=s.queue[0]?.key==='BCE4_FADE';const option=fade?options.find(o=>o.label==='내 능력 2장 망각'):options[0];assert.ok(option);if(fade)choices++;s=eventChoose(s,option.label);}assert.equal(choices,2);assert.equal(s.phase,'PLAYING');assert.ok(s.players.every(p=>p.hand.length===2));parseSpiritState(s);
 });
