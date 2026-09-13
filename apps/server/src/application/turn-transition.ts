@@ -120,7 +120,7 @@ export function toScheduledTurnDeadline(
       return {roomId,gameId:game.gameId,expectedGameRevision:game.gameRevision,turnId:game.state.transitionId,deadlineAt:game.state.deadlineAt};
     }
     if (game.state.rulesVersion === "clue-bonus-manor-v2") throw new Error("Clue has no turn deadline.");
-    if (game.state.rulesVersion === "terrorscape-base-v2") throw new Error("Terrorscape has no turn deadline.");
+    if ("killerRevision" in game.state) throw new Error("Terrorscape has no turn deadline.");
     if (game.state.rulesVersion === "saboteur-base-2025-v1") {
       if (game.state.deadlineAt === null) throw new Error("Saboteur deadline missing.");
       return {roomId,gameId:game.gameId,expectedGameRevision:game.gameRevision,turnId:game.state.transitionId,deadlineAt:game.state.deadlineAt};
@@ -213,7 +213,7 @@ export async function scheduleCurrentTurnBestEffort(
       if (game.state.rulesVersion === "love-letter-21-v1") return false;
       if (game.state.rulesVersion === "guryongtu-base-v1") return false;
       if (game.state.rulesVersion === "clue-bonus-manor-v2") return false;
-      if (game.state.rulesVersion === "terrorscape-base-v2") return false;
+      if ("killerRevision" in game.state) return false;
       if (game.state.rulesVersion === "saboteur-base-2025-v1" || game.state.rulesVersion === "azul-base-v1" || game.state.rulesVersion === "vegas-base-v1" || game.state.rulesVersion === "carcassonne-base72-v1" || game.state.rulesVersion === "burgundy-anniversary-2019-v1") {
         if (game.state.deadlineAt === null || game.state.transitionId !== identity.turnId) return false;
       } else if ("startingPlayerId" in game.state) return false;

@@ -39,3 +39,16 @@ Music and interaction sounds are an original procedural Web Audio composition in
 최종 국소 수정 프롬프트:
 
 > Make ONLY two architectural corrections to this exact image, preserving every other pixel's content and same framing/art style. 1. Find the tiny square room with a writing desk directly LEFT of the grand piano and directly ABOVE the library/study room. It is in the very CENTER of the image. DEMOLISH its LEFT vertical wall. Remove ALL furniture inside that tiny square desk room. Replace its floor with the exact same black-and-white diamond checker tiles as the diagonal corridor immediately to its left. These two spaces now form ONE OPEN continuous corridor, with no wall or partition between them. Keep the tiny room's TOP and BOTTOM walls; only its LEFT wall disappears. The entire tiny square becomes empty checker tile corridor. 2. Restore the vertical wall along the LEFT edge of the piano ballroom: extend the existing vertical stone wall on the left of the piano UPWARD until it meets the bottom wall of the kitchen above. It must separate the dining room on the left from the ballroom on the right, crossing the horizontal red rug and checker floor currently joining them. Change nothing else, no new rooms, no new walls anywhere else, no new furniture. Preserve all outdoor gardens, kitchen, storage, living room, art gallery, main hall, study and library exactly. No text, no labels.
+
+## Feral Instincts 자산 (2026-09-14)
+
+- `feral-atlas.webp`: 원본 공포 일러스트 4×4 atlas. 행 순서대로 늑대인간 / 사냥꾼 / 은 단검 / 은 탄환, Howl / Savage Bite / Blood Hunt / Territorial Awareness, Hyper-hearing / Hunting Instinct / Axe Throw / Bated Breath, Tracking / Traps Reset / 여행 가방 / 보물 상자. 내장 image_gen으로 기존 인물 화풍을 참고해 생성했다. 원본 `exec-6d5e7329-ee98-43a7-8d70-69aaff9b6e16.png`.
+- `cabin-floorplan.webp`: 침엽수 숲·호숫가·캠프와 지붕 없는 오두막의 연속 평면도. 코드로 그린 좌표 가이드와 기존 저택 화풍을 참고해 내장 image_gen으로 생성/편집했다. 최종 원본 `exec-e47530a1-bafd-4cc1-822e-04125bf3d808.png`, 1586×992, WebP 품질88로 형식 변환. 생성 결과의 벽에 `cabin-layout.ts`의 표시 좌표를 맞췄고, 규칙상 연결은 공유 지도 그래프로 별도 검증한다. 원본 제품 지도나 카드 스캔을 배포하지 않는다.
+
+원본 PNG는 로컬 생성 디렉터리에 보존한다. 생성 프롬프트 구성:
+
+> Original painted gothic horror atlas, exact four by four equal square cells, no text or borders. Werewolf and huntress portraits, silver weapons and ten hunting skill scenes, suitcase and treasure chest. Dark teal moonlight, copper candle highlights, readable silhouettes and worn materials consistent with existing character artwork. No published component scans.
+
+> Strict orthographic top-down roofless forest cabin board, preserve the coordinate guide's relative rooms and outdoor paths. Detailed dark pine woods, misty lakeside, candlelit rooms and campfires. Continuous painted gothic horror illustration matching the existing manor palette. No labels, characters, tokens, UI or door symbols. Keep game room, two bedrooms, conference room, reception, separate lakeview house and northern cabin; preserve the same framing when editing.
+
+늑대 울음·금속 함정 효과음은 `sound.ts`에서 합성하며 외부 녹음 파일을 사용하지 않는다.

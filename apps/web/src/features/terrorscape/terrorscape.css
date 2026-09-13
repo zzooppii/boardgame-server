@@ -10,7 +10,7 @@
 
 .tsc-route-tools{padding:8px 16px 14px;display:flex;gap:10px;flex-wrap:wrap}.tsc-route-tools label{flex-direction:row;align-items:center;font-size:10px}.tsc-route-tools input{accent-color:var(--tsc-green)}.tsc-route-tools button{font-size:10px;padding:5px 9px}
 
-@media(max-width:760px){.tsc-map-scroll::before{content:"↔ 좌우로 밀어 저택 전체를 보세요";display:block;position:sticky;left:0;padding:10px 14px;color:var(--tsc-muted);font-size:10px;border-bottom:1px solid var(--tsc-line);background:#122021}}
+@media(max-width:760px){.tsc-map-scroll::before{content:"↔ 좌우로 밀어 지도 전체를 보세요";display:block;position:sticky;left:0;padding:10px 14px;color:var(--tsc-muted);font-size:10px;border-bottom:1px solid var(--tsc-line);background:#122021}}
 
 .tsc-aux-art{background-image:url('/images/terrorscape/skills.webp');background-size:300% 300%;border-radius:4px}.tsc-skill-art.tsc-aux-art{height:auto;aspect-ratio:1.2}
 
@@ -25,3 +25,9 @@
 
 /* Killer: larger angular red frame and a text badge, distinct without relying on color. */
 .tsc-token-face{position:relative;width:100%;line-height:0}.tsc-floor-killer .tsc-portrait{width:64px;height:60px;border-radius:14px 14px 22px 22px;border:5px solid #ff695b;box-shadow:0 0 0 3px #350d14,0 0 17px 5px #ec28388c,0 5px 8px #000c}.tsc-killer-tag{position:absolute;top:40px;left:0;width:64px;padding:4px 0 5px;border:2px solid #ff9580;border-radius:4px;background:#820f25;color:#fff5e6;text-align:center;font-size:15px;font-weight:900;line-height:1;letter-spacing:1px;box-shadow:0 3px 5px #000b}
+
+.tsc-map-effects{pointer-events:none}.tsc-map-effect{--effect:#9ef2cf;animation:tsc-event-fade 2.8s ease-out both}.tsc-effect-NOISE{--effect:#ffb36b}.tsc-effect-SENSE{--effect:#b4a0ff}.tsc-effect-ATTACK,.tsc-effect-HURT,.tsc-effect-REVEAL{--effect:#ff6b67}.tsc-effect-FEAR{--effect:#d4a1ec}.tsc-map-effect>polygon{fill:color-mix(in srgb,var(--effect) 15%,transparent);stroke:var(--effect);stroke-width:8;stroke-linejoin:round}.tsc-map-effect rect{fill:#132123;stroke:var(--effect);stroke-width:2}.tsc-map-effect text{fill:var(--effect);font-size:16px;font-weight:800}.tsc-door-feedback .tsc-door-plank{stroke:#ffb36b;stroke-width:8;filter:drop-shadow(0 0 6px #ffb36b)}.tsc-feedback-feed:empty{display:none}.tsc-feedback-feed{padding:9px 14px;background:#111f20;border-block:1px solid #51635b}.terror-screen .tsc-feedback-entry{font-size:12px;color:var(--effect,#d9e8dc);line-height:1.7}@keyframes tsc-event-fade{0%{opacity:0}12%,72%{opacity:1}100%{opacity:0}}
+@media(prefers-reduced-motion:reduce){.tsc-map-effect{animation:none}}
+.tsc-hunt-trap{pointer-events:none}.tsc-hunt-trap rect{fill:#352532;stroke:#d498b0;stroke-width:2}.tsc-hunt-trap text{fill:#ffe1ed;font-size:18px;font-weight:700}.tsc-floor-cache{fill:#ffe2a0;font-size:19px;text-anchor:middle;paint-order:stroke;stroke:#18231b;stroke-width:5}.tsc-trap-placement{display:flex;flex-wrap:wrap;gap:12px;padding:16px;border:1px solid #85536b;border-radius:10px;background:#281e23}.tsc-trap-placement p{flex-basis:100%;margin:0}.tsc-trap-placement label{min-width:150px;flex:1}.tsc-trap-placement select{width:100%}
+.tsc-effect-TRAP{--cue-color:#e7a0bf}
+.tsc-cabin-map .tsc-floor-label text{font-size:17px}.tsc-cabin-map .tsc-floor-code{font-size:14px}

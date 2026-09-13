@@ -1,6 +1,8 @@
+import {terrorFeedback} from '../features/terrorscape/feedback.js';
 import {ManorMap} from '../features/terrorscape/ManorMap.js';
+import {CABIN_ROOMS,CABIN_DOORS,CABIN_OUTDOOR} from '../features/terrorscape/cabin-layout.js';
 import {MANOR_ROOMS,MANOR_DOORS,MANOR_OUTDOOR} from '../features/terrorscape/manor-layout.js';
-import {TERROR_DOORS,TERROR_PATHS,TERROR_ROOMS,TERROR_ROOM_INFO,terrorEdge} from '@hangul-rummikub/shared';
+import {terrorBoard,terrorAdjacent,terrorDistance,TERROR_DOORS,TERROR_PATHS,TERROR_ROOMS,TERROR_ROOM_INFO,terrorEdge} from '@hangul-rummikub/shared';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {createElement} from 'react';
@@ -50,4 +52,31 @@ test('Terrorscape map: all rooms and doors are keyboard targets; private positio
 
 test('Terrorscape map: every visible killer has a distinct badge; hidden positions have no marker',()=>{
  for(const killerType of ['BUTCHER','SPECTRE','MURDERER'] as const){const s=playing();s.game.killerType=killerType;assert.match(render(s),/tsc-floor-token tsc-floor-killer/);assert.equal((render(s).match(/class="tsc-killer-tag"/g)??[]).length,1);assert.match(render(s),/class="tsc-killer-tag">살인자/);s.game.killerLocation=null;assert.doesNotMatch(render(s),/tsc-floor-killer|tsc-killer-tag/);}
+});
+
+
+test('Terrorscape feedback: visible moves, noise and doors are located; snapshots and hidden actions are silent',()=>{
+ const before=playing().game,after=structuredClone(before);after.gameRevision=parse(TerrorscapePlayingPlatformSnapshotV2Schema,{...playing(),game:{...after,gameRevision:3}}).game.gameRevision;
+ if(after.privateState.role!=='SURVIVOR')throw new Error('fixture');after.privateState.team.survivors[0]!.location='B1';after.noises=['R2'];after.blocks=['B1-B2'];
+ const events=terrorFeedback(before,after);assert.deepEqual(events.find(e=>e.kind==='MOVE')?.rooms,['B1']);assert.deepEqual(events.find(e=>e.kind==='NOISE')?.rooms,['R2']);assert.equal(events.find(e=>e.kind==='BLOCK')?.edge,'B1-B2');
+ assert.deepEqual(terrorFeedback(null,after),[]);assert.deepEqual(terrorFeedback(after,after),[]);assert.deepEqual(terrorFeedback(after,before),[]);
+ const killer=playing(true).game;assert.deepEqual(terrorFeedback(killer,{...killer,gameRevision:after.gameRevision}),[]);
+});
+test('Terrorscape feedback: sensing never invents a precise location; hurt reveals no hidden room',()=>{
+ const before=playing(true).game,after=structuredClone(before);after.gameRevision=parse(TerrorscapePlayingPlatformSnapshotV2Schema,{...playing(true),game:{...after,gameRevision:3}}).game.gameRevision;
+ after.sensed=[{kind:'ZONE',character:'WILLIAM',zone:'B'}];after.conditions[1]!.injuries=1;
+ const events=terrorFeedback(before,after);assert.deepEqual(events.find(e=>e.kind==='SENSE')?.rooms,['B1','B2','B3','B4','B5']);assert.deepEqual(events.find(e=>e.kind==='HURT')?.rooms,[]);
+ after.sensed=[{kind:'PAIR',character:'WILLIAM',rooms:['B1','R1']}];assert.deepEqual(terrorFeedback(before,after).find(e=>e.kind==='SENSE')?.rooms,['B1','R1']);
+ after.killerLocation=null;after.stealthOrigin='G5';assert.ok(!terrorFeedback(before,after).some(e=>e.kind==='MOVE'||e.kind==='REVEAL'));
+ const appeared={...after,killerLocation:'B3' as const,gameRevision:parse(TerrorscapePlayingPlatformSnapshotV2Schema,{...playing(true),game:{...after,killerLocation:'B3',gameRevision:4}}).game.gameRevision};assert.deepEqual(terrorFeedback(after,appeared).find(e=>e.kind==='REVEAL')?.rooms,['B3']);
+});
+
+test('Feral Cabin UI: every door and outdoor connection matches the board and killer passage stays out of range',()=>{
+ const board=terrorBoard('CABIN');assert.deepEqual(Object.keys(CABIN_ROOMS).sort(),[...TERROR_ROOMS].sort());assert.deepEqual(Object.keys(CABIN_DOORS).sort(),board.doors.map(([a,b])=>terrorEdge(a,b)).sort());assert.deepEqual(Object.keys(CABIN_OUTDOOR).sort(),board.paths.map(([a,b])=>terrorEdge(a,b)).sort());
+ for(const [a,b] of board.doors)for(const r of [a,b]){const points=CABIN_ROOMS[r].polygon.split(' ').map(p=>p.split(',').map(Number)),at=CABIN_DOORS[terrorEdge(a,b)]!.at;assert.ok(points.some((p,i)=>{const q=points[(i+1)%points.length]!,dx=q[0]!-p[0]!,dy=q[1]!-p[1]!,t=Math.max(0,Math.min(1,((at[0]-p[0]!)*dx+(at[1]-p[1]!)*dy)/(dx*dx+dy*dy)));return Math.hypot(at[0]-p[0]!-t*dx,at[1]-p[1]!-t*dy)<.1;}),`${a}-${b} touches ${r}`);}
+ assert.equal(terrorAdjacent('G2','R5','CABIN'),false);assert.equal(terrorAdjacent('G2','R5','CABIN',true),true);assert.ok(terrorDistance('G2','R5','CABIN')>2);
+});
+test('Feral UI: cabin artwork, expansion cast, private traps and silver defense render from viewer projections',()=>{
+ const s=playing();s.game.map='CABIN';s.game.rulesVersion='terrorscape-feral-v2';s.game.killerType='HUNTRESS';s.game.huntingTrapRooms=['R3','G4','B2','B3'];const html=render(s);assert.match(html,/cabin-floorplan.webp/);assert.match(html,/오두막 평면도/);assert.match(html,/feral-atlas.webp/);assert.match(html,/\? 함정/);assert.doesNotMatch(html,/NET_A|NET_B|그물 1|곰덫/);assert.match(html,/호숫가에서 수리/);assert.equal((html.match(/class="tsc-floor-door/g)??[]).length,13);
+ const setup=playing(true);setup.game.phase='SETUP';assert.match(render(setup),/Feral Instincts/);assert.match(render(setup),/늑대인간/);assert.match(render(setup),/사냥꾼/);
 });

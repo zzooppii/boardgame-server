@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import * as v from 'valibot';
-import {GameIdSchema,PlayerIdSchema,TileIdSchema,TurnIdSchema,ServerTimeSchema,TerrorscapeActionSchema,TERROR_TRAITS,TERROR_TRAIT_INFO,TERROR_PLANS,TERROR_PLAN_INFO,type TerrorTrait,type TerrorPlan,TERROR_CHARACTERS,TERROR_DOORS,TERROR_SKILL_INFO,terrorEdge,terrorAdjacent,type TerrorscapeAction,type TerrorCharacter,type TerrorItem,type TerrorSkill} from '@hangul-rummikub/shared';
+import {GameIdSchema,PlayerIdSchema,TileIdSchema,TurnIdSchema,ServerTimeSchema,TerrorscapeActionSchema,TERROR_TRAITS,TERROR_TRAIT_INFO,TERROR_PLANS,TERROR_PLAN_INFO,type TerrorTrait,type TerrorPlan,type TerrorKiller,type TerrorMap,terrorBoard,TERROR_CHARACTERS,TERROR_ROOMS,TERROR_DOORS,TERROR_SKILL_INFO,terrorEdge,terrorAdjacent,terrorPaths,type TerrorscapeAction,type TerrorCharacter,type TerrorItem,type TerrorSkill} from '@hangul-rummikub/shared';
 import {createTerrorscapeGame,makeTerrorscapeCards,applyTerrorscapeAction,parseTerrorscapeState,cancelTerrorscape,type TerrorscapeState} from './games/terrorscape/domain/game.js';
 import {projectTerrorscape} from './games/terrorscape/compatibility/projector.js';
 const now=v.parse(ServerTimeSchema,1000);let seq=0;
@@ -69,7 +69,7 @@ test('Terrorscape: killer may forfeit one or both basic actions without drawing 
  }
 });
 
-function castGame(killer:'BUTCHER'|'SPECTRE'|'MURDERER',characters:TerrorCharacter[]=['ANNA','WILLIAM','MARCO'],n=2){let s=game(n);s=act(s,{type:'SET_CAST',killer,characters});return act(s,{type:'BEGIN_HUNT'});}
+function castGame(killer:TerrorKiller,characters:TerrorCharacter[]=['ANNA','WILLIAM','MARCO'],n=2,map:TerrorMap='MANOR'){let s=game(n);if(map!=='MANOR')s=act(s,{type:'SET_MAP',map});s=act(s,{type:'SET_CAST',killer,characters});if(killer==='HUNTRESS'){const rooms=TERROR_ROOMS.filter(r=>terrorBoard(map).rooms[r].search||r===terrorBoard(map).radio);s=act(s,{type:'SET_TRAPS',placements:([{trap:'NET_A',room:rooms[0]!},{trap:'NET_B',room:rooms[1]!},{trap:'SKULL',room:rooms[2]!},{trap:'BEAR',room:rooms[3]!}])});}return act(s,{type:'BEGIN_HUNT'});}
 test('Terrorscape base: all killer and survivor combinations preserve cards and setup hides reserves',()=>{
  for(const killer of ['BUTCHER','SPECTRE','MURDERER'] as const)for(let i=0;i<3;i++)for(let j=i+1;j<4;j++)for(let k=j+1;k<5;k++){
   const s=castGame(killer,[TERROR_CHARACTERS[i]!,TERROR_CHARACTERS[j]!,TERROR_CHARACTERS[k]!],4);
@@ -214,4 +214,94 @@ test('Terrorscape: paid skills discard costs before the played card and Molotov 
 
 test('Terrorscape: connected tunnels apply to flashlights and Sophia retains her extra action',()=>{
  let s=castGame('SPECTRE',['SOPHIA','JOHNSON','WILLIAM']);completePlan(s,'TUNNELS');const flash=give(s,'SOPHIA','FLASHLIGHT');s.survivors[0]!.location='B1';s.survivors[0]!.acted=true;s=teamAct(s,{type:'ITEM',character:'SOPHIA',cardId:flash.cardId,target:'SOPHIA',destination:'G5',edge:''},'SOPHIA');assert.equal(s.survivors[0]!.location,'G5');s=teamAct(s,planAction('SOPHIA',{destination:'G2'}),'SOPHIA');assert.equal(s.survivors[0]!.location,'G2');assert.ok(s.survivors[0]!.hand.some(c=>c.cardId===flash.cardId));
+});
+
+// Runs complete games using legal commands only; no canonical state is patched.
+test('Terrorscape full play: every base and Feral cast on both maps with 2–4 players reaches a legal ending and preserves viewer privacy',()=>{
+ for(const map of ['MANOR','CABIN'] as const)for(const killer of ['BUTCHER','SPECTRE','MURDERER','WEREWOLF','HUNTRESS'] as const)for(const players of [2,3,4])for(let i=0;i<3;i++)for(let j=i+1;j<4;j++)for(let k=j+1;k<5;k++){
+  let s=castGame(killer,[TERROR_CHARACTERS[i]!,TERROR_CHARACTERS[j]!,TERROR_CHARACTERS[k]!],players,map),commands=0;
+  const step=(action:TerrorscapeAction,character?:TerrorCharacter)=>{const before=s;s=character?teamAct(s,action,character,{nextInt:()=>0}):act(s,action,s.killerPlayerId,{nextInt:()=>0});commands++;assert.ok(s.revision>before.revision);assert.deepEqual(parseTerrorscapeState(s),s);for(let viewer=0;viewer<players;viewer++){const view=projection(s,viewer),json=JSON.stringify(view);if(view.privateState.role==='KILLER'){assert.ok(!('team' in view.privateState));for(const card of [...s.searchDeck,...s.discoverDeck,...s.survivors.flatMap(p=>p.hand)])assert.equal(json.includes(card.cardId),false);}else for(const card of [...s.hand,...s.killerDeck])assert.equal(json.includes(card.cardId),false);}};
+  while(!s.result&&commands<160){
+   switch(s.phase){
+    case 'SURVIVORS':{const unacted=s.survivors.find(p=>!p.acted);if(unacted){step(basic(unacted.character),unacted.character);break;}const unready=s.survivors.find(p=>!p.ready);if(unready){step({type:'READY',character:unready.character,ready:true},unready.character);break;}const p=s.survivors[0]!;step({type:'DISCOVER',character:p.character},p.character);break;}
+    case 'LOOT':step({type:'KEEP',cardId:null},s.loot!.character);break;
+    case 'FAST':case 'SLOW':case 'KILLER_END':step({type:'KILLER_NEXT'});break;
+    case 'MAIN':{const next=terrorPaths(s.killerLocation,15,[],map,true).get('R1')?.[0];step({type:'KILLER_BASIC',kind:s.killerLocation==='R1'?'SEARCH':'MOVE',destination:next??'R1'});break;}
+    case 'ATTACK':step({type:'ATTACK_CARD',cardId:null});break;
+    case 'DEFENDER':{const c=s.encounter!.targets.find(c=>!s.encounter!.attacked.includes(c))!;step({type:'DEFENDER',character:c},c);break;}
+    case 'DEFEND':step({type:'DEFEND',cardId:null},s.encounter!.defender!);break;
+    case 'FLEE':{const c=s.encounter!.fleePending[0]!;step({type:'FLEE',character:c,destination:s.survivors.find(p=>p.character===c)!.location},c);break;}
+    case 'REACTION':step({type:'FEAR_REACTION',cost:[]});break;
+    case 'UNLOCK':step({type:'UNLOCK_DISCARD',cardId:s.hand[0]!.cardId});break;
+    default:assert.fail(`Unhandled full-play phase: ${s.phase}`);
+   }
+  }
+  assert.equal(s.result?.reason,'KILLED',`${killer}/${players}/${i}${j}${k} after ${commands} commands`);assert.deepEqual(s.result.winnerPlayerIds,[s.killerPlayerId]);
+ }
+});
+
+test('Terrorscape full play: repair and rescue finish legally across all base killers and player counts',()=>{
+ for(const killer of ['BUTCHER','SPECTRE','MURDERER'] as const)for(const players of [2,3,4]){
+  let s=castGame(killer,['SOPHIA','JOHNSON','WILLIAM'],players),commands=0;
+  const step=(a:TerrorscapeAction,c?:TerrorCharacter)=>{s=c?teamAct(s,a,c):act(s,a);commands++;parseTerrorscapeState(s);for(let viewer=0;viewer<players;viewer++)projection(s,viewer);};
+  while(!s.result&&commands<220){switch(s.phase){
+   case 'SURVIVORS':{const p=s.survivors.find(p=>!p.acted);if(p){step(p.location!=='B1'?{...basic(p.character,'MOVE'),path:['B1']}:basic(p.character,!s.repaired&&s.repair<5?'REPAIR':'CALM'),p.character);break;}const unready=s.survivors.find(p=>!p.ready);if(unready){step({type:'READY',character:unready.character,ready:true},unready.character);break;}step({type:'DISCOVER',character:'JOHNSON'},'JOHNSON');break;}
+   case 'LOOT':step({type:'KEEP',cardId:null},s.loot!.character);break;
+   case 'FAST':case 'MAIN':case 'SLOW':step({type:'KILLER_NEXT'});break;
+   case 'UNLOCK':step({type:'UNLOCK_DISCARD',cardId:s.hand[0]!.cardId});break;
+   case 'LEVEL_BLOCK':{const edge=TERROR_DOORS.map(([a,b])=>terrorEdge(a,b)).find(e=>!s.blocks.includes(e))!;step({type:'LEVEL_BLOCK',edge,replaces:s.blocks.length===7?[s.blocks[0]!]:[]});break;}
+   default:assert.fail(`Unhandled rescue phase: ${s.phase}`);
+  }}
+  assert.equal(s.result?.reason,'RESCUED');assert.equal(s.repair,5);assert.deepEqual(s.result.winnerPlayerIds,s.players.filter(p=>p.playerId!==s.killerPlayerId).map(p=>p.playerId));
+ }
+});
+
+function feral(killer:'WEREWOLF'|'HUNTRESS',map:'MANOR'|'CABIN'='CABIN',begin=true){let s=game(4);s=act(s,{type:'SET_MAP',map});s=act(s,{type:'SET_CAST',killer,characters:['ANNA','WILLIAM','SOPHIA']});if(killer==='HUNTRESS')s=act(s,{type:'SET_TRAPS',placements:map==='CABIN'?[{trap:'NET_A',room:'R3'},{trap:'NET_B',room:'G4'},{trap:'SKULL',room:'B2'},{trap:'BEAR',room:'B3'}]:[{trap:'NET_A',room:'R2'},{trap:'NET_B',room:'G4'},{trap:'SKULL',room:'B4'},{trap:'BEAR',room:'B1'}]});return begin?act(s,{type:'BEGIN_HUNT'}):s;}
+test('Feral: setup conserves 114 unique cards, all map/killer combinations remain independent',()=>{
+ for(const map of ['MANOR','CABIN'] as const)for(const killer of ['WEREWOLF','HUNTRESS'] as const){const s=feral(killer,map);parseTerrorscapeState(s);assert.equal(s.rulesVersion,'terrorscape-feral-v2');assert.equal(s.hand.length+s.killerDeck.length+Number(!!s.locked),13);assert.equal(s.specialDeck.length,killer==='WEREWOLF'?4:0);assert.equal(s.huntTraps.length,killer==='HUNTRESS'?4:0);for(let i=0;i<4;i++){const json=JSON.stringify(projection(s,i));for(const c of [...s.reserveItems,...s.reserveSkills,...s.specialDeck])assert.equal(json.includes(c.cardId),false);}}
+ let s=game(4);s=act(s,{type:'SET_CAST',killer:'HUNTRESS',characters:['ANNA','WILLIAM','MARCO']});rejected(s,{type:'BEGIN_HUNT'});rejected(s,{type:'SET_TRAPS',placements:[{trap:'NET_A',room:'R2'},{trap:'NET_A',room:'B4'},{trap:'SKULL',room:'G4'},{trap:'BEAR',room:'B1'}]});
+});
+test('Feral Cabin: killer-only passage affects movement but not range; survivors cannot cross',()=>{
+ let s=feral('WEREWOLF');s.survivors[0]!.location='G2';rejected(s,{...basic('ANNA','MOVE'),path:['R5']},s.survivors[0]!.playerId);s.phase='MAIN';s.killerLocation='G2';s=act(s,{type:'KILLER_BASIC',kind:'MOVE',destination:'R5'});assert.equal(s.killerLocation,'R5');
+ s.phase='FAST';s.survivors[0]!.location='G2';s=act(s,{...skill(s,'HOWL'),path:['R3']});assert.equal(s.survivors[0]!.fear,0,'killer passage must not shorten fear range');
+ s=feral('WEREWOLF');s.survivors[2]!.location='R5';s=teamAct(s,{type:'PASSAGE',character:'SOPHIA'},'SOPHIA');assert.equal(s.survivors[2]!.location,'B2');
+});
+test('Feral Cabin: suitcase extra action, noisy card, key pooling, reuse and repair symbol',()=>{
+ let s=feral('WEREWOLF');s.survivors[0]!.location='R4';const key=s.discoverDeck.find(c=>c.key==='KEY')!;s.discoverDeck=s.discoverDeck.filter(c=>c!==key);s.discoverDeck.push(key);s=teamAct(s,{type:'OPEN_CACHE',character:'ANNA',kind:'SUITCASE'});assert.equal(s.keys.length,1);assert.equal(s.suitcase,false);assert.equal(s.survivors[0]!.acted,false);assert.ok(s.pendingNoises.includes('R4'));rejected(s,{type:'OPEN_CACHE',character:'ANNA',kind:'SUITCASE'},s.survivors[0]!.playerId);
+ s.survivors[0]!.location='B1';rejected(s,basic('ANNA','REPAIR'),s.survivors[0]!.playerId);s.survivors[0]!.location='B3';s=teamAct(s,basic('ANNA','REPAIR'));assert.equal(s.repair,1);s.phase='SLOW';s=act(s,{type:'KILLER_NEXT'});assert.equal(s.suitcase,true);
+});
+test('Feral Werewolf: treasure collection and silver weapons are private and conserve cards',()=>{
+ let s=feral('WEREWOLF');s.survivors[0]!.location='R5';const before=projection(s,0);s=teamAct(s,{type:'OPEN_CACHE',character:'ANNA',kind:'TREASURE'});assert.equal(s.survivors[0]!.hand.length,1);assert.equal(s.survivors[0]!.acted,false);assert.equal(s.specialDeck.length,3);assert.deepEqual(projection(s,0),before);rejected(s,{type:'OPEN_CACHE',character:'ANNA',kind:'TREASURE'},s.survivors[0]!.playerId);
+ for(const key of ['SILVER_DAGGER','SILVER_BULLETS'] as const){s=feral('WEREWOLF');const c=s.specialDeck.find(c=>c.key===key)!;s.specialDeck=s.specialDeck.filter(x=>x!==c);s.survivors[0]!.hand.push(c);if(key==='SILVER_BULLETS')give(s,'ANNA','REVOLVER');s.phase='MAIN';s.killerLocation='R1';s=act(s,{type:'KILLER_BASIC',kind:'SEARCH',destination:'R1'});s=act(s,{type:'ATTACK_CARD',cardId:null});s=teamAct(s,{type:'DEFENDER',character:'ANNA'});s=teamAct(s,{type:'DEFEND',cardId:c.cardId},'ANNA',{nextInt:()=>1});assert.equal(s.defenseTotal,key==='SILVER_DAGGER'?9:20);assert.equal(s.survivors[0]!.hand.some(x=>x.cardId===c.cardId),key==='SILVER_DAGGER');}
+});
+test('Feral Werewolf: hyper-hearing nearest noise, current noise, mandatory howl and blood hunt movement',()=>{
+ let s=feral('WEREWOLF','MANOR');s.level=2;s.hand.push(s.locked!);s.locked=null;s.phase='FAST';s.killerLocation='B3';s.noises=['B4','B2'];const a=skill(s,'HYPER_HEARING');rejected(s,{...a,path:['B2','R1']});s=act(s,{...a,path:['B4']});assert.equal(s.killerLocation,'B4');assert.equal(s.phase,'FAST');
+ s=feral('WEREWOLF','MANOR');s.level=2;s.hand.push(s.locked!);s.locked=null;s.phase='FAST';s.noises=['G5','B4'];const hearing=skill(s,'HYPER_HEARING');rejected(s,{...hearing,path:['B4']});s=act(s,hearing);assert.equal(s.killerLocation,'G5');
+ s=feral('WEREWOLF');s.phase='FAST';rejected(s,{...skill(s,'HOWL'),path:[]});const blood=skill(s,'BLOOD_HUNT');rejected(s,{...blood,path:['B4','B3']});s.survivors[0]!.injuries=1;s=act(s,{...blood,path:['B4','B3']});assert.equal(s.killerLocation,'B3');
+});
+test('Feral Huntress: initial types remain secret, net interrupts sprint and blocks all further movement until next round',()=>{
+ let s=feral('HUNTRESS');s.survivors[1]!.location='R4';const secret=projection(s,1);assert.equal(JSON.stringify(secret).includes('NET_A'),false);assert.deepEqual(new Set(secret.huntingTrapRooms),new Set(['R3','G4','B2','B3']));s=teamAct(s,{...basic('WILLIAM','SPRINT'),path:['R3','B4','B5']},'WILLIAM');assert.equal(s.survivors[1]!.location,'R3');assert.equal(s.survivors[1]!.immobilized,true);assert.ok(s.pendingNoises.includes('R3'));assert.equal(projection(s,0).trapReveal?.room,'R3');const adrenaline=give(s,'WILLIAM','ADRENALINE');rejected(s,{type:'ITEM',character:'WILLIAM',cardId:adrenaline.cardId,target:'WILLIAM',destination:'B4',edge:''},s.survivors[1]!.playerId);s.phase='SLOW';s=act(s,{type:'KILLER_NEXT'});assert.equal(s.survivors[1]!.immobilized,false);
+});
+test('Feral Huntress: skull and bear traps resolve mid-route, amulet prevents direct injury, second injury stops flee terminally',()=>{
+ let s=feral('HUNTRESS');s.survivors[0]!.location='B2';s=teamAct(s,{...basic('ANNA','MOVE'),path:['B3','B4']});assert.equal(s.survivors[0]!.injuries,1);assert.equal(s.survivors[0]!.location,'B4');assert.equal(s.huntTraps.some(t=>t.trap==='BEAR'),false);
+ s=feral('HUNTRESS');s.survivors[0]!.location='B3';s=teamAct(s,{...basic('ANNA','MOVE'),path:['B2','B3']});assert.equal(s.survivors[0]!.fear,2);assert.equal(s.survivors[0]!.injuries,1);assert.equal(s.survivors[0]!.location,'B3');
+ s=feral('HUNTRESS');s.survivors[0]!.location='B2';give(s,'ANNA','AMULET');s=teamAct(s,{...basic('ANNA','MOVE'),path:['B3']});assert.equal(s.survivors[0]!.injuries,0);assert.equal(s.survivors[0]!.hand.some(c=>c.key==='AMULET'),false);
+ s=feral('HUNTRESS');s.survivors[0]!.location='B2';s.survivors[0]!.injuries=1;s.phase='FLEE';s.encounter={location:'B2',targets:['ANNA'],attacked:['ANNA'],defender:null,fleePending:['ANNA']};s=teamAct(s,{type:'FLEE',character:'ANNA',destination:'B3'});assert.equal(s.result?.reason,'KILLED');assert.equal(s.survivors[0]!.location,'B3');assert.equal(s.pendingDraw,null);
+});
+test('Feral Huntress: attack discount, tracking skips later effects on encounter, and reset neither reveals types nor triggers occupied traps',()=>{
+ let s=feral('HUNTRESS');s.level=3;s.phase='MAIN';s.killerLocation='R1';s=act(s,{type:'KILLER_BASIC',kind:'SEARCH',destination:'R1'});const axe=handSkill(s,'AXE_THROW');s=act(s,{type:'ATTACK_CARD',cardId:axe.cardId,cost:[]});assert.equal(projection(s,0).strength,7);
+ s=feral('HUNTRESS');s.phase='FAST';s.level=4;s.killerLocation='R1';s=act(s,{...skill(s,'TRACKING'),cost:[],target:'ANNA',path:['G1']});assert.equal(s.phase,'ATTACK');assert.equal(s.tracking,null);assert.equal(s.killerLocation,'R1');
+ s=feral('HUNTRESS');s.level=2;s.hand.push(s.locked!);s.locked=null;s.phase='MAIN';s=act(s,{...skill(s,'TRAPS_RESET'),path:['R5']});assert.equal(s.phase,'RESET_TRAPS');assert.equal(projection(s,1).killerLocation,null);s=act(s,{type:'SET_TRAPS',placements:[{trap:'BEAR',room:'R1'},{trap:'SKULL',room:'R3'},{trap:'NET_A',room:'B1'},{trap:'NET_B',room:'G5'}]});assert.equal(s.phase,'SLOW');assert.equal(s.survivors[0]!.injuries,0);assert.equal(projection(s,1).trapReveal,null);assert.equal(JSON.stringify(projection(s,1)).includes('BEAR'),false);
+});
+test('Feral Huntress: Bated Breath preserves a validated continuation through level-up and its bonus lasts through next turn',()=>{
+ let s=feral('HUNTRESS');s.phase='MAIN';const action=skill(s,'BATED_BREATH');s.killerDiscard.push(...s.killerDeck);s.killerDeck=[];rejected(s,{...action,path:['R1']});s=act(s,{...action,path:['G5']});assert.equal(s.level,2);assert.equal(s.stealth?.origin,'B5');assert.equal(s.killerLocation,'G5');assert.equal(projection(s,0).strength,6);s=act(s,{type:'KILLER_NEXT'});assert.equal(projection(s,0).strength,6);s.phase='SLOW';s=act(s,{type:'KILLER_NEXT'});assert.equal(projection(s,0).strength,3);
+});
+
+test('Feral: attack skills cannot bypass encounter timing through KILLER_CARD, silver bullets require a revolver',()=>{
+ let s=feral('WEREWOLF');s.phase='MAIN';s.killerLocation='R1';s=act(s,{type:'KILLER_BASIC',kind:'SEARCH',destination:'R1'});rejected(s,{...skill(s,'SAVAGE_BITE'),path:['G1']});const bite=handSkill(s,'SAVAGE_BITE');s=act(s,{type:'ATTACK_CARD',cardId:bite.cardId});assert.equal(projection(s,0).strength,8);const c=s.specialDeck.find(c=>c.key==='SILVER_BULLETS')!;s.specialDeck=s.specialDeck.filter(x=>x!==c);s.survivors[0]!.hand.push(c);s=teamAct(s,{type:'DEFENDER',character:'ANNA'});rejected(s,{type:'DEFEND',cardId:c.cardId},s.survivors[0]!.playerId);
+});
+test('Feral: territorial sensing reports a candidate set, tracking reports only distance and wolf aura resolves once',()=>{
+ let s=feral('WEREWOLF');s.phase='FAST';s.survivors[0]!.location='R3';s.survivors[1]!.location='R3';s.survivors[2]!.location='G4';s=act(s,skill(s,'TERRITORIAL'));assert.deepEqual(s.sensed.map(x=>x.character),['WILLIAM','SOPHIA']);for(const x of s.sensed){assert.equal(x.kind,'PAIR');if(x.kind==='PAIR')assert.deepEqual(new Set(x.rooms),new Set(['R3','B2','G4']));}
+ s=feral('HUNTRESS');s.level=4;s.phase='FAST';s.killerLocation='B5';s=act(s,{...skill(s,'TRACKING'),cost:[],target:'ANNA',path:['B4']});assert.equal(s.tracking?.origin,'B5');assert.ok(s.tracking!.distance>0);assert.equal(s.killerLocation,'B4');assert.equal(s.sensed.length,0);assert.deepEqual(Object.keys(s.tracking!).sort(),['character','distance','origin']);
+ s=feral('WEREWOLF');s.level=4;s.phase='SLOW';s.killerLocation='R3';s.survivors[0]!.location='R5';s=act(s,{type:'KILLER_NEXT'});assert.equal(s.phase,'KILLER_END');s=act(s,{type:'KILLER_NEXT'});assert.equal(s.phase,'SURVIVORS');assert.equal(s.survivors[0]!.fear,1);
 });
