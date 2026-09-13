@@ -15,6 +15,15 @@ export function branchFearOptions(s:SpiritState,e:SpiritStep,add:Add):boolean {
  for(const l of areas(s)){
   const remove=(kinds:string[])=>{if(l.pieces.some(p=>kinds.includes(p.kind)))add(`${l.id} · ${kinds.length>1?'탐험가/마을':'탐험가'} 1개 제거`,()=>prepend(s,step('REMOVE',e.actor,l.id,1,'',null,kinds)),l.id);};
   const budget=(n:number)=>{if(invaders(l).some(p=>health(l,p)<=n))add(`${l.id} · 체력 합계 최대 ${n} 제거 (받은 피해와 무관)`,()=>prepend(s,step('SPECIAL',e.actor,l.id,n,'REMOVE_HEALTH')),l.id);};
+  if(key==='attack'){
+   if(level===1&&countPieces(l,['DAHAN'])>0)remove(['EXPLORER']);
+   if(level>=2&&!s.flags.includes(`fear-used:${l.id}`)&&countPieces(l,level===2?['DAHAN']:['TOWN','CITY'])>0){
+    add(`${l.id} · ${level===2?'다한마다 피해 1':'다한 1개 모으기 → 다한마다 피해 2'}`,()=>{
+     s.flags.push(`fear-used:${l.id}`);
+     prepend(s,...(level===3?[step('MOVE',e.actor,l.id,1,'GATHER',null,['DAHAN','REQUIRED','NO_OCEAN'])]:[]),step('SPECIAL',e.actor,l.id,level,'FEAR_DAHAN_DAMAGE'));
+    },l.id);
+   }
+  }
   if(key==='monsters'){
    if(l.tokens.beasts>0){
     if(level===1)remove(['EXPLORER','TOWN']);

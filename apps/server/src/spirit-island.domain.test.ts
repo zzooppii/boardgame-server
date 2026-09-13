@@ -894,7 +894,7 @@ for(const terror of [1,2,3] as const)test(`War addition preserves terror ${terro
  let s=warGame();for(const l of s.lands)l.tokens.beasts=0;s.terror=terror;s.fearDeck=s.fearDeck.slice(-(terror===1?7:terror===2?4:1));const before=s.fearDeck.length;s=eventChoose(s,'격퇴');s=eventChoose(s,'에너지 1 지원 추가');s=eventChoose(s,'비용 확정');assert.equal(s.terror,terror);assert.equal(s.fearDeck.length,before+1);s=drain(s);s.queue=[step('FEAR',s.players[0]!.playerId,null,4)];settle(s);assert.equal(s.terror,terror);assert.equal(s.fearDeck.length,before);
 });
 test('War does not duplicate fear cards when every card is already in use',()=>{
- let s=warGame();for(const l of s.lands)l.tokens.beasts=0;s.fearDeck=spiritFearKeys(s.settings.expansion);s=eventChoose(s,'격퇴');s=eventChoose(s,'에너지 1 지원 추가');s=eventChoose(s,'비용 확정');assert.equal(s.fearDeck.length,20);assert.equal(new Set(s.fearDeck).size,20);assert.ok(s.log.some(e=>e.text.includes('미사용 공포 카드 없음')));
+ let s=warGame();for(const l of s.lands)l.tokens.beasts=0;s.fearDeck=spiritFearKeys(s.settings.expansion);s=eventChoose(s,'격퇴');s=eventChoose(s,'에너지 1 지원 추가');s=eventChoose(s,'비용 확정');assert.equal(s.fearDeck.length,21);assert.equal(new Set(s.fearDeck).size,21);assert.ok(s.log.some(e=>e.text.includes('미사용 공포 카드 없음')));
 });
 test('War discards a major per board, with public cost, before choosing that board coast',()=>{
  let s=warGame(2);const major=[...s.major],minor=[...s.minor];s=eventChoose(s,'공격을 허용');assert.equal(s.queue[0]!.key,'BCE14_ATTACK');assert.equal(s.queue[0]!.tags[0],'A');assert.equal(s.queue[0]!.n,cardPower(s,major[0]!).cost);assert.ok(s.majorDiscard.includes(major[0]!));assert.deepEqual(s.minor,minor);s=drain(s);assert.ok(s.log.some(e=>e.text.includes(`B 전쟁 피해 판정 · ${cardPower(s,major[1]!).title}`)));assert.deepEqual(s.minor,minor);
@@ -924,7 +924,7 @@ for(const key of SPIRIT_BRANCH_FEAR_KEYS)for(const level of [1,2,3] as const)for
  let s=branchFearGame(key,level,n);settle(s);s=drain(s);assert.equal(s.queue.length,0);assert.ok(s.fearDiscard.includes(key));assert.ok(s.log.some(l=>l.text.includes(`공포 수준 ${level}`)));parseSpiritState(s);
 });
 test('Expansion fear pool adds only completed cards and keeps deck size and core pool unchanged',()=>{
- assert.deepEqual(spiritFearKeys('CORE'),[...SPIRIT_FEAR_KEYS]);assert.equal(spiritFearKeys('BRANCH_CLAW').length,20);assert.equal(new Set(spiritFearKeys('BRANCH_CLAW')).size,20);let s=setup();const result=applySpiritAction(s,s.players[0]!.playerId,{kind:'CONFIGURE',settings:{...s.settings,expansion:'BRANCH_CLAW',blightCard:true,progression:false}},now,s.transitionId,values=>[...values].reverse());assert.ok(result.ok);s=result.state;assert.equal(s.fearDeck.length,9);for(const key of SPIRIT_BRANCH_FEAR_KEYS)assert.ok(s.fearDeck.includes(key));assert.equal(chosen().fearDeck.some(k=>SPIRIT_BRANCH_FEAR_KEYS.includes(k)),false);
+ assert.deepEqual(spiritFearKeys('CORE'),[...SPIRIT_FEAR_KEYS]);assert.equal(spiritFearKeys('BRANCH_CLAW').length,21);assert.equal(new Set(spiritFearKeys('BRANCH_CLAW')).size,21);let s=setup();const result=applySpiritAction(s,s.players[0]!.playerId,{kind:'CONFIGURE',settings:{...s.settings,expansion:'BRANCH_CLAW',blightCard:true,progression:false}},now,s.transitionId,values=>[...values].reverse());assert.ok(result.ok);s=result.state;assert.equal(s.fearDeck.length,9);for(const key of SPIRIT_BRANCH_FEAR_KEYS)assert.ok(s.fearDeck.includes(key));assert.equal(chosen().fearDeck.some(k=>SPIRIT_BRANCH_FEAR_KEYS.includes(k)),false);
 });
 test('Demoralized stacks defense and Time removes it',()=>{
  let s=branchFearGame('demoralized',3);land(s,'A1').defend=2;settle(s);assert.equal(land(s,'A1').defend,5);assert.equal(land(s,'A8').defend,3);s.stage='TIME';s=drain(apply(s,{kind:'ADVANCE'}));assert.ok(s.lands.every(l=>l.defend===0));
@@ -963,4 +963,24 @@ for(const level of [1,2,3] as const)test(`Monsters level ${level} restricts adja
 });
 test('Monsters partial removal does not substitute explorers for missing towns and permits reusing land',()=>{
  let s=branchFearGame('monsters',3,2);for(const l of s.lands){l.tokens.beasts=0;l.pieces=[];}land(s,'A1').tokens.beasts=1;for(let i=0;i<5;i++)makePiece(s,land(s,'A1'),'EXPLORER');makePiece(s,land(s,'A8'),'CITY');settle(s);s=eventChoose(s,'야수 지역');s=eventChoose(s,'탐험가 제거');s=eventChoose(s,'탐험가 제거');assert.equal(countPieces(land(s,'A1'),['EXPLORER']),3);assert.equal(s.queue[0]!.target,s.players[1]!.playerId);assert.ok(choiceOptions(s).some(o=>o.landId==='A1'));s=drain(s);assert.equal(countPieces(land(s,'A1'),['EXPLORER']),1);parseSpiritState(s);
+});
+
+function attackFear(level:1|2|3,n=1){const s=branchFearGame('attack',level,n);for(const l of s.lands)l.pieces=[];makePiece(s,land(s,'A8'),'CITY');return s;}
+test('Dahan Attack I requires Dahan and removes an explorer without fear',()=>{
+ let s=attackFear(1);makePiece(s,land(s,'A1'),'DAHAN');makePiece(s,land(s,'A1'),'EXPLORER');makePiece(s,land(s,'A2'),'EXPLORER');const fear=s.fear;settle(s);assert.deepEqual(choiceOptions(s).map(o=>o.landId),['A1']);s=drain(s);assert.equal(countPieces(land(s,'A1'),['EXPLORER']),0);assert.equal(countPieces(land(s,'A2'),['EXPLORER']),1);assert.equal(s.fear,fear);parseSpiritState(s);
+});
+test('Dahan Attack II allows peaceful lands but prevents repeated choices within the card',()=>{
+ let s=attackFear(2,2);makePiece(s,land(s,'A1'),'DAHAN');makePiece(s,land(s,'A2'),'DAHAN');settle(s);s=eventChoose(s,'A1');assert.equal(s.queue[0]!.target,s.players[1]!.playerId);assert.deepEqual(choiceOptions(s).map(o=>o.landId),['A2']);s=drain(s);s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'FEAR_CARD',null,['attack'])];settle(s);assert.ok(choiceOptions(s).some(o=>o.landId==='A1'));
+});
+test('Dahan Attack II deals one damage per Dahan and generates destruction fear',()=>{
+ let s=attackFear(2);makePiece(s,land(s,'A1'),'DAHAN');makePiece(s,land(s,'A1'),'DAHAN');makePiece(s,land(s,'A1'),'TOWN');const fear=s.fear;settle(s);s=drain(eventChoose(s,'A1'));assert.equal(countPieces(land(s,'A1'),['TOWN']),0);assert.equal(countPieces(land(s,'A1'),['DAHAN']),2);assert.equal(s.fear,fear+1);parseSpiritState(s);
+});
+test('Dahan Attack III requires gathering one Dahan and counts it after arrival',()=>{
+ let s=attackFear(3);const a=land(s,'A1'),from=land(s,a.adjacent.find(id=>land(s,id).number>0)!);makePiece(s,a,'DAHAN');makePiece(s,a,'CITY');makePiece(s,from,'DAHAN');const fear=s.fear;settle(s);s=eventChoose(s,'A1');assert.equal(s.queue[0]!.kind,'MOVE');assert.ok(!choiceOptions(s).some(o=>o.label.includes('생략')));s=eventChoose(s,`→ A1`);assert.equal(s.queue[0]!.kind,'DAMAGE');assert.equal(s.queue[0]!.n,4);s=drain(s);assert.equal(countPieces(land(s,'A1'),['CITY']),0);assert.equal(countPieces(land(s,'A1'),['DAHAN']),2);assert.equal(s.fear,fear+2);parseSpiritState(s);
+});
+test('Dahan Attack III continues with existing Dahan when gathering is impossible',()=>{
+ let s=attackFear(3);makePiece(s,land(s,'A1'),'DAHAN');makePiece(s,land(s,'A1'),'CITY');makePiece(s,land(s,'A2'),'EXPLORER');settle(s);assert.ok(!choiceOptions(s).some(o=>o.landId==='A2'));s=eventChoose(s,'A1');assert.equal(s.queue[0]!.kind,'DAMAGE');assert.equal(s.queue[0]!.n,2);s=drain(s);assert.equal(land(s,'A1').pieces.find(p=>p.kind==='CITY')!.damage,2);parseSpiritState(s);
+});
+test('Dahan Attack III resolves Thunder presence follow before damage',()=>{
+ let s=chosen(1,'THUNDER');s.stage='FEAR';s.terror=3;for(const l of s.lands)l.pieces=[];const a=land(s,'A1'),from=land(s,a.adjacent.find(id=>land(s,id).number>0)!);makePiece(s,land(s,'A8'),'CITY');makePiece(s,a,'CITY');makePiece(s,from,'DAHAN');sacredPresence(s,from.id,0,1);const before=presence(a,s.players[0]!.playerId);s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'FEAR_CARD',null,['attack'])];settle(s);s=eventChoose(s,'A1');s=eventChoose(s,'→ A1');assert.equal(s.queue[0]!.key,'FOLLOW_DAHAN');s=eventChoose(s,'현신 → A1');assert.equal(presence(land(s,'A1'),s.players[0]!.playerId),before+1);assert.equal(s.queue[0]!.kind,'DAMAGE');assert.equal(s.queue[0]!.n,2);s=drain(s);parseSpiritState(s);
 });
