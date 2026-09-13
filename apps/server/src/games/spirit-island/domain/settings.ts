@@ -4,10 +4,12 @@ import type { SpiritState } from './state.js';
 import { spiritFearKeys } from './resolver.js';
 import { cardPower, requireRule, makePiece, land, countPieces, presence, step, event } from './primitives.js';
 export function configureSpirit(s: SpiritState, settings: SpiritSettings, shuffle: <T>(values:T[])=>T[]) {
+ requireRule(settings.adversary!=='FRANCE'||settings.expansion==='BRANCH_CLAW');
  requireRule(settings.adversary!=='NONE'||settings.level===0);
  requireRule(settings.expansion!=='BRANCH_CLAW'||settings.blightCard&&!settings.progression);
  s.settings={...settings}; s.configured=true;
  if(settings.expansion==='BRANCH_CLAW'){s.eventDeck=shuffle([...SPIRIT_EVENT_KEYS]);const cards=s.forgotten.filter(id=>cardPower(s,id).expansion&&['MINOR','MAJOR'].includes(cardPower(s,id).deck));s.forgotten=s.forgotten.filter(id=>!cards.includes(id));s.minor=shuffle([...s.minor,...cards.filter(id=>cardPower(s,id).deck==='MINOR')]);s.major=shuffle([...s.major,...cards.filter(id=>cardPower(s,id).deck==='MAJOR')]);} const {adversary:a,level:n}=settings;
+ if(a==='FRANCE'&&n>=2)s.eventDeck.splice(3,0,'REBELLION');
  s.fearTiers=[...spiritFearTiers(settings)];
  s.fearDeck=shuffle(spiritFearKeys(settings.expansion)).slice(0,settings.scenario==='RITUAL'?15:s.fearTiers.reduce((x,y)=>x+y,0));
  if(settings.blightCard) {s.blightDeck=shuffle(spiritBlightKeys(settings.expansion??'CORE'));s.blightCard=s.blightDeck.shift()??'SPIRAL';s.blightPool=2*s.players.length+1;s.blightTotal=s.blightPool+s.lands.reduce((n,l)=>n+l.blight,0);}
@@ -17,6 +19,7 @@ export function configureSpirit(s: SpiritState, settings: SpiritSettings, shuffl
    const area=s.lands.find(l=>l.board===board&&l.number>0&&l.pieces.length===0&&l.blight===0);
    requireRule(area);area.tokens.beasts++;land(s,`${board}2`).tokens.disease++;
   }
+  if(a==='FRANCE'&&n>=3){const last=s.lands.filter(l=>l.board===board&&l.number>0&&!countPieces(l,['TOWN'])).sort((a,b)=>b.number-a.number)[0];if(last)makePiece(s,last,'TOWN');makePiece(s,land(s,`${board}1`),'TOWN');}
   if(a==='PRUSSIA'&&n>=1) makePiece(s,land(s,`${board}3`),'TOWN');
   if(a==='ENGLAND'&&n>=2) {makePiece(s,land(s,`${board}1`),'CITY');makePiece(s,land(s,`${board}2`),'TOWN');}
   if(a==='SWEDEN'&&n>=2) {makePiece(s,land(s,`${board}4`),'CITY');const l=land(s,`${board}4`);if(l.blight){land(s,`${board}5`).blight+=l.blight;l.blight=0;}}

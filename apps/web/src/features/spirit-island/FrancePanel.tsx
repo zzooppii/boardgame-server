@@ -1,0 +1,5 @@
+import type { SpiritProjection } from '@hangul-rummikub/shared';
+export function FrancePanel({game:g}:{game:SpiritProjection}){
+ if(g.settings.adversary!=='FRANCE')return null;
+ return <section className="si-france-panel" aria-label="프랑스 대적 진행"><div><span className="si-eyebrow">FRANCE · {g.settings.level}단계</span><h2>마을의 확장을 막으세요</h2><p>마을 공급 <strong>{g.franceTownSupply} / {7*g.playerStates.length}</strong>개 · 모두 사용한 뒤 추가로 놓으려 하면 패배합니다.</p><small>강화: 표시된 지형에 건물이 있으면 오염, 없으면 마을을 추가합니다.</small></div><div>{g.settings.level>=2?<p>노예들의 반란 · {g.currentEvent==='REBELLION'?'지금 해결 중':g.rebellionIn!==null?`이벤트 ${g.rebellionIn}장째 예정`:'해결 후 버림'}</p>:null}{g.settings.level>=5?<p>회복 대기 오염 <strong>{g.franceBlight} / {3*g.playerStates.length}</strong> · 모두 모이면 공급으로 반환</p>:null}{g.settings.level>=6?<p>탐험 카드마다 추가 탐험가 · 공포의 탐험가 제거는 밀기로 변경</p>:null}<details><summary>누적 규칙 확인</summary>{g.settings.level>=1?<p>1 · 준비 후 건물 없는 지역의 성공한 탐험에 탐험가 +1</p>:null}{g.settings.level>=2?<p>2 · 건설 후 탐험가가 2개 이상이면 1개만 남기고 마을로 교체</p>:null}{g.settings.level>=3?<p>3 · 시작 시 보드마다 마을 2개 추가</p>:null}{g.settings.level>=4?<p>4 · 해안 도시 건설 시 인접한 마을 최소 지역에 마을 추가</p>:null}</details></div></section>;
+}

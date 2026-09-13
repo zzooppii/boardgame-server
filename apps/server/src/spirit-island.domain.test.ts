@@ -1155,3 +1155,84 @@ test('Blight cascade: reserved marker consumed exactly once per placement',()=>{
 test('Lesser actual power action uses no energy',()=>{
  let s=blightGame('LESSER');const id=s.minor.find(id=>cardPower(s,id).key==='sky-fire')??s.minor.find(id=>cardPower(s,id).speed==='FAST')!;s.minor=[id,...s.minor.filter(c=>c!==id)];s=drain(s);const p=s.players[0]!,power=cardPower(s,id);s.stage=power.speed;p.ready=false;const o=powerOptions(s,p.playerId).find(o=>o.cardId===id)!;const target=o.targets[0];assert.ok(target);const energy=p.energy;s=drain(apply(s,{kind:'USE_POWER',cardId:id,target,threshold:1,fast:power.speed==='FAST',repeat:false,shadowReach:false}));assert.equal(s.players[0]!.energy,energy);assert.ok(s.players[0]!.resolved.includes(id));assert.doesNotThrow(()=>parseSpiritState(s));
 });
+
+// France is verified as one adversary/event batch, including multiplayer setup.
+function franceGame(level:0|1|2|3|4|5|6=0,n=1){
+ let s=setup(n);s=apply(s,{kind:'CONFIGURE',settings:{...s.settings,expansion:'BRANCH_CLAW',progression:false,blightCard:true,adversary:'FRANCE',level}});
+ for(const [i,p] of s.players.entries())s=drain(apply(s,{kind:'SELECT_SPIRIT',spirit:SPIRITS[i]!.id},p.playerId));return s;
+}
+function franceEffect(s:SpiritState,key:string,id:string|null=null,n=0,tags:string[]=[]){s.queue=[step('SPECIAL',s.players[0]!.playerId,id,n,key,null,tags)];settle(s);return s;}
+for(const level of [0,1,2,3,4,5,6] as const)for(const n of [1,2,3,4])test(`France ${level}, ${n} players: cumulative setup and public supply`,()=>{
+ const s=franceGame(level,n),towns=s.lands.reduce((n,l)=>n+countPieces(l,['TOWN']),0);
+ assert.equal(towns,(level>=3?3:1)*n);assert.equal(s.eventDeck.length,level>=2?26:25);assert.equal(s.eventDeck.indexOf('REBELLION'),level>=2?3:-1);
+ assert.deepEqual(s.fearTiers,[[3,3,3],[3,3,3],[3,4,3],[4,4,3],[4,4,4],[4,5,4],[4,5,5]][level]);
+ assert.equal(view(s).franceTownSupply,7*n-towns);assert.equal(view(s).rebellionIn,level>=2?4:null);assert.ok(!s.flags.includes('setup-active'));parseSpiritState(s);assert.ok(spiritProjectionIsConsistent(view(s)));
+});
+test('France: core configuration and foreign rebellion cards are rejected atomically',()=>{
+ const s=setup();assert.equal(applySpiritAction(s,s.players[0]!.playerId,{kind:'CONFIGURE',settings:{...s.settings,adversary:'FRANCE'}},now,s.transitionId).ok,false);assert.equal(s.settings.adversary,'NONE');
+ const bc=eventGame();bc.eventDeck[0]='REBELLION';assert.throws(()=>parseSpiritState(bc));
+ const fr=franceGame(2);fr.eventDeck=fr.eventDeck.filter(k=>k!=='REBELLION');assert.throws(()=>parseSpiritState(fr));
+});
+test('France 0: using the seventh town is legal; a later failed addition latches defeat',()=>{
+ let s=franceGame(),l=land(s,'A1');while(view(s).franceTownSupply)makePiece(s,l,'TOWN');settle(s);assert.equal(s.phase,'PLAYING');
+ const fear=s.fear;const absent=makePiece(s,l,'TOWN');assert.ok(!l.pieces.includes(absent));assert.equal(s.franceFailedTown,true);assert.equal(s.fear,fear);
+ l.pieces=l.pieces.filter(p=>p.kind!=='TOWN');settle(s);assert.equal(s.result?.reason,'ADVERSARY');s.finishedAt=now;parseSpiritState(s);
+});
+test('France 0: town removal replenishes supply and failed supply can end in sacrifice',()=>{
+ let s=franceGame(),l=land(s,'A1');while(view(s).franceTownSupply)makePiece(s,l,'TOWN');s.queue=[step('REMOVE',s.players[0]!.playerId,l.id,1,'',null,['TOWN'])];s=drain(s);assert.equal(view(s).franceTownSupply,1);makePiece(s,land(s,'A1'),'TOWN');assert.equal(s.franceFailedTown,false);makePiece(s,land(s,'A1'),'TOWN');s.terror=4;settle(s);assert.equal(s.result?.reason,'SACRIFICE');
+});
+for(const blocked of ['NONE','DISEASE','SKIP'] as const)test(`France 2: forced labor follows only successful build (${blocked})`,()=>{
+ let s=franceGame(2),l=land(s,'A4');l.pieces=[];const keep=makePiece(s,l,'EXPLORER'),swap=makePiece(s,l,'EXPLORER');keep.strife=1;swap.strife=2;if(blocked==='DISEASE')l.tokens.disease=1;if(blocked==='SKIP')l.skip=true;
+ s=franceEffect(s,'BUILD_LAND',l.id);if(blocked==='NONE'){assert.equal(s.queue[0]?.key,'FR_LABOR');const o=choiceOptions(s).find(o=>o.pieceId===keep.id)!;s=apply(s,{kind:'CHOOSE',choiceId:`${s.transitionId}:${s.revision}`,optionId:o.id});const target=land(s,'A4');assert.equal(countPieces(target,['EXPLORER']),1);assert.equal(target.pieces.find(p=>p.id===keep.id)?.strife,1);assert.equal(target.pieces.filter(p=>p.kind==='TOWN').length,2);assert.ok(target.pieces.some(p=>p.kind==='TOWN'&&p.strife===2));}else{assert.equal(countPieces(land(s,'A4'),['EXPLORER']),2);assert.equal(countPieces(land(s,'A4'),['TOWN']),0);assert.equal(s.queue.length,0);}parseSpiritState(s);
+});
+test('France 4: coastal city trade chooses only adjacent lands with minimum towns',()=>{
+ let s=franceGame(4),l=land(s,'A1');l.pieces=l.pieces.filter(p=>p.kind==='DAHAN');makePiece(s,l,'TOWN');const adjacent=s.lands.filter(a=>l.adjacent.includes(a.id));makePiece(s,adjacent[0]!,'TOWN');
+ const minimum=Math.min(...adjacent.map(a=>countPieces(a,['TOWN'])));s=franceEffect(s,'BUILD_LAND',l.id);assert.equal(s.queue[0]?.key,'FR_TRADE');assert.deepEqual(choiceOptions(s).map(o=>o.landId).sort(),adjacent.filter(a=>countPieces(a,['TOWN'])===minimum).map(a=>a.id).sort());s=drain(s);parseSpiritState(s);
+});
+for(const n of [1,2,3,4])test(`France 5: removed blight returns only in batches of ${3*n}`,()=>{
+ let s=franceGame(5,n),l=land(s,'A4'),pool=s.blightPool;const amount=3*n;l.blight+=amount;s.blightTotal+=amount;
+ for(let i=1;i<=amount;i++){s.queue=[step('REMOVE_BLIGHT',s.players[0]!.playerId,l.id,1)];settle(s);assert.equal(s.franceBlight,i===amount?0:i);assert.equal(s.blightPool,pool+(i===amount?amount:0));parseSpiritState(s);}assert.equal(view(s).franceBlight,0);
+});
+for(const obstacle of ['NONE','WILDS','SKIP','BUILDING'] as const)test(`France 1: frontier explorers respect ${obstacle}`,()=>{
+ let s=franceGame(1),l=land(s,'A1');l.pieces=l.pieces.filter(p=>p.kind==='DAHAN');l.tokens.wilds=obstacle==='WILDS'?1:0;l.skip=obstacle==='SKIP';if(obstacle==='BUILDING')makePiece(s,l,'CITY');s.invaderDeck.unshift({stage:1,terrains:[l.terrain],coastal:false});
+ s=franceEffect(s,'EXPLORE');assert.equal(countPieces(land(s,'A1'),['EXPLORER']),obstacle==='NONE'?2:obstacle==='BUILDING'?1:0);if(obstacle==='WILDS')assert.equal(land(s,'A1').tokens.wilds,0);
+});
+test('France 6: persistent explorers are added after each card, even when normal exploration is blocked',()=>{
+ let s=franceGame(6);for(const l of s.lands){l.skip=true;l.pieces=l.pieces.filter(p=>p.kind!=='EXPLORER');}const l=land(s,'A1');l.tokens.wilds=2;s.invaderDeck.unshift({stage:1,terrains:['JUNGLE'],coastal:false},{stage:1,terrains:['JUNGLE'],coastal:false});
+ s=franceEffect(s,'EXPLORE');assert.equal(s.queue[0]?.key,'FR_PERSISTENT');assert.ok(choiceOptions(s).some(o=>o.landId===l.id));s=eventChoose(s,'A1');assert.equal(countPieces(land(s,'A1'),['EXPLORER']),1);assert.equal(land(s,'A1').tokens.wilds,2);
+ s=franceEffect(s,'EXPLORE');assert.equal(s.queue[0]?.key,'FR_PERSISTENT');assert.ok(!choiceOptions(s).some(o=>o.landId==='A1'));s=drain(s);assert.equal(s.lands.reduce((n,l)=>n+countPieces(l,['EXPLORER']),0),2);parseSpiritState(s);
+});
+test('France 6: fear removal pushes optionally, destruction still destroys, later powers remove normally',()=>{
+ let s=franceGame(6),l=land(s,'A4');l.pieces=l.pieces.filter(p=>p.kind!=='EXPLORER');const p=makePiece(s,l,'EXPLORER');s.flags.push('fear-action');s.queue=[step('REMOVE',s.players[0]!.playerId,l.id,2,'',null,['EXPLORER']),step('SPECIAL',s.players[0]!.playerId,null,0,'FR_FEAR_END')];settle(s);s=eventChoose(s,'제거 대신 밀기');assert.equal(s.queue[0]?.kind,'MOVE');s=eventChoose(s,'이 선택 마치기');assert.ok(land(s,'A4').pieces.some(q=>q.id===p.id));assert.ok(!s.flags.includes('fear-action'));
+ s.flags.push('fear-action');s.queue=[step('DESTROY',s.players[0]!.playerId,l.id,1,'',null,['EXPLORER']),step('SPECIAL',s.players[0]!.playerId,null,0,'FR_FEAR_END')];s=drain(s);assert.ok(!land(s,'A4').pieces.some(q=>q.id===p.id));
+ const normal=makePiece(s,land(s,'A4'),'EXPLORER');s.queue=[step('REMOVE',s.players[0]!.playerId,l.id,1,'',null,['EXPLORER'])];s=drain(s);assert.ok(!land(s,'A4').pieces.some(q=>q.id===normal.id));parseSpiritState(s);
+});
+function rebellionGame(n=1,stage:1|2|3=1){let s=franceGame(2,n);s.round=2;s.stage='FAST';s.invaderDeck[0]!.stage=stage;s.eventDeck=['REBELLION',...s.eventDeck.filter(k=>k!=='REBELLION')];for(const p of s.players)s=apply(s,{kind:'READY',ready:true},p.playerId);assert.equal(s.currentEvent,'REBELLION');return s;}
+for(const stage of [1,2,3] as const)for(const n of [1,2,3,4])test(`Slave Rebellion: stage ${stage}, ${n} boards, recurrence after next draw`,()=>{
+ let s=rebellionGame(n,stage),next=s.eventDeck[0];s=eventChoose(s,'이벤트 선택 시작');let budget=30;while(s.currentEvent==='REBELLION'&&s.phase==='PLAYING'){assert.ok(--budget);s=eventChoose(s,choiceOptions(s)[0]!.label);}assert.equal(s.phase,'PLAYING');assert.equal(s.currentEvent,next);assert.equal(s.eventDeck.indexOf('REBELLION'),stage===3?-1:3);assert.equal(s.eventDiscard.includes('REBELLION'),stage===3);assert.equal(s.queue[0]?.key,'BCE_REVEAL');parseSpiritState(s);
+});
+test('Slave Rebellion: Dahan damage snapshots land population and rewards only buildings it destroys',()=>{
+ let s=rebellionGame();const l=land(s,'A4');l.pieces=[];makePiece(s,l,'DAHAN');const town=makePiece(s,l,'TOWN'),city=makePiece(s,l,'CITY');town.strife=1;town.damage=1;city.strife=3;city.damage=1;
+ s=franceEffect(s,'FR_REBELLION_DAHAN');assert.equal(countPieces(l,['DAHAN']),2);assert.ok(!l.pieces.some(p=>p.id===town.id));assert.equal(l.pieces.find(p=>p.id===city.id)?.damage,2);parseSpiritState(s);
+});
+test('Slave Rebellion: main damage uses strife count and does not add Dahan',()=>{
+ let s=rebellionGame(1,3),l=land(s,'A4');l.pieces=[];makePiece(s,l,'DAHAN');const p=makePiece(s,l,'CITY');p.strife=3;s=franceEffect(s,'FR_REBELLION_DAMAGE');assert.equal(countPieces(l,['CITY']),0);assert.equal(countPieces(l,['DAHAN']),1);
+});
+test('Slave Rebellion: late strife selects distinct buildings, including a city for the second pick',()=>{
+ let s=rebellionGame(1,3),l=land(s,'A4');l.pieces=[];const a=makePiece(s,l,'CITY'),b=makePiece(s,l,'CITY');s=franceEffect(s,'FR_REBELLION_STRIFE',null,2,['A']);const o=choiceOptions(s).find(o=>o.pieceId===a.id)!;s=apply(s,{kind:'CHOOSE',choiceId:`${s.transitionId}:${s.revision}`,optionId:o.id});assert.ok(!choiceOptions(s).some(o=>o.pieceId===a.id));assert.ok(choiceOptions(s).some(o=>o.pieceId===b.id));
+});
+test('Slave Rebellion: victory in main action prevents Dahan effects and the additional event',()=>{
+ let s=rebellionGame(1,3);for(const l of s.lands)l.pieces=l.pieces.filter(p=>p.kind==='DAHAN');makePiece(s,land(s,'A4'),'TOWN');const deck=[...s.eventDeck];s=eventChoose(s,'이벤트 선택 시작');s=drain(s);assert.equal(s.result?.reason,'VICTORY');assert.equal(s.currentEvent,'REBELLION');assert.deepEqual(s.eventDeck,deck);
+});
+test('France: stage II escalation offers matching terrain even with skipped Invader actions',()=>{
+ let s=franceGame(),l=land(s,'A4');for(const a of s.lands)a.skip=true;s.invaderDeck.unshift({stage:2,terrains:[l.terrain],coastal:false});s=franceEffect(s,'EXPLORE');assert.equal(s.queue[0]?.key,'FR_ESCALATE');assert.deepEqual(choiceOptions(s).map(o=>o.landId).sort(),s.lands.filter(a=>a.terrain===l.terrain).map(a=>a.id).sort());assert.ok(choiceOptions(s).every(o=>o.label.includes('마을')||o.label.includes('오염')));
+});
+test('France 6: normal fear-card resolution sets and clears the removal scope',()=>{
+ let s=franceGame(6);s.stage='FEAR';s.fearEarned=['interior'];for(const l of s.lands.filter(l=>!l.coastal))makePiece(s,l,'EXPLORER');s=apply(s,{kind:'ADVANCE'});assert.ok(s.flags.includes('fear-action'));s=drain(s);assert.ok(!s.flags.includes('fear-action'));parseSpiritState(s);
+});
+test('France 6: health-budget removal cannot select the same explorer again after declining push',()=>{
+ let s=franceGame(6),l=land(s,'A4');l.pieces=[];const explorer=makePiece(s,l,'EXPLORER');s.flags.push('fear-action');s=franceEffect(s,'REMOVE_HEALTH',l.id,3);s=eventChoose(s,'제거 대신 밀기');assert.ok(!choiceOptions(s).some(o=>o.label.includes('제거 대신 밀기')));s=drain(s);assert.equal(s.lands.flatMap(a=>a.pieces).filter(p=>p.id===explorer.id).length,1);
+});
+test('Slave Rebellion: empty ordinary deck reshuffles without duplicating the currently resolving card',()=>{
+ let s=rebellionGame();s.eventDiscard.push(...s.eventDeck);s.eventDeck=[];s=eventChoose(s,'이벤트 선택 시작');while(s.currentEvent==='REBELLION')s=eventChoose(s,choiceOptions(s)[0]!.label);assert.notEqual(s.currentEvent,'REBELLION');assert.equal(s.eventDeck.indexOf('REBELLION'),3);assert.equal([...s.eventDeck,...s.eventDiscard].filter(k=>k==='REBELLION').length,1);parseSpiritState(s);
+});

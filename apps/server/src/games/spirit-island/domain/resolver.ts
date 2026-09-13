@@ -1,3 +1,4 @@
+import { franceLevel, franceFearRemoval, franceRemovedBlight, franceBuild, franceOptions, franceAutomatic, franceTitles } from './france.js';
 import { flipBlight, wallSupport, blightOptions, blightAutomatic, blightTitles } from './blight.js';
 import { invaderTrackAutomatic, trackCards, setTrack, takeNextFear, lowestMatching, beastsSkip } from './invader-track.js';
 import { SPIRIT_FEAR_HELP, SPIRIT_BRANCH_FEAR, SPIRIT_BRANCH_FEAR_KEYS } from '@hangul-rummikub/shared';
@@ -85,6 +86,7 @@ function extraFear(s: SpiritState, e: SpiritStep, piece: SpiritPiece, killed: bo
     }
 } }
 export function choiceTitle(e: SpiritStep): string {
+ if(franceTitles[e.key])return franceTitles[e.key]!;
  if(blightTitles[e.key])return blightTitles[e.key]!;
  if(e.key==='BCF_DISCORD_ATTACK')return `${e.land} 불화 · ${e.tags.includes('SOURCE:CITY')?'도시':e.tags.includes('SOURCE:TOWN')?'마을':'탐험가'}의 동시 공격 · 다른 침략자에게 남은 피해 ${e.n}`;
  if(e.key==='BCF_LAND')return `${SPIRIT_FEAR_NAMES[e.tags[0]??'']} · 공포 ${e.n} · ${SPIRIT_FEAR_HELP[e.tags[0]??'']?.[e.n-1]??'지역 선택'}`;
@@ -114,7 +116,7 @@ export function choiceOptions(s: SpiritState, shuffle: <T>(values:T[])=>T[] = va
     const add = (label: string, apply: () => void, landId: string | null = null, pieceId: string | null = null) => list.push({ id: `o${list.length}`, label, landId, pieceId, apply });
     const optional = () => add('이 선택 마치기', () => undefined);
     const l = e.land ? land(s, e.land) : null, owner = e.target ?? e.actor, p = player(s, owner);
-    if (blightOptions(s,e,add)||branchFearOptions(s,e,add)||warOptions(s,e,add)||madnessOptions(s,e,add)||outpacedOptions(s,e,add)||investigationOptions(s,e,add)||farmlandEventOptions(s,e,add)||farmerEventOptions(s,e,add)||contactEventOptions(s,e,add)||terrorEventOptions(s,e,add)||industryEventOptions(s,e,add)||settlementEventOptions(s,e,add)||islandEventOptions(s,e,add)||stageEventOptions(s,e,add)||branchEventOptions(s,e,add,shuffle)||branchMajorOptions(s,e,add)||branchMinorOptions(s,e,add)||branchClawOptions(s,e,add)||tokenOptions(s,e,add)) return list;
+    if (franceOptions(s,e,add)||blightOptions(s,e,add)||branchFearOptions(s,e,add)||warOptions(s,e,add)||madnessOptions(s,e,add)||outpacedOptions(s,e,add)||investigationOptions(s,e,add)||farmlandEventOptions(s,e,add)||farmerEventOptions(s,e,add)||contactEventOptions(s,e,add)||terrorEventOptions(s,e,add)||industryEventOptions(s,e,add)||settlementEventOptions(s,e,add)||islandEventOptions(s,e,add)||stageEventOptions(s,e,add)||branchEventOptions(s,e,add,shuffle)||branchMajorOptions(s,e,add)||branchMinorOptions(s,e,add)||branchClawOptions(s,e,add)||tokenOptions(s,e,add)) return list;
     if (e.kind === 'DAMAGE' && e.n > 0 && l) {
         const areas = e.tags.includes('ADJACENT_ONLY') ? l.adjacent.map(id=>land(s,id)) : e.tags.includes('ADJACENT') ? [l, ...l.adjacent.map(id => land(s, id))] : [l];
         for (const area of areas)
@@ -124,9 +126,9 @@ export function choiceOptions(s: SpiritState, shuffle: <T>(values:T[])=>T[] = va
             }
     }
     else if ((e.kind === 'DESTROY' || e.kind === 'REMOVE' || e.kind === 'REPLACE') && e.n > 0 && l) {
-        for (const piece of l.pieces.filter(p => selectedKinds(e).includes(p.kind) && !(s.flags.includes(`power:${e.actor}`)&&player(s,e.actor).spirit==='BRINGER'&&s.flags.includes(`dream-killed:${p.id}`)) && !(p.kind === 'DAHAN' && s.flags.includes(`immortal:${l.id}`))))
-            add(`${labels[piece.kind]}${piece.strife?' · 분쟁 '+piece.strife:''}${piece.damage ? ' (피해 ' + piece.damage + ')' : ''} ${e.kind === 'REPLACE' ? '교체' : e.kind === 'REMOVE' ? '제거' : '파괴'}`, () => {
-                removePiece(s, l, piece, e.kind === 'DESTROY', e.actor);
+        for (const piece of l.pieces.filter(p => selectedKinds(e).includes(p.kind) && (e.kind!=='REMOVE'||!s.flags.includes(`france-fear:${p.id}`)) && !(s.flags.includes(`power:${e.actor}`)&&player(s,e.actor).spirit==='BRINGER'&&s.flags.includes(`dream-killed:${p.id}`)) && !(p.kind === 'DAHAN' && s.flags.includes(`immortal:${l.id}`))))
+            add(`${labels[piece.kind]}${piece.strife?' · 분쟁 '+piece.strife:''}${piece.damage ? ' (피해 ' + piece.damage + ')' : ''} ${e.kind === 'REPLACE' ? '교체' : e.kind === 'REMOVE' ? (franceFearRemoval(s,piece)?'제거 대신 밀기':'제거') : '파괴'}`, () => {
+                removePiece(s, l, piece, e.kind === 'DESTROY', e.actor,e.kind==='REMOVE'?'REMOVE':'EFFECT');
                 extraFear(s, e, piece, e.kind === 'DESTROY');
                 if (e.kind === 'REPLACE') {
                     const kind = e.key==='SWEDEN_TOWN'?'TOWN':e.key === 'DAHAN' ? 'DAHAN' : e.key === 'DOWNGRADE' ? (piece.kind === 'CITY' ? 'TOWN' : 'EXPLORER') : 'EXPLORER';
@@ -136,7 +138,7 @@ export function choiceOptions(s: SpiritState, shuffle: <T>(values:T[])=>T[] = va
                         makePiece(s, l, kind, false);
                     else {replacement.damage=piece.damage;damagePiece(s,l,replacement,0,e.actor);}
                 }
-                event(s, 'DAMAGE', `${l.id} ${labels[piece.kind]} ${e.kind === 'REPLACE' ? '교체' : e.kind === 'REMOVE' ? '제거' : '파괴'}`, e.actor, l.id);
+                event(s, 'DAMAGE', `${l.id} ${labels[piece.kind]} ${e.kind === 'REPLACE' ? '교체' : e.kind === 'REMOVE' ? (franceFearRemoval(s,piece)?'제거 대신 밀기':'제거') : '파괴'}`, e.actor, l.id);
                 if (e.n > 1)
                     prepend(s, { ...e, n: e.n - 1 });
             }, l.id, piece.id);
@@ -297,8 +299,8 @@ export function choiceOptions(s: SpiritState, shuffle: <T>(values:T[])=>T[] = va
         else if(e.key==='MIDNIGHT' && l) { if(countPieces(l,['DAHAN'])) add('주요 능력 획득',()=>{prepend(s,step('GAIN',owner,null,1,'MAJOR'),step('SPECIAL',owner,l.id,0,'MIDNIGHT_AFTER',owner,[],[...p.hand,...p.discard,...p.played]));}); if(invaders(l).length) add('공포 2',()=>fear(s,2,e.actor,l.id)); }
         else if(e.key==='MIDNIGHT_PLAY') { for(const id of p.hand.filter(id=>cardPower(s,id).deck==='MAJOR' && !e.used.includes(id) && cardPlayCost(s,id)<=p.energy)) add(`즉시 준비 · ${cardPower(s,id).title}`,()=>{p.energy-=cardPlayCost(s,id);p.hand=p.hand.filter(c=>c!==id);p.played.push(id);}); optional(); }
         else if (e.key === 'REMOVE_HEALTH' && l) {
-            for (const piece of invaders(l).filter(q => health(l, q) <= e.n))
-                add(`${labels[piece.kind]} 제거`, () => { removePiece(s, l, piece, false, e.actor); if (e.n > health(l, piece))
+            for (const piece of invaders(l).filter(q => health(l, q) <= e.n&&!s.flags.includes(`france-fear:${q.id}`)))
+                add(`${labels[piece.kind]} ${franceFearRemoval(s,piece)?'제거 대신 밀기':'제거'}`, () => { removePiece(s, l, piece, false, e.actor,'REMOVE'); if (e.n > health(l, piece))
                     prepend(s, { ...e, n: e.n - health(l, piece) }); }, l.id, piece.id);
             optional();
         }
@@ -373,7 +375,7 @@ function addPresenceAt(s: SpiritState, actor: PlayerId, id: string) { const prio
 else
     l.presence.push({ playerId: actor, count: 1 }); event(s, 'GROW', `${id} 현신 배치`, actor, id);if(player(s,actor).spirit==='KEEPER'&&prior===1)prepend(s,step('MOVE',actor,id,countPieces(l,['DAHAN']),'PUSH',actor,['DAHAN','REQUIRED'])); }
 export function automatic(s: SpiritState, e: SpiritStep): boolean {
-    if(blightAutomatic(s,e)||invaderTrackAutomatic(s,e)||branchFearAutomatic(s,e)||warAutomatic(s,e)||sacredAutomatic(s,e)||madnessAutomatic(s,e)||outpacedAutomatic(s,e)||investigationAutomatic(s,e)||farmlandEventAutomatic(s,e)||farmerEventAutomatic(s,e)||contactEventAutomatic(s,e)||terrorEventAutomatic(s,e)||industryEventAutomatic(s,e)||settlementEventAutomatic(s,e)||islandEventAutomatic(s,e)||stageEventAutomatic(s,e)||branchEventAutomatic(s,e)||branchMajorAutomatic(s,e)||branchMinorAutomatic(s,e)||branchClawAutomatic(s,e))return true;
+    if(franceAutomatic(s,e)||blightAutomatic(s,e)||invaderTrackAutomatic(s,e)||branchFearAutomatic(s,e)||warAutomatic(s,e)||sacredAutomatic(s,e)||madnessAutomatic(s,e)||outpacedAutomatic(s,e)||investigationAutomatic(s,e)||farmlandEventAutomatic(s,e)||farmerEventAutomatic(s,e)||contactEventAutomatic(s,e)||terrorEventAutomatic(s,e)||industryEventAutomatic(s,e)||settlementEventAutomatic(s,e)||islandEventAutomatic(s,e)||stageEventAutomatic(s,e)||branchEventAutomatic(s,e)||branchMajorAutomatic(s,e)||branchMinorAutomatic(s,e)||branchClawAutomatic(s,e))return true;
     const l = e.land ? land(s, e.land) : null, owner = e.target ?? e.actor, p = player(s, owner);
     if (e.kind === 'CHECK') {
         if(s.settings.scenario==='INSURRECTION') { const moved=s.flags.filter(f=>f.startsWith('raid:')); if(moved.length) {s.flags=s.flags.filter(f=>!f.startsWith('raid:')&&!f.startsWith('power:')); prepend(s,...moved.flatMap(f=>{const id=f.slice(5);const area=s.lands.find(l=>l.pieces.some(p=>p.id===id));return area?[step('DAMAGE',e.actor,area.id,1)]:[]}),e);return true;} }
@@ -398,7 +400,7 @@ export function automatic(s: SpiritState, e: SpiritStep): boolean {
         if (l) {
             const n = Math.min(l.blight, e.n);
             l.blight -= n;
-            s.blightPool += n;
+            franceRemovedBlight(s,n);
             if (n)
                 event(s, 'GROW', `${l.id} 오염 ${n}개 회복`, e.actor, l.id);
         }
@@ -587,7 +589,7 @@ export function automatic(s: SpiritState, e: SpiritStep): boolean {
         case 'BUILD_CARD_LAND':
             if(l&&(invaders(l).length>0||s.settings.adversary==='ENGLAND'&&s.settings.level>=1&&l.adjacent.filter(id=>land(s,id).number>0).reduce((n,id)=>n+countPieces(land(s,id),['TOWN','CITY']),0)>=2))prepend(s,step('SPECIAL',e.actor,l.id,0,'ESCALATE_BUILD'));
             return true;
-        case 'BUILD_LAND': if(l&&!buildIsSkipped(s,l)) {if(l.tokens.disease>0&&!s.flags.includes('event-lingering-plagues')){l.tokens.disease--;return true;}makePiece(s,l,countPieces(l,['TOWN'])>countPieces(l,['CITY'])?'CITY':'TOWN');event(s,'BUILD',`${l.id} 건설`,e.actor,l.id);} return true;
+        case 'BUILD_LAND': if(l&&!buildIsSkipped(s,l)) {if(l.tokens.disease>0&&!s.flags.includes('event-lingering-plagues')){l.tokens.disease--;return true;}const city=countPieces(l,['TOWN'])>countPieces(l,['CITY']);makePiece(s,l,city?'CITY':'TOWN');franceBuild(s,e,l,city);event(s,'BUILD',`${l.id} 건설`,e.actor,l.id);} return true;
         case 'EXPLORE': {
             const nextFear=takeNextFear(s,'explore');
             if(nextFear===2){event(s,'FEAR','탐험가의 망설임 · 다음 정상 탐험의 카드 공개 생략',e.actor);return true;}
@@ -610,13 +612,15 @@ export function automatic(s: SpiritState, e: SpiritStep): boolean {
                     continue;
                 if (exploreHasSource(s,area)) {
                     if(area.tokens.wilds>0){area.tokens.wilds--;event(s,'EXPLORE',`${area.id} 야생으로 탐험 차단`,e.actor,area.id);continue;}
+                    if(franceLevel(s,1)&&!s.flags.includes('setup-active')&&!countPieces(area,['TOWN','CITY']))makePiece(s,area,'EXPLORER');
                     if(!s.flags.includes('event-farmland')){makePiece(s, area, 'EXPLORER');if(s.flags.includes('event-recon'))makePiece(s,area,'EXPLORER');} explored.push(area.id);
                     if(!s.flags.includes('event-farmland'))event(s, 'EXPLORE', `${area.id} 탐험가 진입`, e.actor, area.id);
                 }
             }
             const after:SpiritStep[]=s.flags.includes('event-farmland')?farmlandExploreSteps(s,e,explored):[];
             if(s.settings.scenario==='BLITZ')for(const q of s.players){const ids=explored.filter(id=>id[0]===q.board);if(ids.length)after.push(step('SPECIAL',q.playerId,null,0,'BLITZ_EXPLORE',q.playerId,ids));}
-            if(card.stage===2&&!card.coastal){if(s.settings.adversary==='SWEDEN')after.push(...(nextFear===3?s.lands.filter(l=>l.number>0&&matches(l,card)).map(l=>l.id):explored).map(id=>step('SPECIAL',e.actor,id,0,'SWEDEN_ESCALATE')));else if(s.settings.adversary!=='NONE')after.push(...s.players.map(q=>step('SPECIAL',q.playerId,null,0,'ESCALATE',q.playerId,[q.board])));}
+            if(card.stage===2&&!card.coastal){if(s.settings.adversary==='FRANCE')after.push(...s.players.map(q=>step('SPECIAL',q.playerId,null,0,'FR_ESCALATE',q.playerId,[q.board,...card.terrains])));else if(s.settings.adversary==='SWEDEN')after.push(...(nextFear===3?s.lands.filter(l=>l.number>0&&matches(l,card)).map(l=>l.id):explored).map(id=>step('SPECIAL',e.actor,id,0,'SWEDEN_ESCALATE')));else if(s.settings.adversary!=='NONE')after.push(...s.players.map(q=>step('SPECIAL',q.playerId,null,0,'ESCALATE',q.playerId,[q.board])));}
+            if(franceLevel(s,6))after.push(...s.players.map(q=>step('SPECIAL',q.playerId,null,0,'FR_PERSISTENT',q.playerId,[q.board])));
             prepend(s,...after);
             return true;
         }
@@ -755,6 +759,7 @@ function fearLandSteps(s: SpiritState, e: SpiritStep, id: string): SpiritStep[] 
 }
 function resolveFear(s: SpiritState, e: SpiritStep) {
     const key = e.tags[0]!, level = s.terror, a = e.actor;
+    s.flags.push('fear-action');prepend(s,step('SPECIAL',a,null,0,'FR_FEAR_END'));
     s.fearDiscard.push(key);
     s.flags = s.flags.filter(f => !f.startsWith('fear-used:'));
     event(s, 'FEAR', `${SPIRIT_FEAR_NAMES[key]} · 공포 수준 ${level}`, a);

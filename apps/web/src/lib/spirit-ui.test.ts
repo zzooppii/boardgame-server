@@ -22,7 +22,7 @@ test('Ocean tracks show upcoming permanent elements and scenario objective',()=>
 test('Branch & Claw development selection exposes ten spirits and clearly states missing content',()=>{
  const s=playing();s.game.stage='SELECT';s.game.playerStates[0]!.spirit=null;s.game.settings.expansion='BRANCH_CLAW';
  const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));
- assert.equal((html.match(/이 정령 선택/g)??[]).length,10);assert.match(html,/si-art-FANGS/);assert.match(html,/si-art-KEEPER/);assert.match(html,/이벤트 25\/25장 개발 덱 · 확장 공포 15\/15장 · 나머지 확장 카드 미포함/);
+ assert.equal((html.match(/이 정령 선택/g)??[]).length,10);assert.match(html,/si-art-FANGS/);assert.match(html,/si-art-KEEPER/);assert.match(html,/이벤트 25\/25장 개발 덱 · 확장 공포 15\/15장 · 확장 오염 7장 · 프랑스 0–6단계 · 확장 시나리오 미포함/);
 });
 test('Branch & Claw map shows token counts and growth distinguishes selected options and costs',()=>{
  const s=playing(),p=s.game.playerStates[0]!;s.game.settings.expansion='BRANCH_CLAW';p.spirit='FANGS';p.grown=false;p.growthSelections=[3];p.canCallPredators=true;
@@ -155,4 +155,16 @@ test('Lesser UI: candidate effects, assigned card and usable power visible witho
 });
 test('Blight reveal and aid assignment use existing blight and card sound cues',()=>{
  const before=playing().game,after=structuredClone(before);after.gameRevision=parse(SpiritPlayingPlatformSnapshotV2Schema,{...playing(),game:{...after,gameRevision:1}}).game.gameRevision;after.blighted=true;after.blightCard='LESSER';after.log=[{id:1,kind:'BLIGHT',text:'오염 카드 공개',landId:null,playerId:null},{id:2,kind:'CARD',text:'작은 정령 능력 배정',landId:null,playerId:null}];assert.deepEqual(spiritTransitionCues(before,after),['BLIGHT','CARD']);
+});
+
+test('France UI: core hides France while expansion setup and live supply explain cumulative rules',()=>{
+ const s=playing();s.game.stage='SELECT';s.game.playerStates[0]!.spirit=null;
+ let html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));assert.ok(!html.includes('value="FRANCE"'));
+ s.game.settings.expansion='BRANCH_CLAW';html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));assert.match(html,/value="FRANCE"/);assert.match(html,/프랑스 0–6단계/);
+ s.game.stage='PREPARE';s.game.playerStates[0]!.spirit='RIVER';s.game.settings.adversary='FRANCE';s.game.settings.level=6;s.game.franceTownSupply=2;s.game.franceBlight=1;s.game.rebellionIn=4;
+ html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));for(const text of ['프랑스 대적 진행','2 / 7','1 / 3','이벤트 4장째 예정','모두 사용한 뒤 추가로 놓으려 하면 패배','공포의 탐험가 제거는 밀기로 변경'])assert.ok(html.includes(text),text);
+});
+test('Slave Rebellion UI: stage II still uses early branch and Dahan precedes recurrence',()=>{
+ const s=playing();s.game.settings.expansion='BRANCH_CLAW';s.game.currentEvent='REBELLION';s.game.round=2;s.game.eventInvaderStage=2;
+ const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));assert.match(html,/공개 시 침략 2단계/);assert.ok(html.indexOf('다한 이벤트')<html.indexOf('다음 이벤트'));assert.ok(!html.includes('<b>토큰 이벤트</b>'));
 });

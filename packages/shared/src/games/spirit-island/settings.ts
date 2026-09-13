@@ -1,12 +1,12 @@
 import * as v from 'valibot';
 export const SpiritSettingsSchema = v.strictObject({
   expansion: v.optional(v.picklist(['CORE','BRANCH_CLAW'])), progression: v.boolean(), blightCard: v.boolean(),
-  adversary: v.picklist(['NONE','PRUSSIA','ENGLAND','SWEDEN']), level: v.picklist([0,1,2,3,4,5,6]),
+  adversary: v.picklist(['NONE','PRUSSIA','ENGLAND','SWEDEN','FRANCE']), level: v.picklist([0,1,2,3,4,5,6]),
   scenario: v.picklist(['NONE','BLITZ','HEART','RITUAL','INSURRECTION'])
 });
 export type SpiritSettings = v.InferOutput<typeof SpiritSettingsSchema>;
 export const SPIRIT_DEFAULT_SETTINGS: SpiritSettings = {expansion:'CORE',progression:true,blightCard:false,adversary:'NONE',level:0,scenario:'NONE'};
-export const SPIRIT_ADVERSARIES = {NONE:'대적 없음',PRUSSIA:'브란덴부르크–프로이센',ENGLAND:'잉글랜드',SWEDEN:'스웨덴'};
+export const SPIRIT_ADVERSARIES = {NONE:'대적 없음',PRUSSIA:'브란덴부르크–프로이센',ENGLAND:'잉글랜드',SWEDEN:'스웨덴',FRANCE:'프랑스 · 플랜테이션 식민지'};
 export const SPIRIT_SCENARIOS = {NONE:'일반 게임',BLITZ:'전격전',HEART:'섬의 심장 수호',RITUAL:'공포의 의식',INSURRECTION:'다한의 봉기'};
 export const SPIRIT_SCENARIO_HELP: Record<SpiritSettings['scenario'],string> = {
  NONE:'공포 수준에 맞는 침략자를 모두 몰아내면 승리합니다.',
@@ -16,6 +16,6 @@ export const SPIRIT_SCENARIO_HELP: Record<SpiritSettings['scenario'],string> = {
  INSURRECTION:'이동한 다한은 효과 종료 후 피해 1을 줍니다. 파괴된 건물은 가까운 다한 지역에 작은 침략자로 돌아옵니다. 공포 II에는 건물이 다한보다 많은 지역이 없어야 승리하며, III에는 그런 지역이 인원수보다 적으면 승리합니다. 다한이 인원당 2개 미만이면 패배합니다.'
 };
 export function spiritFearTiers(settings: SpiritSettings): readonly [number,number,number] {
- const tables = {PRUSSIA:[[3,3,3],[3,3,3],[3,3,3],[3,4,3],[4,4,3],[4,4,3],[4,4,4]],ENGLAND:[[3,3,3],[3,4,3],[4,4,3],[4,5,4],[4,5,5],[4,5,5],[4,5,4]],SWEDEN:[[3,3,3],[3,3,3],[3,4,3],[3,4,3],[3,4,4],[4,4,4],[4,4,5]]} satisfies Record<string,number[][]>;
+ const tables = {FRANCE:[[3,3,3],[3,3,3],[3,4,3],[4,4,3],[4,4,4],[4,5,4],[4,5,5]],PRUSSIA:[[3,3,3],[3,3,3],[3,3,3],[3,4,3],[4,4,3],[4,4,3],[4,4,4]],ENGLAND:[[3,3,3],[3,4,3],[4,4,3],[4,5,4],[4,5,5],[4,5,5],[4,5,4]],SWEDEN:[[3,3,3],[3,3,3],[3,4,3],[3,4,3],[3,4,4],[4,4,4],[4,4,5]]} satisfies Record<string,number[][]>;
  if(settings.adversary==='NONE') return [3,3,3]; const t=tables[settings.adversary][settings.level]!; return [t[0]!,t[1]!,t[2]!];
 }

@@ -1,3 +1,4 @@
+import { franceLevel, franceFearRemoval } from './france.js';
 import { SPIRIT_ELEMENTS, spiritDefinition, spiritPower, type PlayerId, type SpiritElement, type SpiritLand, type SpiritPiece, type SpiritPower, type SpiritInvaderCard } from '@hangul-rummikub/shared';
 import type { SpiritState, SpiritPlayer, SpiritStep } from './state.js';
 export class SpiritRuleError extends Error {
@@ -14,7 +15,10 @@ export function addPresence(l: SpiritLand, id: PlayerId, n: number) { const p = 
     p.count += n;
 else
     l.presence.push({ playerId: id, count: n }); l.presence = l.presence.filter(p => p.count > 0); }
-export function makePiece(s: SpiritState, l: SpiritLand, kind: SpiritPiece['kind'], arrival = true) { const p = { id: `${s.gameId}:p${++s.pieceCounter}`, kind, damage: 0, strife: 0 }; l.pieces.push(p);
+export function makePiece(s: SpiritState, l: SpiritLand, kind: SpiritPiece['kind'], arrival = true) { const p = { id: `${s.gameId}:p${++s.pieceCounter}`, kind, damage: 0, strife: 0 };
+    // A failed placement still returns an inert handle so the action can finish and check sacrifice victory.
+    if(kind==='TOWN'&&franceLevel(s)&&s.lands.reduce((n,l)=>n+countPieces(l,['TOWN']),0)>=7*s.players.length){s.franceFailedTown=true;event(s,'BUILD','프랑스 · 마을 공급 부족');return p;}
+    l.pieces.push(p);
     if(arrival&&kind!=='DAHAN')for(const owner of s.players.filter(q=>s.flags.includes(`bc-mists:${l.id}:${q.playerId}`)))prepend(s,step('MOVE',owner.playerId,l.id,1,'PUSH',owner.playerId,[kind,`ONLY:${p.id}`]));
     return p; }
 export function event(s: SpiritState, kind: SpiritState['log'][number]['kind'], text: string, actor: PlayerId | null = null, landId: string | null = null) { s.log.push({ id: ++s.effectCounter, kind, text, landId, playerId: actor }); s.log = s.log.slice(-50); }
@@ -89,7 +93,9 @@ export function fear(s: SpiritState, n: number, actor: PlayerId, at: string | nu
     }
 } }
 export const health = (l: SpiritLand, p: SpiritPiece) => Math.max(1,(p.kind === 'CITY' ? 3+l.invaderHealth : p.kind === 'TOWN' ? 2+l.invaderHealth : p.kind === 'DAHAN' ? 2 + l.dahanHealth : 1)+(l.eventHealthBonus==='BUILDINGS'&&(p.kind==='TOWN'||p.kind==='CITY')||l.eventHealthBonus==='EXPLORERS'&&p.kind==='EXPLORER'?1:0)-(l.eventHealthLoss&&p.kind!=='EXPLORER'?1:0)-(l.eventBuildingHealthLoss&&(p.kind==='TOWN'||p.kind==='CITY')?1:0)-(p.kind!=='DAHAN'?l.strifeHealthLoss*p.strife:0));
-export function removePiece(s: SpiritState, l: SpiritLand, piece: SpiritPiece, destroy: boolean, actor: PlayerId, cause: 'EFFECT'|'HEALTH' = 'EFFECT'): void {
+export function removePiece(s: SpiritState, l: SpiritLand, piece: SpiritPiece, destroy: boolean, actor: PlayerId, cause: 'EFFECT'|'HEALTH'|'REMOVE' = 'EFFECT'): void {
+    if(!l.pieces.some(q=>q.id===piece.id))return;
+    if(!destroy&&cause==='REMOVE'&&franceFearRemoval(s,piece)){if(!s.flags.includes(`france-fear:${piece.id}`)){s.flags.push(`france-fear:${piece.id}`);prepend(s,step('MOVE',actor,l.id,1,'PUSH',actor,['EXPLORER',`ONLY:${piece.id}`]));}return;}
     if (destroy && cause==='EFFECT' && dreaming(s, actor)) { dreamDestroy(s, l, piece, actor); return; }
     if (destroy && piece.kind === 'DAHAN' && l.vitality && s.flags.includes(`immortal:${l.id}`))
         return;
@@ -113,7 +119,7 @@ export function removePiece(s: SpiritState, l: SpiritLand, piece: SpiritPiece, d
 export function destroyFromHealthLoss(s:SpiritState,l:SpiritLand,p:SpiritPiece,actor:PlayerId):void {
  if(p.damage>=health(l,p)){removePiece(s,l,p,true,actor,'HEALTH');event(s,'DAMAGE',`${l.id} 체력 감소로 ${p.kind==='CITY'?'도시':p.kind==='TOWN'?'마을':'탐험가'} 파괴`,actor,l.id);}
 }
-export function damagePiece(s: SpiritState, l: SpiritLand, p: SpiritPiece, n: number, actor: PlayerId): boolean { if (dreaming(s, actor)) { if (p.kind !== 'DAHAN' && !s.flags.includes(`dream-killed:${p.id}`)) { const tag = s.flags.find(f => f.startsWith(`dream-damage:${p.id}:`)), prior = Number(tag?.split(':').at(-1) ?? 0); s.flags = s.flags.filter(f => f !== tag); s.flags.push(`dream-damage:${p.id}:${prior+n}`); if (prior+n+p.damage >= health(l,p)) dreamDestroy(s,l,p,actor); } return false; } if (p.kind === 'DAHAN' && s.flags.includes(`immortal:${l.id}`))
+export function damagePiece(s: SpiritState, l: SpiritLand, p: SpiritPiece, n: number, actor: PlayerId): boolean { if(!l.pieces.some(q=>q.id===p.id))return false; if (dreaming(s, actor)) { if (p.kind !== 'DAHAN' && !s.flags.includes(`dream-killed:${p.id}`)) { const tag = s.flags.find(f => f.startsWith(`dream-damage:${p.id}:`)), prior = Number(tag?.split(':').at(-1) ?? 0); s.flags = s.flags.filter(f => f !== tag); s.flags.push(`dream-damage:${p.id}:${prior+n}`); if (prior+n+p.damage >= health(l,p)) dreamDestroy(s,l,p,actor); } return false; } if (p.kind === 'DAHAN' && s.flags.includes(`immortal:${l.id}`))
     return false; p.damage += n; if (p.damage >= health(l, p)) {
     removePiece(s, l, p, true, actor);
     return true;
@@ -126,7 +132,7 @@ export function checkEnd(s: SpiritState) {
     const normalWin = s.terror === 4 || s.lands.every(l => invaders(l).every(p => s.terror === 3 ? p.kind !== 'CITY' : s.terror === 2 ? p.kind === 'EXPLORER' : false));
     const outnumbered=s.lands.filter(l=>countPieces(l,['TOWN','CITY'])>countPieces(l,['DAHAN'])).length;
     const won=s.settings.scenario==='INSURRECTION'?s.terror>=2&&outnumbered<(s.terror===2?1:s.players.length):normalWin;
-    const specialLoss=s.settings.adversary==='ENGLAND'&&s.lands.some(l=>countPieces(l,['TOWN','CITY'])>=7)?'ADVERSARY':s.settings.scenario==='HEART'&&s.round>1&&s.lands.some(l=>s.hearts.includes(l.id)&&countPieces(l,['TOWN','CITY'])>0)||s.settings.scenario==='INSURRECTION'&&(s.lands.reduce((n,l)=>n+countPieces(l,['DAHAN']),0)<2*s.players.length||s.flags.includes('uprising-done')&&!won)?'SCENARIO':null;
+    const specialLoss=s.franceFailedTown?'ADVERSARY':s.settings.adversary==='ENGLAND'&&s.lands.some(l=>countPieces(l,['TOWN','CITY'])>=7)?'ADVERSARY':s.settings.scenario==='HEART'&&s.round>1&&s.lands.some(l=>s.hearts.includes(l.id)&&countPieces(l,['TOWN','CITY'])>0)||s.settings.scenario==='INSURRECTION'&&(s.lands.reduce((n,l)=>n+countPieces(l,['DAHAN']),0)<2*s.players.length||s.flags.includes('uprising-done')&&!won)?'SCENARIO':null;
     const lost = specialLoss ?? (s.blightPool <= 0 ? 'BLIGHT' : s.players.some(p => !s.lands.some(l => presence(l, p.playerId) > 0)) ? 'PRESENCE' : null);
     if(s.settings.scenario==='INSURRECTION'&&s.terror===4&&!s.flags.includes('uprising-done')) {s.flags.push('uprising-done');s.queue.push(...s.lands.filter(l=>countPieces(l,['DAHAN'])).map(l=>step('DAMAGE',s.players[0]!.playerId,l.id,2*countPieces(l,['DAHAN']))),step('CHECK',s.players[0]!.playerId));return;}
     if (!won && !lost)
@@ -134,7 +140,7 @@ export function checkEnd(s: SpiritState) {
     s.phase = 'FINISHED';
     s.result = { reason: won ? (lost ? 'SACRIFICE' : 'VICTORY') : lost!, winnerPlayerIds: won ? s.players.map(p => p.playerId) : [], round: s.round };
     s.queue = [];
-    event(s, won ? 'WIN' : 'LOSE', won ? '섬을 지켜냈습니다.' : lost === 'BLIGHT' ? '오염이 섬을 뒤덮었습니다.' : lost==='ADVERSARY'?'침략자의 수도가 세워졌습니다.':lost==='SCENARIO'?'시나리오의 패배 조건에 도달했습니다.':'한 정령의 현신이 모두 사라졌습니다.');
+    event(s, won ? 'WIN' : 'LOSE', won ? '섬을 지켜냈습니다.' : lost === 'BLIGHT' ? '오염이 섬을 뒤덮었습니다.' : lost==='ADVERSARY'?(s.franceFailedTown?'프랑스의 마을 공급이 부족합니다.':'침략자의 수도가 세워졌습니다.'):lost==='SCENARIO'?'시나리오의 패배 조건에 도달했습니다.':'한 정령의 현신이 모두 사라졌습니다.');
 }
 export function income(p: SpiritPlayer): number { requireRule(p.spirit); return spiritDefinition(p.spirit).energy[p.energyTrack]!; }
 export function playLimit(p: SpiritPlayer): number { requireRule(p.spirit); return spiritDefinition(p.spirit).plays[p.cardTrack]! + p.bonusPlays; }

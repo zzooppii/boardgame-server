@@ -34,7 +34,7 @@ export function branchEventOptions(s:SpiritState,e:SpiritStep,add:Add,shuffle:<T
  if(!e.key.startsWith('BCE_'))return false;
  const owner=e.target??e.actor, p=player(s,owner), key=s.currentEvent;
  if(e.key==='BCE_REVEAL') {
-  add(s.round===1?'첫 라운드 · 효과 없이 버리기':'이벤트 선택 시작',()=>{if(s.round!==1){requireRule(key);prepend(s,step('SPECIAL',e.actor,null,0,SPIRIT_EVENTS[key].type==='PERSONAL'?'BCE11_MAIN':SPIRIT_EVENTS[key].type==='DECISION'?'BCE8_CHOICE':SPIRIT_EVENTS[key].type==='CHOICE'?'BCE_CHOICE':SPIRIT_EVENTS[key].type==='ISLAND'?'BCE3_MAIN':SPIRIT_EVENTS[key].type==='TERROR'?'BCE6_MAIN':'BCE2_MAIN'));}});
+  add(s.round===1?'첫 라운드 · 효과 없이 버리기':'이벤트 선택 시작',()=>{if(s.round!==1){requireRule(key);prepend(s,step('SPECIAL',e.actor,null,0,key==='REBELLION'?'FR_REBELLION_MAIN':SPIRIT_EVENTS[key].type==='PERSONAL'?'BCE11_MAIN':SPIRIT_EVENTS[key].type==='DECISION'?'BCE8_CHOICE':SPIRIT_EVENTS[key].type==='CHOICE'?'BCE_CHOICE':SPIRIT_EVENTS[key].type==='ISLAND'?'BCE3_MAIN':SPIRIT_EVENTS[key].type==='TERROR'?'BCE6_MAIN':'BCE2_MAIN'));}});
  } else if(e.key==='BCE_CHOICE') {
   requireRule(key);const def=SPIRIT_EVENTS[key];requireRule(def.type==='CHOICE');
   const cost=key==='WAR'?s.players.length:key==='SACRED_SITES'?3*threatenedSites(s).length:key==='MADNESS'?madnessCost(s):4*s.players.length;
@@ -78,7 +78,7 @@ export function branchEventOptions(s:SpiritState,e:SpiritStep,add:Add,shuffle:<T
 export function branchEventAutomatic(s:SpiritState,e:SpiritStep):boolean {
  if(!e.key.startsWith('BCE_'))return false;
  switch(e.key){
- case 'BCE_START': {const key=s.eventDeck.shift();if(!key)return true;s.currentEvent=key;s.eventInvaderStage=currentInvaderStage(s);s.eventDiscard.push(key);event(s,'EVENT',`${SPIRIT_EVENTS[key].title}${s.round===1?' · 첫 라운드는 효과 없이 버립니다.':''}`);prepend(s,step('SPECIAL',e.actor,null,0,'BCE_REVEAL'));return true;}
+ case 'BCE_START': {const key=s.eventDeck.shift();if(!key)return true;if(e.tags.includes('REBELLION_RETURN')){s.eventDiscard=s.eventDiscard.filter(k=>k!=='REBELLION');s.eventDeck.splice(Math.min(3,s.eventDeck.length),0,'REBELLION');}s.currentEvent=key;s.eventInvaderStage=currentInvaderStage(s);s.eventDiscard.push(key);event(s,'EVENT',`${SPIRIT_EVENTS[key].title}${s.round===1?' · 첫 라운드는 효과 없이 버립니다.':''}`);prepend(s,step('SPECIAL',e.actor,null,0,'BCE_REVEAL'));return true;}
  case 'BCE_DISCARD_MINOR': {const id=s.minor.shift()??s.minorDiscard.shift();if(!id)return true;s.minorDiscard.push(id);const c=cardPower(s,id);event(s,'CARD',`${e.tags[0]} · 이벤트 공개 후 버림: ${c.title}`);if(s.currentEvent==='NEW_SPECIES'?c.speed==='FAST':!c.elements.includes('WATER'))prepend(s,{...e,key:'BCE_BLIGHT_LAND'});return true;}
  case 'BCE_HEALTH': for(const l of s.lands.filter(l=>l.number>0)){l.eventHealthLoss=true;for(const piece of [...l.pieces])damagePiece(s,l,piece,0,e.actor);}return true;
  case 'BCE_TOKEN': if(s.currentEvent==='NEW_SPECIES')prepend(s,step('SPECIAL',e.actor,null,Math.ceil(boards(s).length/2),'BCE_DISEASE'));else prepend(s,...s.lands.filter(l=>l.number>0&&l.tokens.beasts>0).map(l=>step('SPECIAL',e.actor,l.id,l.tokens.beasts,'BCE_BEAST_ATTACK')));return true;
