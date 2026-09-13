@@ -19,6 +19,7 @@ export const SPIRIT_FEAR_HELP: Record<string, readonly [string,string,string]> =
 
 /** Implemented Branch & Claw cards; this is a public reference, not deck order. */
 export const SPIRIT_BRANCH_FEAR = {
+ careful:{name:'조심스러운 발걸음',artwork:'THUNDER',effects:['각자 다한이 있거나 인접 다한 합계가 5개 이상인 지역을 선택할 수 있습니다. 이번 라운드 그곳의 파괴를 생략합니다.','각자 다한이 있거나 인접 다한 합계가 3개 이상인 지역을 선택할 수 있습니다. 이번 라운드 그곳의 파괴를 생략합니다.','각자 다한이 있거나 다한에 인접한 지역을 선택할 수 있습니다. 이번 라운드 그곳의 파괴를 생략합니다.']},
  attack:{name:'다한의 공격',artwork:'THUNDER',effects:['각자 다한 지역에서 탐험가 1개 제거.','각자 서로 다른 다한 지역을 골라 다한마다 피해 1.','각자 서로 다른 마을/도시 지역을 골라 다한 1개를 모은 뒤 다한마다 피해 2.']},
  monsters:{name:'너무 많은 괴물',artwork:'FANGS',effects:['각자 야수 지역에서 탐험가/마을 1개 제거.','각자 야수 지역 한 곳에서 탐험가 1개와 마을 1개 제거 또는 야수에 인접한 지역에서 탐험가 1개 제거.','각자 야수 지역 한 곳에서 탐험가 2개와 마을 2개 제거 또는 야수에 인접한 지역에서 탐험가/마을 1개 제거.']},
  demoralized:{name:'사기 저하',artwork:'SHADOW',effects:['모든 육지에 방어 1.','모든 육지에 방어 2.','모든 육지에 방어 3.']},

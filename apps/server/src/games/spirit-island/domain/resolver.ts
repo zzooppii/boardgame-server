@@ -543,6 +543,7 @@ export function automatic(s: SpiritState, e: SpiritStep): boolean {
                 prepend(s, step('MOVE', e.actor, l.id, countPieces(l, ['EXPLORER']), 'PUSH', null, ['EXPLORER', 'REQUIRED', 'SPREAD']));
             return true;
         case 'RAVAGE':
+            if(l?.ravageSkip){event(s,'FEAR',`${l.id} 조심스러운 발걸음으로 파괴 생략`,e.actor,l.id);return true;}
             if(l&&s.flags.includes('event-stricken')&&(l.tokens.disease>0||invaders(l).some(p=>p.strife>0))){event(s,'DAMAGE',`${l.id} 질병·분쟁으로 파괴 생략`,e.actor,l.id);return true;}
             if (l && !l.skip) {
                 if(invaders(l).length&&s.flags.includes(`trade-build:${l.id}`)){s.flags.splice(s.flags.indexOf(`trade-build:${l.id}`),1);prepend(s,step('SPECIAL',e.actor,l.id,0,'ESCALATE_BUILD'));return true;}
@@ -642,6 +643,7 @@ export function automatic(s: SpiritState, e: SpiritStep): boolean {
                     piece.damage = 0;
                 area.defend = 0;
                 area.skip = false;
+                area.ravageSkip = false;
                 area.protectDahan = false;
                 area.vitality = false;
                 area.dahanHealth = 0;area.eventBuildingHealthLoss=false;area.eventHealthLoss=false;area.eventHealthBonus=null;

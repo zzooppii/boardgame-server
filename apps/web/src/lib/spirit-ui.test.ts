@@ -22,7 +22,7 @@ test('Ocean tracks show upcoming permanent elements and scenario objective',()=>
 test('Branch & Claw development selection exposes ten spirits and clearly states missing content',()=>{
  const s=playing();s.game.stage='SELECT';s.game.playerStates[0]!.spirit=null;s.game.settings.expansion='BRANCH_CLAW';
  const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));
- assert.equal((html.match(/이 정령 선택/g)??[]).length,10);assert.match(html,/si-art-FANGS/);assert.match(html,/si-art-KEEPER/);assert.match(html,/이벤트 25\/25장 개발 덱 · 확장 공포 6\/15장 · 나머지 확장 카드 미포함/);
+ assert.equal((html.match(/이 정령 선택/g)??[]).length,10);assert.match(html,/si-art-FANGS/);assert.match(html,/si-art-KEEPER/);assert.match(html,/이벤트 25\/25장 개발 덱 · 확장 공포 7\/15장 · 나머지 확장 카드 미포함/);
 });
 test('Branch & Claw map shows token counts and growth distinguishes selected options and costs',()=>{
  const s=playing(),p=s.game.playerStates[0]!;s.game.settings.expansion='BRANCH_CLAW';p.spirit='FANGS';p.grown=false;p.growthSelections=[3];p.canCallPredators=true;
@@ -121,5 +121,9 @@ test('War panel explains energy-only payment, major damage and face-down fear in
 });
 
 test('Branch fear preview displays illustrations and current level without revealing hidden cards',()=>{
- const s=playing();s.game.terror=2;s.game.revealedFear=Object.values(SPIRIT_BRANCH_FEAR).map((c,i)=>({position:i+1,name:c.name,effects:[...c.effects]}));const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));for(const text of ['미리 공개된 공포 카드','실제 해결 시점의 수준','공포 2 · 현재 수준','si-art-FANGS',...Object.values(SPIRIT_BRANCH_FEAR).map(c=>c.name)])assert.ok(html.includes(text),text);assert.equal(SPIRIT_BRANCH_FEAR_KEYS.length,6);s.game.revealedFear=[];assert.ok(!renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s})).includes('미리 공개된 공포 카드'));
+ const s=playing();s.game.terror=2;s.game.revealedFear=Object.values(SPIRIT_BRANCH_FEAR).map((c,i)=>({position:i+1,name:c.name,effects:[...c.effects]}));const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));for(const text of ['미리 공개된 공포 카드','실제 해결 시점의 수준','공포 2 · 현재 수준','si-art-FANGS',...Object.values(SPIRIT_BRANCH_FEAR).map(c=>c.name)])assert.ok(html.includes(text),text);assert.equal(SPIRIT_BRANCH_FEAR_KEYS.length,7);s.game.revealedFear=[];assert.ok(!renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s})).includes('미리 공개된 공포 카드'));
+});
+
+test('Tread Carefully shows a separate ravage skip and suppresses blight risk without blocking converted builds',()=>{
+ const s=playing(),l=s.game.lands[0]!;l.pieces=[{id:'town',kind:'TOWN',damage:0,strife:0}];l.ravageSkip=true;s.game.ravage={stage:1,terrains:[l.terrain],coastal:false};assert.equal(ravagePreview(s.game,l).blocked,true);assert.equal(ravagePreview(s.game,l).blight,false);assert.match(renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s})),/파괴 생략/);assert.equal(l.skip,false);s.game.eventRavageToBuild=true;assert.equal(ravagePreview(s.game,l).blocked,false);assert.equal(ravagePreview(s.game,l).convertsToBuild,true);
 });
