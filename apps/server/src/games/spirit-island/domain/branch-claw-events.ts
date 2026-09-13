@@ -1,3 +1,4 @@
+import { warMain } from './branch-claw-war-events.js';
 import { sacredMain, sacredPaymentOptions, threatenedSites } from './branch-claw-sacred-events.js';
 import { madnessCost, madnessMain, madnessPaymentOptions } from './branch-claw-madness-events.js';
 import { contactEventMain } from './branch-claw-contact-events.js';
@@ -11,12 +12,12 @@ const boards = (s:SpiritState) => [...new Set(s.lands.filter(l=>l.number>0).map(
 const buildings = (l:SpiritLand) => countPieces(l,['TOWN','CITY']);
 export function eventPaymentView(s:SpiritState) {
  const payment=s.eventPayment;if(!payment)return null;
- const contributions=payment.pledges.map(pledge=>({playerId:pledge.playerId, energy:pledge.energy, support:elements(s,pledge.playerId)[payment.element]+pledge.cards.reduce((n,c)=>n+(c.mode==='DISCARD'?2:4)-(player(s,pledge.playerId).played.includes(c.cardId)?cardPower(s,c.cardId).elements.filter(e=>e===payment.element).length:0),0)}));
+ const contributions=payment.pledges.map(pledge=>({playerId:pledge.playerId, energy:pledge.energy, support:(payment.element?elements(s,pledge.playerId)[payment.element]:0)+pledge.cards.reduce((n,c)=>n+(c.mode==='DISCARD'?2:4)-(player(s,pledge.playerId).played.includes(c.cardId)?cardPower(s,c.cardId).elements.filter(e=>e===payment.element).length:0),0)}));
  const support=contributions.reduce((n,c)=>n+c.support,0), energy=contributions.reduce((n,c)=>n+c.energy,0);
  return {cost:payment.cost,element:payment.element,contributions,support,energy,remaining:Math.max(0,payment.cost-support-energy)};
 }
-function finishMain(s:SpiritState,e:SpiritStep,paid:boolean) {
- if(sacredMain(s,e,paid)||madnessMain(s,e,paid)||contactEventMain(s,e,paid))return;
+function finishMain(s:SpiritState,e:SpiritStep,paid:boolean,shuffle:<T>(values:T[])=>T[]) {
+ if(warMain(s,e,paid,shuffle)||sacredMain(s,e,paid)||madnessMain(s,e,paid)||contactEventMain(s,e,paid))return;
  requireRule(s.currentEvent);const key=s.currentEvent;
  const effects:SpiritStep[]=[];
  if(paid) {
@@ -29,16 +30,16 @@ function finishMain(s:SpiritState,e:SpiritStep,paid:boolean) {
  }
  prepend(s,...effects,step('CHECK',e.actor),step('SPECIAL',e.actor,null,0,'BCE_TOKEN'),step('CHECK',e.actor),step('SPECIAL',e.actor,null,0,'BCE_DAHAN'),step('CHECK',e.actor),step('SPECIAL',e.actor,null,0,'BCE_END'));
 }
-export function branchEventOptions(s:SpiritState,e:SpiritStep,add:Add):boolean {
+export function branchEventOptions(s:SpiritState,e:SpiritStep,add:Add,shuffle:<T>(values:T[])=>T[]):boolean {
  if(!e.key.startsWith('BCE_'))return false;
  const owner=e.target??e.actor, p=player(s,owner), key=s.currentEvent;
  if(e.key==='BCE_REVEAL') {
   add(s.round===1?'첫 라운드 · 효과 없이 버리기':'이벤트 선택 시작',()=>{if(s.round!==1){requireRule(key);prepend(s,step('SPECIAL',e.actor,null,0,SPIRIT_EVENTS[key].type==='PERSONAL'?'BCE11_MAIN':SPIRIT_EVENTS[key].type==='DECISION'?'BCE8_CHOICE':SPIRIT_EVENTS[key].type==='CHOICE'?'BCE_CHOICE':SPIRIT_EVENTS[key].type==='ISLAND'?'BCE3_MAIN':SPIRIT_EVENTS[key].type==='TERROR'?'BCE6_MAIN':'BCE2_MAIN'));}});
  } else if(e.key==='BCE_CHOICE') {
   requireRule(key);const def=SPIRIT_EVENTS[key];requireRule(def.type==='CHOICE');
-  const cost=key==='SACRED_SITES'?3*threatenedSites(s).length:key==='MADNESS'?madnessCost(s):4*s.players.length;
-  add(def.free,()=>finishMain(s,e,false));
-  add(`${def.paid} · 비용 ${cost} · ${SPIRIT_ELEMENT_LABELS[def.element]} 지원`,()=>{s.eventPayment={cost,element:def.element,pledges:s.players.map(p=>({playerId:p.playerId,energy:0,cards:[]}))};prepend(s,step('SPECIAL',owner,null,0,'BCE_PAY',owner,[],key==='SACRED_SITES'?threatenedSites(s).map(l=>l.id):[]));});
+  const cost=key==='WAR'?s.players.length:key==='SACRED_SITES'?3*threatenedSites(s).length:key==='MADNESS'?madnessCost(s):4*s.players.length;
+  add(def.free,()=>finishMain(s,e,false,shuffle));
+  add(`${def.paid} · 비용 ${cost} · ${def.element?`${SPIRIT_ELEMENT_LABELS[def.element]} 지원`:'에너지만 지원'}`,()=>{s.eventPayment={cost,element:def.element,pledges:s.players.map(p=>({playerId:p.playerId,energy:0,cards:[]}))};prepend(s,step('SPECIAL',owner,null,0,'BCE_PAY',owner,[],key==='SACRED_SITES'?threatenedSites(s).map(l=>l.id):[]));});
  } else if(e.key==='BCE_PAY') {
   const payment=s.eventPayment, view=eventPaymentView(s);requireRule(payment&&view);
   const pledge=payment.pledges.find(q=>q.playerId===owner);requireRule(pledge);
@@ -54,11 +55,11 @@ export function branchEventOptions(s:SpiritState,e:SpiritStep,add:Add):boolean {
     }
     event(s,'CARD',`이벤트 비용 · 에너지 ${spent}`,q.playerId);
    }
-   requireRule(needed===0);s.eventPayment=null;finishMain(s,e,true);
+   requireRule(needed===0);s.eventPayment=null;finishMain(s,e,true,shuffle);
   });
   if(pledge.energy<p.energy&&view.remaining>0)add('에너지 1 지원 추가',()=>{pledge.energy++;again();});
   if(pledge.energy>0)add('에너지 1 지원 취소',()=>{pledge.energy--;again();});
-  for(const id of [...p.hand,...p.played,...p.discard].filter(id=>cardPower(s,id).elements.includes(payment.element))){const selected=pledge.cards.find(c=>c.cardId===id),title=cardPower(s,id).title;
+  for(const id of [...p.hand,...p.played,...p.discard].filter(id=>payment.element!==null&&cardPower(s,id).elements.includes(payment.element))){const selected=pledge.cards.find(c=>c.cardId===id),title=cardPower(s,id).title;
    if(selected)add(`${title} · 지원 선택 취소`,()=>{pledge.cards=pledge.cards.filter(c=>c.cardId!==id);again();});
    else {if(p.hand.includes(id))add(`${title} · 손패 버림으로 지원 2`,()=>{pledge.cards.push({cardId:id,mode:'DISCARD'});again();});add(`${title} · 망각으로 지원 4${p.played.includes(id)?' (사용 원소 제외)':''}`,()=>{pledge.cards.push({cardId:id,mode:'FORGET'});again();});}
   }

@@ -466,7 +466,7 @@ for(const key of stageEvents)for(const stage of [1,2,3] as const)for(const n of 
  let s=eventGame(n,key);s.eventInvaderStage=stage;s=eventChoose(s,'이벤트 선택 시작');s=drain(s);assert.equal(s.queue.length,0);assert.equal(s.stage,'FEAR');parseSpiritState(s);
 });
 test('Stage events: all configured event keys are configured once; core contains none',()=>{
- const s=branchClaw();assert.deepEqual([...s.eventDeck].sort(),[...SPIRIT_EVENT_KEYS].sort());assert.equal(s.eventDeck.length,24);assert.equal(chosen().eventDeck.length,0);
+ const s=branchClaw();assert.deepEqual([...s.eventDeck].sort(),[...SPIRIT_EVENT_KEYS].sort());assert.equal(s.eventDeck.length,25);assert.equal(chosen().eventDeck.length,0);
 });
 test('Stage events: Prussia early III counts as II, real late III and empty deck count as III',()=>{
  const s=branchClaw();s.settings.adversary='PRUSSIA';s.settings.level=2;s.invaderDeck=[{stage:3,terrains:['JUNGLE','SANDS'],coastal:false},{stage:2,terrains:['MOUNTAIN'],coastal:false}];assert.equal(currentInvaderStage(s),2);s.invaderDeck.shift();assert.equal(currentInvaderStage(s),2);s.invaderDeck=[{stage:3,terrains:['JUNGLE','SANDS'],coastal:false}];assert.equal(currentInvaderStage(s),3);s.invaderDeck=[];assert.equal(currentInvaderStage(s),3);
@@ -877,3 +877,43 @@ test('Spirit speakers gain a minor only with four Dahan across own presence land
  let s=sacredGame(2);for(const l of s.lands)l.pieces=l.pieces.filter(p=>p.kind!=='DAHAN');const p=s.players[0]!,q=s.players[1]!,home=s.lands.find(l=>presence(l,p.playerId)>0)!,other=s.lands.find(l=>presence(l,q.playerId)>0&&presence(l,p.playerId)===0)!;for(let i=0;i<4;i++)makePiece(s,home,'DAHAN');for(let i=0;i<3;i++)makePiece(s,other,'DAHAN');const hands=s.players.map(p=>p.hand.length);s.queue=[step('SPECIAL',p.playerId,null,0,'BCE13_DAHAN')];settle(s);assert.equal(s.offered.length,4);s=drain(s);assert.equal(s.players[0]!.hand.length,hands[0]!+1);assert.equal(s.players[1]!.hand.length,hands[1]);parseSpiritState(s);
 });
 test('Sacred first round preserves blight supply and skips payment',()=>{const before=eventGame(1,'SACRED_SITES',1),pool=before.blightPool,s=drain(before);assert.equal(s.blightPool,pool);assert.equal(s.eventPayment,null);});
+
+function warGame(n=1){let s=eventChoose(eventGame(n,'WAR'),'이벤트 선택 시작');for(const p of s.players)p.energy=20;return s;}
+for(const paid of [false,true])for(const n of [1,2,3,4])test(`War event ${paid?'repel':'allow'} for ${n} spirits`,()=>{
+ let s=warGame(n);s=eventChoose(s,paid?'격퇴':'공격을 허용');if(paid){while(view(s).eventPayment!.remaining)s=eventChoose(s,'에너지 1 지원 추가');s=eventChoose(s,'비용 확정');}s=drain(s);assert.equal(s.queue.length,0);assert.equal(s.eventPayment,null);parseSpiritState(s);
+});
+test('War payment allows only energy, supports cancellation and rejects forged card support',()=>{
+ let s=warGame(2);for(const p of s.players)p.elements=['FIRE','WATER','SUN','MOON'];s=eventChoose(s,'격퇴');assert.equal(view(s).eventPayment!.element,null);assert.equal(view(s).eventPayment!.support,0);assert.equal(view(s).eventPayment!.cost,2);assert.ok(!choiceOptions(s).some(o=>o.label.includes('망각')||o.label.includes('손패 버림')));const before=s.players.map(p=>p.energy);s=eventChoose(s,'에너지 1 지원 추가');s=eventChoose(s,'지원 취소 · 이벤트');assert.deepEqual(s.players.map(p=>p.energy),before);s=eventChoose(s,'격퇴');const bad=structuredClone(s);bad.eventPayment!.pledges[0]!.cards=[{cardId:bad.players[0]!.hand[0]!,mode:'FORGET'}];assert.throws(()=>parseSpiritState(bad));const cost=structuredClone(s);cost.eventPayment!.cost=8;assert.throws(()=>parseSpiritState(cost));
+ const actor=s.queue[0]!.target!,other=s.players.find(p=>p.playerId!==actor)!.playerId,o=choiceOptions(s)[0]!,saved=JSON.stringify(s);assert.equal(applySpiritAction(s,other,{kind:'CHOOSE',choiceId:`${s.transitionId}:${s.revision}`,optionId:o.id},now,s.transitionId).ok,false);assert.equal(applySpiritAction(s,actor,{kind:'CHOOSE',choiceId:'stale',optionId:o.id},now,s.transitionId).ok,false);assert.equal(JSON.stringify(s),saved);
+});
+test('War adds a random unused fear card face-down using the injected shuffle, without earning it',()=>{
+ let s=warGame(2);for(const l of s.lands)l.tokens.beasts=0;s=eventChoose(s,'격퇴');s=eventChoose(s,'에너지 1 지원 추가');s=eventChoose(s,'다음 정령');s=eventChoose(s,'에너지 1 지원 추가');const unused=SPIRIT_FEAR_KEYS.filter(k=>![...s.fearDeck,...s.fearEarned,...s.fearDiscard].includes(k)),before=s.fearDeck.length,earned=[...s.fearEarned],actor=s.queue[0]!.target!,option=choiceOptions(s).find(o=>o.label.includes('비용 확정'))!;let calls=0;const result=applySpiritAction(s,actor,{kind:'CHOOSE',choiceId:`${s.transitionId}:${s.revision}`,optionId:option.id},now,v.parse(TurnIdSchema,`turn-${++seq}`),values=>{calls++;return [...values].reverse();});assert.ok(result.ok);s=result.state;assert.equal(calls,1);assert.equal(s.fearDeck[0],unused.at(-1));assert.equal(s.fearDeck.length,before+1);assert.deepEqual(s.fearEarned,earned);assert.ok(!s.revealedFear.includes(s.fearDeck[0]!));assert.equal(s.players.reduce((n,p)=>n+p.energy,0),38);assert.equal(view(s).revealedFear.length,0);parseSpiritState(s);
+});
+for(const terror of [1,2,3] as const)test(`War addition preserves terror ${terror} and delays the next fear threshold`,()=>{
+ let s=warGame();for(const l of s.lands)l.tokens.beasts=0;s.terror=terror;s.fearDeck=s.fearDeck.slice(-(terror===1?7:terror===2?4:1));const before=s.fearDeck.length;s=eventChoose(s,'격퇴');s=eventChoose(s,'에너지 1 지원 추가');s=eventChoose(s,'비용 확정');assert.equal(s.terror,terror);assert.equal(s.fearDeck.length,before+1);s=drain(s);s.queue=[step('FEAR',s.players[0]!.playerId,null,4)];settle(s);assert.equal(s.terror,terror);assert.equal(s.fearDeck.length,before);
+});
+test('War does not duplicate fear cards when every card is already in use',()=>{
+ let s=warGame();for(const l of s.lands)l.tokens.beasts=0;s.fearDeck=[...SPIRIT_FEAR_KEYS];s=eventChoose(s,'격퇴');s=eventChoose(s,'에너지 1 지원 추가');s=eventChoose(s,'비용 확정');assert.equal(s.fearDeck.length,15);assert.equal(new Set(s.fearDeck).size,15);assert.ok(s.log.some(e=>e.text.includes('미사용 공포 카드 없음')));
+});
+test('War discards a major per board, with public cost, before choosing that board coast',()=>{
+ let s=warGame(2);const major=[...s.major],minor=[...s.minor];s=eventChoose(s,'공격을 허용');assert.equal(s.queue[0]!.key,'BCE14_ATTACK');assert.equal(s.queue[0]!.tags[0],'A');assert.equal(s.queue[0]!.n,cardPower(s,major[0]!).cost);assert.ok(s.majorDiscard.includes(major[0]!));assert.deepEqual(s.minor,minor);s=drain(s);assert.ok(s.log.some(e=>e.text.includes(`B 전쟁 피해 판정 · ${cardPower(s,major[1]!).title}`)));assert.deepEqual(s.minor,minor);
+});
+test('War coastal attack excludes inland and empty lands and permits tied building maxima',()=>{
+ const s=warGame();for(const l of s.lands)l.pieces=[];for(const id of ['A1','A2']){makePiece(s,land(s,id),'TOWN');makePiece(s,land(s,id),'CITY');}for(let i=0;i<5;i++)makePiece(s,land(s,'A8'),'CITY');makePiece(s,land(s,'A3'),'EXPLORER');s.queue=[step('SPECIAL',s.players[0]!.playerId,null,3,'BCE14_ATTACK',null,['A'])];settle(s);assert.deepEqual(choiceOptions(s).map(o=>o.landId),['A1','A2']);
+});
+for(const defend of [0,2,3,5])test(`War damage 3 with defense ${defend} affects invaders and land, never Dahan`,()=>{
+ let s=warGame();for(const l of s.lands)l.pieces=[];makePiece(s,land(s,'A8'),'CITY');const l=land(s,'A1');l.defend=defend;makePiece(s,l,'CITY');makePiece(s,l,'DAHAN');s.queue=[step('SPECIAL',s.players[0]!.playerId,null,3,'BCE14_ATTACK',null,['A'])];settle(s);s=drain(eventChoose(s,'A1'));assert.equal(land(s,'A1').blight,defend===0?1:0);assert.equal(land(s,'A1').pieces.filter(p=>p.kind==='DAHAN').length,1);assert.equal(land(s,'A1').pieces.find(p=>p.kind==='DAHAN')!.damage,0);assert.equal(land(s,'A1').pieces.find(p=>p.kind==='CITY')?.damage,defend===0?undefined:Math.max(0,3-defend));
+});
+test('War beast movement requires an unblighted destination and grants fear only on arrival at invaders',()=>{
+ let s=warGame();for(const l of s.lands){l.tokens.beasts=0;l.blight=0;l.pieces=[];}const from=land(s,'A1'),to=land(s,from.adjacent[0]!);from.tokens.beasts=1;to.blight=1;s.blightTotal=s.blightPool+1;makePiece(s,to,'EXPLORER');makePiece(s,land(s,'A8'),'CITY');s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'BCE14_BEAST',null,['A'])];settle(s);assert.ok(!choiceOptions(s).some(o=>o.landId===to.id));to.blight=0;s.blightTotal=s.blightPool;const fear=s.fear;s=eventChoose(s,`→ ${to.id}`);assert.equal(land(s,to.id).tokens.beasts,1);assert.equal(s.fear,fear+1);
+});
+test('War Dahan reclaim movement is optional and deals damage in the destination',()=>{
+ let s=warGame();for(const l of s.lands)l.pieces=[];const from=land(s,'A1'),to=land(s,from.adjacent[0]!);makePiece(s,from,'DAHAN');makePiece(s,to,'TOWN');makePiece(s,land(s,'A8'),'CITY');s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'BCE14_DAHAN',s.players[0]!.playerId)];settle(s);assert.ok(choiceOptions(s).some(o=>o.label.includes('생략')));s=drain(eventChoose(s,`A1 다한 → ${to.id}`));assert.equal(land(s,'A1').pieces.length,0);assert.equal(land(s,to.id).pieces.filter(p=>p.kind==='DAHAN').length,1);assert.equal(land(s,to.id).pieces.find(p=>p.kind==='TOWN')!.damage,1);
+});
+test('War first round does not discard a major or add a fear card',()=>{const s=eventGame(1,'WAR',1),major=[...s.major],fear=[...s.fearDeck],done=drain(s);assert.deepEqual(done.major,major);assert.deepEqual(done.fearDeck,fear);});
+test('War partial land damage never accumulates and Earth sacred defense applies',()=>{
+ let s=chosen(1,'EARTH');s.stage='FEAR';for(const l of s.lands)l.pieces=[];makePiece(s,land(s,'A8'),'CITY');const home=s.lands.find(l=>l.coastal&&presence(l,s.players[0]!.playerId)>=2)??land(s,'A1');sacredPresence(s,home.id,0);makePiece(s,home,'CITY');const actor=s.players[0]!.playerId;for(let i=0;i<2;i++){s.queue=[step('SPECIAL',actor,null,4,'BCE14_ATTACK',null,[home.board])];settle(s);assert.ok(choiceOptions(s).some(o=>o.label.includes('피해 1')));s=drain(eventChoose(s,home.id));}assert.equal(land(s,home.id).blight,0);assert.equal(land(s,home.id).pieces.find(p=>p.kind==='CITY')!.damage,2);parseSpiritState(s);
+});
+test('War still discards a major when the board has no coastal buildings',()=>{
+ let s=warGame();for(const l of s.lands){if(l.coastal)l.pieces=[];l.tokens.beasts=0;}const top=s.major[0]!;s=eventChoose(s,'공격을 허용');assert.ok(s.majorDiscard.includes(top));assert.ok(!s.queue.some(e=>e.key==='BCE14_ATTACK'));s=drain(s);parseSpiritState(s);
+});
