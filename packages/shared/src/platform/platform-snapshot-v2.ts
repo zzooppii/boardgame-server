@@ -14,6 +14,7 @@ import { AzulPlayingProjectionSchema, AzulFinishedProjectionSchema, azulProjecti
 import { VegasPlayingProjectionSchema, VegasFinishedProjectionSchema, vegasProjectionIsConsistent } from "../games/vegas/contracts.js";
 import { CarcassonnePlayingProjectionSchema, CarcassonneFinishedProjectionSchema, carcassonneProjectionIsConsistent } from "../games/carcassonne/contracts.js";
 import { CluePlayingProjectionSchema, ClueFinishedProjectionSchema, clueProjectionIsConsistent } from "../games/clue/contracts.js";
+import { TerrorscapePlayingProjectionSchema, TerrorscapeFinishedProjectionSchema, terrorscapeProjectionIsConsistent } from "../games/terrorscape/contracts.js";
 import { DuetPlayingProjectionSchema, DuetFinishedProjectionSchema, duetProjectionIsConsistent } from "../games/word-duet/contracts.js";
 import { LostCitiesSettingsSchema } from "../games/lost-cities/actions.js";
 import { LostCitiesPlayingProjectionSchema, LostCitiesFinishedProjectionSchema, lostCitiesProjectionIsConsistent } from "../games/lost-cities/contracts.js";
@@ -542,6 +543,23 @@ export const ClueLobbyPlatformSnapshotV2Schema: v.GenericSchema<unknown, ClueLob
 export const CluePlayingPlatformSnapshotV2Schema: v.GenericSchema<unknown, CluePlayingPlatformSnapshotV2> = CluePlayingRaw;
 export const ClueFinishedPlatformSnapshotV2Schema: v.GenericSchema<unknown, ClueFinishedPlatformSnapshotV2> = ClueFinishedRaw;
 
+const TerrorscapeOuter = { snapshotVersion: PlatformSnapshotVersionSchema, versions: PlatformSnapshotVersionsV2Schema, serverTime: ServerTimeSchema, self: PlatformSelfViewV2Schema };
+const TerrorscapeRoom = { roomId: RoomIdSchema, roomCode: RoomCodeSchema, gameType: v.literal("TERRORSCAPE") };
+const TerrorscapePlayers = v.pipe(v.array(PlatformPlayerViewV2Schema), v.minLength(2), v.maxLength(4));
+const TerrorscapeLobbyRaw = v.pipe(v.strictObject({ ...TerrorscapeOuter, room: v.strictObject({ ...TerrorscapeRoom, phase: v.literal("LOBBY"),
+  players: v.pipe(v.array(PlatformPlayerViewV2Schema), v.maxLength(10)) }), game: v.null() }),
+  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)));
+const TerrorscapePlayingRaw = v.pipe(v.strictObject({ ...TerrorscapeOuter, room: v.strictObject({ ...TerrorscapeRoom, phase: v.literal("PLAYING"), players: TerrorscapePlayers }), game: TerrorscapePlayingProjectionSchema }),
+  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)), v.check(s => hasMatchingGamePlayers(s)), v.check(s => terrorscapeProjectionIsConsistent(s.game)), v.check(s => s.game.privateState.playerId === s.self.playerId));
+const TerrorscapeFinishedRaw = v.pipe(v.strictObject({ ...TerrorscapeOuter, room: v.strictObject({ ...TerrorscapeRoom, phase: v.literal("FINISHED"), players: TerrorscapePlayers }), game: TerrorscapeFinishedProjectionSchema }),
+  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)), v.check(s => hasMatchingGamePlayers(s)), v.check(s => terrorscapeProjectionIsConsistent(s.game)), v.check(s => s.game.privateState.playerId === s.self.playerId));
+export type TerrorscapeLobbyPlatformSnapshotV2 = v.InferOutput<typeof TerrorscapeLobbyRaw>;
+export type TerrorscapePlayingPlatformSnapshotV2 = v.InferOutput<typeof TerrorscapePlayingRaw>;
+export type TerrorscapeFinishedPlatformSnapshotV2 = v.InferOutput<typeof TerrorscapeFinishedRaw>;
+export const TerrorscapeLobbyPlatformSnapshotV2Schema: v.GenericSchema<unknown, TerrorscapeLobbyPlatformSnapshotV2> = TerrorscapeLobbyRaw;
+export const TerrorscapePlayingPlatformSnapshotV2Schema: v.GenericSchema<unknown, TerrorscapePlayingPlatformSnapshotV2> = TerrorscapePlayingRaw;
+export const TerrorscapeFinishedPlatformSnapshotV2Schema: v.GenericSchema<unknown, TerrorscapeFinishedPlatformSnapshotV2> = TerrorscapeFinishedRaw;
+
 const DuetOuter = { snapshotVersion: PlatformSnapshotVersionSchema, versions: PlatformSnapshotVersionsV2Schema, serverTime: ServerTimeSchema, self: PlatformSelfViewV2Schema };
 const DuetRoom = { roomId: RoomIdSchema, roomCode: RoomCodeSchema, gameType: v.literal("WORD_DUET") };
 const DuetPlayers = v.pipe(v.array(PlatformPlayerViewV2Schema), v.length(2));
@@ -676,6 +694,7 @@ export const LobbyPlatformSnapshotV2Schema = v.union([
   BurgundyLobbyPlatformSnapshotV2Schema,
   CarcassonneLobbyPlatformSnapshotV2Schema,
   ClueLobbyPlatformSnapshotV2Schema,
+  TerrorscapeLobbyPlatformSnapshotV2Schema,
   DuetLobbyPlatformSnapshotV2Schema,
   SaboteurLobbyPlatformSnapshotV2Schema,
   LostCitiesLobbyPlatformSnapshotV2Schema,
@@ -837,6 +856,7 @@ export const PlayingPlatformSnapshotV2Schema = v.union([
   BurgundyPlayingPlatformSnapshotV2Schema,
   CarcassonnePlayingPlatformSnapshotV2Schema,
   CluePlayingPlatformSnapshotV2Schema,
+  TerrorscapePlayingPlatformSnapshotV2Schema,
   DuetPlayingPlatformSnapshotV2Schema,
   SaboteurPlayingPlatformSnapshotV2Schema,
   LostCitiesPlayingPlatformSnapshotV2Schema,
@@ -998,6 +1018,7 @@ export const FinishedPlatformSnapshotV2Schema = v.union([
   BurgundyFinishedPlatformSnapshotV2Schema,
   CarcassonneFinishedPlatformSnapshotV2Schema,
   ClueFinishedPlatformSnapshotV2Schema,
+  TerrorscapeFinishedPlatformSnapshotV2Schema,
   DuetFinishedPlatformSnapshotV2Schema,
   SaboteurFinishedPlatformSnapshotV2Schema,
   LostCitiesFinishedPlatformSnapshotV2Schema,

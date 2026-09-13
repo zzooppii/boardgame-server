@@ -728,6 +728,7 @@ async function loadSnapshotForSocket(
     : projectSnapshotForSocket(runtime, socket, room, playerId);
 }
 
+const terrorFanoutVersions = new WeakMap<RealtimeSocket,{roomId:RoomId;playerId:PlayerId;roomRevision:number;presenceVersion:number;gameRevision:number}>();
 async function fanOutRoomSnapshots(
   io: RealtimeServer,
   runtime: ApplicationRuntime,
@@ -755,6 +756,18 @@ async function fanOutRoomSnapshots(
     );
     if (!isCurrentBinding(runtime, binding)) {
       continue;
+    }
+    if (room.gameType === "TERRORSCAPE") {
+      const next = {roomId,playerId:binding.playerId,roomRevision:loaded.metadata.versions.roomRevision,
+        presenceVersion:loaded.metadata.versions.presenceVersion,gameRevision:loaded.metadata.versions.gameRevision??-1};
+      const previous=terrorFanoutVersions.get(connectedSocket);
+      // Older async fanouts must not regress the watermark and expose later hidden activity.
+      if(previous?.roomId===roomId&&previous.playerId===binding.playerId){
+        if(next.roomRevision<previous.roomRevision)continue;
+        if(next.roomRevision===previous.roomRevision&&next.gameRevision<previous.gameRevision)continue;
+        if(next.roomRevision===previous.roomRevision&&next.presenceVersion<=previous.presenceVersion&&next.gameRevision===previous.gameRevision)continue;
+      }
+      terrorFanoutVersions.set(connectedSocket,next);
     }
     connectedSocket.emit(
       "state:snapshot",
@@ -1352,6 +1365,7 @@ function registerResumeHandler(
         runtime.burgundyHostSuccession?.resumed(result.data.roomId, result.data.playerId);
         runtime.carcassonneHostSuccession?.resumed(result.data.roomId, result.data.playerId);
         runtime.clueHostSuccession?.resumed(result.data.roomId, result.data.playerId);
+        runtime.terrorscapeHostSuccession?.resumed(result.data.roomId, result.data.playerId);
         runtime.duetHostSuccession?.resumed(result.data.roomId, result.data.playerId);
         runtime.saboteurHostSuccession?.resumed(result.data.roomId, result.data.playerId);
         runtime.lostCitiesHostSuccession?.resumed(result.data.roomId, result.data.playerId);
@@ -3003,6 +3017,7 @@ function registerBurgundyHandlers(socket: RealtimeSocket, runtime: ApplicationRu
 
 
 import { ClueClientCommandSchema } from "@hangul-rummikub/shared";
+import { TerrorscapeClientCommandSchema } from "@hangul-rummikub/shared";
 function registerCarcassonneHandlers(socket: RealtimeSocket, runtime: ApplicationRuntime): void {
   for (const event of ["carcassonne:act"] as const) socket.on(event, (raw: unknown, acknowledge: (ack: StateSyncWireAck) => void) => {
     const receivedAt = runtime.clock.now(), command = parseNumberRematch(CarcassonneClientCommandSchema, raw);
@@ -3036,6 +3051,26 @@ function registerClueHandlers(socket: RealtimeSocket, runtime: ApplicationRuntim
       }
       if (!runtime.clueService) { acknowledgeIfPresent(acknowledge, failureAck(raw, INTERNAL_ERROR, receivedAt)); return; }
       const result = await runtime.clueService.command({roomId:binding.roomId,actorPlayerId:binding.playerId,command:command.output,receivedAt,
+        authorization:{isCurrent:()=>socket.connected && isCurrentBinding(runtime,binding)}});
+      if (!result.ok) { acknowledgeIfPresent(acknowledge, failureAck(raw,result.error,receivedAt)); return; }
+      const loaded = await loadSnapshotForSocket(runtime,socket,binding.roomId,binding.playerId);
+      if (loaded && socket.connected && isCurrentBinding(runtime,binding)) acknowledgeIfPresent(acknowledge,snapshotSuccessAck(command.output.requestId,loaded.metadata,loaded.wireSnapshot));
+    })().catch(()=>acknowledgeIfPresent(acknowledge,failureAck(raw,INTERNAL_ERROR,receivedAt)));
+  });
+}
+
+function registerTerrorscapeHandlers(socket: RealtimeSocket, runtime: ApplicationRuntime): void {
+  for (const event of ["terrorscape:act"] as const) socket.on(event, (raw: unknown, acknowledge: (ack: StateSyncWireAck) => void) => {
+    const receivedAt = runtime.clock.now(), command = parseNumberRematch(TerrorscapeClientCommandSchema, raw);
+    if (!command.success || command.output.kind !== event) { acknowledgeIfPresent(acknowledge, failureAck(raw, INVALID_PAYLOAD_ERROR, receivedAt)); return; }
+    void (async () => {
+      const binding = runtime.connectionRegistry.getAuthenticatedBinding(createSocketId(socket.id));
+      if (!binding) { acknowledgeIfPresent(acknowledge, failureAck(raw, UNAUTHENTICATED_ERROR, receivedAt)); return; }
+      if (!isRoomAdmissionCompatible("TERRORSCAPE", socketAdmissionCapabilities(socket))) {
+        acknowledgeIfPresent(acknowledge, failureAck(raw, {code:"INCOMPATIBLE_GAME_CAPABILITY",message:"TERRORSCAPE requires V2 capability.",recoverable:false}, receivedAt)); return;
+      }
+      if (!runtime.terrorscapeService) { acknowledgeIfPresent(acknowledge, failureAck(raw, INTERNAL_ERROR, receivedAt)); return; }
+      const result = await runtime.terrorscapeService.command({roomId:binding.roomId,actorPlayerId:binding.playerId,command:command.output,receivedAt,
         authorization:{isCurrent:()=>socket.connected && isCurrentBinding(runtime,binding)}});
       if (!result.ok) { acknowledgeIfPresent(acknowledge, failureAck(raw,result.error,receivedAt)); return; }
       const loaded = await loadSnapshotForSocket(runtime,socket,binding.roomId,binding.playerId);
@@ -3502,6 +3537,7 @@ function registerDisconnectHandler(
     runtime.burgundyHostSuccession?.disconnected(binding.roomId, binding.playerId, disconnectedAt);
     runtime.carcassonneHostSuccession?.disconnected(binding.roomId, binding.playerId, disconnectedAt);
     runtime.clueHostSuccession?.disconnected(binding.roomId, binding.playerId, disconnectedAt);
+    runtime.terrorscapeHostSuccession?.disconnected(binding.roomId, binding.playerId, disconnectedAt);
     runtime.duetHostSuccession?.disconnected(binding.roomId, binding.playerId, disconnectedAt);
     runtime.saboteurHostSuccession?.disconnected(binding.roomId, binding.playerId, disconnectedAt);
     runtime.lostCitiesHostSuccession?.disconnected(binding.roomId, binding.playerId, disconnectedAt);
@@ -3601,6 +3637,7 @@ export function registerSocketIoHandlers(
   const unsubscribeBurgundy = runtime.burgundyService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
   const unsubscribeCarcassonne = runtime.carcassonneService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
   const unsubscribeClue = runtime.clueService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
+  const unsubscribeTerrorscape = runtime.terrorscapeService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
   const unsubscribeDuet = runtime.duetService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
   const unsubscribeSaboteur = runtime.saboteurService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
   const unsubscribeLostCities = runtime.lostCitiesService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
@@ -3671,6 +3708,7 @@ export function registerSocketIoHandlers(
     registerBurgundyHandlers(socket, runtime);
     registerCarcassonneHandlers(socket, runtime);
     registerClueHandlers(socket, runtime);
+    registerTerrorscapeHandlers(socket, runtime);
     registerDuetHandlers(socket, runtime);
     registerSaboteurHandlers(socket, runtime);
     registerLostCitiesHandlers(socket, runtime);
@@ -3710,6 +3748,7 @@ export function registerSocketIoHandlers(
     unsubscribeBurgundy?.();
     unsubscribeCarcassonne?.();
     unsubscribeClue?.();
+    unsubscribeTerrorscape?.();
     unsubscribeDuet?.();
     unsubscribeSaboteur?.();
     unsubscribeLostCities?.();

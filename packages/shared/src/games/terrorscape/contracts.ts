@@ -1,0 +1,22 @@
+import * as v from 'valibot';
+import { GameIdSchema,PlayerIdSchema,TurnIdSchema } from '../../identifiers.js';
+import { GameRevisionSchema } from '../../protocol.js';
+import { TerrorCharacterSchema,TerrorRoomSchema,TerrorCardSchema,TerrorKillerCardSchema } from './actions.js';
+export const TerrorCount=v.pipe(v.number(),v.safeInteger(),v.minValue(0));
+export const TerrorSurvivorSchema=v.strictObject({character:TerrorCharacterSchema,playerId:PlayerIdSchema,location:TerrorRoomSchema,fear:v.pipe(TerrorCount,v.maxValue(2)),injuries:v.pipe(TerrorCount,v.maxValue(2)),hand:v.pipe(v.array(TerrorCardSchema),v.maxLength(4)),acted:v.boolean(),ready:v.boolean()});
+export const TerrorEncounterSchema=v.strictObject({location:TerrorRoomSchema,targets:v.array(TerrorCharacterSchema),attacked:v.array(TerrorCharacterSchema),defender:v.nullable(TerrorCharacterSchema),fleePending:v.array(TerrorCharacterSchema)});
+export const TerrorLogSchema=v.strictObject({id:TerrorCount,text:v.pipe(v.string(),v.maxLength(240)),sound:v.picklist(['STEP','CARD','NOISE','BLOCK','FEAR','DEFENSE','HURT','TURN','WIN','NONE'])});
+export const TerrorResultSchema=v.strictObject({reason:v.picklist(['ESCAPED','RESCUED','KILLED','EXHAUSTED','CANCELLED']),winnerPlayerIds:v.array(PlayerIdSchema)});
+export const TerrorLootSchema=v.strictObject({character:TerrorCharacterSchema,cards:v.pipe(v.array(TerrorCardSchema),v.maxLength(2)),source:v.picklist(['SEARCH','DISCOVER'])});
+export const TerrorTeamSchema=v.strictObject({survivors:v.pipe(v.array(TerrorSurvivorSchema),v.length(3)),keys:TerrorCount,repair:v.pipe(TerrorCount,v.maxValue(5)),repaired:v.boolean(),rescue:v.nullable(TerrorCount),trap:v.nullable(TerrorRoomSchema),searchCount:TerrorCount,discoverCount:TerrorCount,discard:v.array(TerrorCardSchema),loot:v.nullable(TerrorLootSchema),pings:v.pipe(v.array(v.strictObject({room:TerrorRoomSchema,message:v.picklist(['GO','SEARCH','REPAIR','HELP']),playerId:PlayerIdSchema})),v.maxLength(6))});
+export const TerrorKillerViewSchema=v.strictObject({hand:v.pipe(v.array(TerrorKillerCardSchema),v.maxLength(6)),deckCount:TerrorCount,discardCount:TerrorCount,actionsLeft:TerrorCount,slowUsed:v.boolean()});
+const Base={gameType:v.literal('TERRORSCAPE'),gameId:GameIdSchema,gameRevision:GameRevisionSchema,rulesVersion:v.literal('terrorscape-manor-butcher-v1'),playerStates:v.pipe(v.array(v.strictObject({playerId:PlayerIdSchema})),v.minLength(2),v.maxLength(4)),killerPlayerId:PlayerIdSchema,owners:v.pipe(v.array(PlayerIdSchema),v.length(3)),round:TerrorCount,killerLocation:TerrorRoomSchema,level:v.pipe(TerrorCount,v.minValue(1),v.maxValue(5)),strength:TerrorCount,blocks:v.pipe(v.array(v.string()),v.maxLength(7)),noises:v.array(TerrorRoomSchema),firecracker:v.boolean(),conditions:v.pipe(v.array(v.strictObject({character:TerrorCharacterSchema,fear:TerrorCount,injuries:TerrorCount})),v.length(3)),sensed:v.array(v.strictObject({character:TerrorCharacterSchema,location:TerrorRoomSchema})),encounter:v.nullable(TerrorEncounterSchema),dice:v.array(TerrorCount),defenseTotal:v.nullable(TerrorCount),history:v.pipe(v.array(TerrorLogSchema),v.maxLength(80)),privateState:v.variant('role',[
+ v.strictObject({role:v.literal('KILLER'),playerId:PlayerIdSchema,killer:TerrorKillerViewSchema}),
+ v.strictObject({role:v.literal('SURVIVOR'),playerId:PlayerIdSchema,team:TerrorTeamSchema}),
+])};
+export const TerrorscapePlayingProjectionSchema=v.strictObject({...Base,phase:v.picklist(['SETUP','SURVIVORS','LOOT','KILLER','FAST','MAIN','SLOW','RAGE','UNLOCK','DEFENDER','DEFEND','FLEE']),turnId:TurnIdSchema});
+export const TerrorscapeFinishedProjectionSchema=v.strictObject({...Base,phase:v.literal('FINISHED'),result:TerrorResultSchema});
+export type TerrorscapePlayingProjection=v.InferOutput<typeof TerrorscapePlayingProjectionSchema>;
+export type TerrorscapeFinishedProjection=v.InferOutput<typeof TerrorscapeFinishedProjectionSchema>;
+export type TerrorscapeProjection=TerrorscapePlayingProjection|TerrorscapeFinishedProjection;
+export function terrorscapeProjectionIsConsistent(g:TerrorscapeProjection):boolean {const ids=new Set(g.playerStates.map(p=>p.playerId));return ids.size===g.playerStates.length&&ids.has(g.killerPlayerId)&&ids.has(g.privateState.playerId)&&g.owners.every(id=>ids.has(id)&&id!==g.killerPlayerId)&&(g.privateState.role==='KILLER')===(g.privateState.playerId===g.killerPlayerId)&&new Set(g.conditions.map(c=>c.character)).size===3;}

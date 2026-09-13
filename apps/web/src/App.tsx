@@ -18,6 +18,7 @@ import { AzulScreen } from "./features/azul/AzulScreen.js";
 import { VegasScreen } from "./features/vegas/VegasScreen.js";
 import { CarcassonneScreen } from "./features/carcassonne/CarcassonneScreen.js";
 import { ClueScreen } from "./features/clue/ClueScreen.js";
+import { TerrorscapeScreen } from "./features/terrorscape/TerrorscapeScreen.js";
 import { DuetScreen } from "./features/word-duet/DuetScreen.js";
 import { SaboteurScreen } from "./features/saboteur/SaboteurScreen.js";
 import { LostCitiesScreen } from "./features/lost-cities/LostCitiesScreen.js";
@@ -32,6 +33,7 @@ import "./features/azul/azul.css";
 import "./features/vegas/vegas.css";
 import "./features/carcassonne/carcassonne.css";
 import "./features/clue/clue.css";
+import "./features/terrorscape/terrorscape.css";
 import "./features/word-duet/duet.css";
 import "./features/saboteur/saboteur.css";
 import "./features/lost-cities/lost-cities.css";
@@ -483,6 +485,14 @@ export function App() {
     if (roomView.kind === "CLUE") {
       return <ReconnectBoundary {...recovery}><ClueScreen snapshot={roomView.snapshot}
         connected={app.connectionState === "CONNECTED" && !app.sessionReplaced && !app.resumePending && !app.reconnectNeeded} onCommand={app.actClue} onRematch={() => app.selectRoomGame("CLUE")}
+        onStart={app.startGame} onLeave={app.leaveRoom} onCopy={() => app.copyInvitation(invitationUrl)}
+        pending={app.operationLabel !== null || app.roomLeavePending || app.gameStartPending}
+        error={app.errorMessage} connectionLabel={connectionLabel}/></ReconnectBoundary>;
+    }
+
+    if (roomView.kind === "TERRORSCAPE") {
+      return <ReconnectBoundary {...recovery}><TerrorscapeScreen snapshot={roomView.snapshot}
+        connected={app.connectionState === "CONNECTED" && !app.sessionReplaced && !app.resumePending && !app.reconnectNeeded} onCommand={app.actTerrorscape} onRematch={() => app.selectRoomGame("TERRORSCAPE")}
         onStart={app.startGame} onLeave={app.leaveRoom} onCopy={() => app.copyInvitation(invitationUrl)}
         pending={app.operationLabel !== null || app.roomLeavePending || app.gameStartPending}
         error={app.errorMessage} connectionLabel={connectionLabel}/></ReconnectBoundary>;

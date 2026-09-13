@@ -11,6 +11,7 @@ import { VegasActionSchema } from "./games/vegas/actions.js";
 import { BurgundyActionSchema, BurgundySettingsSchema } from "./games/burgundy/actions.js";
 import { CarcassonneActionSchema } from "./games/carcassonne/actions.js";
 import { ClueActionSchema } from "./games/clue/actions.js";
+import { TerrorscapeActionSchema } from "./games/terrorscape/actions.js";
 import { DuetActionSchema } from "./games/word-duet/actions.js";
 import { LostCitiesSettingsSchema, LostCitiesActionSchema } from "./games/lost-cities/actions.js";
 import { SplendorActionSchema, SplendorSettingsSchema } from "./games/splendor/actions.js";
@@ -363,6 +364,7 @@ const VegasIdentity = { protocolVersion: ProtocolVersionSchema, requestId: Reque
 const BurgundyIdentity = { protocolVersion: ProtocolVersionSchema, requestId: RequestIdSchema, gameId: GameIdSchema, expectedGameRevision: GameRevisionSchema };
 const CarcassonneIdentity = { protocolVersion: ProtocolVersionSchema, requestId: RequestIdSchema, gameId: GameIdSchema, expectedGameRevision: GameRevisionSchema };
 const ClueIdentity = { protocolVersion: ProtocolVersionSchema, requestId: RequestIdSchema, gameId: GameIdSchema, expectedGameRevision: GameRevisionSchema };
+const TerrorscapeIdentity = { protocolVersion: ProtocolVersionSchema, requestId: RequestIdSchema, gameId: GameIdSchema, expectedGameRevision: GameRevisionSchema };
 const DuetIdentity = { protocolVersion: ProtocolVersionSchema, requestId: RequestIdSchema, gameId: GameIdSchema, expectedGameRevision: GameRevisionSchema };
 const LostCitiesIdentity = { protocolVersion: ProtocolVersionSchema, requestId: RequestIdSchema, gameId: GameIdSchema, expectedGameRevision: GameRevisionSchema };
 export const JaipurActCommandSchema = v.strictObject({ ...JaipurIdentity, kind: v.literal("jaipur:act"), turnId: TurnIdSchema, payload: JaipurActionSchema });
@@ -373,6 +375,7 @@ export const VegasActCommandSchema = v.strictObject({ ...VegasIdentity, kind: v.
 export const BurgundyActCommandSchema = v.strictObject({ ...BurgundyIdentity, kind: v.literal("burgundy:act"), turnId: TurnIdSchema, payload: BurgundyActionSchema });
 export const CarcassonneActCommandSchema = v.strictObject({ ...CarcassonneIdentity, kind: v.literal("carcassonne:act"), turnId: TurnIdSchema, payload: CarcassonneActionSchema });
 export const ClueActCommandSchema = v.strictObject({ ...ClueIdentity, kind: v.literal("clue:act"), turnId: TurnIdSchema, payload: ClueActionSchema });
+export const TerrorscapeActCommandSchema = v.strictObject({ ...TerrorscapeIdentity, kind: v.literal("terrorscape:act"), turnId: TurnIdSchema, payload: TerrorscapeActionSchema });
 export const DuetActCommandSchema = v.strictObject({ ...DuetIdentity, kind: v.literal("duet:act"), turnId: TurnIdSchema, payload: DuetActionSchema });
 export const LostCitiesActCommandSchema = v.strictObject({ ...LostCitiesIdentity, kind: v.literal("lostCities:act"), turnId: TurnIdSchema, payload: LostCitiesActionSchema });
 export const JaipurNextRoundCommandSchema = v.strictObject({ ...JaipurIdentity, kind: v.literal("jaipur:nextRound"), roundId: TurnIdSchema, payload: v.strictObject({}) });
@@ -393,11 +396,13 @@ export const BurgundyConfigureCommandSchema = v.strictObject({protocolVersion:Pr
 export const BurgundyClientCommandSchema = v.variant("kind",[BurgundyActCommandSchema,BurgundyConfigureCommandSchema]);
 export const CarcassonneClientCommandSchema = CarcassonneActCommandSchema;
 export const ClueClientCommandSchema = ClueActCommandSchema;
+export const TerrorscapeClientCommandSchema = TerrorscapeActCommandSchema;
 export type AzulClientCommand = v.InferOutput<typeof AzulClientCommandSchema>;
 export type VegasClientCommand = v.InferOutput<typeof VegasClientCommandSchema>;
 export type BurgundyClientCommand = v.InferOutput<typeof BurgundyClientCommandSchema>;
 export type CarcassonneClientCommand = v.InferOutput<typeof CarcassonneClientCommandSchema>;
 export type ClueClientCommand = v.InferOutput<typeof ClueClientCommandSchema>;
+export type TerrorscapeClientCommand = v.InferOutput<typeof TerrorscapeClientCommandSchema>;
 export type LostCitiesClientCommand = v.InferOutput<typeof LostCitiesClientCommandSchema>;
 
 const SplendorIdentity = { protocolVersion: ProtocolVersionSchema, requestId: RequestIdSchema, gameId: GameIdSchema, expectedGameRevision: GameRevisionSchema };

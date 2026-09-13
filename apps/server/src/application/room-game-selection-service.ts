@@ -45,7 +45,7 @@ export class RoomGameSelectionService {
         const now = this.deps.clock.now();
         let candidate: RoomWriteCandidate;
         if (command.kind === "room:selectGame") {
-          if ((room.game?.gameId ?? null) !== command.payload.gameId || (room.game?.gameRevision ?? null) !== command.expectedGameRevision) return fail("STALE_GAME_REVISION");
+          if ((room.game?.gameId ?? null) !== command.payload.gameId || (room.gameType === "TERRORSCAPE" && room.game ? (input.actorPlayerId === room.game.state.killerPlayerId ? room.game.state.killerRevision : room.game.state.survivorRevision) : room.game?.gameRevision ?? null) !== command.expectedGameRevision) return fail("STALE_GAME_REVISION");
           if (!input.canRepresentGame(command.payload.gameType)) return fail("INCOMPATIBLE_GAME_CAPABILITY", "참가자가 새로고침하여 선택한 게임을 지원하는 버전으로 접속해야 합니다.");
           const lobby = {
             roomId: room.roomId, roomCode: room.roomCode,
@@ -57,6 +57,7 @@ export class RoomGameSelectionService {
             ? { ...lobby, gameType: "SPACE_CREW" }
             : command.payload.gameType === "SPIRIT_ISLAND"
               ? { ...lobby, gameType: "SPIRIT_ISLAND" }
+              : command.payload.gameType === "TERRORSCAPE" ? {...lobby,gameType:"TERRORSCAPE"}
               : { ...lobby, gameType: command.payload.gameType };
           if (command.payload.gameType === "LIAR_GAME" && room.gameType === "LIAR_GAME") {
             candidate = { ...candidate, gameType: "LIAR_GAME", game: null, settings: room.settings ?? { category: "RANDOM", discussionSeconds: 90 } };

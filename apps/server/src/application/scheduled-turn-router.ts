@@ -145,6 +145,7 @@ export class ScheduledTurnRouter {
         case "BURGUNDY": return this.#burgundy ? await this.#burgundy.handleTurnTimeout(input) : {status:"FAILED"};
         case "CARCASSONNE": return this.#carcassonne ? await this.#carcassonne.handleTurnTimeout(input) : {status:"FAILED"};
         case "CLUE": return { status: "NO_OP" };
+        case "TERRORSCAPE": return { status: "NO_OP" };
         case "WORD_DUET": return { status: "NO_OP" };
         case "SABOTEUR": return this.#saboteur ? await this.#saboteur.handleTurnTimeout(input) : {status:"FAILED"};
         case "LOST_CITIES": return this.#lostCities ? await this.#lostCities.handleTurnTimeout(input) : {status:"FAILED"};

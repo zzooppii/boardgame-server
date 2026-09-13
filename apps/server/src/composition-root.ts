@@ -19,6 +19,7 @@ import { VegasHostSuccession } from "./games/vegas/application/host-succession.j
 import { BurgundyHostSuccession } from "./games/burgundy/application/host-succession.js";
 import { CarcassonneHostSuccession } from "./games/carcassonne/application/host-succession.js";
 import { ClueHostSuccession } from "./games/clue/application/host-succession.js";
+import { TerrorscapeHostSuccession } from "./games/terrorscape/application/host-succession.js";
 import { DuetHostSuccession } from "./games/word-duet/application/host-succession.js";
 import { SaboteurHostSuccession } from "./games/saboteur/application/host-succession.js";
 import { LostCitiesHostSuccession } from "./games/lost-cities/application/host-succession.js";
@@ -39,6 +40,7 @@ import { VegasService } from "./games/vegas/application/service.js";
 import { BurgundyService } from "./games/burgundy/application/service.js";
 import { CarcassonneService } from "./games/carcassonne/application/service.js";
 import { ClueService } from "./games/clue/application/service.js";
+import { TerrorscapeService } from "./games/terrorscape/application/service.js";
 import { DuetService } from "./games/word-duet/application/service.js";
 import { SaboteurService } from "./games/saboteur/application/service.js";
 import { LostCitiesService } from "./games/lost-cities/application/service.js";
@@ -59,6 +61,7 @@ import { createVegasLifecycle } from "./games/vegas/application/lifecycle.js";
 import { createBurgundyLifecycle } from "./games/burgundy/application/lifecycle.js";
 import { createCarcassonneLifecycle } from "./games/carcassonne/application/lifecycle.js";
 import { createClueLifecycle } from "./games/clue/application/lifecycle.js";
+import { createTerrorscapeLifecycle } from "./games/terrorscape/application/lifecycle.js";
 import { createDuetLifecycle } from "./games/word-duet/application/lifecycle.js";
 import { createSaboteurLifecycle } from "./games/saboteur/application/lifecycle.js";
 import { createLostCitiesLifecycle } from "./games/lost-cities/application/lifecycle.js";
@@ -193,6 +196,7 @@ export type ApplicationRuntime = Readonly<{
   burgundyService?: BurgundyService;
   carcassonneService?: CarcassonneService;
   clueService?: ClueService;
+  terrorscapeService?: TerrorscapeService;
   duetService?: DuetService;
   saboteurService?: SaboteurService;
   lostCitiesService?: LostCitiesService;
@@ -214,6 +218,7 @@ export type ApplicationRuntime = Readonly<{
   burgundyHostSuccession?: BurgundyHostSuccession;
   carcassonneHostSuccession?: CarcassonneHostSuccession;
   clueHostSuccession?: ClueHostSuccession;
+  terrorscapeHostSuccession?: TerrorscapeHostSuccession;
   duetHostSuccession?: DuetHostSuccession;
   saboteurHostSuccession?: SaboteurHostSuccession;
   lostCitiesHostSuccession?: LostCitiesHostSuccession;
@@ -341,6 +346,7 @@ export function createApplicationRuntime(
       { gameType: "BURGUNDY" },
       { gameType: "CARCASSONNE" },
       { gameType: "CLUE" },
+      { gameType: "TERRORSCAPE" },
       { gameType: "WORD_DUET" },
       { gameType: "SABOTEUR" },
       { gameType: "LOST_CITIES" },
@@ -390,6 +396,7 @@ export function createApplicationRuntime(
     burgundy: createBurgundyLifecycle(),
     carcassonne: createCarcassonneLifecycle(),
     clue: createClueLifecycle(),
+    terrorscape: createTerrorscapeLifecycle(),
     duet: createDuetLifecycle(),
     saboteur: createSaboteurLifecycle(),
     lostCities: createLostCitiesLifecycle(),
@@ -767,6 +774,13 @@ export function createApplicationRuntime(
     const room = await persistence.findById(roomId);
     if (room?.gameType === "CLUE" && room.phase === "FINISHED" && room.game) await onGameFinished({ roomId, gameId: room.game.gameId });
   });
+  const terrorscapeService = new TerrorscapeService({ roomRepository: persistence, roomUnitOfWork: persistence, idempotencyRepository: persistence,
+    roomMutationExecutor, presence: presenceReader, clock, ids: idGenerator, random: randomSource });
+  const terrorscapeHostSuccession = new TerrorscapeHostSuccession(terrorscapeService.deps, roomId => terrorscapeService.notify(roomId));
+  terrorscapeService.subscribe(async roomId => {
+    const room = await persistence.findById(roomId);
+    if (room?.gameType === "TERRORSCAPE" && room.phase === "FINISHED" && room.game) await onGameFinished({ roomId, gameId: room.game.gameId });
+  });
   const duetService = new DuetService({ roomRepository: persistence, roomUnitOfWork: persistence, idempotencyRepository: persistence,
     roomMutationExecutor, presence: presenceReader, clock, ids: idGenerator, random: randomSource });
   const duetHostSuccession = new DuetHostSuccession(duetService.deps, roomId => duetService.notify(roomId));
@@ -899,6 +913,7 @@ export function createApplicationRuntime(
     burgundy: { gameType: "BURGUNDY", start: input => burgundyService.start(input) },
     carcassonne: { gameType: "CARCASSONNE", start: input => carcassonneService.start(input) },
     clue: { gameType: "CLUE", start: input => clueService.start(input) },
+    terrorscape: { gameType: "TERRORSCAPE", start: input => terrorscapeService.start(input) },
     duet: { gameType: "WORD_DUET", start: input => duetService.start(input) },
     saboteur: { gameType: "SABOTEUR", start: input => saboteurService.start(input) },
     lostCities: { gameType: "LOST_CITIES", start: input => lostCitiesService.start(input) },
@@ -1117,6 +1132,7 @@ export function createApplicationRuntime(
     burgundyService,
     carcassonneService,
     clueService,
+    terrorscapeService,
     duetService,
     saboteurService,
     lostCitiesService,
@@ -1138,6 +1154,7 @@ export function createApplicationRuntime(
     burgundyHostSuccession,
     carcassonneHostSuccession,
     clueHostSuccession,
+    terrorscapeHostSuccession,
     duetHostSuccession,
     saboteurHostSuccession,
     lostCitiesHostSuccession,
@@ -1209,6 +1226,7 @@ export function createApplicationRuntime(
       burgundyHostSuccession.start();
       carcassonneHostSuccession.start();
       clueHostSuccession.start();
+      terrorscapeHostSuccession.start();
       duetHostSuccession.start();
       saboteurHostSuccession.start();
       lostCitiesHostSuccession.start();
@@ -1248,6 +1266,7 @@ export function createApplicationRuntime(
       burgundyHostSuccession.stop();
       carcassonneHostSuccession.stop();
       clueHostSuccession.stop();
+      terrorscapeHostSuccession.stop();
       duetHostSuccession.stop();
       saboteurHostSuccession.stop();
       lostCitiesHostSuccession.stop();

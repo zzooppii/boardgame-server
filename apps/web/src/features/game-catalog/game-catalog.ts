@@ -50,6 +50,7 @@ export const GAME_CATALOG = Object.freeze([
   Object.freeze({ gameType: "BURGUNDY", displayName: "버건디의 성", description: "두 개의 주사위로 영지를 가꾸는 2~4인 전략 게임. 20주년판과 선택형 확장입니다." }),
   Object.freeze({ gameType: "CARCASSONNE", displayName: "카르카손", description: "도시와 길을 잇고 미플로 땅을 차지하는 2~5인 타일 전략 게임입니다." }),
   Object.freeze({ gameType: "CLUE", displayName: "클루", description: "저택을 탐색하고 비밀 단서를 모아 사건을 해결하는 3~6인 추리 보드게임입니다." }),
+  Object.freeze({ gameType: "TERRORSCAPE", displayName: "테러스케이프", description: "소리를 좇는 살인마와 탈출을 준비하는 생존자. 2~4인 비대칭 공포 게임 · 저택 개발판." }),
 ] as const satisfies readonly GameCatalogItem[]);
 
 export const DEFAULT_SELECTED_GAME_TYPE = GAME_CATALOG[0].gameType;

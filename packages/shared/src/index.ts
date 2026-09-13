@@ -102,3 +102,6 @@ export * from './games/spirit-island/settings.js';
 
 export * from './games/spirit-island/fear.js';
 export * from './games/spirit-island/events.js';
+export * from './games/terrorscape/actions.js';
+export * from './games/terrorscape/board.js';
+export * from './games/terrorscape/contracts.js';

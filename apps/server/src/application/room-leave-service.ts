@@ -204,7 +204,7 @@ export class RoomLeaveService {
           if (room.roomRevision !== input.expectedRoomRevision) {
             return failure(ERRORS.STALE_ROOM_REVISION);
           }
-          const canonicalGameRevision = room.game?.gameRevision ?? null;
+          const canonicalGameRevision = room.gameType === "TERRORSCAPE" && room.game ? (input.actorPlayerId === room.game.state.killerPlayerId ? room.game.state.killerRevision : room.game.state.survivorRevision) : room.game?.gameRevision ?? null;
           if (canonicalGameRevision !== input.expectedGameRevision) {
             return failure(ERRORS.STALE_GAME_REVISION);
           }
@@ -366,7 +366,7 @@ export class RoomLeaveService {
             } else if (
               room.phase === "FINISHED" &&
               room.game !== null &&
-              ((room.gameType === "CITY_ROLE" || room.gameType === "DRAW_RELAY" || room.gameType === "SNEAKY_LUNCH" || room.gameType === "WOLF_NIGHT" || room.gameType === "LIAR_GAME" || room.gameType === "SPYFALL" || room.gameType === "WORD_DUET" || room.gameType === "TRAIN" || room.gameType === "CENTURY" || room.gameType === "SPIRIT_ISLAND" || room.gameType === "JAIPUR" || room.gameType === "LOVE_LETTER" || room.gameType === "GURYONGTU" || room.gameType === "AZUL" || room.gameType === "VEGAS" || room.gameType === "CARCASSONNE" || room.gameType === "BURGUNDY" || room.gameType === "CLUE" || room.gameType === "SABOTEUR" || room.gameType === "LOST_CITIES" || room.gameType === "SPLENDOR" || room.gameType === "HALLI_GALLI" || room.gameType === "ISLAND_SETTLERS") ? room.game.finishedAt !== null : "result" in room.game && room.game.result !== null)
+              ((room.gameType === "CITY_ROLE" || room.gameType === "DRAW_RELAY" || room.gameType === "SNEAKY_LUNCH" || room.gameType === "WOLF_NIGHT" || room.gameType === "LIAR_GAME" || room.gameType === "SPYFALL" || room.gameType === "WORD_DUET" || room.gameType === "TRAIN" || room.gameType === "CENTURY" || room.gameType === "SPIRIT_ISLAND" || room.gameType === "JAIPUR" || room.gameType === "LOVE_LETTER" || room.gameType === "GURYONGTU" || room.gameType === "AZUL" || room.gameType === "VEGAS" || room.gameType === "CARCASSONNE" || room.gameType === "BURGUNDY" || room.gameType === "CLUE" || room.gameType === "TERRORSCAPE" || room.gameType === "SABOTEUR" || room.gameType === "LOST_CITIES" || room.gameType === "SPLENDOR" || room.gameType === "HALLI_GALLI" || room.gameType === "ISLAND_SETTLERS") ? room.game.finishedAt !== null : "result" in room.game && room.game.result !== null)
             ) {
               candidate = { ...room, updatedAt: now };
               finishedGameId = room.game.gameId;

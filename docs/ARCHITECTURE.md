@@ -1036,3 +1036,7 @@ Phase 18 deployment checkpoint에서 Codex는 public `/health`, Home/assets, dir
 ## 정령섬 추가 (2026-09-13)
 
 `SPIRIT_ISLAND`는 1–4인 협동 게임으로 기존 Room/Session/UoW와 V2 projection 경계에 연결한다. 동시 준비와 직렬 능력 해결을 사용하고 턴 마감은 두지 않는다. 규칙은 [SPIRIT_ISLAND_GAME_RULES.md](./SPIRIT_ISLAND_GAME_RULES.md), 상태·선택·화면·효과음 경계는 [SPIRIT_ISLAND_ARCHITECTURE.md](./SPIRIT_ISLAND_ARCHITECTURE.md)를 따른다.
+
+### 테러스케이프 concrete module
+
+`TERRORSCAPE`는 [테러스케이프 아키텍처](./TERRORSCAPE_ARCHITECTURE.md)와 [규칙](./TERRORSCAPE_GAME_RULES.md)을 따르는 2–4인 모듈이다. 기존 Room/Session/직렬화 UoW/재접속 경계를 재사용하며 `terrorscape:act`를 제공한다. 비대칭 숨김 정보 때문에 canonical 저장 revision과 각 진영의 projection revision을 분리한다. 이 게임의 명령·나가기·재경기 입력은 해당 시청자의 revision을 검증하고, 저장 충돌은 기존 storageRevision으로 판정한다. 상대에게 보이지 않는 변경은 해당 상대의 snapshot fanout을 발생시키지 않는다. 전체 비공개 state와 난수는 서버만 소유한다.

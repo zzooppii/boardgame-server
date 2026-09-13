@@ -11,6 +11,7 @@ import type { VegasClientCommand } from "./protocol.js";
 import type { BurgundyClientCommand } from "./protocol.js";
 import type { CarcassonneClientCommand } from "./protocol.js";
 import type { ClueClientCommand } from "./protocol.js";
+import type { TerrorscapeClientCommand } from "./protocol.js";
 import type { DuetClientCommand } from "./protocol.js";
 import type { SaboteurClientCommand } from "./protocol.js";
 import type { LostCitiesClientCommand } from "./protocol.js";
@@ -583,6 +584,7 @@ export interface SnapshotWireClientToServerEvents {
   "burgundy:act": (command: Extract<BurgundyClientCommand,{kind:"burgundy:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "carcassonne:act": (command: Extract<CarcassonneClientCommand,{kind:"carcassonne:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "clue:act": (command: Extract<ClueClientCommand,{kind:"clue:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
+  "terrorscape:act": (command: Extract<TerrorscapeClientCommand,{kind:"terrorscape:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "duet:act": (command: Extract<DuetClientCommand,{kind:"duet:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "saboteur:act": (command: Extract<SaboteurClientCommand,{kind:"saboteur:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "lostCities:configure": (command: Extract<LostCitiesClientCommand,{kind:"lostCities:configure"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
