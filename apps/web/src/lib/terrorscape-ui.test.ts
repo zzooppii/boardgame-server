@@ -46,3 +46,8 @@ test('Terrorscape map: all rooms and doors are keyboard targets; private positio
  assert.match(team,/<image[^>]+href="\/images\/terrorscape\/manor-floorplan.webp"[^>]+pointer-events="none"/);
  assert.doesNotMatch(team,/rooms.webp|tsc-map-lines|tsc-furniture/);
 });
+
+
+test('Terrorscape map: every visible killer has a distinct badge; hidden positions have no marker',()=>{
+ for(const killerType of ['BUTCHER','SPECTRE','MURDERER'] as const){const s=playing();s.game.killerType=killerType;assert.match(render(s),/tsc-floor-token tsc-floor-killer/);assert.equal((render(s).match(/class="tsc-killer-tag"/g)??[]).length,1);assert.match(render(s),/class="tsc-killer-tag">살인자/);s.game.killerLocation=null;assert.doesNotMatch(render(s),/tsc-floor-killer|tsc-killer-tag/);}
+});

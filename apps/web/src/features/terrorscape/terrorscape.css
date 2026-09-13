@@ -22,3 +22,6 @@
 
 .tsc-floor-feature rect{fill:#303e32;stroke:#b9b987;stroke-width:1.5}.tsc-floor-feature text{fill:#e6e6c4;font-size:15px;font-weight:700}
 .tsc-map-scroll:not(:has(.tsc-floor-zoom))::before{display:none}
+
+/* Killer: larger angular red frame and a text badge, distinct without relying on color. */
+.tsc-token-face{position:relative;width:100%;line-height:0}.tsc-floor-killer .tsc-portrait{width:64px;height:60px;border-radius:14px 14px 22px 22px;border:5px solid #ff695b;box-shadow:0 0 0 3px #350d14,0 0 17px 5px #ec28388c,0 5px 8px #000c}.tsc-killer-tag{position:absolute;top:40px;left:0;width:64px;padding:4px 0 5px;border:2px solid #ff9580;border-radius:4px;background:#820f25;color:#fff5e6;text-align:center;font-size:15px;font-weight:900;line-height:1;letter-spacing:1px;box-shadow:0 3px 5px #000b}
