@@ -1,3 +1,4 @@
+import { flipBlight, wallSupport, blightOptions, blightAutomatic, blightTitles } from './blight.js';
 import { invaderTrackAutomatic, trackCards, setTrack, takeNextFear, lowestMatching, beastsSkip } from './invader-track.js';
 import { SPIRIT_FEAR_HELP, SPIRIT_BRANCH_FEAR, SPIRIT_BRANCH_FEAR_KEYS } from '@hangul-rummikub/shared';
 import { branchFear, branchFearOptions, branchFearAutomatic } from './branch-claw-fear.js';
@@ -84,6 +85,7 @@ function extraFear(s: SpiritState, e: SpiritStep, piece: SpiritPiece, killed: bo
     }
 } }
 export function choiceTitle(e: SpiritStep): string {
+ if(blightTitles[e.key])return blightTitles[e.key]!;
  if(e.key==='BCF_DISCORD_ATTACK')return `${e.land} 불화 · ${e.tags.includes('SOURCE:CITY')?'도시':e.tags.includes('SOURCE:TOWN')?'마을':'탐험가'}의 동시 공격 · 다른 침략자에게 남은 피해 ${e.n}`;
  if(e.key==='BCF_LAND')return `${SPIRIT_FEAR_NAMES[e.tags[0]??'']} · 공포 ${e.n} · ${SPIRIT_FEAR_HELP[e.tags[0]??'']?.[e.n-1]??'지역 선택'}`;
  if(e.key==='BCE3_PROTECT'&&e.tags[1]==='RAVAGE')return '현신 2개를 희생해 이 보드의 추가 파괴를 막을까요?';
@@ -112,7 +114,7 @@ export function choiceOptions(s: SpiritState, shuffle: <T>(values:T[])=>T[] = va
     const add = (label: string, apply: () => void, landId: string | null = null, pieceId: string | null = null) => list.push({ id: `o${list.length}`, label, landId, pieceId, apply });
     const optional = () => add('이 선택 마치기', () => undefined);
     const l = e.land ? land(s, e.land) : null, owner = e.target ?? e.actor, p = player(s, owner);
-    if (branchFearOptions(s,e,add)||warOptions(s,e,add)||madnessOptions(s,e,add)||outpacedOptions(s,e,add)||investigationOptions(s,e,add)||farmlandEventOptions(s,e,add)||farmerEventOptions(s,e,add)||contactEventOptions(s,e,add)||terrorEventOptions(s,e,add)||industryEventOptions(s,e,add)||settlementEventOptions(s,e,add)||islandEventOptions(s,e,add)||stageEventOptions(s,e,add)||branchEventOptions(s,e,add,shuffle)||branchMajorOptions(s,e,add)||branchMinorOptions(s,e,add)||branchClawOptions(s,e,add)||tokenOptions(s,e,add)) return list;
+    if (blightOptions(s,e,add)||branchFearOptions(s,e,add)||warOptions(s,e,add)||madnessOptions(s,e,add)||outpacedOptions(s,e,add)||investigationOptions(s,e,add)||farmlandEventOptions(s,e,add)||farmerEventOptions(s,e,add)||contactEventOptions(s,e,add)||terrorEventOptions(s,e,add)||industryEventOptions(s,e,add)||settlementEventOptions(s,e,add)||islandEventOptions(s,e,add)||stageEventOptions(s,e,add)||branchEventOptions(s,e,add,shuffle)||branchMajorOptions(s,e,add)||branchMinorOptions(s,e,add)||branchClawOptions(s,e,add)||tokenOptions(s,e,add)) return list;
     if (e.kind === 'DAMAGE' && e.n > 0 && l) {
         const areas = e.tags.includes('ADJACENT_ONLY') ? l.adjacent.map(id=>land(s,id)) : e.tags.includes('ADJACENT') ? [l, ...l.adjacent.map(id => land(s, id))] : [l];
         for (const area of areas)
@@ -371,7 +373,7 @@ function addPresenceAt(s: SpiritState, actor: PlayerId, id: string) { const prio
 else
     l.presence.push({ playerId: actor, count: 1 }); event(s, 'GROW', `${id} 현신 배치`, actor, id);if(player(s,actor).spirit==='KEEPER'&&prior===1)prepend(s,step('MOVE',actor,id,countPieces(l,['DAHAN']),'PUSH',actor,['DAHAN','REQUIRED'])); }
 export function automatic(s: SpiritState, e: SpiritStep): boolean {
-    if(invaderTrackAutomatic(s,e)||branchFearAutomatic(s,e)||warAutomatic(s,e)||sacredAutomatic(s,e)||madnessAutomatic(s,e)||outpacedAutomatic(s,e)||investigationAutomatic(s,e)||farmlandEventAutomatic(s,e)||farmerEventAutomatic(s,e)||contactEventAutomatic(s,e)||terrorEventAutomatic(s,e)||industryEventAutomatic(s,e)||settlementEventAutomatic(s,e)||islandEventAutomatic(s,e)||stageEventAutomatic(s,e)||branchEventAutomatic(s,e)||branchMajorAutomatic(s,e)||branchMinorAutomatic(s,e)||branchClawAutomatic(s,e))return true;
+    if(blightAutomatic(s,e)||invaderTrackAutomatic(s,e)||branchFearAutomatic(s,e)||warAutomatic(s,e)||sacredAutomatic(s,e)||madnessAutomatic(s,e)||outpacedAutomatic(s,e)||investigationAutomatic(s,e)||farmlandEventAutomatic(s,e)||farmerEventAutomatic(s,e)||contactEventAutomatic(s,e)||terrorEventAutomatic(s,e)||industryEventAutomatic(s,e)||settlementEventAutomatic(s,e)||islandEventAutomatic(s,e)||stageEventAutomatic(s,e)||branchEventAutomatic(s,e)||branchMajorAutomatic(s,e)||branchMinorAutomatic(s,e)||branchClawAutomatic(s,e))return true;
     const l = e.land ? land(s, e.land) : null, owner = e.target ?? e.actor, p = player(s, owner);
     if (e.kind === 'CHECK') {
         if(s.settings.scenario==='INSURRECTION') { const moved=s.flags.filter(f=>f.startsWith('raid:')); if(moved.length) {s.flags=s.flags.filter(f=>!f.startsWith('raid:')&&!f.startsWith('power:')); prepend(s,...moved.flatMap(f=>{const id=f.slice(5);const area=s.lands.find(l=>l.pieces.some(p=>p.id===id));return area?[step('DAMAGE',e.actor,area.id,1)]:[]}),e);return true;} }
@@ -414,10 +416,15 @@ export function automatic(s: SpiritState, e: SpiritStep): boolean {
     if (e.kind === 'BLIGHT' && e.key !== 'CASCADE') {
         if (!l || l.vitality)
             return true;
-        if(s.blightPool<=0) return true;
+        if(!e.tags.includes('RESERVED_BLIGHT')){
+            if(s.blightPool<=0)return true;
+            s.blightPool--;s.reservedBlight++;
+            prepend(s,{...e,tags:[...e.tags,'RESERVED_BLIGHT']});
+            flipBlight(s,e.actor);return true;
+        }
+        s.reservedBlight--;
         const cascade = l.blight > 0 && e.key!=='EXTRA' && !e.tags.includes('NO_CASCADE');
         l.blight++;
-        s.blightPool = Math.max(0, s.blightPool - 1);
         for (const pr of e.key==='EXTRA'?[]:l.presence) {
             if (pr.count > 0) {
                 pr.count--;
@@ -426,9 +433,9 @@ export function automatic(s: SpiritState, e: SpiritStep): boolean {
         }
         l.presence = l.presence.filter(p => p.count > 0);
         event(s, 'BLIGHT', `${l.id} 오염 추가${cascade ? ' · 연쇄 발생' : ''}`, e.actor, l.id);
-        if(s.blightPool===0&&s.blightCard&&!s.blighted){s.blighted=true;const n=((s.blightCard==='SPIRAL'?5:4)-(s.settings.scenario==='BLITZ'?1:0))*s.players.length;s.blightPool=n;s.blightTotal+=n;event(s,'BLIGHT',s.blightCard==='SPIRAL'?'오염된 섬 · 쇠퇴의 소용돌이':'오염된 섬 · 먼지가 되는 기억');}
+
         if (cascade && s.blightPool > 0)
-            prepend(s, { ...e, key: 'CASCADE', used: e.used.length ? e.used : [l.id] });
+            prepend(s, { ...e, key: 'CASCADE', tags:e.tags.filter(t=>t!=='RESERVED_BLIGHT'), used: e.used.length ? e.used : [l.id] });
         return true;
     }
     if (e.kind === 'GAIN') {
@@ -454,7 +461,7 @@ export function automatic(s: SpiritState, e: SpiritStep): boolean {
         case 'SCENARIO_SETUP': setupScenario(s); return true;
         case 'RITUAL_FINISH': {s.terror=s.terror===1?2:s.terror===2?3:4;const earned=s.fearEarned.splice(0);prepend(s,...earned.map(key=>step('SPECIAL',e.actor,null,0,'FEAR_CARD',null,[key])),...(l?[step('MOVE',e.actor,l.id,countPieces(l,['DAHAN']),'PUSH',null,['DAHAN','REQUIRED','SPREAD'])]:[]),step('CHECK',e.actor));return true;}
         case 'ESCALATE_BUILD': {if(l&&!buildIsSkipped(s,l)){const green=s.players.find(p=>p.spirit==='GREEN'&&sacred(s,l,p.playerId));if(green){prepend(s,step('SPECIAL',e.actor,l.id,0,'GREEN_STOP',green.playerId,['BUILD_LAND']));return true;}prepend(s,step('SPECIAL',e.actor,l.id,0,'BUILD_LAND'));}return true;}
-        case 'INVADER_START': prepend(s,...(s.blighted?s.players.map(q=>step('SPECIAL',q.playerId,null,0,'BLIGHT_PENALTY',q.playerId)):[]),...(s.settings.expansion==='BRANCH_CLAW'?[step('SPECIAL',e.actor,null,0,'BCE_START')]:[])); return true;
+        case 'INVADER_START': prepend(s,...(s.blighted&&(s.blightCard==='SPIRAL'||s.blightCard==='MEMORY')?s.players.map(q=>step('SPECIAL',q.playerId,null,0,'BLIGHT_PENALTY',q.playerId)):[]),...(s.settings.expansion==='BRANCH_CLAW'?[step('SPECIAL',e.actor,null,0,'BCE_START')]:[])); return true;
         case 'IMMIGRATION': {if(s.settings.adversary==='ENGLAND'&&s.settings.level>=3)prepend(s,...Array.from({length:s.settings.level===6&&!s.flags.includes('fear-resolved')?2:1},()=>step('SPECIAL',e.actor,null,0,'BUILD_CARDS',null,['IMMIGRATION'])));s.stage='RAVAGE';return true;}
         case 'WORDS': if(l) s.flags.push(`words:${l.id}`); return true;
         case 'DREAD': if(l) s.flags.push(`dread:${l.id}`); return true;
@@ -664,7 +671,7 @@ export function automatic(s: SpiritState, e: SpiritStep): boolean {
             s.currentEvent=null;s.eventTerrorLevel=null;s.eventInvaderStage=null;s.eventIslandState=null;s.vengeance = [];
             s.plans = [];
             s.round++;
-            s.stage = 'PREPARE';
+            s.stage = 'PREPARE';wallSupport(s);
             event(s, 'PHASE', `${s.round}라운드 · 성장과 카드 준비`);
             return true;
         case 'FEAR_DAHAN_DAMAGE':

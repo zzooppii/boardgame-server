@@ -1,3 +1,6 @@
+import { SPIRIT_BLIGHT, spiritDefinition, spiritBlightKeys, type SpiritBlightKey } from '@hangul-rummikub/shared';
+import { wallSupport } from './games/spirit-island/domain/blight.js';
+import { elements } from './games/spirit-island/domain/primitives.js';
 import { SPIRIT_BRANCH_FEAR, SPIRIT_BRANCH_FEAR_KEYS } from '@hangul-rummikub/shared';
 import { exploreHasSource } from './games/spirit-island/domain/branch-claw-terror-events.js';
 import { currentInvaderStage } from './games/spirit-island/domain/branch-claw-stage-events.js';
@@ -1097,4 +1100,58 @@ test('Public invader stacks reject orphan cards and internal held indices stay p
 });
 test('Fortification excludes terrain on an additional public invader card',()=>{
  const s=fearTrack('reluctant',1);s.ravage={stage:1,terrains:['MOUNTAIN'],coastal:false};s.ravageExtra=[{stage:1,terrains:['JUNGLE'],coastal:false}];s.build=null;s.explore=null;s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'BCE2_FORTIFY')];settle(s);const labels=choiceOptions(s).map(o=>o.label);assert.ok(labels.every(label=>!label.includes('밀림')&&!label.includes('산')));assert.equal(labels.length,2);
+});
+
+// Branch & Claw blight batch: selection, interrupted placement, all seven effects.
+function blightGame(key:SpiritBlightKey,n=1){
+ let s=eventGame(n);s.queue=[];s.currentEvent=null;s.stage='RAVAGE';for(const p of s.players){p.ready=false;p.energy=3;}
+ s.blightCard=key;s.blightDeck=spiritBlightKeys('BRANCH_CLAW').filter(k=>k!==key);s.blightPool=1;s.blightTotal=1+s.lands.reduce((n,l)=>n+l.blight,0);
+ s.queue=[step('BLIGHT',s.players[0]!.playerId,'A1',1)];settle(s);return s;
+}
+for(let n=1;n<=4;n++)for(const key of spiritBlightKeys('BRANCH_CLAW').slice(2))test(`Blight batch ${key}/${n}: interrupt placement, refill and conserve`,()=>{
+ let s=blightGame(key,n);assert.equal(s.blighted,true);assert.equal(s.blightPool,SPIRIT_BLIGHT[key].perPlayer*n);assert.equal(s.reservedBlight,1);assert.equal(land(s,'A1').blight,0);assert.equal(s.queue[0]?.key,'BCL_REVEAL');assert.doesNotThrow(()=>parseSpiritState(s));
+ const projected=view(s);assert.equal(projected.blightCard,key);assert.ok(!('blightDeck' in projected));assert.ok(!('reservedBlight' in projected));
+ s=drain(s);assert.equal(s.reservedBlight,0);assert.equal(land(s,'A1').blight,1);assert.doesNotThrow(()=>parseSpiritState(s));
+ if(key==='LESSER'){assert.equal(s.players.filter(p=>p.lesserPower).length,n);assert.equal(s.lesserOffer.length,0);}
+ if(key==='EROSION'){assert.equal(s.fear,2*n);assert.ok(s.players.every(p=>p.energy===2));}
+ if(key==='FARMLANDS')for(const p of s.players)assert.ok(s.lands.some(l=>l.board===p.board&&!l.coastal&&countPieces(l,['TOWN'])&&countPieces(l,['CITY'])));
+});
+test('Blight setup: expansion shuffles nine, core only two; healthy identity is private',()=>{
+ for(const expansion of ['CORE','BRANCH_CLAW'] as const){let s=setup();s=apply(s,{kind:'CONFIGURE',settings:{...s.settings,expansion,progression:false,blightCard:true}});assert.equal(s.blightDeck.length,expansion==='CORE'?1:8);assert.equal(view(s).blightCard,null);assert.equal(s.blightPool,3);}
+ const s=setup();assert.equal(s.blightCard,null);assert.equal(s.blightDeck.length,0);
+});
+test('Blight solo: replace two-per-player card before effects; no extra +1 on refill',()=>{
+ let s=blightGame('LESSER');s.blightDeck=['WALL','PALL'];s=eventChoose(s,'교체');assert.equal(s.blightCard,'WALL');assert.equal(s.players[0]!.lesserPower,null);s=eventChoose(s,'교체');assert.equal(s.blightCard,'PALL');assert.equal(s.blightPool,3);assert.equal(s.reservedBlight,1);assert.equal(choiceOptions(s).length,1);s=drain(s);assert.doesNotThrow(()=>parseSpiritState(s));
+ const multi=blightGame('LESSER',2);assert.equal(choiceOptions(multi).length,1);
+});
+test('Pall: board choice can destroy another spirit presence and removes without fear',()=>{
+ let s=blightGame('PALL',2);s=eventChoose(s,'효과 진행');const other=s.players[1]!;const source=s.lands.find(l=>presence(l,other.playerId)>0)!;source.presence=source.presence.filter(p=>p.playerId!==other.playerId);land(s,'A8').presence.push({playerId:other.playerId,count:13-other.destroyedPresence-other.removedPresence-(spiritDefinition(other.spirit!).energy.length-1-other.energyTrack)-(spiritDefinition(other.spirit!).plays.length-1-other.cardTrack)});
+ const before=other.destroyedPresence,priorFear=s.fear;s=eventChoose(s,'A8');assert.equal(s.players[1]!.destroyedPresence,before+1);s=eventChoose(s,'마을');assert.equal(s.fear,priorFear);
+});
+test('Ecosystem: beast and blight may use different lands; nested blight precedes original',()=>{
+ let s=blightGame('ECOSYSTEM');s=eventChoose(s,'효과 진행');const beast=choiceOptions(s)[0]!.landId!;s=eventChoose(s,beast);assert.equal(land(s,beast).tokens.beasts,0);assert.equal(land(s,'A1').blight,0);const target=choiceOptions(s).find(o=>o.landId==='A2')!;assert.ok(target);s=eventChoose(s,'A2');assert.equal(land(s,'A2').blight,1);assert.equal(land(s,'A1').blight,1);assert.equal(s.blightPool,4);assert.equal(s.reservedBlight,0);
+});
+test('Erosion: zero energy stays zero; Tipping destroys up to three available presence',()=>{
+ let s=blightGame('EROSION');s.players[0]!.energy=0;s=drain(s);assert.equal(s.players[0]!.energy,0);
+ let t=blightGame('TIPPING');const before=t.players[0]!.destroyedPresence,total=t.lands.reduce((n,l)=>n+presence(l,t.players[0]!.playerId),0);t=drain(t);assert.equal(t.players[0]!.destroyedPresence-before,Math.min(3,total));assert.equal(t.phase,total<=3?'FINISHED':'PLAYING');
+});
+test('Farmlands: inland without buildings only; one town and city in same land',()=>{
+ let s=blightGame('FARMLANDS');s=eventChoose(s,'효과 진행');for(const o of choiceOptions(s)){const l=land(s,o.landId);assert.ok(!l.coastal&&l.number>0);assert.equal(countPieces(l,['TOWN','CITY']),0);}const id=choiceOptions(s)[0]!.landId!;s=eventChoose(s,id);assert.equal(countPieces(land(s,id),['TOWN']),1);assert.equal(countPieces(land(s,id),['CITY']),1);
+});
+test('Wall: next Spirit Phase grants once, persists through growth, no Invader penalty',()=>{
+ let s=drain(blightGame('WALL'));const p=s.players[0]!,energy=p.energy;assert.equal(p.bonusPlays,0);s.stage='TIME';s.queue=[step('SPECIAL',p.playerId,null,0,'NEW_ROUND')];settle(s);assert.equal(p.energy,energy+1);assert.equal(p.bonusPlays,1);wallSupport(s);assert.equal(p.energy,energy+1);assert.equal(p.bonusPlays,1);s.stage='FEAR';s.queue=[step('SPECIAL',p.playerId,null,0,'INVADER_START')];settle(s);assert.notEqual(s.queue[0]?.key,'BLIGHT_PENALTY');
+});
+test('Lesser: separate public zone, immediate elements, no play payment or forgetting',()=>{
+ let s=blightGame('LESSER');s=eventChoose(s,'효과 진행');assert.equal(s.lesserOffer.length,2);assert.equal(view(s).lesserOffer.length,2);const id=s.lesserOffer[0]!,power=cardPower(s,id),p=s.players[0]!,energy=p.energy;s=drain(s);const q=s.players[0]!;assert.equal(q.lesserPower,id);assert.equal(q.energy,energy);assert.ok(![...q.hand,...q.played,...q.discard].includes(id));for(const e of power.elements)assert.ok(elements(s,q.playerId)[e]>0);assert.equal(view(s).playerStates[0]!.lesserPower?.cardId,id);
+ s.stage=power.speed;q.ready=false;assert.ok(powerOptions(s,q.playerId).some(o=>o.cardId===id));q.resolved.push(id);assert.ok(!powerOptions(s,q.playerId).some(o=>o.cardId===id));
+ s.queue=[step('FORGET',q.playerId,null,1)];settle(s);assert.ok(choiceOptions(s).every(o=>!o.label.includes(power.title)));s.queue=[];s.stage='TIME';s.queue=[step('SPECIAL',q.playerId,null,0,'NEW_ROUND')];settle(s);assert.equal(q.lesserPower,id);assert.ok(!q.resolved.includes(id));assert.ok(!q.discard.includes(id));assert.doesNotThrow(()=>parseSpiritState(s));
+});
+test('Lesser: Fast power flipped after Fast waits until next round; Slow usable now',()=>{
+ for(const speed of ['FAST','SLOW'] as const){let s=blightGame('LESSER');const id=s.minor.find(id=>cardPower(s,id).speed===speed)!;s.minor=[id,...s.minor.filter(c=>c!==id)];s=drain(s);s.stage='SLOW';s.players[0]!.ready=false;assert.equal(powerOptions(s,s.players[0]!.playerId).some(o=>o.cardId===id),speed==='SLOW');}
+});
+test('Blight cascade: reserved marker consumed exactly once per placement',()=>{
+ let s=blightGame('WALL');s.queue[1]!.land='A4';assert.equal(land(s,'A4').blight,1);s=eventChoose(s,'효과 진행');assert.equal(land(s,'A4').blight,2);assert.equal(s.reservedBlight,0);assert.equal(s.queue[0]?.kind,'BLIGHT');assert.equal(s.queue[0]?.key,'CASCADE');assert.ok(!s.queue[0]!.tags.includes('RESERVED_BLIGHT'));s=drain(s);assert.equal(s.blightPool,1);assert.doesNotThrow(()=>parseSpiritState(s));
+});
+test('Lesser actual power action uses no energy',()=>{
+ let s=blightGame('LESSER');const id=s.minor.find(id=>cardPower(s,id).key==='sky-fire')??s.minor.find(id=>cardPower(s,id).speed==='FAST')!;s.minor=[id,...s.minor.filter(c=>c!==id)];s=drain(s);const p=s.players[0]!,power=cardPower(s,id);s.stage=power.speed;p.ready=false;const o=powerOptions(s,p.playerId).find(o=>o.cardId===id)!;const target=o.targets[0];assert.ok(target);const energy=p.energy;s=drain(apply(s,{kind:'USE_POWER',cardId:id,target,threshold:1,fast:power.speed==='FAST',repeat:false,shadowReach:false}));assert.equal(s.players[0]!.energy,energy);assert.ok(s.players[0]!.resolved.includes(id));assert.doesNotThrow(()=>parseSpiritState(s));
 });

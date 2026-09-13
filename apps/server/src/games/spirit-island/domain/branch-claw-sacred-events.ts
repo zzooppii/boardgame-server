@@ -1,3 +1,4 @@
+import { flipBlight } from './blight.js';
 import type { SpiritState, SpiritStep } from './state.js';
 import { step, prepend, sacred, invaders, presence, countPieces, player, addPresence, event, requireRule } from './primitives.js';
 type Add=(label:string,apply:()=>void,landId?:string|null,pieceId?:string|null)=>unknown;
@@ -29,9 +30,10 @@ export function sacredAutomatic(s:SpiritState,e:SpiritStep):boolean {
   const l=areas(s).find(l=>l.id===e.land);requireRule(l);
   for(const p of s.players)if(presence(l,p.playerId)>0){addPresence(l,p.playerId,-1);player(s,p.playerId).destroyedPresence++;event(s,'BLIGHT',`${l.id} 위협받는 성소 · 현신 1 희생`,p.playerId,l.id);}
  }else if(e.key==='BCE13_POOL'){
-  for(let i=0;i<e.n&&s.blightPool>0;i++){
+  if(e.n>0&&s.blightPool>0){
    s.blightPool--;s.blightTotal--;event(s,'BLIGHT','섬의 힘 · 오염 공급 1개 영구 제거',e.actor);
-   if(s.blightPool===0&&s.blightCard&&!s.blighted){s.blighted=true;const n=((s.blightCard==='SPIRAL'?5:4)-(s.settings.scenario==='BLITZ'?1:0))*s.players.length;s.blightPool=n;s.blightTotal+=n;event(s,'BLIGHT','위협받는 성소 · 오염 카드 뒤집기',e.actor);}
+   if(e.n>1)prepend(s,{...e,n:e.n-1});
+   flipBlight(s,e.actor);
   }
  }else if(e.key==='BCE13_TOKEN'){
   prepend(s,step('SPECIAL',e.actor,null,0,'BCE2_PROWL',null,areas(s).flatMap(l=>Array.from({length:l.tokens.beasts},()=>l.id))));

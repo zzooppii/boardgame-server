@@ -141,3 +141,18 @@ test('Fear track displays all invader cards in order and pending delays',()=>{
 test('Ravage preview includes additional cards and dynamic beast skip without blocking converted build',()=>{
  const s=playing(),l=s.game.lands[0]!;s.game.ravage={stage:1,terrains:['JUNGLE'],coastal:false};s.game.ravageExtra=[{stage:1,terrains:[l.terrain],coastal:false}];l.pieces=[{id:'city',kind:'CITY',damage:0,strife:0}];assert.equal(ravagePreview(s.game,l).active,true);s.game.fearBeasts=3;l.tokens.beasts=1;assert.equal(ravagePreview(s.game,l).blocked,true);assert.equal(ravagePreview(s.game,l).blight,false);s.game.eventRavageToBuild=true;assert.equal(ravagePreview(s.game,l).convertsToBuild,false);s.game.ravage={stage:1,terrains:[l.terrain],coastal:false};assert.equal(ravagePreview(s.game,l).convertsToBuild,true);s.game.eventRavageToBuild=false;l.tokens.beasts=0;assert.equal(ravagePreview(s.game,l).blocked,false);
 });
+
+test('Blight batch UI: seven card names and instructions; healthy identity hidden',async()=>{
+ const {SPIRIT_BLIGHT,spiritBlightKeys}=await import('@hangul-rummikub/shared');
+ for(const key of spiritBlightKeys('BRANCH_CLAW').slice(2)){
+  const s=playing();s.game.blighted=true;s.game.blightCard=key;s.game.settings.blightCard=true;const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));assert.match(html,/오염된 섬 카드/);assert.ok(html.includes(SPIRIT_BLIGHT[key].name));assert.ok(html.includes(SPIRIT_BLIGHT[key].help));
+ }
+ const s=playing();const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));assert.ok(!html.includes('오염된 섬 카드'));
+});
+test('Lesser UI: candidate effects, assigned card and usable power visible without counting as played',()=>{
+ const s=playing(),power=SPIRIT_POWERS.find(p=>p.deck==='MINOR')!,card={cardId:'lesser',key:power.key};s.game.blighted=true;s.game.blightCard='LESSER';s.game.lesserOffer=[card];let html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));assert.match(html,/배정할 보조 능력/);assert.ok(html.includes(power.description));
+ s.game.lesserOffer=[];s.game.playerStates[0]!.lesserPower=card;s.game.stage=power.speed;s.game.privateState.powerOptions=[{cardId:card.cardId,key:card.key,fast:power.speed==='FAST',slow:power.speed==='SLOW',targets:['A1'],shadowTargets:[],repeat:false,thresholdMax:1}];html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));assert.match(html,/매 라운드 무료/);assert.ok(html.includes(power.title));assert.ok(spiritProjectionIsConsistent(s.game));s.game.playerStates[0]!.hand.push(card);assert.equal(spiritProjectionIsConsistent(s.game),false);
+});
+test('Blight reveal and aid assignment use existing blight and card sound cues',()=>{
+ const before=playing().game,after=structuredClone(before);after.gameRevision=parse(SpiritPlayingPlatformSnapshotV2Schema,{...playing(),game:{...after,gameRevision:1}}).game.gameRevision;after.blighted=true;after.blightCard='LESSER';after.log=[{id:1,kind:'BLIGHT',text:'오염 카드 공개',landId:null,playerId:null},{id:2,kind:'CARD',text:'작은 정령 능력 배정',landId:null,playerId:null}];assert.deepEqual(spiritTransitionCues(before,after),['BLIGHT','CARD']);
+});

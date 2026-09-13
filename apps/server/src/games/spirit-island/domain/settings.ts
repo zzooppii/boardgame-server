@@ -1,3 +1,4 @@
+import { spiritBlightKeys } from '@hangul-rummikub/shared';
 import { SPIRIT_BOARDS, SPIRIT_EVENT_KEYS, spiritFearTiers, type SpiritSettings, type PlayerId } from '@hangul-rummikub/shared';
 import type { SpiritState } from './state.js';
 import { spiritFearKeys } from './resolver.js';
@@ -9,7 +10,7 @@ export function configureSpirit(s: SpiritState, settings: SpiritSettings, shuffl
  if(settings.expansion==='BRANCH_CLAW'){s.eventDeck=shuffle([...SPIRIT_EVENT_KEYS]);const cards=s.forgotten.filter(id=>cardPower(s,id).expansion&&['MINOR','MAJOR'].includes(cardPower(s,id).deck));s.forgotten=s.forgotten.filter(id=>!cards.includes(id));s.minor=shuffle([...s.minor,...cards.filter(id=>cardPower(s,id).deck==='MINOR')]);s.major=shuffle([...s.major,...cards.filter(id=>cardPower(s,id).deck==='MAJOR')]);} const {adversary:a,level:n}=settings;
  s.fearTiers=[...spiritFearTiers(settings)];
  s.fearDeck=shuffle(spiritFearKeys(settings.expansion)).slice(0,settings.scenario==='RITUAL'?15:s.fearTiers.reduce((x,y)=>x+y,0));
- if(settings.blightCard) {s.blightCard=shuffle<'SPIRAL'|'MEMORY'>(['SPIRAL','MEMORY'])[0]??'SPIRAL';s.blightPool=2*s.players.length+1;s.blightTotal=s.blightPool+s.lands.reduce((n,l)=>n+l.blight,0);}
+ if(settings.blightCard) {s.blightDeck=shuffle(spiritBlightKeys(settings.expansion??'CORE'));s.blightCard=s.blightDeck.shift()??'SPIRAL';s.blightPool=2*s.players.length+1;s.blightTotal=s.blightPool+s.lands.reduce((n,l)=>n+l.blight,0);}
  if(settings.scenario==='BLITZ'){s.blightPool+=s.players.length;s.blightTotal+=s.players.length;}
  for(const board of SPIRIT_BOARDS.slice(0,s.players.length)) {
   if(settings.expansion==='BRANCH_CLAW') {

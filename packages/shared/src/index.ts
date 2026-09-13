@@ -108,3 +108,5 @@ export * from './games/terrorscape/contracts.js';
 
 export * from './games/terrorscape/plans.js';
 export * from './games/terrorscape/traits.js';
+
+export * from './games/spirit-island/blight.js';
