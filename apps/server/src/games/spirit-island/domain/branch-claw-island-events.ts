@@ -1,3 +1,4 @@
+import { industryIslandMain } from './branch-claw-industry-events.js';
 import { expandedIslandMain } from './branch-claw-settlement-events.js';
 import { SPIRIT_EVENTS, SPIRITS } from '@hangul-rummikub/shared';
 import type { SpiritState, SpiritStep } from './state.js';
@@ -24,7 +25,7 @@ export function islandEventOptions(s:SpiritState,e:SpiritStep,add:Add):boolean {
    for(const key of e.used){const slot=available.find(p=>p.key===key);requireRule(slot);addPresence(slot.land,slot.owner,-1);player(s,slot.owner).destroyedPresence++;event(s,'BLIGHT',`${slot.land.id} 현신 희생 · ${e.tags[0]} 오염 확산 방지`,slot.owner,slot.land.id);}
   });
  } else if(e.key==='BCE3_BLIGHT') {
-  for(const l of areas(s).filter(l=>l.board===e.tags[0]&&(e.tags[1]==='INLAND'?!l.coastal:e.tags[1]==='COAST'?l.coastal:e.tags[1]==='BUILDINGS'?countPieces(l,['TOWN','CITY'])>0||l.adjacent.some(id=>countPieces(land(s,id),['TOWN','CITY'])>0):l.adjacent.some(id=>land(s,id).blight>0))))add(`${l.id} · 오염 확산`,()=>prepend(s,step('BLIGHT',e.actor,l.id,1)),l.id);
+  for(const l of areas(s).filter(l=>l.board===e.tags[0]&&(e.tags[1]==='CITY'?countPieces(l,['CITY'])>0:e.tags[1]==='INLAND'?!l.coastal:e.tags[1]==='COAST'?l.coastal:e.tags[1]==='BUILDINGS'?countPieces(l,['TOWN','CITY'])>0||l.adjacent.some(id=>countPieces(land(s,id),['TOWN','CITY'])>0):l.adjacent.some(id=>land(s,id).blight>0))))add(`${l.id} · 오염 확산`,()=>prepend(s,step('BLIGHT',e.actor,l.id,1)),l.id);
  } else if(e.key==='BCE3_PREY') {
   const l=e.land?land(s,e.land):null;
   if(l&&e.n>0)for(const p of l.pieces.filter(p=>p.kind==='EXPLORER'))add(`${l.id} 탐험가 파괴`,()=>{removePiece(s,l,p,true,e.actor);if(e.n>1)prepend(s,{...e,n:e.n-1});},l.id,p.id);
@@ -41,7 +42,7 @@ export function islandEventAutomatic(s:SpiritState,e:SpiritStep):boolean {
  if(!e.key.startsWith('BCE3_'))return false;
  switch(e.key){
  case 'BCE3_MAIN': {
-  if(expandedIslandMain(s,e))return true;
+  if(industryIslandMain(s,e)||expandedIslandMain(s,e))return true;
   requireRule(s.currentEvent);const def=SPIRIT_EVENTS[s.currentEvent];requireRule(def.type==='ISLAND');
   s.eventIslandState=s.blighted?'BLIGHTED':'HEALTHY';event(s,'EVENT',`${def.title} · ${s.blighted?def.blighted:def.healthy}`);
   const main:SpiritStep[]=[];

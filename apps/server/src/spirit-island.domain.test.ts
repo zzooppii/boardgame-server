@@ -466,7 +466,7 @@ for(const key of stageEvents)for(const stage of [1,2,3] as const)for(const n of 
  let s=eventGame(n,key);s.eventInvaderStage=stage;s=eventChoose(s,'이벤트 선택 시작');s=drain(s);assert.equal(s.queue.length,0);assert.equal(s.stage,'FEAR');parseSpiritState(s);
 });
 test('Stage events: all configured event keys are configured once; core contains none',()=>{
- const s=branchClaw();assert.deepEqual([...s.eventDeck].sort(),[...SPIRIT_EVENT_KEYS].sort());assert.equal(s.eventDeck.length,12);assert.equal(chosen().eventDeck.length,0);
+ const s=branchClaw();assert.deepEqual([...s.eventDeck].sort(),[...SPIRIT_EVENT_KEYS].sort());assert.equal(s.eventDeck.length,14);assert.equal(chosen().eventDeck.length,0);
 });
 test('Stage events: Prussia early III counts as II, real late III and empty deck count as III',()=>{
  const s=branchClaw();s.settings.adversary='PRUSSIA';s.settings.level=2;s.invaderDeck=[{stage:3,terrains:['JUNGLE','SANDS'],coastal:false},{stage:2,terrains:['MOUNTAIN'],coastal:false}];assert.equal(currentInvaderStage(s),2);s.invaderDeck.shift();assert.equal(currentInvaderStage(s),2);s.invaderDeck=[{stage:3,terrains:['JUNGLE','SANDS'],coastal:false}];assert.equal(currentInvaderStage(s),3);s.invaderDeck=[];assert.equal(currentInvaderStage(s),3);
@@ -589,4 +589,40 @@ test('Settlement events: grim toll damages both sides before the Dahan defense e
 });
 test('Settlement events: each spirit can choose forgetting independently and continue after power fade',()=>{
  let s=eventGame(2,'POPULATION');s.blighted=true;s=eventChoose(s,'이벤트 선택 시작');let choices=0;while(s.queue.length&&s.phase==='PLAYING'){const options=choiceOptions(s),fade=s.queue[0]?.key==='BCE4_FADE';const option=fade?options.find(o=>o.label==='내 능력 2장 망각'):options[0];assert.ok(option);if(fade)choices++;s=eventChoose(s,option.label);}assert.equal(choices,2);assert.equal(s.phase,'PLAYING');assert.ok(s.players.every(p=>p.hand.length===2));parseSpiritState(s);
+});
+
+for(const key of ['URBAN_DEVELOPMENT','HEAVY_FARMING'] as const)for(const blighted of [false,true])for(const n of [1,2,3,4])test(`Industry events: ${key} ${blighted?'blighted':'healthy'} ${n} players`,()=>{
+ let s=eventGame(n,key);s.blighted=blighted;s=drain(eventChoose(s,'이벤트 선택 시작'));assert.equal(s.queue.length,0);assert.equal(s.eventIslandState,blighted?'BLIGHTED':'HEALTHY');assert.equal(s.phase,'PLAYING');parseSpiritState(s);assert.ok(v.safeParse(SpiritPlayingProjectionSchema,view(s)).success);assert.equal(view(s).eventCityDamage,!blighted&&key==='URBAN_DEVELOPMENT'?2:0);assert.equal(view(s).eventTownDamage,!blighted&&key==='HEAVY_FARMING'?1:0);
+});
+test('Normal Ravage bonuses survive empty slots and time, ignore extra Ravages, then expire',()=>{
+ let s=eventGame(1,'URBAN_DEVELOPMENT');s=drain(eventChoose(s,'이벤트 선택 시작'));s.flags.push('event-next-town');s.ravage=null;s.stage='RAVAGE';s=drain(apply(s,{kind:'ADVANCE'}));assert.equal(view(s).eventCityDamage,2);s.stage='TIME';s=drain(apply(s,{kind:'ADVANCE'}));assert.equal(s.currentEvent,null);assert.equal(view(s).eventCityDamage,2);assert.equal(view(s).eventTownDamage,1);
+ const l=land(s,'A1');l.pieces=[];l.defend=4;makePiece(s,l,'CITY');s.queue=[step('SPECIAL',s.players[0]!.playerId,l.id,0,'RAVAGE')];const blight=l.blight;settle(s);s=drain(s);assert.equal(land(s,'A1').blight,blight);assert.equal(view(s).eventCityDamage,2);
+ s.stage='RAVAGE';s.ravage={stage:1,terrains:['MOUNTAIN'],coastal:false};land(s,'A1').defend=3;s=drain(apply(s,{kind:'ADVANCE'}));assert.equal(land(s,'A1').blight,blight+1);assert.equal(view(s).eventCityDamage,0);assert.equal(view(s).eventTownDamage,0);assert.equal(view(s).eventNormalRavageActive,false);assert.equal(s.stage,'BUILD');
+});
+for(const strife of [0,1])test(`Normal Ravage modifiers combine with Sweden; strife ${strife} suppresses whole attacker`,()=>{
+ let s=eventGame();s.queue=[];s.settings.adversary='SWEDEN';s.settings.level=3;s.flags.push('event-next-city','event-next-town');const l=land(s,'A1');l.pieces=[];l.defend=8;makePiece(s,l,'CITY').strife=strife;makePiece(s,l,'TOWN');const blight=l.blight;s.stage='RAVAGE';s.ravage={stage:1,terrains:['MOUNTAIN'],coastal:false};s=drain(apply(s,{kind:'ADVANCE'}));assert.equal(land(s,'A1').blight,blight+(strife?0:1));assert.equal(land(s,'A1').pieces.find(p=>p.kind==='CITY')?.strife,0);assert.equal(view(s).eventCityDamage,0);
+});
+test('A normal card consumes pending bonuses even when every matching land skips',()=>{
+ let s=eventGame();s.queue=[];s.flags.push('event-next-city');for(const l of s.lands)l.skip=true;s.stage='RAVAGE';s.ravage={stage:1,terrains:['MOUNTAIN'],coastal:false};s=drain(apply(s,{kind:'ADVANCE'}));assert.equal(view(s).eventCityDamage,0);
+});
+test('Ruin ordering keeps normal damage active through all choices and includes strifed attackers',()=>{
+ let s=eventGame();s.queue=[];s.flags.push('event-next-city','ruin:A1');const l=land(s,'A1');l.pieces=[];makePiece(s,l,'CITY').strife=1;const to=land(s,l.adjacent[0]!);makePiece(s,to,'CITY');s.stage='RAVAGE';s.ravage={stage:1,terrains:['MOUNTAIN'],coastal:false};s=apply(s,{kind:'ADVANCE'});assert.equal(view(s).eventNormalRavageActive,true);s=eventChoose(s,'A1 파괴 먼저 해결');assert.equal(s.queue[0]?.kind,'DAMAGE');assert.equal(s.queue[0]?.n,5);s=drain(s);assert.equal(view(s).eventCityDamage,0);
+});
+test('Festering Pits requires two blight, adds without cascade, but destroys presence',()=>{
+ let s=eventGame(2,'URBAN_DEVELOPMENT');s.queue=[];const l=land(s,'A5'),owner=s.players[0]!.playerId;assert.ok(presence(l,owner)>0);s.blightPool-=2-l.blight;l.blight=2;const before=s.blightPool,destroyed=s.players[0]!.destroyedPresence;s.queue=[step('SPECIAL',owner,null,0,'BCE5_PITS',null,['A'])];settle(s);assert.deepEqual(choiceOptions(s).map(o=>o.landId),['A5']);s=eventChoose(s,'A5');assert.equal(s.queue.length,0);assert.equal(land(s,'A5').blight,3);assert.equal(s.blightPool,before-1);assert.equal(s.players[0]!.destroyedPresence,destroyed+1);parseSpiritState(s);
+});
+test('Festering Pits only visits invaded boards and accepts an unoccupied polluted land',()=>{
+ let s=eventGame(2,'URBAN_DEVELOPMENT');s.blighted=true;for(const l of s.lands.filter(l=>l.board==='A'))l.pieces=l.pieces.filter(p=>p.kind==='DAHAN');const l=land(s,'B8');s.blightPool-=2-l.blight;l.blight=2;l.pieces=[];s=eventChoose(s,'이벤트 선택 시작');assert.equal(s.queue[0]?.key,'BCE5_PITS');assert.deepEqual(choiceOptions(s).map(o=>o.landId),['B8']);
+});
+test('Overcrowded cities restricts protection and blight placement to boards and lands with cities',()=>{
+ let s=eventGame(2,'HEAVY_FARMING');s.blighted=true;for(const l of s.lands)l.pieces=l.pieces.filter(p=>p.kind!=='CITY');makePiece(s,land(s,'B3'),'CITY');s=eventChoose(s,'이벤트 선택 시작');assert.deepEqual(s.queue[0]?.tags,['B','CITY']);s=eventChoose(s,'받아들인다');assert.deepEqual(choiceOptions(s).map(o=>o.landId),['B3']);
+});
+test('Lingering Plagues retains disease during builds and expires at the end of Invader Phase',()=>{
+ let s=eventGame(1,'URBAN_DEVELOPMENT');s=drain(eventChoose(s,'이벤트 선택 시작'));const l=land(s,'A1');l.pieces=[];l.tokens.disease=2;makePiece(s,l,'EXPLORER');s.queue=[step('SPECIAL',s.players[0]!.playerId,l.id,0,'BUILD_LAND')];settle(s);assert.equal(l.tokens.disease,2);assert.ok(l.pieces.some(p=>p.kind==='TOWN'));l.skip=true;s.queue=[step('SPECIAL',s.players[0]!.playerId,l.id,0,'BUILD_LAND')];settle(s);assert.equal(l.pieces.length,2);assert.equal(l.tokens.disease,2);l.skip=false;s.stage='EXPLORE';s=drain(apply(s,{kind:'ADVANCE'}));assert.equal(view(s).eventLingeringPlagues,false);const after=land(s,'A1').pieces.length;s.queue=[step('SPECIAL',s.players[0]!.playerId,'A1',0,'BUILD_LAND')];settle(s);assert.equal(land(s,'A1').tokens.disease,1);assert.equal(land(s,'A1').pieces.length,after);
+});
+test('Fierce Mien counts qualifying lands, not individual Dahan or uninvaded lands',()=>{
+ const s=eventGame(1,'URBAN_DEVELOPMENT');s.queue=[];for(const l of s.lands)l.pieces=[];makePiece(s,land(s,'A1'),'EXPLORER');makePiece(s,land(s,'A1'),'DAHAN');makePiece(s,land(s,'A2'),'CITY');makePiece(s,land(s,'A2'),'DAHAN');makePiece(s,land(s,'A3'),'DAHAN');makePiece(s,land(s,'A4'),'TOWN');makePiece(s,land(s,'A4'),'DAHAN');makePiece(s,land(s,'A4'),'DAHAN');const before=s.fear;s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'BCE5_DAHAN')];settle(s);assert.equal(s.fear,before+2);
+});
+test('Heavy Farming grows Dahan only in jungle and wetland with existing Dahan',()=>{
+ const s=eventGame(1,'HEAVY_FARMING');s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'BCE5_GROW',null,['A'])];settle(s);const choices=choiceOptions(s);assert.ok(choices.length);for(const o of choices){const l=land(s,o.landId);assert.ok(['JUNGLE','WETLAND'].includes(l.terrain));assert.ok(l.pieces.some(p=>p.kind==='DAHAN'));}
 });

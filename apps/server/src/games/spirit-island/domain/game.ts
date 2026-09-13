@@ -280,14 +280,14 @@ export function applySpiritAction(current: SpiritState, actor: PlayerId, input: 
                     }
                     else if (s.stage === 'RAVAGE') {
                         const areas=s.lands.filter(l=>l.number>0&&s.ravage&&(s.ravage.coastal?l.coastal:s.ravage.terrains.includes(l.terrain)));
-                        s.queue.push(...(areas.some(l=>s.flags.includes(`ruin:${l.id}`))?[step('SPECIAL',actor,null,0,'BCM_RAVAGE_ORDER',actor,areas.map(l=>l.id))]:areas.flatMap(l=>[step('SPECIAL',actor,l.id,0,'RAVAGE'),step('CHECK',actor)])),step('SPECIAL',actor,null,0,'STAGE_BUILD'));
+                        s.queue.push(step('SPECIAL',actor,null,0,'BCE5_NORMAL_START'),...(areas.some(l=>s.flags.includes(`ruin:${l.id}`))?[step('SPECIAL',actor,null,0,'BCM_RAVAGE_ORDER',actor,areas.map(l=>l.id))]:areas.flatMap(l=>[step('SPECIAL',actor,l.id,0,'RAVAGE'),step('CHECK',actor)])),step('SPECIAL',actor,null,0,'BCE5_NORMAL_END'),step('SPECIAL',actor,null,0,'STAGE_BUILD'));
                     }
                     else if (s.stage === 'BUILD') {
                         s.queue.push(step('SPECIAL', actor, null, 0, 'BUILD'));
                         s.stage = 'EXPLORE';
                     }
                     else if (s.stage === 'EXPLORE') {
-                        s.queue.push(step('SPECIAL', actor, null, 0, 'EXPLORE'), step('SPECIAL', actor, null, 0, 'ADVANCE_INVADERS'));
+                        s.queue.push(step('SPECIAL', actor, null, 0, 'EXPLORE'), step('SPECIAL', actor, null, 0, 'ADVANCE_INVADERS'),step('SPECIAL',actor,null,0,'BCE5_INVADER_END'));
                         s.stage = 'SLOW';
                     }
                     else

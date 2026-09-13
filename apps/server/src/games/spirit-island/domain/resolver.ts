@@ -1,4 +1,5 @@
 import { settlementEventOptions, settlementEventAutomatic } from './branch-claw-settlement-events.js';
+import { industryEventOptions, industryEventAutomatic, normalRavageBonus } from './branch-claw-industry-events.js';
 import { islandEventOptions, islandEventAutomatic } from './branch-claw-island-events.js';
 import { stageEventOptions, stageEventAutomatic } from './branch-claw-stage-events.js';
 import { branchEventOptions, branchEventAutomatic } from './branch-claw-events.js';
@@ -71,7 +72,8 @@ function extraFear(s: SpiritState, e: SpiritStep, piece: SpiritPiece, killed: bo
     }
 } }
 export function choiceTitle(e: SpiritStep): string {
- const titles:Record<string,string>={BCE4_ROOTS:'마을로 바뀔 내륙 탐험가를 고르세요',BCE4_SEARCH:'탐험가가 이주할 빈 지역을 고르세요',BCE4_SURGE:'내륙으로 이동할 해안 마을을 고르세요',BCE4_SURGE_NEXT:'한 번 더 내륙으로 이동할까요?',BCE4_POPULATION:'마을이 늘어날 지역을 고르세요',BCE4_FADE:'내 정령이 감당할 힘의 쇠퇴를 고르세요',BCE4_HUNT:'야수가 사냥할 오염 없는 지역을 고르세요',BCE4_GRIM:'질병의 피해를 받을 지역을 고르세요',BCE4_SANDFEVER:'산·모래 중 건물이 가장 많은 지역을 고르세요',BCE4_DRIVE:'다한 지역의 침략자를 밀어낼까요?',BCE3_PROTECT:'현신을 희생해 이 보드의 오염 확산을 막을까요?',BCE3_PLEDGE:'희생할 현신을 고른 뒤 확정하세요',BCE3_BLIGHT:'오염 지역에 인접한 지역을 고르세요',BCE3_PREY:'야수가 탐험가를 사냥할 지역을 고르세요',BCE3_BEAST:'야수가 없는 보드 하나에 야수를 놓으세요',BCE3_DAHAN:'새 다한이 태어날 지역을 고르세요',BCE2_DIASPORA:'침략자가 가장 많은 지역을 고르세요',BCE2_DISPERSE:'각 인접 지역으로 하나씩 밀어내세요',BCE2_DISCOVERY:'탐험가가 찾아올 성소를 고르세요',BCE2_UPGRADE:'도시로 바뀔 마을을 고르세요',BCE2_PROWL:'야수의 공포 또는 이동을 해결하세요',BCE2_RETREAT:'다한이 함께 떠날 출발지와 목적지를 고르세요',BCE2_DISEASE:'밀림·습지 중 건물이 가장 많은 지역에 질병을 놓으세요',BCE2_TEND:'다한이 돌보는 지역의 오염을 제거하세요',BCE2_COMING:'새 다한이 태어날 산·모래 지역을 고르세요',BCE2_FORTIFY:'침략자 행동에 없는 지형을 골라 추가 건설하세요',BCE_REVEAL:'공개된 이벤트를 함께 읽고 진행하세요',BCE_CHOICE:'팀과 의논해 이벤트의 대응을 고르세요',BCE_PAY:'원소·카드·에너지로 비용을 분담하세요 · 확정 전에는 소모되지 않습니다',BCE_DISEASE:'서로 다른 보드에서 질병이 퍼질 지역을 고르세요',BCE_BLIGHT_LAND:'이벤트로 오염을 추가할 지역을 고르세요',BCE_BEAST_LAND:'야수가 나타날 지역을 고르세요',BCE_PRESENCE:'다한과 함께하는 지역에 현신을 추가할까요?',BCM_RAVAGE_ORDER:'파괴를 먼저 해결할 지역을 고르세요',BCM_FIREVINE_SOURCE:'불덩굴이 뻗어 나올 모래 지역을 고르세요',BCM_FIRE_FLOOD_SOURCE:'두 대상의 사거리를 잴 공통 성소를 고르세요',BCM_FIRE_FLOOD_SECOND:'홍수가 덮칠 두 번째 지역을 고르세요',BCM_FIRE_FLOOD_BONUS:'추가 피해 4를 받을 지역을 고르세요',BCM_REPEAT:'능력을 반복할 지역을 고르세요',BCM_CALAMITY_REMOVE:'토큰을 제거하고 쌓인 공포·피해를 확정하세요',BCM_UNLOCK_PLAY:'새 주요 능력의 준비 비용을 선택하세요',BCM_SINK_RESCUE:'가라앉는 섬에서 살아남은 다한을 옮기세요',BCM_FLOW_MOVE:'이동할 현신과 목적지를 고르세요',BCM_FLOW_CARRY:'현신과 함께 이동할 기물을 고르세요',OCEAN_SETUP:'바다와 이어질 시작 해안을 고르세요',FOLLOW_DAHAN:'이동한 기물을 따라갈 현신을 선택하세요',FANGS_SETUP:'야수가 있는 시작 지역을 고르세요',GREEN_STOP:'현신을 희생해 침략자 행동을 막을까요?',HEART_SETUP:'지켜낼 섬의 심장을 고르세요',HEART_PRESENCE:'심장 가까이에 시작 현신을 놓으세요',RITUAL_ENERGY:'의식에 기여할 에너지를 선택하세요',RITUAL_PRESENCE:'의식에 희생할 현신을 선택하세요',BLITZ_EXPLORE:'추가 탐험가가 들어올 지역을 고르세요',MIDNIGHT_PLAY:'꿈에서 얻은 주요 능력을 즉시 준비할까요?'};
+ if(e.key==='BCE3_BLIGHT'&&e.tags[1]==='CITY')return '도시가 있는 지역에 오염을 놓으세요';
+ const titles:Record<string,string>={BCE5_PITS:'오염이 2개 이상인 지역을 고르세요 · 연쇄 없음',BCE5_DISEASE:'이번 단계에 건설을 막지 않는 질병을 놓으세요',BCE5_GROW:'새 다한이 태어날 밀림·습지 지역을 고르세요',BCE4_ROOTS:'마을로 바뀔 내륙 탐험가를 고르세요',BCE4_SEARCH:'탐험가가 이주할 빈 지역을 고르세요',BCE4_SURGE:'내륙으로 이동할 해안 마을을 고르세요',BCE4_SURGE_NEXT:'한 번 더 내륙으로 이동할까요?',BCE4_POPULATION:'마을이 늘어날 지역을 고르세요',BCE4_FADE:'내 정령이 감당할 힘의 쇠퇴를 고르세요',BCE4_HUNT:'야수가 사냥할 오염 없는 지역을 고르세요',BCE4_GRIM:'질병의 피해를 받을 지역을 고르세요',BCE4_SANDFEVER:'산·모래 중 건물이 가장 많은 지역을 고르세요',BCE4_DRIVE:'다한 지역의 침략자를 밀어낼까요?',BCE3_PROTECT:'현신을 희생해 이 보드의 오염 확산을 막을까요?',BCE3_PLEDGE:'희생할 현신을 고른 뒤 확정하세요',BCE3_BLIGHT:'오염 지역에 인접한 지역을 고르세요',BCE3_PREY:'야수가 탐험가를 사냥할 지역을 고르세요',BCE3_BEAST:'야수가 없는 보드 하나에 야수를 놓으세요',BCE3_DAHAN:'새 다한이 태어날 지역을 고르세요',BCE2_DIASPORA:'침략자가 가장 많은 지역을 고르세요',BCE2_DISPERSE:'각 인접 지역으로 하나씩 밀어내세요',BCE2_DISCOVERY:'탐험가가 찾아올 성소를 고르세요',BCE2_UPGRADE:'도시로 바뀔 마을을 고르세요',BCE2_PROWL:'야수의 공포 또는 이동을 해결하세요',BCE2_RETREAT:'다한이 함께 떠날 출발지와 목적지를 고르세요',BCE2_DISEASE:'밀림·습지 중 건물이 가장 많은 지역에 질병을 놓으세요',BCE2_TEND:'다한이 돌보는 지역의 오염을 제거하세요',BCE2_COMING:'새 다한이 태어날 산·모래 지역을 고르세요',BCE2_FORTIFY:'침략자 행동에 없는 지형을 골라 추가 건설하세요',BCE_REVEAL:'공개된 이벤트를 함께 읽고 진행하세요',BCE_CHOICE:'팀과 의논해 이벤트의 대응을 고르세요',BCE_PAY:'원소·카드·에너지로 비용을 분담하세요 · 확정 전에는 소모되지 않습니다',BCE_DISEASE:'서로 다른 보드에서 질병이 퍼질 지역을 고르세요',BCE_BLIGHT_LAND:'이벤트로 오염을 추가할 지역을 고르세요',BCE_BEAST_LAND:'야수가 나타날 지역을 고르세요',BCE_PRESENCE:'다한과 함께하는 지역에 현신을 추가할까요?',BCM_RAVAGE_ORDER:'파괴를 먼저 해결할 지역을 고르세요',BCM_FIREVINE_SOURCE:'불덩굴이 뻗어 나올 모래 지역을 고르세요',BCM_FIRE_FLOOD_SOURCE:'두 대상의 사거리를 잴 공통 성소를 고르세요',BCM_FIRE_FLOOD_SECOND:'홍수가 덮칠 두 번째 지역을 고르세요',BCM_FIRE_FLOOD_BONUS:'추가 피해 4를 받을 지역을 고르세요',BCM_REPEAT:'능력을 반복할 지역을 고르세요',BCM_CALAMITY_REMOVE:'토큰을 제거하고 쌓인 공포·피해를 확정하세요',BCM_UNLOCK_PLAY:'새 주요 능력의 준비 비용을 선택하세요',BCM_SINK_RESCUE:'가라앉는 섬에서 살아남은 다한을 옮기세요',BCM_FLOW_MOVE:'이동할 현신과 목적지를 고르세요',BCM_FLOW_CARRY:'현신과 함께 이동할 기물을 고르세요',OCEAN_SETUP:'바다와 이어질 시작 해안을 고르세요',FOLLOW_DAHAN:'이동한 기물을 따라갈 현신을 선택하세요',FANGS_SETUP:'야수가 있는 시작 지역을 고르세요',GREEN_STOP:'현신을 희생해 침략자 행동을 막을까요?',HEART_SETUP:'지켜낼 섬의 심장을 고르세요',HEART_PRESENCE:'심장 가까이에 시작 현신을 놓으세요',RITUAL_ENERGY:'의식에 기여할 에너지를 선택하세요',RITUAL_PRESENCE:'의식에 희생할 현신을 선택하세요',BLITZ_EXPLORE:'추가 탐험가가 들어올 지역을 고르세요',MIDNIGHT_PLAY:'꿈에서 얻은 주요 능력을 즉시 준비할까요?'};
  if(titles[e.key])return titles[e.key]!;
  switch (e.kind) {
     case 'DAMAGE': return `피해 ${e.n} 남음 · 피해를 받을 기물을 선택하세요`;
@@ -95,7 +97,7 @@ export function choiceOptions(s: SpiritState): SpiritOption[] {
     const add = (label: string, apply: () => void, landId: string | null = null, pieceId: string | null = null) => list.push({ id: `o${list.length}`, label, landId, pieceId, apply });
     const optional = () => add('이 선택 마치기', () => undefined);
     const l = e.land ? land(s, e.land) : null, owner = e.target ?? e.actor, p = player(s, owner);
-    if (settlementEventOptions(s,e,add)||islandEventOptions(s,e,add)||stageEventOptions(s,e,add)||branchEventOptions(s,e,add)||branchMajorOptions(s,e,add)||branchMinorOptions(s,e,add)||branchClawOptions(s,e,add)||tokenOptions(s,e,add)) return list;
+    if (industryEventOptions(s,e,add)||settlementEventOptions(s,e,add)||islandEventOptions(s,e,add)||stageEventOptions(s,e,add)||branchEventOptions(s,e,add)||branchMajorOptions(s,e,add)||branchMinorOptions(s,e,add)||branchClawOptions(s,e,add)||tokenOptions(s,e,add)) return list;
     if (e.kind === 'DAMAGE' && e.n > 0 && l) {
         const areas = e.tags.includes('ADJACENT_ONLY') ? l.adjacent.map(id=>land(s,id)) : e.tags.includes('ADJACENT') ? [l, ...l.adjacent.map(id => land(s, id))] : [l];
         for (const area of areas)
@@ -353,7 +355,7 @@ function addPresenceAt(s: SpiritState, actor: PlayerId, id: string) { const prio
 else
     l.presence.push({ playerId: actor, count: 1 }); event(s, 'GROW', `${id} 현신 배치`, actor, id);if(player(s,actor).spirit==='KEEPER'&&prior===1)prepend(s,step('MOVE',actor,id,countPieces(l,['DAHAN']),'PUSH',actor,['DAHAN','REQUIRED'])); }
 export function automatic(s: SpiritState, e: SpiritStep): boolean {
-    if(settlementEventAutomatic(s,e)||islandEventAutomatic(s,e)||stageEventAutomatic(s,e)||branchEventAutomatic(s,e)||branchMajorAutomatic(s,e)||branchMinorAutomatic(s,e)||branchClawAutomatic(s,e))return true;
+    if(industryEventAutomatic(s,e)||settlementEventAutomatic(s,e)||islandEventAutomatic(s,e)||stageEventAutomatic(s,e)||branchEventAutomatic(s,e)||branchMajorAutomatic(s,e)||branchMinorAutomatic(s,e)||branchClawAutomatic(s,e))return true;
     const l = e.land ? land(s, e.land) : null, owner = e.target ?? e.actor, p = player(s, owner);
     if (e.kind === 'CHECK') {
         if(s.settings.scenario==='INSURRECTION') { const moved=s.flags.filter(f=>f.startsWith('raid:')); if(moved.length) {s.flags=s.flags.filter(f=>!f.startsWith('raid:')&&!f.startsWith('power:')); prepend(s,...moved.flatMap(f=>{const id=f.slice(5);const area=s.lands.find(l=>l.pieces.some(p=>p.id===id));return area?[step('DAMAGE',e.actor,area.id,1)]:[]}),e);return true;} }
@@ -397,7 +399,7 @@ export function automatic(s: SpiritState, e: SpiritStep): boolean {
         if (!l || l.vitality)
             return true;
         if(s.blightPool<=0) return true;
-        const cascade = l.blight > 0 && e.key!=='EXTRA';
+        const cascade = l.blight > 0 && e.key!=='EXTRA' && !e.tags.includes('NO_CASCADE');
         l.blight++;
         s.blightPool = Math.max(0, s.blightPool - 1);
         for (const pr of e.key==='EXTRA'?[]:l.presence) {
@@ -532,10 +534,10 @@ export function automatic(s: SpiritState, e: SpiritStep): boolean {
                 if(invaders(l).length&&s.flags.includes(`trade-build:${l.id}`)){s.flags.splice(s.flags.indexOf(`trade-build:${l.id}`),1);prepend(s,step('SPECIAL',e.actor,l.id,0,'ESCALATE_BUILD'));return true;}
                 const green=s.players.find(p=>p.spirit==='GREEN'&&sacred(s,l,p.playerId));
                 if(green&&!e.tags.includes('GREEN_ALLOWED')&&invaders(l).length) {prepend(s,step('SPECIAL',e.actor,l.id,0,'GREEN_STOP',green.playerId,['RAVAGE']));return true;}
-                if(s.flags.includes(`ruin:${l.id}`)){const high=s.settings.adversary==='SWEDEN'&&s.settings.level>=3;const n=invaders(l).reduce((n,p)=>n+(p.kind==='EXPLORER'?1:p.kind==='TOWN'?(high?3:2):(high?5:3)),0)+(invaders(l).length&&s.flags.includes('event-aggression')?1:0);prepend(s,step('DAMAGE',e.actor,l.id,n,'',null,['ADJACENT_ONLY']));return true;}
+                if(s.flags.includes(`ruin:${l.id}`)){const high=s.settings.adversary==='SWEDEN'&&s.settings.level>=3;const n=invaders(l).reduce((n,p)=>n+(p.kind==='EXPLORER'?1:p.kind==='TOWN'?(high?3:2):(high?5:3))+normalRavageBonus(s,p.kind),0)+(invaders(l).length&&s.flags.includes('event-aggression')?1:0);prepend(s,step('DAMAGE',e.actor,l.id,n,'',null,['ADJACENT_ONLY']));return true;}
                 const originalDahan=countPieces(l,['DAHAN']);
                 const sweden=s.settings.adversary==='SWEDEN', highSweden=sweden&&s.settings.level>=3;
-                const attackers=invaders(l),total=attackers.reduce((n,p)=>n+(p.strife>0?0:p.kind==='EXPLORER'?1:p.kind==='TOWN'?(highSweden?3:2):(highSweden?5:3)),0)+(attackers.length&&s.flags.includes('event-aggression')?1:0),amount=Math.max(0,total-defense(s,l)-(s.flags.includes('event-canny')?countPieces(l,['DAHAN']):0)-(e.tags.includes('POWER_RAVAGE')?e.n:0));
+                const attackers=invaders(l),total=attackers.reduce((n,p)=>n+(p.strife>0?0:(p.kind==='EXPLORER'?1:p.kind==='TOWN'?(highSweden?3:2):(highSweden?5:3))+normalRavageBonus(s,p.kind)),0)+(attackers.length&&s.flags.includes('event-aggression')?1:0),amount=Math.max(0,total-defense(s,l)-(s.flags.includes('event-canny')?countPieces(l,['DAHAN']):0)-(e.tags.includes('POWER_RAVAGE')?e.n:0));
                 for(const attacker of attackers)if(attacker.strife>0)attacker.strife--;
                 // Damage to Dahan must destroy as many as possible before assigning any remainder.
                 if (amount > 0 && !l.protectDahan && !s.flags.includes(`immortal:${l.id}`)) {
@@ -559,7 +561,7 @@ export function automatic(s: SpiritState, e: SpiritStep): boolean {
         case 'BUILD_CARD_LAND':
             if(l&&(invaders(l).length>0||s.settings.adversary==='ENGLAND'&&s.settings.level>=1&&l.adjacent.filter(id=>land(s,id).number>0).reduce((n,id)=>n+countPieces(land(s,id),['TOWN','CITY']),0)>=2))prepend(s,step('SPECIAL',e.actor,l.id,0,'ESCALATE_BUILD'));
             return true;
-        case 'BUILD_LAND': if(l&&!buildIsSkipped(s,l)) {if(l.tokens.disease>0){l.tokens.disease--;return true;}makePiece(s,l,countPieces(l,['TOWN'])>countPieces(l,['CITY'])?'CITY':'TOWN');event(s,'BUILD',`${l.id} 건설`,e.actor,l.id);} return true;
+        case 'BUILD_LAND': if(l&&!buildIsSkipped(s,l)) {if(l.tokens.disease>0&&!s.flags.includes('event-lingering-plagues')){l.tokens.disease--;return true;}makePiece(s,l,countPieces(l,['TOWN'])>countPieces(l,['CITY'])?'CITY':'TOWN');event(s,'BUILD',`${l.id} 건설`,e.actor,l.id);} return true;
         case 'EXPLORE': {
             const card = s.invaderDeck.shift();
             if (!card) {
@@ -629,7 +631,7 @@ export function automatic(s: SpiritState, e: SpiritStep): boolean {
                 area.vitality = false;
                 area.dahanHealth = 0;area.eventHealthLoss=false;area.eventHealthBonus=null;
             }
-            s.flags = s.flags.filter(f=>f==='immigration-ended');
+            s.flags = s.flags.filter(f=>f==='immigration-ended'||f==='event-next-city'||f==='event-next-town');
             s.currentEvent=null;s.eventInvaderStage=null;s.eventIslandState=null;s.vengeance = [];
             s.plans = [];
             s.round++;
