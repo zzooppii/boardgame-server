@@ -1,6 +1,6 @@
 import { SPIRIT_EVENTS, type SpiritLand } from '@hangul-rummikub/shared';
 import type { SpiritState, SpiritStep } from './state.js';
-import { step, prepend, land, player, presence, countPieces, invaders, makePiece, removePiece, event, requireRule } from './primitives.js';
+import { step, prepend, land, player, presence, countPieces, invaders, makePiece, removePiece, damagePiece, event, requireRule } from './primitives.js';
 import { addToken, moveToken } from './tokens.js';
 import { oceanDistance } from './branch-claw-major.js';
 type Add=(label:string,apply:()=>void,landId?:string|null,pieceId?:string|null)=>unknown;
@@ -23,7 +23,7 @@ export function expandedIslandMain(s:SpiritState,e:SpiritStep):boolean {
 export function settlementEventOptions(s:SpiritState,e:SpiritStep,add:Add):boolean {
  if(!e.key.startsWith('BCE4_'))return false;
  if(e.key==='BCE4_ROOTS'){
-  for(const l of areas(s).filter(l=>l.board===e.tags[0]&&!l.coastal))for(const p of l.pieces.filter(p=>p.kind==='EXPLORER'))add(`${l.id} 탐험가 → 마을`,()=>{removePiece(s,l,p,false,e.actor);const town=makePiece(s,l,'TOWN',false);town.strife=p.strife;event(s,'BUILD',`${l.id} 탐험가를 마을로 교체`,e.actor,l.id);},l.id,p.id);
+  for(const l of areas(s).filter(l=>l.board===e.tags[0]&&!l.coastal))for(const p of l.pieces.filter(p=>p.kind==='EXPLORER'))add(`${l.id} 탐험가 → 마을`,()=>{removePiece(s,l,p,false,e.actor);const town=makePiece(s,l,'TOWN',false);town.strife=p.strife;town.damage=p.damage;damagePiece(s,l,town,0,e.actor);event(s,'BUILD',`${l.id} 탐험가를 마을로 교체`,e.actor,l.id);},l.id,p.id);
  }else if(e.key==='BCE4_SEARCH'){
   const l=land(s,e.land);for(const to of adjacent(s,l).filter(l=>invaders(l).length===0))for(const p of l.pieces.filter(p=>p.kind==='EXPLORER'))add(`${l.id} 탐험가 → ${to.id}`,()=>move(s,e,l,to,p.id,'EXPLORER'),to.id,p.id);
  }else if(e.key==='BCE4_SURGE'||e.key==='BCE4_SURGE_NEXT'){

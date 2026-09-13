@@ -1,3 +1,4 @@
+import { contactEventMain } from './branch-claw-contact-events.js';
 import { currentInvaderStage } from './branch-claw-stage-events.js';
 import { SPIRIT_EVENTS, SPIRIT_ELEMENT_LABELS, type SpiritLand } from '@hangul-rummikub/shared';
 import type { SpiritState, SpiritStep } from './state.js';
@@ -13,6 +14,7 @@ export function eventPaymentView(s:SpiritState) {
  return {cost:payment.cost,element:payment.element,contributions,support,energy,remaining:Math.max(0,payment.cost-support-energy)};
 }
 function finishMain(s:SpiritState,e:SpiritStep,paid:boolean) {
+ if(contactEventMain(s,e,paid))return;
  requireRule(s.currentEvent);const key=s.currentEvent;
  const effects:SpiritStep[]=[];
  if(paid) {

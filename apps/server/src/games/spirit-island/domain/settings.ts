@@ -25,7 +25,7 @@ export function configureSpirit(s: SpiritState, settings: SpiritSettings, shuffl
  if(a==='PRUSSIA'&&n>=2) {
   const one=s.invaderDeck.filter(c=>c.stage===1),two=s.invaderDeck.filter(c=>c.stage===2),three=s.invaderDeck.filter(c=>c.stage===3);
   if(n>=3) one.pop(); if(n>=5) one.pop(); if(n>=4) two.pop(); if(n>=6) two.pop();
-  s.invaderDeck=[...one,three.shift()!,...two,...three];
+  const early=three.shift()!;s.protectedInvader={...early,terrains:[...early.terrains]};s.invaderDeck=[...one,early,...two,...three];
  }
  if(a==='SWEDEN'&&n>=4) {const c=s.invaderDeck.shift()!;s.invaderDiscard.push(c);for(const p of s.players) s.queue.push(step('SPECIAL',p.playerId,null,0,'SWEDEN_SETUP',p.playerId,[p.board,...c.terrains]));}
  event(s,'SELECT','섬의 규칙 설정을 확정했습니다.');

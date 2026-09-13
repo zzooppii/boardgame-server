@@ -21,7 +21,7 @@ test('Ocean tracks show upcoming permanent elements and scenario objective',()=>
 test('Branch & Claw development selection exposes ten spirits and clearly states missing content',()=>{
  const s=playing();s.game.stage='SELECT';s.game.playerStates[0]!.spirit=null;s.game.settings.expansion='BRANCH_CLAW';
  const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));
- assert.equal((html.match(/이 정령 선택/g)??[]).length,10);assert.match(html,/si-art-FANGS/);assert.match(html,/si-art-KEEPER/);assert.match(html,/이벤트 16\/25장 개발 덱 · 나머지 확장 카드 미포함/);
+ assert.equal((html.match(/이 정령 선택/g)??[]).length,10);assert.match(html,/si-art-FANGS/);assert.match(html,/si-art-KEEPER/);assert.match(html,/이벤트 18\/25장 개발 덱 · 나머지 확장 카드 미포함/);
 });
 test('Branch & Claw map shows token counts and growth distinguishes selected options and costs',()=>{
  const s=playing(),p=s.game.playerStates[0]!;s.game.settings.expansion='BRANCH_CLAW';p.spirit='FANGS';p.grown=false;p.growthSelections=[3];p.canCallPredators=true;
@@ -48,7 +48,7 @@ test('Power acquisition choices display illustrated cards and instructions witho
 
 test('Event panel exposes illustrated ordered effects, preview limits and team contribution progress',()=>{
  const s=playing();s.game.currentEvent='NEW_SPECIES';s.game.round=2;s.game.eventPayment={cost:4,element:'MOON',energy:1,support:2,remaining:1,contributions:[{playerId:s.self.playerId,energy:1,support:2}]};
- const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));for(const label of ['새로운 종의 확산','si-event-art','16 / 25장','토큰 이벤트','다한 이벤트','확정 전에는 소모되지 않습니다','이벤트 비용 충족도','1 더 필요'])assert.ok(html.includes(label),label);
+ const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));for(const label of ['새로운 종의 확산','si-event-art','18 / 25장','토큰 이벤트','다한 이벤트','확정 전에는 소모되지 않습니다','이벤트 비용 충족도','1 더 필요'])assert.ok(html.includes(label),label);
 });
 test('Event reveal has a distinct cue, without replaying on the same revision',()=>{
  const s=playing();const next=parse(SpiritPlayingPlatformSnapshotV2Schema,{...s,game:{...s.game,gameRevision:1,currentEvent:'LITTLE_RAIN',log:[{id:1,kind:'EVENT',text:'공개',playerId:null,landId:null}]}}).game;
@@ -71,17 +71,20 @@ test('Island event panel shows the resolved branch even when island state later 
  const s=playing();s.game.currentEvent='WELL_PREPARED';s.game.round=2;s.game.eventIslandState='HEALTHY';s.game.blighted=true;const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));assert.match(html,/적용 분기 · 건강한 섬/);assert.match(html,/탐험가.*체력 \+1/);assert.match(html,/si-art-RIVER/);s.game.eventIslandState='BLIGHTED';const changed=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));assert.match(changed,/적용 분기 · 오염된 섬/);assert.doesNotMatch(changed,/<p class="si-event-notice">이번 라운드 탐험가 체력 \+1<\/p>/);
 });
 test('Settlement event panels show branch and instructions without an unrelated health bonus',()=>{
- for(const key of ['ROOTS','NEW_LANDS','SURGE_INLAND','POPULATION'] as const){const s=playing();s.game.currentEvent=key;s.game.eventIslandState='HEALTHY';s.game.round=2;const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));assert.match(html,/16 \/ 25장/);assert.match(html,/적용 분기 · 건강한 섬/);assert.doesNotMatch(html,/<p class="si-event-notice">이번 라운드.*체력 \+1<\/p>/);s.game.eventIslandState='BLIGHTED';assert.match(renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s})),/적용 분기 · 오염된 섬/);}
+ for(const key of ['ROOTS','NEW_LANDS','SURGE_INLAND','POPULATION'] as const){const s=playing();s.game.currentEvent=key;s.game.eventIslandState='HEALTHY';s.game.round=2;const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));assert.match(html,/18 \/ 25장/);assert.match(html,/적용 분기 · 건강한 섬/);assert.doesNotMatch(html,/<p class="si-event-notice">이번 라운드.*체력 \+1<\/p>/);s.game.eventIslandState='BLIGHTED';assert.match(renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s})),/적용 분기 · 오염된 섬/);}
 });
 test('Normal Ravage event effects remain visible without a current event and preview per building',()=>{
  const s=playing(),l=s.game.lands[0]!;s.game.currentEvent=null;s.game.eventCityDamage=2;s.game.eventTownDamage=1;s.game.ravage={stage:1,terrains:[l.terrain],coastal:false};l.pieces=[{id:'city',kind:'CITY',damage:0,strife:0},{id:'town',kind:'TOWN',damage:0,strife:0}];assert.equal(ravagePreview(s.game,l).attack,8);l.pieces[0]!.strife=1;assert.equal(ravagePreview(s.game,l).attack,3);let html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));assert.match(html,/다음 정상 파괴까지 대기/);assert.match(html,/도시마다 피해 \+2/);assert.match(html,/마을마다 피해 \+1/);s.game.eventNormalRavageActive=true;html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));assert.match(html,/정상 파괴 적용 중/);
 });
 test('Industry event panels display branches and the temporary disease exception',()=>{
- for(const key of ['URBAN_DEVELOPMENT','HEAVY_FARMING'] as const){const s=playing();s.game.currentEvent=key;s.game.round=2;s.game.eventIslandState='BLIGHTED';s.game.eventLingeringPlagues=key==='URBAN_DEVELOPMENT';const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));assert.match(html,/16 \/ 25장/);assert.match(html,/적용 분기 · 오염된 섬/);if(key==='URBAN_DEVELOPMENT')assert.match(html,/이번 침략자 단계: 질병은 건설을 막지 않고 소모되지 않습니다/);}
+ for(const key of ['URBAN_DEVELOPMENT','HEAVY_FARMING'] as const){const s=playing();s.game.currentEvent=key;s.game.round=2;s.game.eventIslandState='BLIGHTED';s.game.eventLingeringPlagues=key==='URBAN_DEVELOPMENT';const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));assert.match(html,/18 \/ 25장/);assert.match(html,/적용 분기 · 오염된 섬/);if(key==='URBAN_DEVELOPMENT')assert.match(html,/이번 침략자 단계: 질병은 건설을 막지 않고 소모되지 않습니다/);}
 });
 test('Terror event panels preserve applied branch and display exploration and crowd effects',()=>{
  const s=playing();s.game.currentEvent='DISTANT_EXPLORATION';s.game.eventTerrorLevel=1;s.game.terror=3;s.game.eventDistantExplore=true;s.game.round=2;let html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));assert.match(html,/적용 시 공포 1수준 · 먼 곳의 탐험/);assert.match(html,/이번 라운드 탐험: 마을·도시·바다에서 거리 2까지/);s.game.currentEvent='CULTURAL_ASSIMILATION';s.game.eventTerrorLevel=2;html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));assert.match(html,/적용 시 공포 2수준 · 문화적 동화/);s.game.eventTerrorLevel=3;assert.match(renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s})),/적용 시 공포 3수준 · 다한을 향한 보복/);
 });
 test('Fearful Mobs preview counts all invaders including strife but excludes Dahan',()=>{
  const s=playing(),l=s.game.lands[0]!;s.game.eventFearfulMobs=true;l.pieces=[{id:'one',kind:'EXPLORER',damage:0,strife:1},{id:'two',kind:'EXPLORER',damage:0,strife:1},{id:'three',kind:'DAHAN',damage:0,strife:0}];assert.equal(ravagePreview(s.game,l).attack,0);l.pieces[2]!.kind='EXPLORER';l.pieces[2]!.strife=1;assert.equal(ravagePreview(s.game,l).attack,3);
+});
+test('Missionaries shows Sun support and no nonexistent Dahan subevent; Rising Interest shows Air support',()=>{
+ const s=playing();s.game.currentEvent='MISSIONARIES';s.game.round=2;s.game.eventPayment={cost:4,element:'SUN',energy:0,support:0,remaining:4,contributions:[]};let html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));assert.match(html,/선교사의 도착/);assert.match(html,/함께 모으는 지원 · 태양/);assert.doesNotMatch(html,/<b>다한 이벤트<\/b>/);s.game.currentEvent='RISING_INTEREST';s.game.eventPayment.element='AIR';html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));assert.match(html,/섬에 쏠리는 관심/);assert.match(html,/함께 모으는 지원 · 바람/);assert.match(html,/<b>다한 이벤트<\/b>/);
 });

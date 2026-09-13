@@ -1,6 +1,6 @@
 import { SPIRIT_EVENTS, SPIRIT_TERRAIN_LABELS, type SpiritLand, type SpiritTerrain } from '@hangul-rummikub/shared';
 import type { SpiritState, SpiritStep } from './state.js';
-import { step, prepend, land, sacred, invaders, countPieces, makePiece, removePiece, fear, event, requireRule } from './primitives.js';
+import { step, prepend, land, sacred, invaders, countPieces, makePiece, removePiece, damagePiece, fear, event, requireRule } from './primitives.js';
 import { addToken, moveToken } from './tokens.js';
 type Add = (label:string, apply:()=>void, landId?:string|null, pieceId?:string|null)=>unknown;
 const areas = (s:SpiritState) => s.lands.filter(l=>l.number>0);
@@ -30,7 +30,7 @@ export function stageEventOptions(s:SpiritState,e:SpiritStep,add:Add):boolean {
   for(const l of areas(s).filter(l=>l.board===e.tags[0]&&site(s,l)))add(`${l.id} · 성소로 탐험가 모으기·추가`,()=>prepend(s,step('MOVE',e.actor,l.id,1,'GATHER',null,['EXPLORER','REQUIRED','NO_OCEAN']),step('SPECIAL',e.actor,l.id,0,'BCE2_ADD_EXPLORER')),l.id);
  } else if(e.key==='BCE2_UPGRADE'&&here) {
   for(const piece of here.pieces.filter(p=>p.kind==='TOWN'))add(`${here.id} 마을${piece.strife?` · 분쟁 ${piece.strife}`:''} → 도시`,()=>{
-   removePiece(s,here,piece,false,e.actor);const city=makePiece(s,here,'CITY',false);city.strife=piece.strife;
+   removePiece(s,here,piece,false,e.actor);const city=makePiece(s,here,'CITY',false);city.strife=piece.strife;city.damage=piece.damage;damagePiece(s,here,city,0,e.actor);
    event(s,'BUILD',`${here.id} 도시화 · 마을을 도시로 교체`,e.actor,here.id);if(e.n>1)prepend(s,{...e,n:e.n-1});
   },here.id,piece.id);
  } else if(e.key==='BCE2_PROWL') {

@@ -7,7 +7,7 @@ const areas=(s:SpiritState)=>s.lands.filter(l=>l.number>0);
 const boards=(s:SpiritState)=>[...new Set(areas(s).map(l=>l.board))];
 /** Pending effects survive empty Ravage slots; only the normal card activates them. */
 export function normalRavageBonus(s:SpiritState,kind:string):number {
- return kind==='CITY'?2*s.flags.filter(f=>f==='event-normal-city').length:kind==='TOWN'?s.flags.filter(f=>f==='event-normal-town').length:0;
+ return kind==='CITY'?2*s.flags.filter(f=>f==='event-normal-city').length+s.flags.filter(f=>f==='event-normal-city-extra').length:kind==='TOWN'?s.flags.filter(f=>f==='event-normal-town').length:0;
 }
 export function industryIslandMain(s:SpiritState,e:SpiritStep):boolean {
  const key=s.currentEvent;if(key!=='URBAN_DEVELOPMENT'&&key!=='HEAVY_FARMING')return false;
@@ -33,9 +33,9 @@ export function industryEventOptions(s:SpiritState,e:SpiritStep,add:Add):boolean
 export function industryEventAutomatic(s:SpiritState,e:SpiritStep):boolean {
  switch(e.key){
  case 'BCE5_NORMAL_START':
-  if(s.ravage)s.flags=s.flags.map(f=>f==='event-next-city'?'event-normal-city':f==='event-next-town'?'event-normal-town':f);
+  if(s.ravage)s.flags=s.flags.map(f=>f==='event-next-city-extra'?'event-normal-city-extra':f==='event-next-city'?'event-normal-city':f==='event-next-town'?'event-normal-town':f);
   return true;
- case 'BCE5_NORMAL_END':s.flags=s.flags.filter(f=>f!=='event-normal-city'&&f!=='event-normal-town');return true;
+ case 'BCE5_NORMAL_END':s.flags=s.flags.filter(f=>f!=='event-normal-city'&&f!=='event-normal-town'&&f!=='event-normal-city-extra');return true;
  case 'BCE5_INVADER_END':s.flags=s.flags.filter(f=>f!=='event-lingering-plagues');return true;
  case 'BCE5_TOKEN':
   requireRule(s.currentEvent==='URBAN_DEVELOPMENT'||s.currentEvent==='HEAVY_FARMING');
