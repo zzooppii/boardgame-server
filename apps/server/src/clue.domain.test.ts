@@ -128,16 +128,16 @@ test('Clue bonus: exhausted deck reshuffles discard and rejects corrupt inventor
   assert.throws(()=>parseClueState({...game(),phase:'BONUS'}));
 });
 
-test('Clue photo map: eight-wide lower hall, four rows to entrance, blocked stair footprint and exact bonus cells',()=>{
+test('Clue photo map: eight-wide lower hall, four rows to entrance, walkable stairs and exact bonus cells',()=>{
   assert.deepEqual(CLUE_BONUS_CELLS,['C:8:5','C:10:6','C:7:8','C:12:12','C:9:13','C:11:15']);
   for(const cell of CLUE_BONUS_CELLS)assert.ok(CLUE_CORRIDORS.includes(cell));
   const row=(y:number)=>CLUE_CORRIDORS.filter(c=>c.endsWith(':'+y));
   assert.equal(row(13).length,8);assert.equal(row(14).length,8);assert.equal(row(15).length,8);assert.equal(row(16).length,4);
-  assert.equal(CLUE_CORRIDORS.length,69);
-  for(const cell of ['C:6:6','C:7:6','C:8:6','C:6:7','C:7:7','C:8:7','C:8:10','C:11:12'])assert.equal(CLUE_CORRIDORS.includes(cell),false);
-  assert.equal(clueReachablePaths('C:9:5',100,[]).has('C:10:6'),false);
+  assert.equal(CLUE_CORRIDORS.length,73);
+  for(const cell of ['C:6:6','C:6:7','C:8:10','C:11:12'])assert.equal(CLUE_CORRIDORS.includes(cell),false);
+  assert.equal(clueReachablePaths('C:9:5',100,[]).has('C:10:6'),true);
   assert.equal(clueReachablePaths('C:9:13',3,[]).has('C:9:16'),true);assert.equal(clueReachablePaths('C:9:13',3,[]).has('HALL'),false);assert.equal(clueReachablePaths('C:9:13',4,[]).has('HALL'),true);
-  const reachable=clueReachablePaths('C:9:16',100,[]);for(const cell of CLUE_CORRIDORS){const y=Number(cell.split(':')[2]);assert.equal(cell==='C:9:16'||reachable.has(cell),y>=6,cell);}
+  const reachable=clueReachablePaths('C:9:16',100,[]);for(const cell of CLUE_CORRIDORS){assert.ok(cell==='C:9:16'||reachable.has(cell),cell);}
 });
 
 
@@ -149,6 +149,23 @@ test('Clue amended doors: red boundary blocks both directions, study only has le
     let s=atRoom(game(),from);s.phase='TURN_START';s=act(s,{type:'ROLL'});s.die=1;s=act(s,{type:'MOVE',destination:to});assert.equal(s.tokens[0]!.location,to);assert.equal(s.phase,'SUGGEST');
     assert.ok([...clueReachablePaths(from,6,[]).values()].every(path=>path.slice(0,-1).every(p=>!isClueRoom(p))));
   }
-  let blocked=game();blocked.tokens[0]!.location='C:9:5';blocked.phase='MOVE';blocked.die=6;
+  let blocked=game();blocked.tokens[0]!.location='C:9:5';blocked.phase='MOVE';blocked.die=1;
   const before=JSON.stringify(blocked);assert.equal(applyClueAction(blocked,blocked.players[0]!.playerId,{type:'MOVE',destination:'C:9:6'},at,v.parse(TurnIdSchema,'blocked-wall'),random()).ok,false);assert.equal(JSON.stringify(blocked),before);
+});
+
+
+test('Clue stairs: normal steps connect both halls, support stopping and respect occupied cells',()=>{
+  for(const [from,to] of [['C:7:5','C:7:8'],['C:8:8','C:8:5']] as const){
+    assert.equal(clueReachablePaths(from,2,[]).has(to),false);
+    assert.equal(clueReachablePaths(from,3,[]).get(to)?.length,3);
+    const s=game();s.tokens[0]!.location=from;s.phase='MOVE';s.die=3;
+    const next=act(s,{type:'MOVE',destination:to});assert.equal(next.tokens[0]!.location,to);
+  }
+  for(const cell of ['C:7:6','C:8:6','C:7:7','C:8:7']){
+    assert.ok(CLUE_CORRIDORS.includes(cell));
+    const s=game();s.tokens[0]!.location=cell.endsWith(':6')?'C:7:5':'C:7:8';s.phase='MOVE';s.die=2;
+    const next=act(s,{type:'MOVE',destination:cell});assert.equal(next.tokens[0]!.location,cell);assert.deepEqual(parseClueState(next),next);
+    assert.equal(clueReachablePaths(s.tokens[0]!.location,6,[cell]).has(cell),false);
+  }
+  assert.equal(clueReachablePaths('C:7:5',3,['C:7:6']).has('C:7:8'),false);
 });

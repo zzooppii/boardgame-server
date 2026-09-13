@@ -25,13 +25,13 @@ export const CLUE_ROOM_LINKS: readonly {from:ClueRoom;to:ClueRoom;x:number;y:num
 export const CLUE_ENVELOPE_AREA = {x:8,y:10,width:4,height:3} as const;
 export const CLUE_STAIRS_AREA = {x:7,y:6,width:2,height:2} as const;
 export const CLUE_BEDROOM_WING = {x:6,y:6,width:1,height:2} as const;
-/** Eight corridor columns. # = wall, room, stairs or outside; . = a walkable cell. */
+/** Eight corridor columns. # = wall, room or outside; . = a walkable cell. */
 export const CLUE_CORRIDOR_ORIGIN = {x:6,y:4} as const;
 export const CLUE_CORRIDOR_ROWS = [
   "....####", // below the bathroom
   "....####",
-  "###.....", // bedroom wing and red stairs occupy the first three columns
-  "###.....",
+  "#.......", // bedroom wing blocks one column; stairs are walkable
+  "#.......",
   ".......#",
   ".......#",
   "..####.#", // central envelope occupies four columns, three rows

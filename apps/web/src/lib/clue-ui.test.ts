@@ -50,3 +50,13 @@ test('Clue bonus DTO: public facts update notebook, malformed bonus stages and d
   const foreign=hands[1]!.hand[0]!;g.bonus.publicEvidence=[{playerId:owner,card:parse(ClueCardSchema,foreign)}];assert.equal(clueKnownOwner(g,foreign.key),owner);
   for(const bonus of [{...g.bonus,deck:['PEEK']},{...g.bonus,deckCount:18},{...g.bonus,pending:{kind:'TELEPORT',targetPlayerId:null}},{...g.bonus,peekPlayerIds:[owner]}])assert.equal(safeParse(CluePlayingPlatformSnapshotV2Schema,{...s,game:{...g,bonus}}).success,false);
 });
+
+test('Clue UI: stair destinations are enabled within the die range and display occupants',()=>{
+  const s=playing();s.game.phase='MOVE';s.game.die=3;s.game.tokens[0]!.location='C:7:5';
+  const html=render(s),stairs=html.match(/<button[^>]*class="[^"]*cl-stair-cell[^>]*>/g)??[];
+  assert.equal(stairs.length,4);
+  for(const button of stairs){assert.match(button,/cl-reachable/);assert.doesNotMatch(button,/disabled/);assert.match(button,/aria-label="계단 /);}
+  assert.ok(clueControls(s.game,'a').paths.has('C:7:8'));
+  s.game.tokens[0]!.location='C:7:6';
+  assert.match(render(s),/aria-label="계단 8, 7 · 스칼렛"/);
+});
