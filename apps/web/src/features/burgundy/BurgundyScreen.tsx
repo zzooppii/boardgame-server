@@ -16,7 +16,7 @@ import { createRequestId } from "../../lib/request-id.js";
 import { getGameStartControl } from "../../lib/game-start.js";
 import { BurgundyCommandRejected } from "../../lib/burgundy-command-error.js";
 import { BurgundyBoard } from "./BurgundyBoard.js";
-import { BurgundyDie, BurgundyTileArt } from "./art.js";
+import { BurgundyDie, BurgundyTileArt, BurgundyGoodsArt } from "./art.js";
 import {
   BURGUNDY_NAMES,
   burgundyKnowledge,
@@ -520,35 +520,43 @@ function BurgundyTable(
       : null;
   return (
     <>
-      <div className="bu-progress">
-        <div className="bu-eras">
-          {["A", "B", "C", "D", "E"].map((era, i) => (
-            <span key={era} className={i === g.phaseIndex ? "bu-current" : ""}>
-              {era}
-              <b>{10 - 2 * i}</b>
-            </span>
-          ))}
-        </div>
-        <div>
-          <strong>
-            {g.phase === "FINISHED"
-              ? "게임 종료"
-              : `${activeName(g.activePlayerId)}님의 차례`}
+      <div className={`bu-turn-banner${myTurn ? " bu-my-turn" : ""}`}>
+        <div className="bu-turn-heading">
+          <strong role="status">
+            {!props.connected ? "연결이 끊겼어요" : g.phase === "FINISHED" ? "게임 종료" : myTurn ? "지금 내 차례예요" : `${activeName(g.activePlayerId)}님의 차례`}
           </strong>
-          <span>
-            시대 {g.phaseIndex + 1}/5 · 라운드 {g.roundIndex + 1}/5
-          </span>
+          <small>{!props.connected ? "재연결 후 남은 시간을 확인하세요" : g.phase === "FINISHED" ? "최종 점수를 확인하세요" : myTurn ? "주사위를 골라 행동하세요" : "내 차례를 기다리는 중"}</small>
         </div>
-        <div
-          className={"bu-timer" + (seconds <= 10 ? " bu-urgent" : "")}
-          role="timer"
-          aria-label={`남은 시간 ${seconds}초`}
-        >
-          {g.phase === "PLAYING" ? `${seconds}초` : "최종 점수"}
+        {g.phase === "PLAYING" && props.connected ? (
+          <div className={`bu-timer${seconds <= 10 ? " bu-urgent" : ""}`} role="timer" aria-label={`${myTurn ? "내" : "상대"} 차례 남은 시간 ${seconds}초`}>
+            <small>{myTurn ? "내 남은 시간" : "상대 남은 시간"}</small>
+            <strong>{seconds}<small>초</small></strong>
+          </div>
+        ) : null}
+      </div>
+      <div className="bu-progress">
+        <div className="bu-era-panel">
+          <h3>시대 · 지역 완성 추가 점수</h3>
+          <div className="bu-eras">
+            {["A", "B", "C", "D", "E"].map((era, i) => (
+              <span key={era} className={i === g.phaseIndex ? "bu-current" : ""} aria-current={i === g.phaseIndex ? "step" : undefined}>
+                {era}<b>+{10 - 2 * i}</b>
+              </span>
+            ))}
+          </div>
         </div>
-        <div className="bu-white-die">
-          <BurgundyDie value={g.whiteDie} />
-          <small>흰 주사위</small>
+        <div className="bu-supply-panel">
+          <h3>시대 {g.phaseIndex + 1}/5 · 라운드 {g.roundIndex + 1}/5</h3>
+          <div className="bu-round-supply">
+            {Array.from({ length: 5 }, (_, i) => {
+              const good = g.roundGoods[i - g.roundIndex - 1];
+              return <div key={i} className={`bu-round-slot${i === g.roundIndex ? " bu-round-current" : ""}`}>
+                <small>{i + 1}라운드</small>
+                {i <= g.roundIndex ? <span className="bu-supplied">{i === g.roundIndex ? "공급 완료" : "지난 라운드"}</span> : good ? <span className="bu-supply-goods" aria-label={`${i + 1}라운드 공급 대기: ${good}번 상품`}><BurgundyGoodsArt value={good} /><small>공급 대기</small></span> : <span>—</span>}
+              </div>;
+            })}
+          </div>
+          <p className="bu-supply-note"><BurgundyDie value={g.whiteDie} /> 이번 라운드 → {g.whiteDie}번 시장에 상품 공급</p>
         </div>
       </div>
       <div className="bu-players">
@@ -711,16 +719,15 @@ function BurgundyTable(
                     </button>
                   ))}
                   {tiles.length === 0 ? (
-                    <span className="bu-empty">빈 시장</span>
+                    <span className="bu-empty">남은 영지 타일 없음</span>
                   ) : null}
                 </div>
-                <div className="bu-goods">
+                <div className="bu-goods" aria-label={`${i + 1}번 시장의 상품`}>
+                  <small className="bu-market-goods-label">상품 · 배 배치 후 획득</small>
+                  {g.depotGoods[i]!.every((n) => n === 0) ? <span className="bu-empty">상품 없음</span> : null}
                   {g.depotGoods[i]!.map((n, j) =>
                     n > 0 ? (
-                      <span className={`bu-good bu-good-${j}`} key={j}>
-                        {j + 1}
-                        <b>×{n}</b>
-                      </span>
+                      <BurgundyGoodsArt value={j + 1} count={n} key={j} />
                     ) : null,
                   )}
                 </div>
@@ -747,8 +754,8 @@ function BurgundyTable(
           <div className="bu-bonuses">
             <h3>색 완성 보너스</h3>
             {Object.entries(g.colorFinishers).map(([color, ids]) => (
-              <span key={color}>
-                {
+              <div key={color} className={`bu-bonus-card bu-bonus-${color}`}>
+                <strong>{
                   (
                     {
                       CASTLE: "성",
@@ -759,15 +766,14 @@ function BurgundyTable(
                       BUILDING: "건물",
                     } as Record<string, string>
                   )[color]
-                }{" "}
-                <b>
-                  {ids.length === 0
-                    ? g.playerStates.length + 3
-                    : ids.length === 1
-                      ? g.playerStates.length
-                      : "완료"}
-                </b>
-              </span>
+                }</strong>
+                {[0, 1].map((rank) => (
+                  <span className={ids[rank] ? "bu-bonus-claimed" : ""} key={rank}>
+                    <b>{rank + 1}등 · +{g.playerStates.length + (rank === 0 ? 3 : 0)}점</b>
+                    <small>{ids[rank] ? activeName(ids[rank]) : "미획득"}</small>
+                  </span>
+                ))}
+              </div>
             ))}
           </div>
         </section>
@@ -876,7 +882,9 @@ function BurgundyTable(
               {self.goods.map((n, i) =>
                 n > 0 ? (
                   <button
-                    className={`bu-good bu-good-${i}`}
+                    className="bu-goods-button"
+                    aria-label={`${i + 1}번 상품 ${n}개 판매 선택`}
+                    aria-pressed={mode === "SELL" && value === i + 1}
                     type="button"
                     key={i}
                     onClick={() => {
@@ -885,8 +893,7 @@ function BurgundyTable(
                       setTile(null);
                     }}
                   >
-                    {i + 1}
-                    <b>×{n}</b>
+                    <BurgundyGoodsArt value={i + 1} count={n} />
                   </button>
                 ) : null,
               )}
@@ -1024,6 +1031,11 @@ function BurgundyTable(
                 ) : null}
                 <button
                   type="button"
+                  className={
+                    enabled && !pending && self.dice.every((d) => d.used)
+                      ? "bu-primary"
+                      : undefined
+                  }
                   disabled={
                     !enabled || !!pending || self.dice.some((d) => !d.used)
                   }
@@ -1214,7 +1226,7 @@ function ShipChoice({
                   )
                 }
               />
-              {n}번 상품
+              <BurgundyGoodsArt value={n} count={g.depotGoods[depot - 1]![n - 1]! + (adjacent ? g.depotGoods[adjacent - 1]![n - 1]! : 0)} />
             </label>
           ))}
       </div>

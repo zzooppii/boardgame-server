@@ -67,3 +67,29 @@ export function BurgundyDie({
     </span>
   );
 }
+
+/** Decorative goods names; the die value remains the game's goods identifier. */
+const GOODS_NAMES = ["직물", "포도", "은식기", "도자기", "목상자", "곡물"];
+export function BurgundyGoodsArt({
+  value,
+  count,
+}: {
+  value: number;
+  count?: number;
+}) {
+  const name = GOODS_NAMES[value - 1] ?? "상품";
+  const label = `${value}번 상품 · ${name}${count === undefined ? "" : ` ${count}개`} · 판매 주사위 ${value}`;
+  return (
+    <span
+      className={`bu-goods-tile bu-goods-type-${value}${count !== undefined && count > 1 ? " bu-goods-stack" : ""}`}
+      role="img"
+      aria-label={label}
+      title={label}
+    >
+      <span className="bu-goods-picture" aria-hidden="true" />
+      <span className="bu-goods-die" aria-hidden="true"><BurgundyDie value={value} /></span>
+      {count !== undefined ? <span className="bu-goods-count" aria-hidden="true">×{count}</span> : null}
+      <span className="bu-goods-name" aria-hidden="true">{name}</span>
+    </span>
+  );
+}

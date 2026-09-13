@@ -1058,3 +1058,119 @@
 .bu-goose .bu-illustration {
   background-position: 100% 0;
 }
+
+/* Keep the turn deadline visible while browsing the market and estate. */
+.bu-turn-banner {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 12px 0;
+  padding: 12px 18px;
+  border: 2px solid #aa9470;
+  border-radius: 12px;
+  background: #fff8e9;
+  box-shadow: 0 5px 16px #30231825;
+}
+.bu-turn-heading { min-width: 0; }
+.bu-turn-heading > strong { display: block; font-size: 20px; overflow-wrap: anywhere; }
+.bu-turn-heading > small { display: block; margin-top: 4px; }
+.bu-my-turn { background: #692f40; border-color: #d9b873; color: #fff8e9; }
+.bu-turn-banner .bu-timer { text-align: right; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.bu-turn-banner .bu-timer > small { display: block; font-size: 12px; font-weight: normal; }
+.bu-turn-banner .bu-timer > strong { font-size: 36px; line-height: 1.1; }
+.bu-turn-banner .bu-timer strong small { margin-left: 4px; font-size: 16px; }
+.bu-my-turn .bu-urgent { color: #fff1a4; }
+.bu-progress { align-items: start; gap: 20px; padding: 12px 0 20px; }
+.bu-progress h3 { margin-bottom: 10px; font-size: 14px; }
+.bu-eras span { opacity: 1; background: #f6efdd; min-width: 45px; }
+.bu-eras b { font-size: 19px; }
+.bu-round-supply { display: flex; gap: 6px; }
+.bu-round-slot { display: flex; flex-direction: column; align-items: center; gap: 6px; border: 1px solid #cabb9c; border-radius: 8px; padding: 7px; width: 76px; background: #f8f2e6; }
+.bu-round-current { outline: 2px solid var(--bu-wine); }
+.bu-round-slot .bu-good { display: flex; flex-direction: column; align-items: center; min-height: 44px; justify-content: center; width: 100%; padding: 3px; gap: 3px; }
+.bu-round-slot .bu-good small { font-size: 10px; white-space: nowrap; }
+.bu-supplied { font-size: 11px; min-height: 44px; display: flex; align-items: center; color: #6a5940; }
+.bu-supply-note { display: flex; align-items: center; gap: 8px; margin-top: 12px !important; font-size: 12px; }
+.bu-market-goods-label { flex-basis: 100%; color: #6a5940; }
+.bu-bonuses { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.bu-bonuses h3 { grid-column: 1 / -1; }
+.bu-bonus-card { --bonus-color: #af945b; border: 1px solid #baa67f; border-top: 5px solid var(--bonus-color); border-radius: 10px; padding: 10px; background: #fff7e5; min-width: 0; }
+.bu-bonus-CASTLE { --bonus-color: #226d57; }
+.bu-bonus-SHIP { --bonus-color: #3183a0; }
+.bu-bonus-LIVESTOCK { --bonus-color: #82a342; }
+.bu-bonus-MONASTERY { --bonus-color: #c6a625; }
+.bu-bonus-MINE { --bonus-color: #7c7e84; }
+.bu-bonus-BUILDING { --bonus-color: #af804b; }
+.bu-bonus-card > strong { display: block; font-size: 15px; margin-bottom: 6px; }
+.bu-bonus-card > span { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px; padding: 4px 0; }
+.bu-bonus-card small { overflow-wrap: anywhere; }
+.bu-bonus-claimed { color: #716348; }
+.bu-bonus-claimed small::before { content: "✓ "; }
+@media (max-width: 760px) {
+  .bu-turn-banner { top: 0; border-radius: 0 0 12px 12px; margin: 0 -12px 12px; padding: calc(10px + env(safe-area-inset-top, 0px)) 12px 10px; gap: 10px; }
+  .bu-turn-heading > strong { font-size: 18px; }
+  .bu-turn-heading > small { font-size: 11px; }
+  .bu-turn-banner .bu-timer > strong { font-size: 34px; }
+  .bu-progress { flex-direction: column; gap: 16px; }
+  .bu-supply-panel { width: 100%; }
+  .bu-round-supply { gap: 4px; }
+  .bu-round-slot { flex: 1; min-width: 0; width: auto; padding: 6px 3px; }
+  .bu-round-slot > small { font-size: 10px; }
+  .bu-supplied { font-size: 10px; }
+  .bu-bonuses { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bu-action-panel { scroll-margin-top: 100px; }
+}
+
+/* Illustrated goods share one atlas in the depot, storage and supply track. */
+.bu-goods-tile {
+  --goods-x: 0%;
+  --goods-y: 0%;
+  position: relative;
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 76px;
+  height: 84px;
+  border: 2px solid #d7b77c;
+  border-radius: 7px;
+  background: #2a211a;
+  box-shadow: 0 3px 0 #715635, 0 5px 8px #34231826;
+  vertical-align: middle;
+}
+.bu-goods-type-2 { --goods-x: 50%; }
+.bu-goods-type-3 { --goods-x: 100%; }
+.bu-goods-type-4 { --goods-y: 100%; }
+.bu-goods-type-5 { --goods-x: 50%; --goods-y: 100%; }
+.bu-goods-type-6 { --goods-x: 100%; --goods-y: 100%; }
+.bu-goods-picture {
+  position: absolute;
+  inset: 0 0 12px;
+  border-radius: 4px 4px 0 0;
+  background: url('/images/burgundy/goods.png');
+  background-size: 300% 200%;
+  background-position: var(--goods-x) var(--goods-y);
+}
+.bu-goods-stack { box-shadow: 2px 3px 0 #ecdbb6, 3px 5px 0 #84623c, 4px 7px 0 #dbc498, 5px 9px 0 #84623c; margin: 0 5px 6px 0; }
+.bu-goods-die { position: absolute; left: 4px; bottom: 16px; display: flex; }
+.bu-goods-die .bu-die { width: 22px; height: 22px; padding: 3px; gap: 2px; border-radius: 4px; box-shadow: 0 1px 3px #0006; }
+.bu-goods-count { position: absolute; right: -5px; top: -6px; min-width: 25px; padding: 3px 5px; border: 1px solid #ddbd81; border-radius: 12px; background: #fff5de; color: #49331f; font: bold 12px system-ui; box-shadow: 0 2px 4px #0003; }
+.bu-goods-name { position: absolute; bottom: 0; left: 0; right: 0; color: #fff3d5; background: #39281de8; border-radius: 0 0 4px 4px; text-align: center; font-size: 11px; line-height: 16px; }
+.bu-goods { gap: 12px; padding: 4px 0; }
+.bu-screen .bu-goods-button { border: 0; padding: 0; background: transparent; border-radius: 7px; min-height: 0; }
+.bu-screen .bu-goods-button[aria-pressed="true"] { outline: 3px solid var(--bu-wine); outline-offset: 4px; background: transparent; }
+.bu-goods-button:hover .bu-goods-tile { border-color: #ffdf95; filter: brightness(1.08); }
+.bu-supply-goods { display: flex; flex-direction: column; align-items: center; gap: 7px; width: 100%; }
+.bu-supply-goods .bu-goods-tile { width: 100%; height: auto; aspect-ratio: 1 / 1.12; }
+.bu-supply-goods > small { font-size: 10px; white-space: nowrap; }
+.bu-supply-goods .bu-goods-name { font-size: 9px; line-height: 12px; }
+.bu-supply-goods .bu-goods-die { left: 2px; bottom: 14px; }
+.bu-supply-goods .bu-goods-die .bu-die { width: 17px; height: 17px; padding: 2px; gap: 1px; }
+.bu-round-slot .bu-supplied { flex: 1; }
+@media (max-width: 760px) {
+  .bu-goods-tile { width: 64px; height: 72px; }
+  .bu-goods { gap: 10px; }
+  .bu-round-slot { padding-left: 2px; padding-right: 2px; }
+}
