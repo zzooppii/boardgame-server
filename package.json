@@ -18,8 +18,9 @@
     "pretypecheck": "npm run build --workspace @hangul-rummikub/shared",
     "typecheck": "npm run typecheck --workspace @hangul-rummikub/shared && npm run typecheck --workspace @hangul-rummikub/web && npm run typecheck --workspace @hangul-rummikub/server",
     "pretest": "npm run build --workspace @hangul-rummikub/shared",
-    "test": "npm test --workspace @hangul-rummikub/shared && npm test --workspace @hangul-rummikub/web && npm test --workspace @hangul-rummikub/server",
-    "build": "npm run build --workspace @hangul-rummikub/shared && npm run build --workspace @hangul-rummikub/web && npm run build --workspace @hangul-rummikub/server"
+    "test": "npm test --workspace @hangul-rummikub/shared && npm test --workspace @hangul-rummikub/web && npm test --workspace @hangul-rummikub/server && node --test e2e/space-crew*.test.mjs",
+    "build": "npm run build --workspace @hangul-rummikub/shared && npm run build --workspace @hangul-rummikub/web && npm run build --workspace @hangul-rummikub/server",
+    "test:space-crew-e2e": "npm run build --workspace @hangul-rummikub/shared && tsc --project apps/web/tsconfig.test.json && tsc --project apps/server/tsconfig.test.json && node --test e2e/space-crew*.test.mjs"
   },
   "devDependencies": {
     "@types/node": "20.17.58",

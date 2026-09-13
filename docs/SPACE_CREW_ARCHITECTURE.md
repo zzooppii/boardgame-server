@@ -1,6 +1,6 @@
 # SPACE_CREW 구현 설계
 
-2026-09-12. 상태: P0–P7 통과, P8 검증 예정. [게임 규칙](SPACE_CREW_GAME_RULES.md), [단계 기록](SPACE_CREW_DELIVERY.md)을 따른다. 아래는 설계이며 아직 구현 완료를 뜻하지 않는다.
+2026-09-12. 상태: P0–P7 통과, P8 로컬 검증 완료(수동 확인 제약은 단계 기록 참조). [게임 규칙](SPACE_CREW_GAME_RULES.md), [단계 기록](SPACE_CREW_DELIVERY.md)을 따른다. 아래는 설계이며 아직 구현 완료를 뜻하지 않는다.
 
 ## 구조와 통합
 
@@ -138,3 +138,9 @@ P1 상태는 `BETWEEN_TRICKS / IN_TRICK / EXHAUSTED`로 구분하며 미션 SUCC
 `space-crew-outbox.ts`는 room/player로 범위를 제한한 전체 제출 envelope를 sessionStorage에 보관한다. 응답 불명·인증 연결 교체·서버의 보관 중 후보는 같은 request ID 재확인 대상으로 유지한다. 결과를 확정할 수 있는 명령 거절이나 성공만 outbox에서 제거한다. 서버가 후보를 보관한 뒤 room commit에 실패한 경우에는 `INTERNAL_ERROR`를 반환해 후보를 버린 stale command와 구별한다. 자동 재연결은 이미 제출된 동일 요청만 재확인하며 새 행동을 자동 생성하지 않는다.
 
 효과음은 사용자 제스처로 AudioContext를 연 뒤 자체 oscillator로 합성한다. 첫 snapshot·재접속 baseline·중복 및 건너뛴 revision은 무음으로 처리한다. 카드 삽화/기호는 자체 디자인이며 원작 시각 자료와 분리한다.
+
+## P8 검증과 실행 조건
+
+root `npm test`는 workspace 단위 검사 후 `e2e/space-crew*.test.mjs`를 실행한다. 종단 간 검사는 빌드된 server와 production 웹 decoder/selector/복구 저장 모듈을 실제 로컬 Socket.IO 및 파일 저장소에 연결한다. 테스트만 RNG port를 결정적으로 바꾸며 손패·결과를 주입하지 않는다. 별도 실행은 `npm run test:space-crew-e2e`다.
+
+운영에서 `SPACE_CREW_CAMPAIGN_DIR`는 재배포·재시작 뒤에도 유지되는 쓰기 가능한 영구 디렉터리로 지정한다. 파일 adapter는 단일 서버 프로세스 writer용이다. 서로 다른 프로세스가 같은 경로에 동시에 쓰는 구성을 지원한다고 간주하지 않는다. 방과 접속 세션은 기존 플랫폼 메모리 정책을 유지하며, 재시작 뒤에는 복구 정보를 가진 참가자가 새 방에서 새 시도를 시작한다.50개 완료 캠페인은 완료 기록으로 보존하며 새 캠페인/연습으로 시작한다.

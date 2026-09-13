@@ -16,7 +16,7 @@
 | P5 Missions 26–50 | 조건/성공/실패/5인 특칙 테스트 | PASS |
 | P6 Server/Shared | 인증·직렬화·private projection·campaign persistence·플랫폼 연결 | PASS |
 | P7 Web | PC/mobile·Game Guide·독립 삽화·카드 조작·효과음 | PASS |
-| P8 E2E/Campaign | 실제3–5인·50미션 매핑·retry·reconnect·restart campaign·회귀 | NOT_STARTED |
+| P8 E2E/Campaign | 실제3–5인·50미션 매핑·retry·reconnect·restart campaign·회귀 | VERIFIED · 수동 확인 제약 |
 
 ## 결정 기록
 
@@ -114,3 +114,23 @@ P1 카드/트릭의 파일 경계·보존·원자성·3인 소진 테스트 설�
 
 - 최종 root typecheck PASS; test shared131 + web682 + server2070 = **2883 PASS**, fail/cancel/skip0; build PASS(기존500kB chunk 경고 유지, 웹 JS1,530.87kB/gzip430.44kB).
 - 웹 신규33 tests(선택지14·복구저장6·명령경계6·효과음7), 서버 후보 재전송 회귀1 추가. 독립 규칙/보안 검토 및 diff-check PASS. commit/push 후 P8 진행.
+
+### P8 종단 간 검증
+
+P7 커밋 `16aafec`은 사용자가 푸시했으며 P8 시작 시 원격 추적 브랜치와 동일함을 확인했다. 기존 브랜치에서 검증만 이어가며 `master` 병합/공개 배포와 구분한다.
+
+`e2e/space-crew.e2e.test.mjs`는 실제 Socket.IO 서버와 production 웹 decoder/selector를 연결한다. 같은 연습 방에서 미션1–50을 순서대로 바꾸며3/4/5인150조합을 진행한다. 매 명령은 각자의 공개 DTO와 본인 손패에서 선택하고, 모든 참가자의 push와 명시적 sync가 같으며 비공개 카드·구조 신호 선택·복구 비밀이 새지 않는지 확인한다. 잘못된 카드 거절의 오류 코드와 무변경,40장 보존,revision 증가,새 시도의 새 card ID,캠페인 기록/lease 종료를 검증한다.5인 양도18개 및 전량 진행 미션 기대값은 UI와 공유하지 않는 감사된 고정 목록을 사용한다.
+
+고정된 비전략 선택으로4,603개 액션이 수락됐다.150행은 정상 실패 종료도 포함한 계약·진행 검사이며,150개 미션을 모두 성공시킨 검증이 아니다. 성공/실패 규칙의 기대 결과는 P1–P5의 수작업 도메인 사례가 별도로 검증한다.
+
+`e2e/space-crew-recovery.e2e.test.mjs`는 실제 ACK를 버린 뒤 브라우저 outbox를 새 인스턴스로 읽어 동일 NEW/목표 선택 요청을 재전송한다. 실제 세션 재접속과 함께 중복 시도·셔플·revision 변경이 없음을 확인한다. 실제 WebCrypto 기반 복구 저장/내보내기/가져오기와 파일 저장소의 서버 runtime 재생성도 연결한다.4인 미션1 성공과 미션2의 구조 신호 기록을 보존하고3인 새 방에서 SUCCESS/ABORTED/ACTIVE 이력 및 새40장으로 복구한다. 이 자동 검사는 production 저장 모듈과 소켓을 연결한 것으로, React hook을 브라우저에서 자동화한 것이라고 표시하지 않는다.
+
+전용 실행: `npm run test:space-crew-e2e`. root `npm test`에도 포함해 기존 테스트 뒤 함께 실행한다. 새 dependency는 없다.
+
+실제 브라우저에서는 이전 검증 서버를 종료·재시작하고 새 방에서 저장된 캠페인으로 이어 갔다. 시도2·구조 신호 +1 유지·새 손패/목표를 확인했다.12트릭을 실제 카드 조작으로 진행해 WRONG_OWNER 실패 이유와 목표0/1·시도2·기록3을 확인했고, 같은 방 재도전으로 같은 참가자·시도3·기록4·새 손패/목표를 확인했다. 브라우저 한 개와 독립 소켓 테스트 참가자 두 명을 사용했다.
+
+추가 후반 미션 수동 화면 확인을 위해 방을 나가려던 중 native confirm을 자동화 도구가 처리하지 못했다. 확인창 조회/취소/닫기 API가 응답하지 않아 추가 수동 미션40/50 화면 검증은 완료하지 못했다. 이 제약을 제품의 규칙 실패로 판정하지 않으며, 후반50미션의 실제 wire/웹 선택지 종단 간 검사는 모두 통과했다. P7의 desktop/320/390px 시각 검증 결과도 유지한다.
+
+- 최종 root typecheck PASS, test shared131 + web682 + server2070 + E2E155 = **3038 PASS**, fail/cancel/skip0. root build PASS(기존500kB chunk 경고 유지).
+- E2E155는150미션행·인원별 부모 테스트3개·복구2개다. root 테스트에 영구 편입했고 독립 High 검토 및 diff-check PASS. 운영 코드·dependency 변경 없음.
+- 로컬 검증은 완료했다. 개발 브랜치 commit/push와 master 병합·공개 배포는 Git 결과에 따라 구분해 보고한다.
