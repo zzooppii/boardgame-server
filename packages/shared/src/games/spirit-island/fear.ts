@@ -19,6 +19,7 @@ export const SPIRIT_FEAR_HELP: Record<string, readonly [string,string,string]> =
 
 /** Implemented Branch & Claw cards; this is a public reference, not deck order. */
 export const SPIRIT_BRANCH_FEAR = {
+ monsters:{name:'너무 많은 괴물',artwork:'FANGS',effects:['각자 야수 지역에서 탐험가/마을 1개 제거.','각자 야수 지역 한 곳에서 탐험가 1개와 마을 1개 제거 또는 야수에 인접한 지역에서 탐험가 1개 제거.','각자 야수 지역 한 곳에서 탐험가 2개와 마을 2개 제거 또는 야수에 인접한 지역에서 탐험가/마을 1개 제거.']},
  demoralized:{name:'사기 저하',artwork:'SHADOW',effects:['모든 육지에 방어 1.','모든 육지에 방어 2.','모든 육지에 방어 3.']},
  departure:{name:'떠날 채비',artwork:'RIVER',effects:['각자 해안 한 지역에 마을 1개를 모을 수 있습니다.','각자 해안 한 지역에 탐험가/마을 1개를 모을 수 있습니다. 모든 해안 방어 2.','각자 해안 한 지역에 탐험가/마을 최대 2개를 모을 수 있습니다. 모든 해안 방어 4.']},
  pestilent:{name:'역병의 땅을 떠나다',artwork:'KEEPER',effects:['각자 질병 지역에서 탐험가/마을 1개 제거.','각자 질병 지역에서 체력 합계 최대 3 제거 또는 내륙 탐험가 1개 제거.','각자 질병 지역에서 체력 합계 최대 5 제거 또는 내륙 탐험가/마을 1개 제거.']},

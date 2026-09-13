@@ -8,7 +8,7 @@ import { createSpiritGame, applySpiritAction, parseSpiritState, powerOptions, ty
 import { projectSpirit } from './games/spirit-island/compatibility/projector.js';
 import { choiceOptions, settle, spiritFearKeys, SPIRIT_FEAR_KEYS } from './games/spirit-island/domain/resolver.js';
 import { powerSteps } from './games/spirit-island/domain/powers.js';
-import { step, makePiece, land, defense, presence, innateLevel, cardPower, health } from './games/spirit-island/domain/primitives.js';
+import { step, makePiece, land, defense, presence, innateLevel, cardPower, health, countPieces } from './games/spirit-island/domain/primitives.js';
 const now = v.parse(ServerTimeSchema, 1000);
 let seq = 0;
 function setup(n = 1) { return createSpiritGame({ gameId: v.parse(GameIdSchema, 'spirit-test'), playerIds: Array.from({ length: n }, (_, i) => v.parse(PlayerIdSchema, `p${i}`)), now, transitionId: v.parse(TurnIdSchema, `turn-${++seq}`), id: () => `card-${++seq}`, shuffle: <T>(a: T[]) => a }); }
@@ -894,7 +894,7 @@ for(const terror of [1,2,3] as const)test(`War addition preserves terror ${terro
  let s=warGame();for(const l of s.lands)l.tokens.beasts=0;s.terror=terror;s.fearDeck=s.fearDeck.slice(-(terror===1?7:terror===2?4:1));const before=s.fearDeck.length;s=eventChoose(s,'격퇴');s=eventChoose(s,'에너지 1 지원 추가');s=eventChoose(s,'비용 확정');assert.equal(s.terror,terror);assert.equal(s.fearDeck.length,before+1);s=drain(s);s.queue=[step('FEAR',s.players[0]!.playerId,null,4)];settle(s);assert.equal(s.terror,terror);assert.equal(s.fearDeck.length,before);
 });
 test('War does not duplicate fear cards when every card is already in use',()=>{
- let s=warGame();for(const l of s.lands)l.tokens.beasts=0;s.fearDeck=spiritFearKeys(s.settings.expansion);s=eventChoose(s,'격퇴');s=eventChoose(s,'에너지 1 지원 추가');s=eventChoose(s,'비용 확정');assert.equal(s.fearDeck.length,19);assert.equal(new Set(s.fearDeck).size,19);assert.ok(s.log.some(e=>e.text.includes('미사용 공포 카드 없음')));
+ let s=warGame();for(const l of s.lands)l.tokens.beasts=0;s.fearDeck=spiritFearKeys(s.settings.expansion);s=eventChoose(s,'격퇴');s=eventChoose(s,'에너지 1 지원 추가');s=eventChoose(s,'비용 확정');assert.equal(s.fearDeck.length,20);assert.equal(new Set(s.fearDeck).size,20);assert.ok(s.log.some(e=>e.text.includes('미사용 공포 카드 없음')));
 });
 test('War discards a major per board, with public cost, before choosing that board coast',()=>{
  let s=warGame(2);const major=[...s.major],minor=[...s.minor];s=eventChoose(s,'공격을 허용');assert.equal(s.queue[0]!.key,'BCE14_ATTACK');assert.equal(s.queue[0]!.tags[0],'A');assert.equal(s.queue[0]!.n,cardPower(s,major[0]!).cost);assert.ok(s.majorDiscard.includes(major[0]!));assert.deepEqual(s.minor,minor);s=drain(s);assert.ok(s.log.some(e=>e.text.includes(`B 전쟁 피해 판정 · ${cardPower(s,major[1]!).title}`)));assert.deepEqual(s.minor,minor);
@@ -924,7 +924,7 @@ for(const key of SPIRIT_BRANCH_FEAR_KEYS)for(const level of [1,2,3] as const)for
  let s=branchFearGame(key,level,n);settle(s);s=drain(s);assert.equal(s.queue.length,0);assert.ok(s.fearDiscard.includes(key));assert.ok(s.log.some(l=>l.text.includes(`공포 수준 ${level}`)));parseSpiritState(s);
 });
 test('Expansion fear pool adds only completed cards and keeps deck size and core pool unchanged',()=>{
- assert.deepEqual(spiritFearKeys('CORE'),[...SPIRIT_FEAR_KEYS]);assert.equal(spiritFearKeys('BRANCH_CLAW').length,19);assert.equal(new Set(spiritFearKeys('BRANCH_CLAW')).size,19);let s=setup();const result=applySpiritAction(s,s.players[0]!.playerId,{kind:'CONFIGURE',settings:{...s.settings,expansion:'BRANCH_CLAW',blightCard:true,progression:false}},now,s.transitionId,values=>[...values].reverse());assert.ok(result.ok);s=result.state;assert.equal(s.fearDeck.length,9);for(const key of SPIRIT_BRANCH_FEAR_KEYS)assert.ok(s.fearDeck.includes(key));assert.equal(chosen().fearDeck.some(k=>SPIRIT_BRANCH_FEAR_KEYS.includes(k)),false);
+ assert.deepEqual(spiritFearKeys('CORE'),[...SPIRIT_FEAR_KEYS]);assert.equal(spiritFearKeys('BRANCH_CLAW').length,20);assert.equal(new Set(spiritFearKeys('BRANCH_CLAW')).size,20);let s=setup();const result=applySpiritAction(s,s.players[0]!.playerId,{kind:'CONFIGURE',settings:{...s.settings,expansion:'BRANCH_CLAW',blightCard:true,progression:false}},now,s.transitionId,values=>[...values].reverse());assert.ok(result.ok);s=result.state;assert.equal(s.fearDeck.length,9);for(const key of SPIRIT_BRANCH_FEAR_KEYS)assert.ok(s.fearDeck.includes(key));assert.equal(chosen().fearDeck.some(k=>SPIRIT_BRANCH_FEAR_KEYS.includes(k)),false);
 });
 test('Demoralized stacks defense and Time removes it',()=>{
  let s=branchFearGame('demoralized',3);land(s,'A1').defend=2;settle(s);assert.equal(land(s,'A1').defend,5);assert.equal(land(s,'A8').defend,3);s.stage='TIME';s=drain(apply(s,{kind:'ADVANCE'}));assert.ok(s.lands.every(l=>l.defend===0));
@@ -953,4 +953,14 @@ test('Branch fear choices enforce actor and revision and hide other player optio
 });
 test('Revealed expansion fear projects all three effects without exposing hidden deck cards',()=>{
  const s=branchFearGame('departure',2);s.queue=[];s.fearDeck=['pestilent','dangerous'];s.revealedFear=['pestilent'];const g=view(s);assert.equal(g.revealedFear.length,1);assert.equal(g.revealedFear[0]!.name,SPIRIT_BRANCH_FEAR.pestilent.name);assert.deepEqual(g.revealedFear[0]!.effects,[...SPIRIT_BRANCH_FEAR.pestilent.effects]);assert.ok(!JSON.stringify(g.revealedFear).includes(SPIRIT_BRANCH_FEAR.dangerous.name));assert.ok(v.safeParse(SpiritPlayingProjectionSchema,g).success);
+});
+
+for(const level of [2,3] as const)test(`Monsters level ${level} removes each kind in one beast land without destruction fear`,()=>{
+ let s=branchFearGame('monsters',level);for(const l of s.lands){l.tokens.beasts=0;l.pieces=[];}const a=land(s,'A1');a.tokens.beasts=1;for(let i=0;i<3;i++){makePiece(s,a,'EXPLORER');makePiece(s,a,'TOWN');}makePiece(s,a,'DAHAN');makePiece(s,land(s,'A8'),'CITY');const fear=s.fear;settle(s);assert.equal(choiceOptions(s).length,1);s=eventChoose(s,'야수 지역');assert.ok(!choiceOptions(s).some(o=>o.label.includes('생략')));s=drain(s);assert.equal(countPieces(land(s,'A1'),['EXPLORER']),level===2?2:1);assert.equal(countPieces(land(s,'A1'),['TOWN']),level===2?2:1);assert.equal(countPieces(land(s,'A1'),['DAHAN']),1);assert.equal(s.fear,fear);parseSpiritState(s);
+});
+for(const level of [1,2,3] as const)test(`Monsters level ${level} restricts adjacent alternatives by piece kind`,()=>{
+ const s=branchFearGame('monsters',level);for(const l of s.lands){l.tokens.beasts=0;l.pieces=[];}const a=land(s,'A1'),adj=land(s,a.adjacent.find(id=>land(s,id).number>0)!);a.tokens.beasts=1;makePiece(s,a,'CITY');makePiece(s,adj,'TOWN');makePiece(s,land(s,'A8'),'CITY');settle(s);assert.ok(!choiceOptions(s).some(o=>o.landId===a.id));assert.equal(choiceOptions(s).some(o=>o.landId===adj.id),level===3);
+});
+test('Monsters partial removal does not substitute explorers for missing towns and permits reusing land',()=>{
+ let s=branchFearGame('monsters',3,2);for(const l of s.lands){l.tokens.beasts=0;l.pieces=[];}land(s,'A1').tokens.beasts=1;for(let i=0;i<5;i++)makePiece(s,land(s,'A1'),'EXPLORER');makePiece(s,land(s,'A8'),'CITY');settle(s);s=eventChoose(s,'야수 지역');s=eventChoose(s,'탐험가 제거');s=eventChoose(s,'탐험가 제거');assert.equal(countPieces(land(s,'A1'),['EXPLORER']),3);assert.equal(s.queue[0]!.target,s.players[1]!.playerId);assert.ok(choiceOptions(s).some(o=>o.landId==='A1'));s=drain(s);assert.equal(countPieces(land(s,'A1'),['EXPLORER']),1);parseSpiritState(s);
 });
