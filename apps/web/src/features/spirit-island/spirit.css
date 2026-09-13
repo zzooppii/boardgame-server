@@ -32,3 +32,26 @@
 @media(max-width:600px){.si-blight-panel{grid-template-columns:1fr;padding:18px;gap:10px}.si-blight-portrait{display:none}.si-blight-panel h2{font-size:1.3rem}.si-lesser-offer{grid-template-columns:1fr}}
 
 .si-france-panel{display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:20px;margin:18px 0;border:1px solid #b8c7de66;border-left:5px solid #8da4c7;border-radius:12px;background:linear-gradient(125deg,#1a2d44,#233635);color:#f2e4ca}.si-france-panel h2{font-size:1.2rem;margin:8px 0}.si-france-panel p,.si-france-panel small{line-height:1.6}.si-france-panel strong{color:#ffd99e}.si-france-panel summary{cursor:pointer}@media(max-width:650px){.si-france-panel{grid-template-columns:1fr;gap:8px}}
+
+/* Keep the tabletop readable on ultrawide displays without stretching the art. */
+.spirit-screen{width:100%;max-width:1800px;margin-inline:auto}
+.si-spirit-grid{grid-template-columns:repeat(4,minmax(0,1fr));max-width:1600px;margin-inline:auto}
+.si-spirit-card{display:flex;flex-direction:column;min-width:0}
+.si-spirit-portrait{height:auto;aspect-ratio:3/2;flex-shrink:0}
+.si-spirit-card>div:last-child{display:flex;flex:1;flex-direction:column;gap:10px}
+.si-spirit-card h3{font-size:20px;margin:0;line-height:1.4}
+.si-spirit-card small{font-size:12px;line-height:1.5}
+.si-spirit-card p{font-size:14px;min-height:0;margin:0 0 14px;line-height:1.75;flex:1}
+.si-spirit-card button{margin-top:auto;min-height:44px}
+.si-table-layout{grid-template-columns:minmax(0,1fr) 320px}
+.si-map-wrap,.si-inspector{min-width:0}
+.si-map-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,480px),1fr));gap:28px}
+.si-island{width:100%;max-width:900px;min-width:0;height:auto;min-height:420px;aspect-ratio:3/2;margin:0 auto 20px;background-size:cover;background-repeat:no-repeat}
+.si-inspector{font-size:14px;line-height:1.65}
+.si-party{grid-template-columns:repeat(auto-fit,minmax(260px,380px))}
+.si-map-legend{flex-wrap:wrap;row-gap:10px;font-size:12px}
+@media(min-width:1200px){.si-inspector{position:sticky;top:20px}}
+@media(max-width:1100px){.si-table-layout{grid-template-columns:1fr}.si-spirit-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.si-spirit-grid{grid-template-columns:1fr;max-width:420px}.si-spirit-card>div:last-child{padding:18px}.si-spirit-card .si-primary{font-size:14px}.si-party{grid-template-columns:minmax(0,1fr)}.si-island{width:calc(100% - 48px);min-height:445px;aspect-ratio:auto;margin-inline:24px}.si-map-grid{gap:20px}.si-map-wrap{padding-inline:10px}}
+.si-map-lines line{vector-effect:non-scaling-stroke;stroke-width:1;stroke-dasharray:4 4}
+.si-map-lines line.si-connected{stroke-width:2;stroke-dasharray:none}
