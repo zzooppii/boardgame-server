@@ -19,10 +19,10 @@ test('Spirit contracts reject unrecognized fields and mismatched self hand', () 
 test('Core spirit selection exposes eight spirits and challenge settings',()=>{const s=playing();s.game.stage='SELECT';s.game.playerStates[0]!.spirit=null;const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));assert.equal((html.match(/이 정령 선택/g)??[]).length,8);for(const label of ['대적 단계','시나리오','꿈과 악몽을 가져오는 자','굶주린 바다의 손아귀'])assert.ok(html.includes(label));});
 test('Ocean tracks show upcoming permanent elements and scenario objective',()=>{const s=playing();s.game.playerStates[0]!.spirit='OCEAN';s.game.settings.scenario='INSURRECTION';s.game.terror=2;const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));assert.match(html,/건물 수 ≤ 다한 수/);assert.match(html,/모든 지역에서 충족하면 승리/);assert.match(html,/해안을 집어삼키다/);assert.match(html,/<small>물<\/small>/);});
 
-test('Branch & Claw development selection exposes ten spirits and clearly states missing content',()=>{
+test('Branch & Claw development selection exposes ten spirits and all four expansion scenarios',()=>{
  const s=playing();s.game.stage='SELECT';s.game.playerStates[0]!.spirit=null;s.game.settings.expansion='BRANCH_CLAW';
  const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));
- assert.equal((html.match(/이 정령 선택/g)??[]).length,10);assert.match(html,/si-art-FANGS/);assert.match(html,/si-art-KEEPER/);assert.match(html,/이벤트 25\/25장 개발 덱 · 확장 공포 15\/15장 · 확장 오염 7장 · 프랑스 0–6단계 · 확장 시나리오 미포함/);
+ assert.equal((html.match(/이 정령 선택/g)??[]).length,10);assert.match(html,/si-art-FANGS/);assert.match(html,/si-art-KEEPER/);assert.match(html,/이벤트 25\/25장 개발 덱 · 확장 공포 15\/15장 · 확장 오염 7장 · 프랑스 0–6단계 · 확장 시나리오 4종/);
 });
 test('Branch & Claw map shows token counts and growth distinguishes selected options and costs',()=>{
  const s=playing(),p=s.game.playerStates[0]!;s.game.settings.expansion='BRANCH_CLAW';p.spirit='FANGS';p.grown=false;p.growthSelections=[3];p.canCallPredators=true;
@@ -167,4 +167,14 @@ test('France UI: core hides France while expansion setup and live supply explain
 test('Slave Rebellion UI: stage II still uses early branch and Dahan precedes recurrence',()=>{
  const s=playing();s.game.settings.expansion='BRANCH_CLAW';s.game.currentEvent='REBELLION';s.game.round=2;s.game.eventInvaderStage=2;
  const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));assert.match(html,/공개 시 침략 2단계/);assert.ok(html.indexOf('다한 이벤트')<html.indexOf('다음 이벤트'));assert.ok(!html.includes('<b>토큰 이벤트</b>'));
+});
+
+for(const scenario of ['WARD','FLAME','FORGOTTEN','SECOND_WAVE'] as const)test(`Scenario UI: ${scenario} exposes its own controls and instructions`,()=>{
+ const s=playing();s.game.settings.expansion='BRANCH_CLAW';s.game.settings.scenario=scenario;
+ const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));
+ assert.match(html,/시나리오 진행/);assert.match(html,scenario==='WARD'?/수호 능력으로 뒤집을 카드/:scenario==='FLAME'?/망각할 불 원소 카드/:scenario==='FORGOTTEN'?/침략자 2개/:/1번째 물결/);
+});
+test('Scenario UI: wards and flames are labeled on the map and ward defense appears in preview',()=>{
+ const s=playing();s.game.wards=['A1','A1'];s.game.flames=['A2'];assert.equal(ravagePreview(s.game,s.game.lands[0]!).defend,6);
+ const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));assert.match(html,/aria-label="수호 표식"/);assert.match(html,/aria-label="불꽃 표식"/);
 });

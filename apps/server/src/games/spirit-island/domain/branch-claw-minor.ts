@@ -143,6 +143,7 @@ export function branchMinorOptions(s: SpiritState, e: SpiritStep, add: AddChoice
             if (l && invaders(l).length) add('침략자에게 공포 발생', () => queue(f(2 + (l.tokens.disease > 0 ? 1 : 0) + (l.blight > 0 ? 1 : 0))), l.id);
             return true;
         case 'BC_SPUR':
+            if(s.settings.scenario==='WARD'&&!s.wardUsedBy.includes(owner))for(const id of q.hand)add(`${cardPower(s,id).title} · 수호 능력으로 뒤집어 무료 준비`,()=>{q.hand=q.hand.filter(c=>c!==id);q.played.push(id);q.ready=false;s.wardCards.push(id);s.wardUsedBy.push(owner);event(s,'CARD','수호 능력 추가 준비',owner);});
             for (const id of q.hand) {
                 const power = cardPower(s, id), cost = power.cost - (s.settings.scenario === 'BLITZ' && power.speed === 'FAST' ? 1 : 0);
                 if (q.energy >= cost) add(`${power.title} · 에너지 ${cost}`, () => {

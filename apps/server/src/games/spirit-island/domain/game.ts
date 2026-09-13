@@ -1,16 +1,19 @@
+import { prepareLegacy, legacyActor, waveController } from './wave-scenario.js';
+import { flameRitual, scenarioAfterPower } from './flame-scenario.js';
+import { activateRelic, shiftSands, hasRelic, searchRelics } from './forgotten-scenario.js';
 import { validSacredPlan } from './branch-claw-sacred-events.js';
 import { madnessCost, validMadnessPlan } from './branch-claw-madness-events.js';
 import * as v from 'valibot';
 import { GameRevisionSchema, SPIRIT_EVENT_KEYS, SPIRIT_EVENTS, SPIRIT_POWERS, SPIRITS, SPIRIT_BOARDS, SPIRIT_BOARD_DATA, spiritBoardLinks, SpiritActionSchema, SPIRIT_DEFAULT_SETTINGS, spiritDefinition, type SpiritAction, type PlayerId, type SpiritPower, type SpiritInvaderCard, type SpiritTerrain } from '@hangul-rummikub/shared';
 import { SpiritStateSchema, type SpiritState } from './state.js';
 import { SPIRIT_FEAR_KEYS, settle, choiceOptions } from './resolver.js';
-import { powerSpeed, setPowerSpeed, SpiritRuleError, requireRule, player, presence, addPresence, makePiece, event, step, cardPower, playLimit, elements, innateLevel, targetAllowed, checkEnd, countPieces, land } from './primitives.js';
+import { powerSpeed, setPowerSpeed, SpiritRuleError, requireRule, player, presence, addPresence, makePiece, event, step, originalCardPower, cardPower, playLimit, elements, innateLevel, targetAllowed, checkEnd, countPieces, land } from './primitives.js';
 import { configureSpirit, startRitual } from './settings.js';
 import { powerSteps } from './powers.js';
 export type { SpiritState } from './state.js';
 export function parseSpiritState(value: unknown): SpiritState {
-    const s = v.parse(SpiritStateSchema, value), roster = new Set(s.players.map(p => p.playerId)), ids = new Set(s.cards.map(c => c.cardId));
-    requireRule(roster.size === s.players.length && ids.size === s.cards.length);
+    const s = v.parse(SpiritStateSchema, value), roster = new Set([...s.players,...s.legacyPlayers].map(p => p.playerId)), ids = new Set(s.cards.map(c => c.cardId));
+    requireRule(roster.size === s.players.length+s.legacyPlayers.length && ids.size === s.cards.length);
     requireRule((['ravage','build','explore','immigration'] as const).every(slot=>s[slot]!==null||s[`${slot}Extra`].length===0));
     requireRule(new Set(s.heldBuild).size===s.heldBuild.length&&s.heldBuild.every(i=>i<(s.build?1:0)+s.buildExtra.length));
     requireRule(s.cards.length === SPIRIT_POWERS.length && new Set(s.cards.map(c => c.key)).size === s.cards.length && s.cards.every(c => SPIRIT_POWERS.some(p => p.key === c.key)));
@@ -22,8 +25,8 @@ export function parseSpiritState(value: unknown): SpiritState {
     requireRule(france&&s.settings.level>=5?s.franceBlight<3*s.players.length:s.franceBlight===0);
     requireRule(france||!s.franceFailedTown);
     requireRule(!france||s.lands.reduce((n,l)=>n+countPieces(l,['TOWN']),0)<=7*s.players.length);
-    if(s.eventPayment){const payment=s.eventPayment;requireRule(s.currentEvent!==null);const definition=SPIRIT_EVENTS[s.currentEvent];requireRule(definition.type==='CHOICE');const head=s.queue[0];requireRule(head?.key==='BCE_PAY');if(s.currentEvent==='SACRED_SITES')requireRule(validSacredPlan(s,head.used));if(s.currentEvent==='MADNESS')requireRule(validMadnessPlan(s,head.used));requireRule(payment.cost===(s.currentEvent==='WAR'?s.players.length:s.currentEvent==='SACRED_SITES'?3*head.used.length:s.currentEvent==='MADNESS'?madnessCost(s,head.used):4*s.players.length)&&payment.element===definition.element&&payment.pledges.length===roster.size&&new Set(payment.pledges.map(p=>p.playerId)).size===roster.size);for(const pledge of payment.pledges){const owner=player(s,pledge.playerId);requireRule(pledge.energy<=owner.energy&&new Set(pledge.cards.map(c=>c.cardId)).size===pledge.cards.length&&pledge.cards.every(c=>(c.mode==='DISCARD'?owner.hand:[...owner.hand,...owner.played,...owner.discard]).includes(c.cardId)&&payment.element!==null&&cardPower(s,c.cardId).elements.includes(payment.element)));}}
-    const zones = [...s.minor, ...s.major, ...s.minorDiscard, ...s.majorDiscard, ...s.forgotten, ...s.offered, ...s.lesserOffer, ...s.progressions.flatMap(p => p.cards), ...s.players.flatMap(p => [...p.hand, ...p.played, ...p.discard, ...(p.lesserPower?[p.lesserPower]:[])])];
+    if(s.eventPayment){const payment=s.eventPayment;requireRule(s.currentEvent!==null);const definition=SPIRIT_EVENTS[s.currentEvent];requireRule(definition.type==='CHOICE');const head=s.queue[0];requireRule(head?.key==='BCE_PAY');if(s.currentEvent==='SACRED_SITES')requireRule(validSacredPlan(s,head.used));if(s.currentEvent==='MADNESS')requireRule(validMadnessPlan(s,head.used));requireRule(payment.cost===(s.currentEvent==='WAR'?s.players.length:s.currentEvent==='SACRED_SITES'?3*head.used.length:s.currentEvent==='MADNESS'?madnessCost(s,head.used):4*s.players.length)&&payment.element===definition.element&&payment.pledges.length===s.players.length&&new Set(payment.pledges.map(p=>p.playerId)).size===s.players.length);for(const pledge of payment.pledges){const owner=player(s,pledge.playerId);requireRule(pledge.energy<=owner.energy&&new Set(pledge.cards.map(c=>c.cardId)).size===pledge.cards.length&&pledge.cards.every(c=>(c.mode==='DISCARD'?owner.hand:[...owner.hand,...owner.played,...owner.discard]).includes(c.cardId)&&payment.element!==null&&(c.mode==='FORGET'?originalCardPower(s,c.cardId):cardPower(s,c.cardId)).elements.includes(payment.element)));}}
+    const zones = [...s.minor, ...s.major, ...s.minorDiscard, ...s.majorDiscard, ...s.forgotten, ...s.offered, ...s.lesserOffer, ...s.progressions.flatMap(p => p.cards), ...[...s.players,...s.legacyPlayers].flatMap(p => [...p.hand, ...p.played, ...p.discard, ...(p.lesserPower?[p.lesserPower]:[])])];
     requireRule(zones.length === ids.size && new Set(zones).size === ids.size && zones.every(id => ids.has(id)));
     requireRule(new Set(s.destroyedBoards).size===s.destroyedBoards.length&&s.destroyedBoards.every(b=>SPIRIT_BOARDS.slice(0,s.players.length).includes(b)));
     const links = spiritBoardLinks(s.players.length), landIds = new Set(s.lands.map(l => l.id));
@@ -38,10 +41,14 @@ export function parseSpiritState(value: unknown): SpiritState {
         requireRule(l.presence.every(p => roster.has(p.playerId) && p.count > 0) && new Set(l.presence.map(p => p.playerId)).size === l.presence.length);
     }
     requireRule(new Set(s.lands.flatMap(l => l.pieces.map(p => p.id))).size === s.lands.reduce((n, l) => n + l.pieces.length, 0));
-    requireRule(s.blightPool + s.franceBlight + s.reservedBlight + s.lands.reduce((n, l) => n + l.blight, 0) === s.blightTotal);
+    requireRule(s.blightPool + (s.waveReserve??0) + s.franceBlight + s.reservedBlight + s.lands.reduce((n, l) => n + l.blight, 0) === s.blightTotal);
     requireRule(s.reservedBlight===s.queue.filter(e=>e.kind==='BLIGHT'&&e.tags.includes('RESERVED_BLIGHT')).length || s.phase==='FINISHED');
     requireRule(new Set(s.blightDeck).size===s.blightDeck.length);
     requireRule([...s.lesserOffer,...s.players.flatMap(p=>p.lesserPower?[p.lesserPower]:[])].every(id=>cardPower(s,id).deck==='MINOR'));
+    requireRule(s.wards.every(id=>landIds.has(id))&&s.wards.length<=4*s.players.length&&s.flames.every(id=>landIds.has(id)));
+    requireRule(s.players.every(p=>!legacyActor(p.playerId))&&s.legacyPlayers.every(p=>legacyActor(p.playerId)&&s.wavePowers.some(w=>w.actor===p.playerId)));
+    requireRule(s.waveNumber>=1&&s.waveNumber<=7&&s.wavePowers.every(w=>ids.has(w.cardId)&&s.players.some(p=>p.playerId===w.controller)));
+    requireRule(s.wardCards.every(id=>ids.has(id))&&new Set(s.wardCards).size===s.wardCards.length);
     const selected = s.players.flatMap(p => p.spirit ? [p.spirit] : []);
     requireRule(new Set(selected).size === selected.length);
     for (const p of s.players)
@@ -72,7 +79,7 @@ export function createSpiritGame(input: {
     const second: SpiritInvaderCard[] = [...terrains.map(t => ({ stage: 2 as const, terrains: [t], coastal: false })), { stage: 2, terrains: [], coastal: true }];
     const third: SpiritInvaderCard[] = terrains.flatMap((t, i) => terrains.slice(i + 1).map(u => ({ stage: 3 as const, terrains: [t, u], coastal: false })));
     const links = spiritBoardLinks(input.playerIds.length);
-    const s: SpiritState = {franceBlight:0,franceFailedTown:false,blightDeck:[],reservedBlight:0,lesserOffer:[],ravageExtra:[],buildExtra:[],exploreExtra:[],immigrationExtra:[],heldBuild:[],protectedInvader:null,eventTerrorLevel:null,eventIslandState:null,eventInvaderStage:null,eventDeck:[],eventDiscard:[],currentEvent:null,eventPayment:null,settings: {...SPIRIT_DEFAULT_SETTINGS}, configured:false,blighted:false,blightCard:null,fearTiers:[3,3,3],immigration:null,hearts:[], destroyedBoards: [], rulesVersion: 'spirit-island-core-v2', gameId: input.gameId, revision: v.parse(GameRevisionSchema, 0), startedAt: input.now, finishedAt: null, phase: 'PLAYING', transitionId: input.transitionId, round: 1, stage: 'SELECT',
+    const s: SpiritState = {waveNumber:1,waveWon:false,waveStageThree:false,waveReserve:null,wavePriorSpirits:[],wavePowers:[],legacyPlayers:[],flames:[],relics:[],relicIceRound:0,relicRavage:false,wardUsedBy:[],wards:[],wardCards:[],franceBlight:0,franceFailedTown:false,blightDeck:[],reservedBlight:0,lesserOffer:[],ravageExtra:[],buildExtra:[],exploreExtra:[],immigrationExtra:[],heldBuild:[],protectedInvader:null,eventTerrorLevel:null,eventIslandState:null,eventInvaderStage:null,eventDeck:[],eventDiscard:[],currentEvent:null,eventPayment:null,settings: {...SPIRIT_DEFAULT_SETTINGS}, configured:false,blighted:false,blightCard:null,fearTiers:[3,3,3],immigration:null,hearts:[], destroyedBoards: [], rulesVersion: 'spirit-island-core-v2', gameId: input.gameId, revision: v.parse(GameRevisionSchema, 0), startedAt: input.now, finishedAt: null, phase: 'PLAYING', transitionId: input.transitionId, round: 1, stage: 'SELECT',
         players: input.playerIds.map((playerId, i) => ({ playerId, spirit: null, removedPresence:0, growthSelections:[],reclaimedCards:[],bonusPlays: 0, drowned: 0, greenRepeats: 0, trackChoices: [], board: SPIRIT_BOARDS[i]!, energy: 0, energyTrack: 0, cardTrack: 0, destroyedPresence: 0, grown: false, ready: false, paid: false, reclaimedOne: false, hand: [], lesserPower:null, played: [], discard: [], resolved: [], elements: [], fastUsed: 0, fastGift: 0, repeatGrants: [], rangeBonus: 0, sharedWith: [], reclaimAtEnd: 0, progression: 0 })),
         lands: SPIRIT_BOARDS.slice(0, input.playerIds.length).flatMap(board => SPIRIT_BOARD_DATA[board].terrains.map((terrain, i) => { const id = `${board}${i + 1}`; return { id, board, number: i + 1, terrain, coastal: i < 3, adjacent: links.flatMap(([a, b]) => a === id ? [b] : b === id ? [a] : []), pieces: [], presence: [], tokens:{beasts:0,wilds:0,disease:0}, strifeHealthLoss:0,eventBuildingHealthLoss:false,eventHealthBonus:null,eventHealthLoss:false, invaderHealth:0, blight: i + 1 === SPIRIT_BOARD_DATA[board].blight ? 1 : 0, defend: 0, skip: false, ravageSkip:false, protectDahan: false, vitality: false, dahanHealth: 0 }; })), cards, minor: deck('MINOR'), major: deck('MAJOR'), minorDiscard: [], majorDiscard: [], forgotten: cards.filter(c => (!['MINOR', 'MAJOR'].includes(SPIRIT_POWERS.find(p => p.key === c.key)!.deck)||SPIRIT_POWERS.find(p=>p.key===c.key)!.expansion)).map(c => c.cardId), progressions,
         revealedFear: [], fear: 0, fearDeck: input.shuffle([...SPIRIT_FEAR_KEYS]).slice(0, 9), fearEarned: [], fearDiscard: [], terror: 1, blightPool: 5 * input.playerIds.length + 1, blightTotal: 6 * input.playerIds.length + 1, invaderDeck: [...input.shuffle(first).slice(0, 3), ...input.shuffle(second).slice(0, 4), ...input.shuffle(third).slice(0, 5)], invaderDiscard: [], ravage: null, build: null, explore: null, queue: [], offered: [], offerRecipient: null, offerOther: null, offerDeck: 'MINOR', effectCounter: 0, pieceCounter: 0, log: [], plans: [], flags: [], vengeance: [], result: null };
@@ -96,8 +103,9 @@ export function powerOptions(s: SpiritState, id: PlayerId, eventSlow = false) {
     if ((!eventSlow&&(!['FAST', 'SLOW'].includes(s.stage) || s.queue.length || p.ready)) || !p.spirit || s.phase !== 'PLAYING')
         return [];
     const fastRemaining = Math.max(0, p.fastGift + (p.spirit === 'LIGHTNING' ? elements(s, id).AIR : 0) - p.fastUsed);
-    return [...p.played, ...(p.lesserPower?[p.lesserPower]:[]), ...(innateLevel(s, id) ? ['innate'] : []), ...(['GREEN','THUNDER','OCEAN','BRINGER','FANGS','KEEPER'].includes(p.spirit) && innateLevel(s,id,true) ? ['innate2'] : [])].flatMap(cardId => {
+    return [...p.played, ...(p.lesserPower?[p.lesserPower]:[]), ...(!legacyActor(id)&&innateLevel(s, id) ? ['innate'] : []), ...(!legacyActor(id)&&['GREEN','THUNDER','OCEAN','BRINGER','FANGS','KEEPER'].includes(p.spirit) && innateLevel(s,id,true) ? ['innate2'] : [])].flatMap(cardId => {
         const c = cardId.startsWith('innate') ? innate(s, id, cardId === 'innate2') : cardPower(s, cardId), resolved = p.resolved.includes(cardId), grant = p.repeatGrants.find(r => r.remaining > 0 && !r.used.includes(cardId) && repeatCost(s,c,cardId) <= r.maxCost && (!r.paid || p.energy >= repeatCost(s,c,cardId)));
+        if(resolved&&legacyActor(id))return [];
         if (resolved && !(p.spirit==='GREEN' && cardId==='innate' && p.greenRepeats>0) && (!grant || cardId.startsWith('innate')))
             return [];
         const speed=powerSpeed(s,id,cardId,c);
@@ -122,7 +130,9 @@ export function applySpiritAction(current: SpiritState, actor: PlayerId, input: 
     if (!parsed.success)
         return { ok: false, reason: 'INVALID_ACTION' };
     try {
+        requireRule(!legacyActor(actor));
         const s = structuredClone(current), p = player(s, actor), a = parsed.output;
+        if(s.settings.scenario==='WARD'&&s.fearDiscard.length)s.fearDiscard=shuffle(s.fearDiscard);
         if (s.minor.length < (s.blightCard==='LESSER'?Math.max(4,s.players.length+1):4) && s.minorDiscard.length) {
             s.minor.push(...shuffle(s.minorDiscard));
             s.minorDiscard = [];
@@ -132,7 +142,9 @@ export function applySpiritAction(current: SpiritState, actor: PlayerId, input: 
             s.majorDiscard = [];
         }
         if(s.settings.expansion==='BRANCH_CLAW'&&(!s.currentEvent||s.currentEvent==='REBELLION')&&!s.eventDeck.length&&s.eventDiscard.some(k=>k!==s.currentEvent)){const available=s.eventDiscard.filter(k=>k!==s.currentEvent);s.eventDiscard=s.eventDiscard.filter(k=>k===s.currentEvent);s.eventDeck=shuffle(available);}
-        if (a.kind === 'PLAN') {
+        if(a.kind==='USE_RELIC'){activateRelic(s,actor,a.number);settle(s);}
+        else if(a.kind==='SHIFT_SANDS'){shiftSands(s,actor,a.from,a.to);settle(s);}
+        else if (a.kind === 'PLAN') {
             requireRule(!a.landId || s.lands.some(l => l.id === a.landId));
             s.plans = s.plans.filter(p => p.playerId !== actor);
             if (a.landId)
@@ -140,21 +152,24 @@ export function applySpiritAction(current: SpiritState, actor: PlayerId, input: 
             event(s, 'PLAN', '협동 계획 표시', actor, a.landId);
         }
         else if (a.kind === 'CHOOSE') {
-            requireRule(a.choiceId === `${s.transitionId}:${s.revision}` && s.queue.length && (s.queue[0]!.target ?? s.queue[0]!.actor) === actor);
+            requireRule(a.choiceId === `${s.transitionId}:${s.revision}` && s.queue.length && waveController(s,s.queue[0]!.target ?? s.queue[0]!.actor) === actor);
             const option = choiceOptions(s,shuffle).find(o => o.id === a.optionId);
             requireRule(option);
             s.queue.shift();
-            option.apply();
+            option.apply();searchRelics(s);
             settle(s);
         }
         else {
             requireRule(s.queue.length === 0);
             switch (a.kind) {
                 case 'CONFIGURE': requireRule(s.stage==='SELECT'&&!s.configured&&s.players[0]?.playerId===actor&&s.players.every(p=>!p.spirit)); configureSpirit(s,a.settings,shuffle); break;
+                case 'PLAY_LEGACY': prepareLegacy(s,actor,a.cardId);break;
+                case 'FLAME_RITUAL': flameRitual(s,actor,a.landId,a.cardId);settle(s);break;
                 case 'RITUAL': startRitual(s,actor,a.landId); settle(s); break;
                 case 'TRACK_ELEMENT': { requireRule(s.stage==='PREPARE' && !p.ready && p.spirit && spiritDefinition(p.spirit).trackElements?.some(t=>t.track===a.slot && t.element==='ANY' && p[t.track]>=t.at)); p.trackChoices=p.trackChoices.filter(t=>t.slot!==a.slot); p.trackChoices.push({slot:a.slot,element:a.element}); break; }
                 case 'SELECT_SPIRIT': {
                     requireRule(!['FANGS','KEEPER'].includes(a.spirit)||s.settings.expansion==='BRANCH_CLAW');
+                    requireRule(!s.wavePriorSpirits.includes(a.spirit));
                     requireRule(s.stage === 'SELECT' && !p.spirit && !s.players.some(q => q.spirit === a.spirit));
                     p.spirit = a.spirit;
                     const home = s.lands.filter(l => l.board === p.board), last = (terrain: SpiritTerrain) => home.filter(l => l.terrain === terrain).at(-1)!;
@@ -208,10 +223,13 @@ export function applySpiritAction(current: SpiritState, actor: PlayerId, input: 
                     addPresence(at,actor,-1);p.removedPresence++;at.tokens.beasts++;s.flags.push(`predators:${actor}`);event(s,'POWER',`${at.id} 현신이 야수로 변했습니다.`,actor,at.id);break;
                 }
                 case 'PLAY_CARDS': {
-                    requireRule(s.stage === 'PREPARE' && p.grown && !p.ready && new Set(a.cardIds).size === a.cardIds.length && a.cardIds.length <= playLimit(p));
+                    requireRule(s.stage === 'PREPARE' && p.grown && !p.ready && new Set(a.cardIds).size === a.cardIds.length && a.cardIds.length <= (s.relicIceRound===s.round?1:playLimit(p)));
                     const pool = [...p.hand, ...p.played];
                     requireRule(a.cardIds.every(id => pool.includes(id)));
-                    const old = p.played.reduce((n, id) => n + preparedCost(s, id), 0), cost = a.cardIds.reduce((n, id) => n + preparedCost(s,id), 0);
+                    const old = p.played.reduce((n, id) => n + preparedCost(s, id), 0);
+                    requireRule(!a.wardCardId||s.settings.scenario==='WARD'&&a.cardIds.includes(a.wardCardId));
+                    s.wardUsedBy=s.wardUsedBy.filter(id=>id!==actor);s.wardCards=s.wardCards.filter(id=>!pool.includes(id));if(a.wardCardId){s.wardCards.push(a.wardCardId);s.wardUsedBy.push(actor);}
+                    const cost = a.cardIds.reduce((n,id)=>n+(id===a.wardCardId?0:preparedCost(s,id)),0);
                     requireRule(p.energy + old >= cost);
                     p.energy += old - cost;
                     p.hand = pool.filter(id => !a.cardIds.includes(id));
@@ -224,12 +242,13 @@ export function applySpiritAction(current: SpiritState, actor: PlayerId, input: 
                     requireRule(s.stage === 'PREPARE' && (spiritDefinition(p.spirit!).reclaimSlots ? p.reclaimedCards.length < spiritDefinition(p.spirit!).reclaimSlots!.filter(i=>p.cardTrack>=i).length : (p.spirit === 'RIVER' || p.spirit==='THUNDER') && p.cardTrack >= 4 && !p.reclaimedOne) && !p.ready && p.discard.includes(a.cardId));
                     p.discard = p.discard.filter(id => id !== a.cardId);
                     p.hand.push(a.cardId);
-                    p.reclaimedOne = true;p.reclaimedCards.push(a.cardId);
+                    s.flags.push(`relic-reclaimed:${actor}`);p.reclaimedOne = true;p.reclaimedCards.push(a.cardId);
                     break;
                 case 'READY':
                     requireRule(['PREPARE', 'FAST', 'SLOW'].includes(s.stage) && (s.stage !== 'PREPARE' || p.grown));
                     p.ready = a.ready;
                     if (s.players.every(q => q.ready)) {
+                        if(s.stage==='PREPARE'&&hasRelic(s,'SPIRIT',3))for(const q of s.players)if(!s.flags.includes(`relic-reclaimed:${q.playerId}`))q.energy+=2;
                         s.stage = s.stage === 'PREPARE' ? 'FAST' : s.stage === 'FAST' ? 'FEAR' : 'TIME';
                         if(s.stage==='FEAR'){s.queue.push(step('SPECIAL',actor,null,0,'INVADER_START'));settle(s);}
                         for (const q of s.players)
@@ -293,6 +312,7 @@ function repeatCost(s:SpiritState,c:SpiritPower,id:string) {return Math.max(0,c.
 
 /** Applies a validated power through the same path during its phase or an event opportunity. */
 export function resolveSpiritPower(s:SpiritState,actor:PlayerId,a:Extract<SpiritAction,{kind:'USE_POWER'}>,eventSlow=false){
+ const legacy=s.wavePowers.find(w=>w.cardId===a.cardId&&w.controller===actor);if(legacy){resolveSpiritPower(s,legacy.actor,a,eventSlow);return;}
  const p=player(s,actor);
                     const opt = powerOptions(s, actor, eventSlow).find(o => o.cardId === a.cardId && o.repeat === a.repeat);
                     requireRule(opt && (a.fast ? opt.fast : opt.slow) && a.threshold <= opt.thresholdMax && (!a.cardId.startsWith('innate') || a.threshold >= 1));
@@ -335,7 +355,8 @@ export function resolveSpiritPower(s:SpiritState,actor:PlayerId,a:Extract<Spirit
                             if(thunder||scour||conversions>0||sky>=0){p.energy++;if(!thunder&&!scour){if(conversions>0)p.fastUsed++;else s.flags.splice(sky,1);}s.flags.push(`blitz-fast:${a.cardId}`);}
                         }
                     }
-                    const effects = powerSteps(s, actor, c.key, at, target, a.threshold).filter(e => !a.repeat || !['PAID_REPEAT', 'FREE_REPEAT', 'REPEAT_WINDS', 'REPEAT_LAND_PAIN', 'BCM_REPEAT'].includes(e.key));
+                    const effects = (c.key==='ward-the-shores'?[step('SPECIAL',actor,at,0,'WARD_PLACE',actor)]:powerSteps(s, actor, c.key, at, target, a.threshold)).filter(e => !a.repeat || !['PAID_REPEAT', 'FREE_REPEAT', 'REPEAT_WINDS', 'REPEAT_LAND_PAIN', 'BCM_REPEAT'].includes(e.key));
+                    scenarioAfterPower(s,actor,c,at);
                     s.queue.unshift(...effects, step('CHECK', actor));
 
 }

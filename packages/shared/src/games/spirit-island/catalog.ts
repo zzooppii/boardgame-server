@@ -13,7 +13,7 @@ export type SpiritPower = Readonly<{
     target: 'ANY' | 'SPIRIT' | 'OTHER_SPIRIT' | 'DAHAN' | 'INVADERS' | 'NO_BLIGHT' | 'BLIGHT' | 'NO_INVADERS' | 'COASTAL' | 'BEASTS' | 'CITY' | 'INLAND' | 'COAST_OR_WETLAND';
     terrains: readonly SpiritTerrain[];
     elements: readonly SpiritElement[];
-    deck: SpiritId | 'MINOR' | 'MAJOR';
+    deck: SpiritId | 'MINOR' | 'MAJOR' | 'SCENARIO';
 }>;
 export type SpiritDefinition = Readonly<{
     id: SpiritId;
@@ -57,3 +57,6 @@ export const SPIRITS: readonly SpiritDefinition[] = [
 ];
 export const spiritDefinition = (id: SpiritId): SpiritDefinition => { const value = SPIRITS.find(s => s.id === id); if (!value)
     throw new Error('Unknown spirit'); return value; };
+
+/** Face-down cards have no original deck, elements or text while being used as wards. */
+export function spiritWardPower(original:SpiritPower):SpiritPower {return {...original,key:'ward-the-shores',name:'Ward the Shores',title:'해안 수호 · 뒤집은 카드',description:'오염·마을·도시 하나당 에너지 2를 지불하고 수호 표식을 놓습니다. 표식마다 방어 3. 오염 추가 시 표식 파괴.',deck:'SCENARIO',cost:0,speed:'SLOW',range:0,sacred:false,sourceTerrain:null,target:'ANY',terrains:[],elements:[]};}

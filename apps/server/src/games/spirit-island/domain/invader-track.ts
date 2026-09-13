@@ -22,7 +22,7 @@ export function invaderTrackAutomatic(s:SpiritState,e:SpiritStep):boolean {
  if(e.kind!=='SPECIAL')return false;
  if(e.key==='NORMAL_END'){s.flags=s.flags.filter(f=>f!==`normal-${e.tags[0]}`);return true;}
  if(e.key==='RAVAGE_CARDS'){
-  const card=trackCards(s,'ravage')[e.n];if(!card){prepend(s,step('SPECIAL',e.actor,null,0,'STAGE_BUILD'));return true;}
+  const card=trackCards(s,'ravage')[e.n];if(!card){s.relicRavage=false;prepend(s,step('SPECIAL',e.actor,null,0,'STAGE_BUILD'));return true;}
   const areas=s.lands.filter(l=>l.number>0&&matches(l,card)),next={...e,n:e.n+1};
   event(s,'PHASE',`파괴 카드 ${e.n+1}/${trackCards(s,'ravage').length} 해결`,e.actor);
   if(s.flags.includes('event-next-build')){

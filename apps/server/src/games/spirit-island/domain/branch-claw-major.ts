@@ -80,6 +80,7 @@ export function branchMajorOptions(s:SpiritState,e:SpiritStep,add:Add):boolean {
    for(const area of s.lands.filter(a=>oceanActive(s,a)&&inRange(s,owner,a,1)))add(`${area.id} 현신 2개 · 야생`,()=>queue(step('PRESENCE',e.actor,area.id,0,'POWER',owner),step('PRESENCE',e.actor,area.id,0,'POWER',owner),token(e,'wilds',e.n?2:1,area.id),...(e.n?[step('REMOVE_BLIGHT',e.actor,area.id,1),step('GAIN',e.actor,null,1,'',owner)]:[])),area.id);return true;
   case 'BCM_REPEAT':
    if(l)for(const area of e.tags.includes('ADJACENT')?adj(s,l):s.lands.filter(a=>oceanActive(s,a))) {
+    if(s.relics.some(r=>r.number===8&&r.side==='INVADER'&&r.active&&r.land===area.id))continue;
     const c=s.cards.find(c=>c.key===e.tags[0]);if(!c)continue;
     // Only a repeat with an explicit destination overrides normal targeting.
     const meta=cardPower(s,c.cardId);if(!e.tags.includes('ADJACENT')&&!targetAllowed(s,e.actor,meta,area))continue;
@@ -132,7 +133,7 @@ export function branchMajorAutomatic(s:SpiritState,e:SpiritStep):boolean {
   case 'BCM_SINK_FINISH':{
    const board=e.tags[0]!,ids=s.lands.filter(l=>l.board===board).map(l=>l.id);const boardId=SPIRIT_BOARDS.find(b=>b===board);if(!boardId)throw new Error('Unknown destroyed board');s.destroyedBoards.push(boardId);s.lands=s.lands.filter(l=>l.board!==board);
    for(const area of s.lands)area.adjacent=area.adjacent.filter(id=>!ids.includes(id));
-   s.queue=s.queue.filter(e=>!e.land||!ids.includes(e.land));s.vengeance=s.vengeance.filter(v=>!ids.includes(v.land));s.plans=s.plans.filter(p=>!ids.includes(p.landId));s.hearts=s.hearts.filter(id=>!ids.includes(id));event(s,'POWER',`${board} 보드가 바다 아래로 가라앉았습니다.`,e.actor);return true;
+   s.queue=s.queue.filter(e=>!e.land||!ids.includes(e.land));s.vengeance=s.vengeance.filter(v=>!ids.includes(v.land));s.plans=s.plans.filter(p=>!ids.includes(p.landId));s.hearts=s.hearts.filter(id=>!ids.includes(id));s.wards=s.wards.filter(id=>!ids.includes(id));s.flames=s.flames.filter(id=>!ids.includes(id));s.relics=s.relics.filter(r=>!ids.includes(r.land));event(s,'POWER',`${board} 보드가 바다 아래로 가라앉았습니다.`,e.actor);return true;
   }
   case 'BCM_FIREVINE_DAMAGE':if(l)prepend(s,damage(e,[l,...adj(s,l)].reduce((n,l)=>n+l.tokens.wilds,0)*e.n));return true;
   case 'BCM_PLAGUE':if(l){const n=l.tokens.disease;for(const area of [l,...adj(s,l)])area.defend+=n;if(e.n)prepend(s,step('FEAR',e.actor,l.id,2),damage(e,n,l.id,['ADJACENT']));}return true;

@@ -1,3 +1,4 @@
+import { originalCardPower } from './primitives.js';
 import { warMain } from './branch-claw-war-events.js';
 import { sacredMain, sacredPaymentOptions, threatenedSites } from './branch-claw-sacred-events.js';
 import { madnessCost, madnessMain, madnessPaymentOptions } from './branch-claw-madness-events.js';
@@ -59,7 +60,7 @@ export function branchEventOptions(s:SpiritState,e:SpiritStep,add:Add,shuffle:<T
   });
   if(pledge.energy<p.energy&&view.remaining>0)add('에너지 1 지원 추가',()=>{pledge.energy++;again();});
   if(pledge.energy>0)add('에너지 1 지원 취소',()=>{pledge.energy--;again();});
-  for(const id of [...p.hand,...p.played,...p.discard].filter(id=>payment.element!==null&&cardPower(s,id).elements.includes(payment.element))){const selected=pledge.cards.find(c=>c.cardId===id),title=cardPower(s,id).title;
+  for(const id of [...p.hand,...p.played,...p.discard].filter(id=>payment.element!==null&&originalCardPower(s,id).elements.includes(payment.element))){const selected=pledge.cards.find(c=>c.cardId===id),title=cardPower(s,id).title;
    if(selected)add(`${title} · 지원 선택 취소`,()=>{pledge.cards=pledge.cards.filter(c=>c.cardId!==id);again();});
    else {if(p.hand.includes(id))add(`${title} · 손패 버림으로 지원 2`,()=>{pledge.cards.push({cardId:id,mode:'DISCARD'});again();});add(`${title} · 망각으로 지원 4${p.played.includes(id)?' (사용 원소 제외)':''}`,()=>{pledge.cards.push({cardId:id,mode:'FORGET'});again();});}
   }

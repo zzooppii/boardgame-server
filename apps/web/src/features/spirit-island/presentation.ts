@@ -20,7 +20,7 @@ export function ravagePreview(g: SpiritProjection,l: SpiritLand) {
  const converts=g.eventRavageToBuild&&g.ravage!==null&&(g.ravage.coastal?l.coastal:g.ravage.terrains.includes(l.terrain));
  const earth=g.playerStates.some(p=>p.spirit==='EARTH'&&(l.presence.find(x=>x.playerId===p.playerId)?.count??0)>=2);
  const high=g.settings.adversary==='SWEDEN'&&g.settings.level>=3;
- const attack=l.pieces.reduce((n,p)=>n+(p.strife>0?0:p.kind==='EXPLORER'?1:p.kind==='TOWN'?(high?3:2)+g.eventTownDamage:p.kind==='CITY'?(high?5:3)+g.eventCityDamage:0),0)+(l.pieces.some(p=>p.kind!=='DAHAN')?g.eventRavageBonus:0)+(g.eventFearfulMobs&&l.pieces.filter(p=>p.kind!=='DAHAN').length>=3?3:0)+(g.eventUnnatural&&l.pieces.some(p=>p.kind!=='DAHAN')&&l.presence.some(p=>p.count>0)?3:0),defend=l.defend+(earth?3:0)+(g.cannyDefense?l.pieces.filter(p=>p.kind==='DAHAN').length:0),damage=converts||g.ravageRedirects.includes(l.id)?0:Math.max(0,attack-defend);
+ const attack=l.pieces.reduce((n,p)=>n+(p.strife>0?0:p.kind==='EXPLORER'?1:p.kind==='TOWN'?(high?3:2)+g.eventTownDamage:p.kind==='CITY'?(high?5:3)+g.eventCityDamage:0),0)+(l.pieces.some(p=>p.kind!=='DAHAN')?g.eventRavageBonus:0)+(g.eventFearfulMobs&&l.pieces.filter(p=>p.kind!=='DAHAN').length>=3?3:0)+(g.eventUnnatural&&l.pieces.some(p=>p.kind!=='DAHAN')&&l.presence.some(p=>p.count>0)?3:0),defend=l.defend+3*g.wards.filter(id=>id===l.id).length+(earth?3:0)+(g.cannyDefense?l.pieces.filter(p=>p.kind==='DAHAN').length:0),damage=converts||g.ravageRedirects.includes(l.id)?0:Math.max(0,attack-defend-(g.relicRavage?3:0));
  const blocked=l.skip||g.fearBeasts===3&&l.tokens.beasts>0&&!converts||g.quarantineDisease&&l.tokens.disease>0||l.ravageSkip&&!converts||g.eventStricken&&(l.tokens.disease>0||l.pieces.some(p=>p.kind!=='DAHAN'&&p.strife>0));
  return {active,cardCount:matching.length,attack,defend,damage,convertsToBuild:active&&converts&&!(g.quarantineDisease&&l.tokens.disease>0),blight:active&&!blocked&&!l.vitality&&damage>=2,blocked};
 }
@@ -41,6 +41,7 @@ export const stageGuidance: Record<SpiritProjection['stage'],readonly [string,st
 };
 
 export function victoryGoal(g:SpiritProjection): readonly [string,string] {
+ if(g.settings.scenario==='WARD')return ['모든 해안 수호',`공포 II 이상 · 수호 ${g.lands.filter(l=>l.number>0&&l.coastal&&g.wards.includes(l.id)).length}/${g.lands.filter(l=>l.number>0&&l.coastal).length}곳`];
  if(g.settings.scenario==='INSURRECTION')return g.terror===1?['공포 수준 II 달성','다한이 인원당 2개 미만이면 패배']:g.terror===2?['건물 수 ≤ 다한 수','모든 지역에서 충족하면 승리']:['건물 우세 지역 줄이기',`건물 수가 다한보다 많은 지역을 ${g.playerStates.length}곳 미만으로`];
  return [g.terror===1?'모든 침략자':g.terror===2?'마을과 도시':g.terror===3?'모든 도시':'섬을 해방!',g.terror<4?'없애면 승리':'승리 조건 달성'];
 }

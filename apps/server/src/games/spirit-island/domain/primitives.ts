@@ -1,32 +1,38 @@
+import { legacyActor, waveVictory } from './wave-scenario.js';
+import { scenarioDamageAllowed } from './flame-scenario.js';
+import { hasRelic, searchRelics } from './forgotten-scenario.js';
 import { franceLevel, franceFearRemoval } from './france.js';
-import { SPIRIT_ELEMENTS, spiritDefinition, spiritPower, type PlayerId, type SpiritElement, type SpiritLand, type SpiritPiece, type SpiritPower, type SpiritInvaderCard } from '@hangul-rummikub/shared';
+import { SPIRIT_ELEMENTS, spiritWardPower, spiritDefinition, spiritPower, type PlayerId, type SpiritElement, type SpiritLand, type SpiritPiece, type SpiritPower, type SpiritInvaderCard } from '@hangul-rummikub/shared';
 import type { SpiritState, SpiritPlayer, SpiritStep } from './state.js';
 export class SpiritRuleError extends Error {
 }
 export function requireRule(value: unknown, message = '현재 선택을 다시 확인하세요.'): asserts value { if (!value)
     throw new SpiritRuleError(message); }
-export function player(s: SpiritState, id: PlayerId): SpiritPlayer { const p = s.players.find(p => p.playerId === id); requireRule(p); return p; }
+export function player(s: SpiritState, id: PlayerId): SpiritPlayer { const p = [...s.players,...s.legacyPlayers].find(p => p.playerId === id); requireRule(p); return p; }
 export function land(s: SpiritState, id: string | null): SpiritLand { const l = s.lands.find(l => l.id === id); requireRule(l); return l; }
 export const countPieces = (l: SpiritLand, kinds: readonly SpiritPiece['kind'][]): number => l.pieces.filter(p => kinds.includes(p.kind)).length;
 export const invaders = (l: SpiritLand) => l.pieces.filter(p => p.kind !== 'DAHAN');
-export const presence = (l: SpiritLand, id: PlayerId) => l.presence.find(p => p.playerId === id)?.count ?? 0;
+export const presence = (l: SpiritLand, id: PlayerId) => legacyActor(id)?2:l.presence.find(p => p.playerId === id)?.count ?? 0;
 export function sacred(s: SpiritState, l: SpiritLand, id: PlayerId): boolean { return presence(l, id) >= 2 || (presence(l, id) >= 1 && player(s, id).spirit === 'RIVER' && l.terrain === 'WETLAND'); }
-export function addPresence(l: SpiritLand, id: PlayerId, n: number) { const p = l.presence.find(p => p.playerId === id); if (p)
+export function addPresence(l: SpiritLand, id: PlayerId, n: number) { if(legacyActor(id))return; const p = l.presence.find(p => p.playerId === id); if (p)
     p.count += n;
 else
     l.presence.push({ playerId: id, count: n }); l.presence = l.presence.filter(p => p.count > 0); }
 export function makePiece(s: SpiritState, l: SpiritLand, kind: SpiritPiece['kind'], arrival = true) { const p = { id: `${s.gameId}:p${++s.pieceCounter}`, kind, damage: 0, strife: 0 };
     // A failed placement still returns an inert handle so the action can finish and check sacrifice victory.
     if(kind==='TOWN'&&franceLevel(s)&&s.lands.reduce((n,l)=>n+countPieces(l,['TOWN']),0)>=7*s.players.length){s.franceFailedTown=true;event(s,'BUILD','프랑스 · 마을 공급 부족');return p;}
+    const ember=arrival&&hasRelic(s,'INVADER',5)&&['TOWN','CITY'].includes(kind)&&['JUNGLE','WETLAND'].includes(l.terrain)&&!countPieces(l,['TOWN','CITY']);
     l.pieces.push(p);
+    if(ember)prepend(s,step('BLIGHT',s.players[0]!.playerId,l.id,1));
+    searchRelics(s);
     if(arrival&&kind!=='DAHAN')for(const owner of s.players.filter(q=>s.flags.includes(`bc-mists:${l.id}:${q.playerId}`)))prepend(s,step('MOVE',owner.playerId,l.id,1,'PUSH',owner.playerId,[kind,`ONLY:${p.id}`]));
     return p; }
 export function event(s: SpiritState, kind: SpiritState['log'][number]['kind'], text: string, actor: PlayerId | null = null, landId: string | null = null) { s.log.push({ id: ++s.effectCounter, kind, text, landId, playerId: actor }); s.log = s.log.slice(-50); }
 export function step(kind: SpiritStep['kind'], actor: PlayerId, landId: string | null = null, n = 0, key = '', target: PlayerId | null = null, tags: string[] = [], used: string[] = []): SpiritStep { return { kind, actor, land: landId, n, key, target, tags, used }; }
 export function prepend(s: SpiritState, ...steps: SpiritStep[]) { s.queue.unshift(...steps); }
-export function cardPower(s: SpiritState, id: string): SpiritPower { const c = s.cards.find(c => c.cardId === id); requireRule(c); return spiritPower(c.key); }
-export function elements(s: SpiritState, id: PlayerId): Record<SpiritElement, number> { const p = player(s, id), tracks = p.spirit ? spiritDefinition(p.spirit).trackElements ?? [] : [], all = [...tracks.flatMap(t => p[t.track] >= t.at ? t.element === 'ANY' ? p.trackChoices.filter(c => c.slot === t.track).map(c => c.element) : [t.element] : []), ...p.elements, ...[...p.played,...(p.lesserPower?[p.lesserPower]:[])].flatMap(id => cardPower(s, id).elements)]; return { SUN: all.filter(e => e === 'SUN').length, MOON: all.filter(e => e === 'MOON').length, FIRE: all.filter(e => e === 'FIRE').length, AIR: all.filter(e => e === 'AIR').length, WATER: all.filter(e => e === 'WATER').length, EARTH: all.filter(e => e === 'EARTH').length, PLANT: all.filter(e => e === 'PLANT').length, ANIMAL: all.filter(e => e === 'ANIMAL').length }; }
-export function meets(s: SpiritState, id: PlayerId, threshold: Partial<Record<SpiritElement, number>>): boolean { const e = elements(s, id); return s.flags.includes(`threshold-active:${id}`) || SPIRIT_ELEMENTS.every(k => e[k] >= (threshold[k] ?? 0)); }
+export function cardPower(s: SpiritState, id: string): SpiritPower { const c = s.cards.find(c => c.cardId === id); requireRule(c); const original=spiritPower(c.key);return s.wardCards.includes(id)&&s.players.some(p=>p.played.includes(id))?spiritWardPower(original):original; }
+export function elements(s: SpiritState, id: PlayerId): Record<SpiritElement, number> { if(legacyActor(id))return {SUN:0,MOON:0,FIRE:0,AIR:0,WATER:0,EARTH:0,PLANT:0,ANIMAL:0}; const p = player(s, id), tracks = p.spirit ? spiritDefinition(p.spirit).trackElements ?? [] : [], all = [...tracks.flatMap(t => p[t.track] >= t.at ? t.element === 'ANY' ? p.trackChoices.filter(c => c.slot === t.track).map(c => c.element) : [t.element] : []), ...p.elements, ...[...p.played,...(p.lesserPower?[p.lesserPower]:[])].flatMap(id => cardPower(s, id).elements)]; return { SUN: all.filter(e => e === 'SUN').length, MOON: all.filter(e => e === 'MOON').length, FIRE: all.filter(e => e === 'FIRE').length, AIR: all.filter(e => e === 'AIR').length, WATER: all.filter(e => e === 'WATER').length, EARTH: all.filter(e => e === 'EARTH').length, PLANT: all.filter(e => e === 'PLANT').length, ANIMAL: all.filter(e => e === 'ANIMAL').length }; }
+export function meets(s: SpiritState, id: PlayerId, threshold: Partial<Record<SpiritElement, number>>): boolean { if(legacyActor(id))return Object.values(threshold).reduce((n,x)=>n+x,0)<=10; const e = elements(s, id); return s.flags.includes(`threshold-active:${id}`) || SPIRIT_ELEMENTS.every(k => e[k] >= (threshold[k] ?? 0)); }
 export function distance(s: SpiritState, a: string, b: string): number { const seen = new Set([a]), queue: [
     string,
     number
@@ -45,6 +51,7 @@ export function inRange(s: SpiritState, id: PlayerId, l: SpiritLand, range: numb
     return s.lands.some(from => owners.some(owner => needsSacred ? sacred(s, from, owner) : presence(from, owner) > 0) && (!terrain || from.terrain === terrain) && distance(s, from.id, l.id) <= range);
 }
 export function targetAllowed(s: SpiritState, id: PlayerId, c: SpiritPower, l: SpiritLand, shadow = false): boolean {
+    if(hasRelic(s,'INVADER',8)&&s.relics.some(r=>r.number===8&&r.side==='INVADER'&&r.land===l.id))return false;
     if (!oceanActive(s, l)) return false;
     if (c.terrains.length && !c.terrains.includes(l.terrain))
         return false;
@@ -79,15 +86,17 @@ export function innateLevel(s: SpiritState, id: PlayerId, second = false): numbe
 export function fear(s: SpiritState, n: number, actor: PlayerId, at: string | null = null, destruction = false) { if (n <= 0 || s.terror === 4)
     return; if (!destruction && at && s.flags.includes(`dread:${at}`) && s.flags.some(f => f.startsWith('power:'))) land(s, at).defend += n; s.fear += n; event(s, 'FEAR', `공포 +${n}`, actor); while (s.fear >= s.players.length * (s.settings.adversary==='ENGLAND'&&s.settings.level===6?5:4)) {
     s.fear -= s.players.length * (s.settings.adversary==='ENGLAND'&&s.settings.level===6?5:4);
+    if(s.settings.scenario==='WARD'&&!s.fearDeck.length)s.fearDeck.push(...s.fearDiscard.splice(0));
     const next = s.fearDeck.shift();
     if (!next) {s.fear %= s.players.length * (s.settings.adversary==='ENGLAND'&&s.settings.level===6?5:4);break;}
     s.fearEarned.push(next);
-    if (s.settings.scenario!=='RITUAL' && s.fearDeck.length === s.fearTiers[1]!+s.fearTiers[2]!)
+    if (s.settings.scenario!=='RITUAL' && s.terror<2 && s.fearDeck.length === s.fearTiers[1]!+s.fearTiers[2]!)
         s.terror = 2;
-    if (s.settings.scenario!=='RITUAL' && s.fearDeck.length === s.fearTiers[2]!)
+    if (s.settings.scenario!=='RITUAL' && s.terror<3 && s.fearDeck.length === s.fearTiers[2]!)
         s.terror = 3;
     if (s.fearDeck.length === 0) {
-        if(s.settings.scenario!=='RITUAL') s.terror = 4;
+        if(s.settings.scenario==='WARD'&&s.fearDiscard.length){s.fearDeck.push(...s.fearDiscard.splice(0));continue;}
+        if(s.settings.scenario!=='RITUAL'&&s.settings.scenario!=='WARD') s.terror = 4;
         s.fear %= s.players.length * (s.settings.adversary==='ENGLAND'&&s.settings.level===6?5:4);
         break;
     }
@@ -95,6 +104,7 @@ export function fear(s: SpiritState, n: number, actor: PlayerId, at: string | nu
 export const health = (l: SpiritLand, p: SpiritPiece) => Math.max(1,(p.kind === 'CITY' ? 3+l.invaderHealth : p.kind === 'TOWN' ? 2+l.invaderHealth : p.kind === 'DAHAN' ? 2 + l.dahanHealth : 1)+(l.eventHealthBonus==='BUILDINGS'&&(p.kind==='TOWN'||p.kind==='CITY')||l.eventHealthBonus==='EXPLORERS'&&p.kind==='EXPLORER'?1:0)-(l.eventHealthLoss&&p.kind!=='EXPLORER'?1:0)-(l.eventBuildingHealthLoss&&(p.kind==='TOWN'||p.kind==='CITY')?1:0)-(p.kind!=='DAHAN'?l.strifeHealthLoss*p.strife:0));
 export function removePiece(s: SpiritState, l: SpiritLand, piece: SpiritPiece, destroy: boolean, actor: PlayerId, cause: 'EFFECT'|'HEALTH'|'REMOVE' = 'EFFECT'): void {
     if(!l.pieces.some(q=>q.id===piece.id))return;
+    if(destroy&&piece.kind!=='DAHAN'&&!scenarioDamageAllowed(s,l)){prepend(s,step('DESTROY',actor,l.id,1,'',null,[piece.kind,`ONLY:${piece.id}`,...(cause==='HEALTH'?['HEALTH']:[])]));return;}
     if(!destroy&&cause==='REMOVE'&&franceFearRemoval(s,piece)){if(!s.flags.includes(`france-fear:${piece.id}`)){s.flags.push(`france-fear:${piece.id}`);prepend(s,step('MOVE',actor,l.id,1,'PUSH',actor,['EXPLORER',`ONLY:${piece.id}`]));}return;}
     if (destroy && cause==='EFFECT' && dreaming(s, actor)) { dreamDestroy(s, l, piece, actor); return; }
     if (destroy && piece.kind === 'DAHAN' && l.vitality && s.flags.includes(`immortal:${l.id}`))
@@ -119,24 +129,25 @@ export function removePiece(s: SpiritState, l: SpiritLand, piece: SpiritPiece, d
 export function destroyFromHealthLoss(s:SpiritState,l:SpiritLand,p:SpiritPiece,actor:PlayerId):void {
  if(p.damage>=health(l,p)){removePiece(s,l,p,true,actor,'HEALTH');event(s,'DAMAGE',`${l.id} 체력 감소로 ${p.kind==='CITY'?'도시':p.kind==='TOWN'?'마을':'탐험가'} 파괴`,actor,l.id);}
 }
-export function damagePiece(s: SpiritState, l: SpiritLand, p: SpiritPiece, n: number, actor: PlayerId): boolean { if(!l.pieces.some(q=>q.id===p.id))return false; if (dreaming(s, actor)) { if (p.kind !== 'DAHAN' && !s.flags.includes(`dream-killed:${p.id}`)) { const tag = s.flags.find(f => f.startsWith(`dream-damage:${p.id}:`)), prior = Number(tag?.split(':').at(-1) ?? 0); s.flags = s.flags.filter(f => f !== tag); s.flags.push(`dream-damage:${p.id}:${prior+n}`); if (prior+n+p.damage >= health(l,p)) dreamDestroy(s,l,p,actor); } return false; } if (p.kind === 'DAHAN' && s.flags.includes(`immortal:${l.id}`))
+export function damagePiece(s: SpiritState, l: SpiritLand, p: SpiritPiece, n: number, actor: PlayerId): boolean { if(!l.pieces.some(q=>q.id===p.id))return false; if(p.kind!=='DAHAN'&&!scenarioDamageAllowed(s,l)){if(n>0)prepend(s,step('DAMAGE',actor,l.id,n,'',null,[`ONLY:${p.id}`]));else if(p.damage>=health(l,p))prepend(s,step('DESTROY',actor,l.id,1,'',null,[p.kind,`ONLY:${p.id}`,'HEALTH']));return false;} if (dreaming(s, actor)) { if (p.kind !== 'DAHAN' && !s.flags.includes(`dream-killed:${p.id}`)) { const tag = s.flags.find(f => f.startsWith(`dream-damage:${p.id}:`)), prior = Number(tag?.split(':').at(-1) ?? 0); s.flags = s.flags.filter(f => f !== tag); s.flags.push(`dream-damage:${p.id}:${prior+n}`); if (prior+n+p.damage >= health(l,p)) dreamDestroy(s,l,p,actor); } return false; } if (p.kind === 'DAHAN' && s.flags.includes(`immortal:${l.id}`))
     return false; p.damage += n; if (p.damage >= health(l, p)) {
     removePiece(s, l, p, true, actor);
     return true;
 } return false; }
-export function defense(s: SpiritState, l: SpiritLand): number { return l.defend + (s.players.some(p => p.spirit === 'EARTH' && sacred(s, l, p.playerId)) ? 3 : 0); }
+export function defense(s: SpiritState, l: SpiritLand): number { return l.defend + 3*s.wards.filter(id=>id===l.id).length + (s.players.some(p => p.spirit === 'EARTH' && sacred(s, l, p.playerId)) ? 3 : 0); }
 export function matches(l: SpiritLand, c: SpiritInvaderCard | null): boolean { return c !== null && (c.coastal ? l.coastal : c.terrains.includes(l.terrain)); }
 export function checkEnd(s: SpiritState) {
-    if (s.phase === 'FINISHED' || s.stage === 'SELECT')
+    if (s.phase === 'FINISHED' || s.stage === 'SELECT' || s.waveWon)
         return;
     const normalWin = s.terror === 4 || s.lands.every(l => invaders(l).every(p => s.terror === 3 ? p.kind !== 'CITY' : s.terror === 2 ? p.kind === 'EXPLORER' : false));
     const outnumbered=s.lands.filter(l=>countPieces(l,['TOWN','CITY'])>countPieces(l,['DAHAN'])).length;
-    const won=s.settings.scenario==='INSURRECTION'?s.terror>=2&&outnumbered<(s.terror===2?1:s.players.length):normalWin;
+    const won=s.settings.scenario==='WARD'?s.terror>=2&&s.lands.filter(l=>l.number>0&&l.coastal).every(l=>s.wards.includes(l.id)):s.settings.scenario==='INSURRECTION'?s.terror>=2&&outnumbered<(s.terror===2?1:s.players.length):normalWin;
     const specialLoss=s.franceFailedTown?'ADVERSARY':s.settings.adversary==='ENGLAND'&&s.lands.some(l=>countPieces(l,['TOWN','CITY'])>=7)?'ADVERSARY':s.settings.scenario==='HEART'&&s.round>1&&s.lands.some(l=>s.hearts.includes(l.id)&&countPieces(l,['TOWN','CITY'])>0)||s.settings.scenario==='INSURRECTION'&&(s.lands.reduce((n,l)=>n+countPieces(l,['DAHAN']),0)<2*s.players.length||s.flags.includes('uprising-done')&&!won)?'SCENARIO':null;
     const lost = specialLoss ?? (s.blightPool <= 0 ? 'BLIGHT' : s.players.some(p => !s.lands.some(l => presence(l, p.playerId) > 0)) ? 'PRESENCE' : null);
     if(s.settings.scenario==='INSURRECTION'&&s.terror===4&&!s.flags.includes('uprising-done')) {s.flags.push('uprising-done');s.queue.push(...s.lands.filter(l=>countPieces(l,['DAHAN'])).map(l=>step('DAMAGE',s.players[0]!.playerId,l.id,2*countPieces(l,['DAHAN']))),step('CHECK',s.players[0]!.playerId));return;}
     if (!won && !lost)
         return;
+    if(won&&!lost&&s.settings.scenario==='SECOND_WAVE'&&s.waveNumber<7){waveVictory(s);return;}
     s.phase = 'FINISHED';
     s.result = { reason: won ? (lost ? 'SACRIFICE' : 'VICTORY') : lost!, winnerPlayerIds: won ? s.players.map(p => p.playerId) : [], round: s.round };
     s.queue = [];
@@ -147,7 +158,7 @@ export function playLimit(p: SpiritPlayer): number { requireRule(p.spirit); retu
 
 export function oceanActive(s: SpiritState, l: SpiritLand): boolean { return l.number !== 0 || s.players.some(p => p.spirit === 'OCEAN' && s.lands.some(a => a.board === l.board && presence(a,p.playerId)>0)); }
 export function presenceAllowed(s: SpiritState, id: PlayerId, l: SpiritLand): boolean { return player(s,id).spirit === 'OCEAN' ? l.coastal : l.number > 0; }
-export function drowning(s: SpiritState, l: SpiritLand, piece: SpiritPiece) { const ocean = s.players.find(p => p.spirit === 'OCEAN'); if (!ocean) return; removePiece(s,l,piece,true,ocean.playerId); if(piece.kind !== 'DAHAN') { ocean.drowned += piece.kind === 'CITY' ? 3 : piece.kind === 'TOWN' ? 2 : 1; const amount = Math.floor(ocean.drowned / s.players.length); ocean.drowned %= s.players.length; ocean.energy += amount; } }
+export function drowning(s: SpiritState, l: SpiritLand, piece: SpiritPiece) { const ocean = s.players.find(p => p.spirit === 'OCEAN'); if (!ocean) return; if(piece.kind!=='DAHAN'&&!scenarioDamageAllowed(s,l)){prepend(s,step('SPECIAL',ocean.playerId,l.id,0,'SC_DROWN',null,[],[piece.id]));return;} removePiece(s,l,piece,true,ocean.playerId); if(piece.kind !== 'DAHAN') { ocean.drowned += piece.kind === 'CITY' ? 3 : piece.kind === 'TOWN' ? 2 : 1; const amount = Math.floor(ocean.drowned / s.players.length); ocean.drowned %= s.players.length; ocean.energy += amount; } }
 function dreaming(s: SpiritState, actor: PlayerId) { return player(s,actor).spirit === 'BRINGER' && s.flags.includes(`power:${actor}`); }
 function dreamDestroy(s: SpiritState, l: SpiritLand, piece: SpiritPiece, actor: PlayerId) { if(piece.kind === 'DAHAN' || s.flags.includes(`dream-killed:${piece.id}`)) return; s.flags.push(`dream-killed:${piece.id}`); fear(s,piece.kind === 'CITY' ? 5 : piece.kind === 'TOWN' ? 2 : 0,actor,l.id); if(piece.kind !== 'CITY') { const index = s.queue.findIndex(e=>e.kind === 'CHECK'); s.queue.splice(index<0?s.queue.length:index,0,step('MOVE',actor,l.id,1,'PUSH',actor,[piece.kind,'REQUIRED',`ONLY:${piece.id}`])); } }
 export function advancedInnateLevel(s: SpiritState,id: PlayerId,second: boolean): number | null { const p=player(s,id); const tests: Partial<Record<SpiritElement,number>>[] = p.spirit === 'GREEN' ? second ? [{WATER:1,PLANT:3},{WATER:2,PLANT:4},{WATER:3,EARTH:1,PLANT:5}] : [{MOON:1,PLANT:2},{MOON:2,PLANT:3},{MOON:3,PLANT:4}] : p.spirit === 'THUNDER' ? second ? [{SUN:2,FIRE:1},{SUN:4,FIRE:3}] : [{ANIMAL:1}] : p.spirit === 'OCEAN' ? second ? [{WATER:2,EARTH:1},{WATER:3,EARTH:2},{WATER:4,EARTH:3}] : [{MOON:1,AIR:1,WATER:2},{MOON:2,AIR:1,WATER:3},{MOON:3,AIR:2,WATER:4}] : p.spirit === 'BRINGER' ? second ? [{MOON:1,AIR:1},{MOON:2,AIR:1,ANIMAL:1},{MOON:3,AIR:2,ANIMAL:1}] : [{MOON:2,AIR:2},{MOON:3}] : []; if(!tests.length) return null; return tests.reduce((n,t,i)=>meets(s,id,t)?i+1:n,0); }
@@ -162,3 +173,5 @@ export function setPowerSpeed(s: SpiritState, actor: PlayerId, cardId: string, s
     s.flags = s.flags.filter(f => f !== `speed:${actor}:${cardId}:SLOW` && f !== `speed:${actor}:${cardId}:FAST`);
     s.flags.push(`speed:${actor}:${cardId}:${speed}`);
 }
+
+export function originalCardPower(s:SpiritState,id:string):SpiritPower {const card=s.cards.find(c=>c.cardId===id);requireRule(card);return spiritPower(card.key);}

@@ -43,7 +43,8 @@ export function franceAutomatic(s:SpiritState,e:SpiritStep):boolean {
  }
  if(e.key==='FR_REBELLION_DAMAGE'||e.key==='FR_REBELLION_DAHAN'){
   const dahan=e.key==='FR_REBELLION_DAHAN';
-  for(const l of s.lands){const n=countPieces(l,['DAHAN']);let added=0,total=0;for(const p of [...l.pieces].filter(p=>p.kind!=='DAHAN'&&p.strife>0)){total+=dahan?n:p.strife;if(damagePiece(s,l,p,dahan?n:p.strife,e.actor)&&dahan&&(p.kind==='TOWN'||p.kind==='CITY'))added++;}if(total)event(s,'DAMAGE',`${l.id} 반란 · 분쟁 침략자에게 총 피해 ${total}`,e.actor,l.id);for(let i=0;i<added;i++)makePiece(s,l,'DAHAN');if(added)event(s,'GROW',`${l.id} 봉기 지원 · 다한 ${added}개 추가`,e.actor,l.id);}
+  if(s.settings.scenario==='FLAME'&&!e.land){prepend(s,...s.lands.filter(l=>l.pieces.some(p=>p.kind!=='DAHAN'&&p.strife>0)&&(!dahan||countPieces(l,['DAHAN'])>0)).flatMap(l=>[{...e,land:l.id},step('SPECIAL',e.actor,null,0,'SC_ACTION_END')]));return true;}
+  for(const l of e.land?[land(s,e.land)]:s.lands){const n=countPieces(l,['DAHAN']);let added=0,total=0;for(const p of [...l.pieces].filter(p=>p.kind!=='DAHAN'&&p.strife>0)){total+=dahan?n:p.strife;if(damagePiece(s,l,p,dahan?n:p.strife,e.actor)&&dahan&&(p.kind==='TOWN'||p.kind==='CITY'))added++;}if(total)event(s,'DAMAGE',`${l.id} 반란 · 분쟁 침략자에게 총 피해 ${total}`,e.actor,l.id);for(let i=0;i<added;i++)makePiece(s,l,'DAHAN');if(added)event(s,'GROW',`${l.id} 봉기 지원 · 다한 ${added}개 추가`,e.actor,l.id);}
   return true;
  }
  if(e.key==='FR_REBELLION_NEXT'){

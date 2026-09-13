@@ -55,3 +55,20 @@
 @media(max-width:650px){.si-spirit-grid{grid-template-columns:1fr;max-width:420px}.si-spirit-card>div:last-child{padding:18px}.si-spirit-card .si-primary{font-size:14px}.si-party{grid-template-columns:minmax(0,1fr)}.si-island{width:calc(100% - 48px);min-height:445px;aspect-ratio:auto;margin-inline:24px}.si-map-grid{gap:20px}.si-map-wrap{padding-inline:10px}}
 .si-map-lines line{vector-effect:non-scaling-stroke;stroke-width:1;stroke-dasharray:4 4}
 .si-map-lines line.si-connected{stroke-width:2;stroke-dasharray:none}
+
+.si-scenario-panel { display:grid; grid-template-columns:minmax(0,1fr) minmax(280px,1fr); gap:20px; padding:24px; margin:20px 0; border:1px solid #759b9280; border-radius:16px; background:linear-gradient(130deg,#183e3a,#102d30); }
+.si-scenario-panel h2 { margin:6px 0 12px; }
+.si-scenario-panel p,.si-scenario-panel label,.si-ward-picker { font-size:15px; line-height:1.6; }
+.si-scenario-panel fieldset { border:1px solid #769c9580; border-radius:10px; padding:16px; display:grid; gap:12px; }
+.si-scenario-panel label,.si-ward-picker { display:grid; gap:6px; }
+.si-scenario-panel select,.si-ward-picker select { min-height:44px; padding:8px 12px; background:#143530; color:#f6ebcf; border:1px solid #98b9a7; border-radius:8px; font:inherit; width:100%; }
+.si-scenario-panel button { min-height:44px; }
+.si-scenario-markers { padding:18px; border-radius:12px; background:#ffffff08; }
+.si-scenario-flame { border-color:#d39a69; background:linear-gradient(130deg,#343529,#163435); }
+.si-scenario-relics { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:10px; }
+.si-scenario-relics article { padding:16px; display:grid; gap:10px; border:1px solid #759b9260; border-radius:10px; }
+.si-scenario-relics span,.si-ward-picker span { color:#c3d3c9; }
+.si-ward-picker { margin:16px 0; max-width:640px; }
+@media(max-width:760px) { .si-scenario-panel { grid-template-columns:1fr; padding:16px; } }
+.si-scenario-badge { color:#fff1b4; background:#193b48; border:1px solid #d5c387; border-radius:6px; padding:2px 6px; font-weight:700; }
+.si-flame-badge { color:#ffdcad; border-color:#ed9b60; background:#623d2c; }

@@ -5,7 +5,7 @@ type Add=(label:string,apply:()=>void,landId?:string|null,pieceId?:string|null)=
 const refill=(s:SpiritState)=>s.blightCard?(SPIRIT_BLIGHT[s.blightCard].perPlayer-(s.settings.scenario==='BLITZ'?1:0))*s.players.length:0;
 export function flipBlight(s:SpiritState,actor:PlayerId):boolean {
  if(s.blightPool!==0||!s.blightCard||s.blighted)return false;
- s.blighted=true;const n=refill(s);s.blightPool+=n;s.blightTotal+=n;
+ s.blighted=true;const reserve=s.waveReserve,n=reserve??refill(s);s.blightPool+=n;if(reserve===null)s.blightTotal+=n;s.waveReserve=null;
  event(s,'BLIGHT',`오염된 섬 · ${SPIRIT_BLIGHT[s.blightCard].name}`,actor);
  if(s.blightCard!=='SPIRAL'&&s.blightCard!=='MEMORY')prepend(s,step('SPECIAL',actor,null,0,'BCL_REVEAL'));
  return true;
@@ -40,7 +40,7 @@ export function blightOptions(s:SpiritState,e:SpiritStep,add:Add):boolean {
  if(!e.key.startsWith('BCL_'))return false;
  if(e.key==='BCL_REVEAL'){
   add('카드 효과 진행',()=>immediate(s,e));
-  if(s.players.length===1&&s.blightCard&&SPIRIT_BLIGHT[s.blightCard].perPlayer===2&&s.blightDeck.length)add('1인 규칙 · 사용하지 않은 오염 카드로 교체',()=>{
+  if(s.waveNumber===1&&s.players.length===1&&s.blightCard&&SPIRIT_BLIGHT[s.blightCard].perPlayer===2&&s.blightDeck.length)add('1인 규칙 · 사용하지 않은 오염 카드로 교체',()=>{
    const old=refill(s),replacement=s.blightDeck.shift();if(!replacement)return;s.blightCard=replacement;const delta=refill(s)-old;s.blightPool+=delta;s.blightTotal+=delta;
    event(s,'BLIGHT',`오염 카드 교체 · ${SPIRIT_BLIGHT[replacement].name}`,e.actor);
    prepend(s,{...e});

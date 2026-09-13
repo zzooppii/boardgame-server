@@ -24,7 +24,7 @@ function drain(s: SpiritState) { let left = 600; while (s.queue.length && s.phas
     const o = choiceOptions(s)[0];
     assert.ok(o, JSON.stringify(s.queue[0]));
     const e = s.queue[0]!;
-    s = apply(s, { kind: 'CHOOSE', choiceId: `${s.transitionId}:${s.revision}`, optionId: o.id }, e.target ?? e.actor);
+    s = apply(s, { kind: 'CHOOSE', choiceId: `${s.transitionId}:${s.revision}`, optionId: o.id }, s.wavePowers.find(w=>w.actor===(e.target??e.actor))?.controller??e.target??e.actor);
 } return s; }
 function view(s: SpiritState, i = 0) { return projectSpirit({ gameId: s.gameId, gameRevision: s.revision, startedAt: s.startedAt, finishedAt: s.finishedAt, state: s }, s.players[i]!.playerId); }
 for (let n = 1; n <= 4; n++)
@@ -131,7 +131,7 @@ for(const scenario of ['BLITZ','HEART','RITUAL','INSURRECTION'] as const)test(`s
 function hold(s:SpiritState,key:string){const p=s.players[0]!,id=s.cards.find(c=>c.key===key)!.cardId;assert.ok(p.hand.includes(id));p.hand=p.hand.filter(c=>c!==id);p.played.push(id);p.ready=false;return id;}
 function use(s:SpiritState,key:string,target:string,threshold=1){const cardId=hold(s,key);s.stage=key==='predatory-nightmares'?'SLOW':'FAST';return apply(s,{kind:'USE_POWER',cardId,target,threshold,fast:s.stage==='FAST',repeat:false,shadowReach:false});}
 test('Ocean drowns a gathered explorer and gains energy without fear',()=>{let s=drain(chosen(1,'OCEAN'));for(const l of s.lands)l.pieces=l.pieces.filter(p=>p.kind!=='EXPLORER');const inv=makePiece(s,land(s,'A1'),'EXPLORER');const before=s.players[0]!.energy;s=drain(use(s,'call-of-the-deeps','A0'));assert.ok(s.lands.every(l=>!l.pieces.some(p=>p.id===inv.id)));assert.equal(s.players[0]!.energy,before+1);assert.equal(s.fear,0);});
-test('Bringer power replaces lethal damage with fear and push, preserving real damage',()=>{let s=drain(chosen(1,'BRINGER'));const target=s.lands.find(l=>presence(l,s.players[0]!.playerId)>0)!;target.pieces=[];const town=makePiece(s,target,'TOWN');s=use(s,'predatory-nightmares',target.id);for(let i=0;i<2;i++){const e=s.queue[0]!,o=choiceOptions(s).find(o=>o.pieceId===town.id)!;assert.ok(o);s=apply(s,{kind:'CHOOSE',choiceId:`${s.transitionId}:${s.revision}`,optionId:o.id},e.target??e.actor);}s=drain(s);const after=s.lands.flatMap(l=>l.pieces).find(p=>p.id===town.id);assert.ok(after);assert.equal(after.damage,0);assert.equal(s.fear,2);assert.ok(!land(s,target.id).pieces.some(p=>p.id===town.id));});
+test('Bringer power replaces lethal damage with fear and push, preserving real damage',()=>{let s=drain(chosen(1,'BRINGER'));const target=s.lands.find(l=>presence(l,s.players[0]!.playerId)>0)!;target.pieces=[];const town=makePiece(s,target,'TOWN');s=use(s,'predatory-nightmares',target.id);for(let i=0;i<2;i++){const e=s.queue[0]!,o=choiceOptions(s).find(o=>o.pieceId===town.id)!;assert.ok(o);s=apply(s,{kind:'CHOOSE',choiceId:`${s.transitionId}:${s.revision}`,optionId:o.id},s.wavePowers.find(w=>w.actor===(e.target??e.actor))?.controller??e.target??e.actor);}s=drain(s);const after=s.lands.flatMap(l=>l.pieces).find(p=>p.id===town.id);assert.ok(after);assert.equal(after.damage,0);assert.equal(s.fear,2);assert.ok(!land(s,target.id).pieces.some(p=>p.id===town.id));});
 test('Green can sacrifice sacred-site presence to prevent only the current build',()=>{let s=drain(chosen(1,'GREEN'));const p=s.players[0]!,l=s.lands.find(l=>presence(l,p.playerId))!;p.energyTrack++;l.presence[0]!.count++;s.build={stage:1,terrains:[l.terrain],coastal:false};makePiece(s,l,'EXPLORER');s.stage='BUILD';s=apply(s,{kind:'ADVANCE'});assert.equal(s.queue[0]?.key,'GREEN_STOP');const e=s.queue[0]!,o=choiceOptions(s).find(o=>o.label.includes('막기'))!;s=drain(apply(s,{kind:'CHOOSE',choiceId:`${s.transitionId}:${s.revision}`,optionId:o.id},e.target??e.actor));assert.equal(presence(land(s,l.id),p.playerId),1);assert.equal(land(s,l.id).pieces.filter(p=>p.kind==='TOWN'||p.kind==='CITY').length,0);assert.equal(s.players[0]!.destroyedPresence,1);});
 test('Blight card stays hidden until healthy pool empties, then refills once',()=>{let s=setup();s=apply(s,{kind:'CONFIGURE',settings:{progression:false,blightCard:true,adversary:'NONE',level:0,scenario:'NONE'}});s=drain(apply(s,{kind:'SELECT_SPIRIT',spirit:'RIVER'}));assert.equal(view(s).blightCard,null);for(const id of ['A1','A2','A3']){s.queue=[step('BLIGHT',s.players[0]!.playerId,id,1)];settle(s);}assert.equal(s.blighted,true);assert.equal(s.blightPool,5);assert.equal(view(s).blightCard,'SPIRAL');assert.equal(s.blightPool+s.lands.reduce((n,l)=>n+l.blight,0),s.blightTotal);});
 test('Configuration rejects non-leading actor and changes after spirit selection',()=>{const s=setup(2),settings={progression:false,blightCard:true,adversary:'NONE',level:0,scenario:'NONE'} as const;assert.equal(applySpiritAction(s,s.players[1]!.playerId,{kind:'CONFIGURE',settings},now,s.transitionId).ok,false);const selected=apply(s,{kind:'SELECT_SPIRIT',spirit:'RIVER'});assert.equal(applySpiritAction(selected,selected.players[0]!.playerId,{kind:'CONFIGURE',settings},now,s.transitionId).ok,false);});
@@ -413,7 +413,7 @@ function eventGame(n=1,key:SpiritEventKey='NEW_SPECIES',round=2) {
  for(const p of s.players)s=apply(s,{kind:'READY',ready:true},p.playerId);
  return s;
 }
-function eventChoose(s:SpiritState,text:string) {const option=choiceOptions(s).find(o=>o.label.includes(text));assert.ok(option,`${text}: ${choiceOptions(s).map(o=>o.label).join(',')}`);const e=s.queue[0]!;return apply(s,{kind:'CHOOSE',choiceId:`${s.transitionId}:${s.revision}`,optionId:option.id},e.target??e.actor);}
+function eventChoose(s:SpiritState,text:string) {const option=choiceOptions(s).find(o=>o.label.includes(text));assert.ok(option,`${text}: ${choiceOptions(s).map(o=>o.label).join(',')}`);const e=s.queue[0]!;return apply(s,{kind:'CHOOSE',choiceId:`${s.transitionId}:${s.revision}`,optionId:option.id},s.wavePowers.find(w=>w.actor===(e.target??e.actor))?.controller??e.target??e.actor);}
 test('Events: core has no deck; expansion reveals after blight penalties and skips first round effects',()=>{
  let core=chosen();core.stage='FAST';core=apply(core,{kind:'READY',ready:true});assert.equal(core.currentEvent,null);assert.equal(core.queue.length,0);
  let s=eventGame(1,'NEW_SPECIES',1);const before=JSON.stringify(s.lands);assert.equal(s.currentEvent,'NEW_SPECIES');assert.equal(s.queue[0]?.key,'BCE_REVEAL');s=drain(s);assert.equal(JSON.stringify(s.lands),before);assert.equal(s.stage,'FEAR');
@@ -1235,4 +1235,121 @@ test('France 6: health-budget removal cannot select the same explorer again afte
 });
 test('Slave Rebellion: empty ordinary deck reshuffles without duplicating the currently resolving card',()=>{
  let s=rebellionGame();s.eventDiscard.push(...s.eventDeck);s.eventDeck=[];s=eventChoose(s,'이벤트 선택 시작');while(s.currentEvent==='REBELLION')s=eventChoose(s,choiceOptions(s)[0]!.label);assert.notEqual(s.currentEvent,'REBELLION');assert.equal(s.eventDeck.indexOf('REBELLION'),3);assert.equal([...s.eventDeck,...s.eventDiscard].filter(k=>k==='REBELLION').length,1);parseSpiritState(s);
+});
+
+// Branch & Claw scenarios: batch coverage of setup, decisions and cross-rule effects.
+function scenarioGame(scenario:'WARD'|'FLAME'|'FORGOTTEN'|'SECOND_WAVE',n=1,adversary:'NONE'|'FRANCE'|'PRUSSIA'='NONE'){
+ let s=setup(n);s=apply(s,{kind:'CONFIGURE',settings:{expansion:'BRANCH_CLAW',progression:false,blightCard:true,adversary,level:0,scenario}});
+ for(const [i,p] of s.players.entries())s=drain(apply(s,{kind:'SELECT_SPIRIT',spirit:SPIRITS[i]!.id},p.playerId));
+ return s;
+}
+for(const scenario of ['WARD','FLAME','FORGOTTEN','SECOND_WAVE'] as const)for(const n of [1,2,4])test(`${scenario}: ${n}-player setup projects only public scenario state`,()=>{
+ const s=scenarioGame(scenario,n,'FRANCE');parseSpiritState(s);
+ for(let i=0;i<n;i++){const g=view(s,i);assert.ok(spiritProjectionIsConsistent(g));assert.ok(g.relics.every(r=>r.side!=='HIDDEN'||r.number===null));}
+ if(scenario==='FORGOTTEN')assert.equal(s.relics.length,4*n);
+});
+test('Ward: face-down play is free and elementless, costs a play and returns face-up next round',()=>{
+ let s=scenarioGame('WARD');s=drain(apply(s,{kind:'GROW',option:1}));const p=s.players[0]!,id=p.hand.find(id=>cardPower(s,id).cost>0)!;const energy=p.energy;
+ s=apply(s,{kind:'PLAY_CARDS',cardIds:[id],wardCardId:id});assert.equal(s.players[0]!.energy,energy);assert.deepEqual(cardPower(s,id).elements,[]);assert.equal(cardPower(s,id).speed,'SLOW');
+ s.stage='SLOW';const target=s.lands.find(l=>presence(l,p.playerId)>0)!;target.blight=0;s.blightTotal=s.blightPool+s.lands.reduce((n,l)=>n+l.blight,0);target.pieces=[];
+ s=apply(s,{kind:'USE_POWER',cardId:id,target:target.id,threshold:0,fast:false,repeat:false,shadowReach:false});s=eventChoose(s,'지불');assert.ok(s.wards.includes(target.id));assert.equal(defense(s,land(s,target.id)),3);
+ s.queue=[step('SPECIAL',p.playerId,null,0,'NEW_ROUND')];settle(s);assert.equal(s.wardCards.length,0);assert.ok(cardPower(s,id).elements.length>0);parseSpiritState(s);
+});
+test('Ward: normal victory is suppressed, coastal wards win at terror II, blight destroys all wards in land',()=>{
+ let s=scenarioGame('WARD');for(const l of s.lands)l.pieces=l.pieces.filter(p=>p.kind==='DAHAN');s.queue=[step('CHECK',s.players[0]!.playerId)];settle(s);assert.equal(s.phase,'PLAYING');
+ s.wards=['A1','A1'];s.queue=[step('BLIGHT',s.players[0]!.playerId,'A1',1)];settle(s);assert.equal(s.wards.length,0);
+ s.terror=2;s.wards=['A1','A2','A3'];s.queue=[step('CHECK',s.players[0]!.playerId)];settle(s);assert.equal(s.result?.reason,'VICTORY');
+});
+test('Ward: exhausted supply can move a ward without duplicating or overspending',()=>{
+ let s=scenarioGame('WARD');s.wards=['A1','A2','A3','A4'];s.players[0]!.energy=2;s.queue=[step('SPECIAL',s.players[0]!.playerId,'A5',0,'WARD_PLACE')];land(s,'A5').pieces=[];land(s,'A5').blight=0;s.blightTotal=s.blightPool+s.lands.reduce((n,l)=>n+l.blight,0);
+ s=eventChoose(s,'A4의 표식');assert.equal(s.wards.length,4);assert.ok(s.wards.includes('A5'));assert.ok(!s.wards.includes('A4'));
+});
+test('Flame: immunity payment covers the whole damage allocation and declining still allows fear',()=>{
+ let s=scenarioGame('FLAME');const p=s.players[0]!;p.energy=4;land(s,'A2').pieces=[];makePiece(s,land(s,'A2'),'CITY');s.flags.push(`power:${p.playerId}`);s.queue=[step('DAMAGE',p.playerId,'A2',3),step('FEAR',p.playerId,null,1),step('CHECK',p.playerId)];settle(s);
+ assert.equal(s.queue[0]?.key,'SC_GATE');s=eventChoose(s,'지불하지');assert.equal(countPieces(land(s,'A2'),['CITY']),1);assert.equal(s.players[0]!.energy,4);assert.equal(s.fear,1);
+ s.queue=[step('DAMAGE',p.playerId,'A2',3),step('CHECK',p.playerId)];settle(s);s=drain(s);assert.equal(s.players[0]!.energy,2);assert.equal(countPieces(land(s,'A2'),['CITY']),0);
+});
+test('Flame: nearby permanent marker bypasses immunity; ritual requires all growth and a Fire card',()=>{
+ let s=scenarioGame('FLAME');const p=s.players[0]!,fire=s.cards.find(c=>c.key==='harbingers-of-the-lightning')!.cardId;
+ const original=structuredClone(s);assert.equal(applySpiritAction(s,p.playerId,{kind:'FLAME_RITUAL',landId:'A6',cardId:fire},now,s.transitionId).ok,false);assert.deepEqual(s,original);
+ s.flames=['A2'];s.queue=[step('DAMAGE',p.playerId,'A2',3)];settle(s);assert.notEqual(s.queue[0]?.key,'SC_GATE');s=drain(s);assert.equal(countPieces(land(s,'A2'),['CITY']),0);
+});
+for(const number of [1,2,3,4,5,6,7,8] as const)test(`Forgotten: relic ${number} discovery can be held and then activated once`,()=>{
+ let s=scenarioGame('FORGOTTEN');s.relics=[{land:'A1',number,side:'SPIRIT',active:false}];s.queue=[];
+ s=apply(s,{kind:'USE_RELIC',number});s=drain(s);assert.ok(s.relics.some(r=>r.number===number&&r.active));
+ assert.equal(applySpiritAction(s,s.players[0]!.playerId,{kind:'USE_RELIC',number},now,s.transitionId).ok,false);
+});
+test('Forgotten: France requires three invaders and hidden numbers are never projected',()=>{
+ let s=scenarioGame('FORGOTTEN',1,'FRANCE');s.relics=[{land:'A1',number:6,side:'HIDDEN',active:false}];land(s,'A1').pieces=[];
+ makePiece(s,land(s,'A1'),'EXPLORER');makePiece(s,land(s,'A1'),'TOWN');assert.equal(s.relics[0]!.side,'HIDDEN');assert.equal(view(s).relics[0]!.number,null);
+ makePiece(s,land(s,'A1'),'EXPLORER');assert.equal(s.relics[0]!.side,'INVADER');assert.ok(s.relics[0]!.active);
+});
+test('Forgotten: Sands share Build counts and the leather sack forbids power targeting',()=>{
+ let s=scenarioGame('FORGOTTEN');s.relics=[{land:'A1',number:2,side:'INVADER',active:true},{land:'A2',number:8,side:'INVADER',active:true}];
+ const sands=s.lands.filter(l=>l.terrain==='SANDS');for(const l of sands)l.pieces=[];makePiece(s,sands[0]!,'TOWN');s.queue=[step('SPECIAL',s.players[0]!.playerId,sands[1]!.id,0,'BUILD_CARD_LAND')];settle(s);s=drain(s);assert.equal(countPieces(land(s,sands[1]!.id),['CITY']),1);
+ s.stage='SLOW';const p=s.players[0]!,id=p.hand[0]!;p.hand=p.hand.filter(c=>c!==id);p.played=[id];p.rangeBonus=20;assert.ok(powerOptions(s,p.playerId).every(o=>!o.targets.includes('A2')));
+});
+test('Second Wave: victory offers continuation, transfers selected power and starts new spirits',()=>{
+ let s=scenarioGame('SECOND_WAVE');const oldSpirit=s.players[0]!.spirit,card=s.players[0]!.hand[0]!;
+ s.terror=4;s.queue=[step('CHECK',s.players[0]!.playerId)];settle(s);assert.ok(s.waveWon);assert.equal(s.phase,'PLAYING');
+ s=eventChoose(s,'2번째 물결 준비');s=eventChoose(s,cardPower(s,card).title);s=drain(s);
+ assert.equal(s.waveNumber,2);assert.equal(s.stage,'SELECT');assert.equal(s.players[0]!.spirit,null);assert.deepEqual(s.wavePriorSpirits,[oldSpirit]);assert.equal(s.wavePowers[0]!.cardId,card);parseSpiritState(s);assert.ok(spiritProjectionIsConsistent(view(s)));
+ assert.equal(applySpiritAction(s,s.players[0]!.playerId,{kind:'SELECT_SPIRIT',spirit:oldSpirit},now,s.transitionId).ok,false);
+ s=drain(apply(s,{kind:'SELECT_SPIRIT',spirit:'LIGHTNING'}));s.invaderDeck=s.invaderDeck.filter(c=>c.stage===3);
+ s=apply(s,{kind:'PLAY_LEGACY',cardId:card});assert.equal(s.players[0]!.played.length,0);assert.equal(s.legacyPlayers[0]!.played[0],card);assert.equal(view(s).playerStates[0]!.elements.length,0);parseSpiritState(s);
+});
+
+test('Ward: extra card play can use a ward only once, even after that card is forgotten',()=>{
+ let s=scenarioGame('WARD');const p=s.players[0]!;s.stage='FAST';s.queue=[step('SPECIAL',p.playerId,null,0,'BC_SPUR',p.playerId)];s=eventChoose(s,'수호 능력');const id=s.wardCards[0]!;
+ s.queue=[step('FORGET',p.playerId)];s=eventChoose(s,'뒤집은 카드');s.queue=[step('SPECIAL',p.playerId,null,0,'BC_SPUR',p.playerId)];assert.ok(!choiceOptions(s).some(o=>o.label.includes('수호 능력')));assert.ok(!s.players[0]!.played.includes(id));parseSpiritState(s);
+});
+test('Flame: a ritual places permanent flame, adds blight and gains stage energy after growth',()=>{
+ let s=scenarioGame('FLAME');s=drain(apply(s,{kind:'GROW',option:1}));const p=s.players[0]!,id=s.cards.find(c=>c.key==='harbingers-of-the-lightning')!.cardId;
+ s.forgotten=s.forgotten.filter(c=>c!==id);p.hand.push(id);const at=s.lands.find(l=>presence(l,p.playerId)>0)!,energy=p.energy;
+ s=drain(apply(s,{kind:'FLAME_RITUAL',landId:at.id,cardId:id}));assert.ok(s.flames.includes(at.id));assert.equal(s.players[0]!.energy,energy+1);assert.ok(s.forgotten.includes(id));assert.equal(s.players[0]!.destroyedPresence,1);parseSpiritState(s);
+ assert.equal(applySpiritAction(s,p.playerId,{kind:'FLAME_RITUAL',landId:at.id,cardId:id},now,s.transitionId).ok,false);
+});
+test('Second Wave: legacy power resolves through its controller with no current card play or elements',()=>{
+ let s=scenarioGame('SECOND_WAVE');const owner=s.players[0]!.playerId,id=s.players[0]!.hand.find(id=>cardPower(s,id).key==='river-s-bounty')!;
+ s.terror=4;s.queue=[step('CHECK',owner)];settle(s);s=eventChoose(s,'2번째');s=eventChoose(s,cardPower(s,id).title);s=drain(s);s=drain(apply(s,{kind:'SELECT_SPIRIT',spirit:'LIGHTNING'}));s.invaderDeck=s.invaderDeck.filter(c=>c.stage===3);s=apply(s,{kind:'PLAY_LEGACY',cardId:id});s.stage='SLOW';
+ const w=s.wavePowers[0]!;assert.ok(view(s).privateState.powerOptions.some(o=>o.cardId===id));const energy=s.players[0]!.energy;
+ s=drain(apply(s,{kind:'USE_POWER',cardId:id,target:'A1',threshold:1,fast:false,repeat:false,shadowReach:false}));
+ assert.equal(s.players[0]!.energy,energy);assert.ok(s.legacyPlayers[0]!.resolved.includes(id));assert.equal(s.legacyPlayers[0]!.played.length,0);assert.equal(s.legacyPlayers[0]!.discard[0],id);assert.equal(w.controller,owner);parseSpiritState(s);assert.ok(spiritProjectionIsConsistent(view(s)));
+});
+for(const scenario of ['WARD','FLAME','FORGOTTEN','SECOND_WAVE'] as const)for(const adversary of ['NONE','FRANCE','PRUSSIA'] as const)test(`${scenario} + ${adversary}: representative full game progresses without a stuck decision`,()=>{
+ let s=scenarioGame(scenario,2,adversary),commands=0;
+ while(s.phase==='PLAYING'&&commands++<1000){
+  s=drain(s);if(s.phase==='FINISHED')break;
+  if(s.stage==='PREPARE')for(const p of [...s.players]){if(!s.players.find(q=>q.playerId===p.playerId)!.grown)s=drain(apply(s,{kind:'GROW',option:1},p.playerId));if(s.phase==='FINISHED')break;s=apply(s,{kind:'PLAY_CARDS',cardIds:[]},p.playerId);s=drain(apply(s,{kind:'READY',ready:true},p.playerId));}
+  else if(s.stage==='FAST'||s.stage==='SLOW')for(const p of [...s.players]){s=drain(apply(s,{kind:'READY',ready:true},p.playerId));if(s.phase==='FINISHED')break;}
+  else s=drain(apply(s,{kind:'ADVANCE'}));
+  parseSpiritState(s);
+ }
+ assert.ok(commands<1000);assert.equal(s.phase,'FINISHED');
+});
+test('Ward: fear cards recycle within one large effect without normal fear victory or terror regression',()=>{
+ let s=scenarioGame('WARD');s.terror=3;s.fearDeck=['unseen'];s.fearDiscard=['guard','trade'];s.queue=[step('FEAR',s.players[0]!.playerId,null,9),step('CHECK',s.players[0]!.playerId)];settle(s);assert.equal(s.terror,3);assert.equal(s.phase,'PLAYING');assert.equal(s.fearEarned.length,2);assert.equal(s.fear,1);
+});
+test('Forgotten: Wetland immediate Build completes before the next land explores',()=>{
+ let s=scenarioGame('FORGOTTEN',2);s.relics=[{land:'A1',number:3,side:'INVADER',active:true}];for(const l of s.lands)l.pieces=[];
+ const coast=land(s,'B1'),inland=land(s,'B6');assert.ok(inland.adjacent.includes(coast.id));s.invaderDeck.unshift({stage:1,terrains:['WETLAND'],coastal:false});s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'EXPLORE')];settle(s);s=drain(s);
+ assert.equal(countPieces(land(s,'B1'),['TOWN']),1);assert.equal(countPieces(land(s,'B6'),['EXPLORER']),1);assert.equal(countPieces(land(s,'B6'),['TOWN']),1);assert.ok(!s.flags.some(f=>f.startsWith('relic-explored:')));parseSpiritState(s);
+});
+test('Forgotten: explicit adjacent repeats cannot target the Invader leather sack',()=>{
+ let s=scenarioGame('FORGOTTEN');s.relics=[{land:'A2',number:8,side:'INVADER',active:true}];s.queue=[step('SPECIAL',s.players[0]!.playerId,'A1',1,'BCM_REPEAT',null,['insatiable-hunger-of-the-swarm','ADJACENT'])];assert.ok(!choiceOptions(s).some(o=>o.landId==='A2'));
+});
+test('Second Wave: the inherited blight card cannot be replaced by the solo redraw rule',()=>{
+ let s=scenarioGame('SECOND_WAVE');s.waveNumber=2;s.blightCard='WALL';s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'BCL_REVEAL')];assert.ok(!choiceOptions(s).some(o=>o.label.includes('교체')));
+});
+test('Second Wave: two successive continuations replace the legacy and preserve blight conservation',()=>{
+ let s=scenarioGame('SECOND_WAVE',2,'PRUSSIA');
+ for(const wave of [2,3]){
+  const prior=s.players.map(p=>p.spirit),total=s.blightTotal;s.terror=4;s.queue=[step('CHECK',s.players[0]!.playerId)];settle(s);s=eventChoose(s,`${wave}번째 물결 준비`);s=drain(s);
+  assert.equal(s.waveNumber,wave);assert.equal(s.settings.level,wave-1);assert.equal(s.blightTotal,total);assert.deepEqual(s.wavePriorSpirits,prior);assert.equal(s.wavePowers.length,2);assert.equal(s.legacyPlayers.length,2);assert.ok(s.wavePowers.every(w=>w.actor.startsWith(`__spirit_legacy:${wave}:`)));parseSpiritState(s);
+  for(const [i,p] of [...s.players].entries())s=drain(apply(s,{kind:'SELECT_SPIRIT',spirit:SPIRITS[(wave===2?2:0)+i]!.id},p.playerId));
+  assert.equal(s.stage,'PREPARE');assert.ok(spiritProjectionIsConsistent(view(s)));parseSpiritState(s);
+ }
+});
+for(const pay of [true,false])test(`Flame + France: rebellion payment preserves the Dahan reward (${pay})`,()=>{
+ let s=scenarioGame('FLAME',1,'FRANCE');const p=s.players[0]!;p.energy=2;const l=land(s,'A4');l.pieces=[];makePiece(s,l,'DAHAN');const town=makePiece(s,l,'TOWN');town.strife=1;town.damage=1;s.queue=[step('SPECIAL',p.playerId,null,0,'FR_REBELLION_DAHAN')];settle(s);assert.equal(s.queue[0]?.key,'SC_GATE');s=eventChoose(s,pay?'면역 해제':'지불하지');s=drain(s);assert.equal(countPieces(land(s,l.id),['DAHAN']),pay?2:1);assert.equal(countPieces(land(s,l.id),['TOWN']),pay?0:1);assert.equal(s.players[0]!.energy,pay?0:2);assert.ok(!s.flags.some(f=>f.startsWith('sc-paid:')));parseSpiritState(s);
 });
