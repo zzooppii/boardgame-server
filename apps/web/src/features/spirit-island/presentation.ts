@@ -3,12 +3,12 @@ export function powerArtwork(p: SpiritPower): number {
  const k=p.key;
  if(/night|dream/.test(k))return 6;
  if(/thunder|manifestation|warning|ambush/.test(k))return 7;
- if(/drown|tidal|tide|deep|tsunami|swallow/.test(k))return 4;
+ if(/drown|tidal|tide|briny|sea|tsunami|swallow/.test(k))return 4;
  if(/root|hungry-earth|devour/.test(k))return 8;
- if(/flame|fire|storm|rot/.test(k))return 9;
+ if(/flame|fire|storm|volcan|pyroclastic|rot/.test(k))return 9;
  if(/heal|renew|vigor|bounty|sanctity|purif/.test(k))return 10;
  if(/fear|dread|shadow|haunt|delusion/.test(k))return 11;
- if(/animal|beast|ants|hunt|serpents|panther|wasp|rotflies|ferocity/.test(k))return 12;
+ if(/animal|beast|ants|hunt|serpents|panther|wasp|rotflies|ferocity|swarm|savage/.test(k))return 12;
  if(/tree|stone|earth|mountain/.test(k))return 13;
  if(/dahan|migrat|call|voice/.test(k))return 14;
  if(/water|rain|wash|melt|flow/.test(k))return 15;
@@ -19,7 +19,7 @@ export function ravagePreview(g: SpiritProjection,l: SpiritLand) {
  const active=l.number>0&&g.ravage!==null&&(g.ravage.coastal?l.coastal:g.ravage.terrains.includes(l.terrain));
  const earth=g.playerStates.some(p=>p.spirit==='EARTH'&&(l.presence.find(x=>x.playerId===p.playerId)?.count??0)>=2);
  const high=g.settings.adversary==='SWEDEN'&&g.settings.level>=3;
- const attack=l.pieces.reduce((n,p)=>n+(p.strife>0?0:p.kind==='EXPLORER'?1:p.kind==='TOWN'?high?3:2:p.kind==='CITY'?high?5:3:0),0),defend=l.defend+(earth?3:0),damage=Math.max(0,attack-defend);
+ const attack=l.pieces.reduce((n,p)=>n+(p.strife>0?0:p.kind==='EXPLORER'?1:p.kind==='TOWN'?high?3:2:p.kind==='CITY'?high?5:3:0),0),defend=l.defend+(earth?3:0),damage=g.ravageRedirects.includes(l.id)?0:Math.max(0,attack-defend);
  return {active,attack,defend,damage,blight:active&&!l.skip&&!l.vitality&&damage>=2,blocked:l.skip};
 }
 export function preparationElements(g:SpiritProjection,ids:readonly string[]) {

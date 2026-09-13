@@ -22,7 +22,7 @@ export function step(kind: SpiritStep['kind'], actor: PlayerId, landId: string |
 export function prepend(s: SpiritState, ...steps: SpiritStep[]) { s.queue.unshift(...steps); }
 export function cardPower(s: SpiritState, id: string): SpiritPower { const c = s.cards.find(c => c.cardId === id); requireRule(c); return spiritPower(c.key); }
 export function elements(s: SpiritState, id: PlayerId): Record<SpiritElement, number> { const p = player(s, id), tracks = p.spirit ? spiritDefinition(p.spirit).trackElements ?? [] : [], all = [...tracks.flatMap(t => p[t.track] >= t.at ? t.element === 'ANY' ? p.trackChoices.filter(c => c.slot === t.track).map(c => c.element) : [t.element] : []), ...p.elements, ...p.played.flatMap(id => cardPower(s, id).elements)]; return { SUN: all.filter(e => e === 'SUN').length, MOON: all.filter(e => e === 'MOON').length, FIRE: all.filter(e => e === 'FIRE').length, AIR: all.filter(e => e === 'AIR').length, WATER: all.filter(e => e === 'WATER').length, EARTH: all.filter(e => e === 'EARTH').length, PLANT: all.filter(e => e === 'PLANT').length, ANIMAL: all.filter(e => e === 'ANIMAL').length }; }
-export function meets(s: SpiritState, id: PlayerId, threshold: Partial<Record<SpiritElement, number>>): boolean { const e = elements(s, id); return SPIRIT_ELEMENTS.every(k => e[k] >= (threshold[k] ?? 0)); }
+export function meets(s: SpiritState, id: PlayerId, threshold: Partial<Record<SpiritElement, number>>): boolean { const e = elements(s, id); return s.flags.includes(`threshold-active:${id}`) || SPIRIT_ELEMENTS.every(k => e[k] >= (threshold[k] ?? 0)); }
 export function distance(s: SpiritState, a: string, b: string): number { const seen = new Set([a]), queue: [
     string,
     number
@@ -52,10 +52,10 @@ export function targetAllowed(s: SpiritState, id: PlayerId, c: SpiritPower, l: S
     let range = c.range + player(s, id).rangeBonus + (l.coastal?s.flags.filter(f=>f===`shore:${id}`).length*3:0);
     if (c.key === 'sap-the-strength-of-multitudes' && meets(s, id, { AIR: 1 }))
         range++;
-    if (c.key === 'talons-of-lightning' && meets(s, id, { FIRE: 3, AIR: 3 }))
+    if (c.key === 'talons-of-lightning' && (meets(s, id, { FIRE: 3, AIR: 3 })||s.flags.includes(`unlocked:${id}:${c.key}`)))
         range = Math.max(range, 3 + player(s, id).rangeBonus);
     if (shadow && player(s, id).spirit === 'SHADOW' && player(s, id).energy >= 1 && countPieces(l, ['DAHAN']) > 0)
-        return !c.sacred || s.lands.some(from => sacred(s, from, id));
+        return s.lands.some(from=>(!c.sourceTerrain||from.terrain===c.sourceTerrain)&&[id,...player(s,id).sharedWith].some(owner=>c.sacred?sacred(s,from,owner):presence(from,owner)>0));
     return inRange(s, id, l, range, c.sacred, c.sourceTerrain);
 }
 export function innateLevel(s: SpiritState, id: PlayerId, second = false): number {

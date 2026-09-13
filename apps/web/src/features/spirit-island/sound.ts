@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import type { SpiritProjection, SpiritId } from '@hangul-rummikub/shared';
-export type SpiritCue = 'PICK' | 'SELECT' | 'GROW' | 'CARD' | 'POWER' | 'MOVE' | 'DAMAGE' | 'FEAR' | 'BLIGHT' | 'BUILD' | 'EXPLORE' | 'PHASE' | 'WIN' | 'LOSE' | 'PLAN' | 'ERROR';
+export type SpiritCue = 'PICK' | 'SELECT' | 'GROW' | 'CARD' | 'POWER' | 'MOVE' | 'DAMAGE' | 'FEAR' | 'BLIGHT' | 'BUILD' | 'EXPLORE' | 'PHASE' | 'WIN' | 'LOSE' | 'PLAN' | 'ERROR' | 'SINK';
 export function spiritTransitionCues(previous: SpiritProjection | null, next: SpiritProjection | null): SpiritCue[] {
     if (!previous || !next || previous.gameId !== next.gameId || next.gameRevision <= previous.gameRevision)
         return [];
     const last = previous.log.at(-1)?.id ?? 0;
-    return [...new Set(next.log.filter(e => e.id > last).map(e => e.kind))].slice(-3);
+    const sinking=next.destroyedBoards.length>previous.destroyedBoards.length;
+    const cues:SpiritCue[]=[...new Set(next.log.filter(e => e.id > last).map(e => e.kind))].slice(-3);
+    return sinking?['SINK',...cues.filter(c=>c==='WIN'||c==='LOSE')]:cues;
 }
 /** Small wooden cube taps, paper sweeps, a soft plucked scale and brass coin chimes. */
 export class SpiritAudio {
@@ -53,6 +55,7 @@ export class SpiritAudio {
                     this.paper(at + .12);
                 at += .35;
             }
+            else if(cue==='SINK'){[196,146.83,110,73.42].forEach((hz,i)=>this.tone(hz,at+i*.16,.7,.16));at+=1.2;}
             else if (cue === 'POWER') {
                 (spirit==='FANGS'?[164.81,246.94,329.63]:spirit==='KEEPER'?[130.81,196,261.63]:spirit==='RIVER'||spirit==='OCEAN'?[392,523.25,783.99]:spirit==='EARTH'||spirit==='GREEN'?[196,293.66,392]:spirit==='SHADOW'||spirit==='BRINGER'?[220,311.13,440]:[1046.5,1568,2093]).forEach((hz, i) => this.tone(hz, at + i * .07, .4, .15));
                 at += .5;

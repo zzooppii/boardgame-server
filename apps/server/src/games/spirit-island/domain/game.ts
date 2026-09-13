@@ -12,13 +12,15 @@ export function parseSpiritState(value: unknown): SpiritState {
     requireRule(s.cards.length === SPIRIT_POWERS.length && new Set(s.cards.map(c => c.key)).size === s.cards.length && s.cards.every(c => SPIRIT_POWERS.some(p => p.key === c.key)));
     const zones = [...s.minor, ...s.major, ...s.minorDiscard, ...s.majorDiscard, ...s.forgotten, ...s.offered, ...s.progressions.flatMap(p => p.cards), ...s.players.flatMap(p => [...p.hand, ...p.played, ...p.discard])];
     requireRule(zones.length === ids.size && new Set(zones).size === ids.size && zones.every(id => ids.has(id)));
+    requireRule(new Set(s.destroyedBoards).size===s.destroyedBoards.length&&s.destroyedBoards.every(b=>SPIRIT_BOARDS.slice(0,s.players.length).includes(b)));
     const links = spiritBoardLinks(s.players.length), landIds = new Set(s.lands.map(l => l.id));
-    requireRule(s.lands.length === (s.players.some(p => p.spirit === 'OCEAN') ? 9 : 8) * s.players.length && landIds.size === s.lands.length);
+    requireRule(s.lands.length === (s.players.some(p => p.spirit === 'OCEAN') ? 9 : 8) * (s.players.length-s.destroyedBoards.length) && landIds.size === s.lands.length);
     for (const l of s.lands) {
+        requireRule(!s.destroyedBoards.includes(l.board));
         const def = SPIRIT_BOARD_DATA[l.board];
         if (l.number === 0) { requireRule(l.id === `${l.board}0` && l.terrain === 'WETLAND' && l.coastal && JSON.stringify([...l.adjacent].sort()) === JSON.stringify([1,2,3].map(n=>`${l.board}${n}`))); continue; }
         requireRule(l.id === `${l.board}${l.number}` && l.terrain === def.terrains[l.number - 1] && l.coastal === (l.number <= 3));
-        const expected = [...(s.players.some(p=>p.spirit==='OCEAN') && l.coastal ? [`${l.board}0`] : []), ...links.flatMap(([a, b]) => a === l.id ? [b] : b === l.id ? [a] : [])].sort();
+        const expected = [...(s.players.some(p=>p.spirit==='OCEAN') && l.coastal ? [`${l.board}0`] : []), ...links.flatMap(([a, b]) => a === l.id ? [b] : b === l.id ? [a] : [])].filter(id=>landIds.has(id)).sort();
         requireRule(JSON.stringify([...l.adjacent].sort()) === JSON.stringify(expected));
         requireRule(l.presence.every(p => roster.has(p.playerId) && p.count > 0) && new Set(l.presence.map(p => p.playerId)).size === l.presence.length);
     }
@@ -54,11 +56,12 @@ export function createSpiritGame(input: {
     const second: SpiritInvaderCard[] = [...terrains.map(t => ({ stage: 2 as const, terrains: [t], coastal: false })), { stage: 2, terrains: [], coastal: true }];
     const third: SpiritInvaderCard[] = terrains.flatMap((t, i) => terrains.slice(i + 1).map(u => ({ stage: 3 as const, terrains: [t, u], coastal: false })));
     const links = spiritBoardLinks(input.playerIds.length);
-    const s: SpiritState = {settings: {...SPIRIT_DEFAULT_SETTINGS}, configured:false,blighted:false,blightCard:null,fearTiers:[3,3,3],immigration:null,hearts:[], rulesVersion: 'spirit-island-core-v2', gameId: input.gameId, revision: v.parse(GameRevisionSchema, 0), startedAt: input.now, finishedAt: null, phase: 'PLAYING', transitionId: input.transitionId, round: 1, stage: 'SELECT',
+    const s: SpiritState = {settings: {...SPIRIT_DEFAULT_SETTINGS}, configured:false,blighted:false,blightCard:null,fearTiers:[3,3,3],immigration:null,hearts:[], destroyedBoards: [], rulesVersion: 'spirit-island-core-v2', gameId: input.gameId, revision: v.parse(GameRevisionSchema, 0), startedAt: input.now, finishedAt: null, phase: 'PLAYING', transitionId: input.transitionId, round: 1, stage: 'SELECT',
         players: input.playerIds.map((playerId, i) => ({ playerId, spirit: null, removedPresence:0, growthSelections:[],reclaimedCards:[],bonusPlays: 0, drowned: 0, greenRepeats: 0, trackChoices: [], board: SPIRIT_BOARDS[i]!, energy: 0, energyTrack: 0, cardTrack: 0, destroyedPresence: 0, grown: false, ready: false, paid: false, reclaimedOne: false, hand: [], played: [], discard: [], resolved: [], elements: [], fastUsed: 0, fastGift: 0, repeatGrants: [], rangeBonus: 0, sharedWith: [], reclaimAtEnd: 0, progression: 0 })),
         lands: SPIRIT_BOARDS.slice(0, input.playerIds.length).flatMap(board => SPIRIT_BOARD_DATA[board].terrains.map((terrain, i) => { const id = `${board}${i + 1}`; return { id, board, number: i + 1, terrain, coastal: i < 3, adjacent: links.flatMap(([a, b]) => a === id ? [b] : b === id ? [a] : []), pieces: [], presence: [], tokens:{beasts:0,wilds:0,disease:0}, invaderHealth:0, blight: i + 1 === SPIRIT_BOARD_DATA[board].blight ? 1 : 0, defend: 0, skip: false, protectDahan: false, vitality: false, dahanHealth: 0 }; })), cards, minor: deck('MINOR'), major: deck('MAJOR'), minorDiscard: [], majorDiscard: [], forgotten: cards.filter(c => (!['MINOR', 'MAJOR'].includes(SPIRIT_POWERS.find(p => p.key === c.key)!.deck)||SPIRIT_POWERS.find(p=>p.key===c.key)!.expansion)).map(c => c.cardId), progressions,
         revealedFear: [], fear: 0, fearDeck: input.shuffle([...SPIRIT_FEAR_KEYS]).slice(0, 9), fearEarned: [], fearDiscard: [], terror: 1, blightPool: 5 * input.playerIds.length + 1, blightTotal: 6 * input.playerIds.length + 1, invaderDeck: [...input.shuffle(first).slice(0, 3), ...input.shuffle(second).slice(0, 4), ...input.shuffle(third).slice(0, 5)], invaderDiscard: [], ravage: null, build: null, explore: null, queue: [], offered: [], offerRecipient: null, offerOther: null, offerDeck: 'MINOR', effectCounter: 0, pieceCounter: 0, log: [], plans: [], flags: [], vengeance: [], result: null };
     for (const l of s.lands) {
+        requireRule(!s.destroyedBoards.includes(l.board));
         const def = SPIRIT_BOARD_DATA[l.board];
         for (let i = 0; i < def.dahan[l.number - 1]!; i++)
             makePiece(s, l, 'DAHAN');
@@ -241,7 +244,7 @@ export function applySpiritAction(current: SpiritState, actor: PlayerId, input: 
                         const at=s.flags.indexOf(`sky:${actor}`);requireRule(at>=0);s.flags.splice(at,1);setPowerSpeed(s,actor,a.cardId,'SLOW');
                     }
                     if (!a.repeat && p.spirit==='GREEN' && a.cardId==='innate') p.greenRepeats=a.threshold-1;
-                    s.flags=s.flags.filter(f=>!f.startsWith('power:')&&!f.startsWith('dream-')); s.flags.push(`power:${actor}`);
+                    s.flags=s.flags.filter(f=>!f.startsWith('power:')&&!f.startsWith('dream-')); s.flags.push(`power:${actor}`);s.flags=s.flags.filter(f=>!f.startsWith('source-shadow:'));if(a.shadowReach)s.flags.push(`source-shadow:${actor}`);
                     if (a.shadowReach) {
                         requireRule(p.energy >= 1);
                         p.energy--;
@@ -258,7 +261,7 @@ export function applySpiritAction(current: SpiritState, actor: PlayerId, input: 
                             if(thunder||scour||conversions>0||sky>=0){p.energy++;if(!thunder&&!scour){if(conversions>0)p.fastUsed++;else s.flags.splice(sky,1);}s.flags.push(`blitz-fast:${a.cardId}`);}
                         }
                     }
-                    const effects = powerSteps(s, actor, c.key, at, target, a.threshold).filter(e => !a.repeat || !['PAID_REPEAT', 'FREE_REPEAT', 'REPEAT_WINDS', 'REPEAT_LAND_PAIN'].includes(e.key));
+                    const effects = powerSteps(s, actor, c.key, at, target, a.threshold).filter(e => !a.repeat || !['PAID_REPEAT', 'FREE_REPEAT', 'REPEAT_WINDS', 'REPEAT_LAND_PAIN', 'BCM_REPEAT'].includes(e.key));
                     s.queue.push(...effects, step('CHECK', actor));
                     settle(s);
                     break;
@@ -272,7 +275,8 @@ export function applySpiritAction(current: SpiritState, actor: PlayerId, input: 
                         else s.queue.push(step('SPECIAL',actor,null,0,'IMMIGRATION'));
                     }
                     else if (s.stage === 'RAVAGE') {
-                        s.queue.push(...s.lands.filter(l => l.number>0 && s.ravage && (s.ravage.coastal ? l.coastal : s.ravage.terrains.includes(l.terrain))).flatMap(l => [step('SPECIAL', actor, l.id, 0, 'RAVAGE'), step('CHECK', actor)]), step('SPECIAL', actor, null, 0, 'STAGE_BUILD'));
+                        const areas=s.lands.filter(l=>l.number>0&&s.ravage&&(s.ravage.coastal?l.coastal:s.ravage.terrains.includes(l.terrain)));
+                        s.queue.push(...(areas.some(l=>s.flags.includes(`ruin:${l.id}`))?[step('SPECIAL',actor,null,0,'BCM_RAVAGE_ORDER',actor,areas.map(l=>l.id))]:areas.flatMap(l=>[step('SPECIAL',actor,l.id,0,'RAVAGE'),step('CHECK',actor)])),step('SPECIAL',actor,null,0,'STAGE_BUILD'));
                     }
                     else if (s.stage === 'BUILD') {
                         s.queue.push(step('SPECIAL', actor, null, 0, 'BUILD'));

@@ -18,7 +18,7 @@ export type SpiritInvaderCard = v.InferOutput<typeof SpiritInvaderCardSchema>;
 export const SpiritResultSchema = v.strictObject({ reason: v.picklist(['VICTORY', 'SACRIFICE', 'BLIGHT', 'PRESENCE', 'INVADERS', 'CANCELLED', 'ADVERSARY', 'SCENARIO']), winnerPlayerIds: v.pipe(v.array(PlayerIdSchema), v.maxLength(4)), round: count });
 export type SpiritResult = v.InferOutput<typeof SpiritResultSchema>;
 export const SpiritFeedbackSchema = v.strictObject({ id: count, kind: v.picklist(['SELECT', 'GROW', 'CARD', 'POWER', 'MOVE', 'DAMAGE', 'FEAR', 'BLIGHT', 'BUILD', 'EXPLORE', 'PHASE', 'WIN', 'LOSE', 'PLAN']), text: v.pipe(v.string(), v.maxLength(300)), landId: v.nullable(ref), playerId: v.nullable(PlayerIdSchema) });
-const base = { settings:v.optional(SpiritSettingsSchema,SPIRIT_DEFAULT_SETTINGS), configured:v.optional(v.boolean(),false), blighted:v.optional(v.boolean(),false), blightCard:v.optional(v.nullable(v.picklist(['SPIRAL','MEMORY'])),null), hearts:v.optional(v.array(ref),[]), immigration:v.optional(v.nullable(SpiritInvaderCardSchema),null), gameType: v.literal('SPIRIT_ISLAND'), rulesVersion: v.literal('spirit-island-core-v2'), gameId: GameIdSchema, gameRevision: GameRevisionSchema, round: count, stage: SpiritStageSchema,
+const base = { ravageRedirects:v.optional(v.array(ref),[]), destroyedBoards:v.optional(v.array(v.picklist(['A','B','C','D'])),[]), settings:v.optional(SpiritSettingsSchema,SPIRIT_DEFAULT_SETTINGS), configured:v.optional(v.boolean(),false), blighted:v.optional(v.boolean(),false), blightCard:v.optional(v.nullable(v.picklist(['SPIRAL','MEMORY'])),null), hearts:v.optional(v.array(ref),[]), immigration:v.optional(v.nullable(SpiritInvaderCardSchema),null), gameType: v.literal('SPIRIT_ISLAND'), rulesVersion: v.literal('spirit-island-core-v2'), gameId: GameIdSchema, gameRevision: GameRevisionSchema, round: count, stage: SpiritStageSchema,
     lands: v.pipe(v.array(SpiritLandSchema), v.maxLength(36)), playerStates: v.pipe(v.array(SpiritPlayerViewSchema), v.minLength(1), v.maxLength(4)),
     revealedFear: v.optional(v.array(v.strictObject({ position: count, name: ref, effects: v.tuple([ref,ref,ref]) })), []), fear: count, fearPool: count, terror: v.picklist([1, 2, 3, 4]), fearDeckCount: count, earnedFearCount: count, blightPool: count,
     ravage: v.nullable(SpiritInvaderCardSchema), build: v.nullable(SpiritInvaderCardSchema), explore: v.nullable(SpiritInvaderCardSchema), invaderDeckCount: count,
@@ -33,8 +33,10 @@ export type SpiritPlayingProjection = v.InferOutput<typeof SpiritPlayingProjecti
 export type SpiritProjection = SpiritPlayingProjection | v.InferOutput<typeof SpiritFinishedProjectionSchema>;
 export function spiritProjectionIsConsistent(g: SpiritProjection): boolean {
     const ids = new Set(g.playerStates.map(p => p.playerId)), self = g.playerStates.find(p => p.playerId === g.privateState.playerId), lands = new Set(g.lands.map(l => l.id));
-    if (ids.size !== g.playerStates.length || !self || JSON.stringify(self.hand) !== JSON.stringify(g.privateState.hand) || g.fearPool !== ids.size * (g.settings.adversary==='ENGLAND'&&g.settings.level===6?5:4) || g.fear >= g.fearPool || g.lands.filter(l => l.number > 0).length !== ids.size * 8 || lands.size !== g.lands.length)
+    if (ids.size !== g.playerStates.length || !self || JSON.stringify(self.hand) !== JSON.stringify(g.privateState.hand) || g.fearPool !== ids.size * (g.settings.adversary==='ENGLAND'&&g.settings.level===6?5:4) || g.fear >= g.fearPool || g.lands.filter(l => l.number > 0).length !== (ids.size - g.destroyedBoards.length) * 8 || lands.size !== g.lands.length)
         return false;
+    if(new Set(g.destroyedBoards).size!==g.destroyedBoards.length || g.destroyedBoards.length>ids.size || g.lands.some(l=>g.destroyedBoards.includes(l.board)))return false;
+    if(g.ravageRedirects.some(id=>!lands.has(id)))return false;
     if (g.lands.some(l => l.adjacent.some(id => !lands.has(id)) || l.presence.some(p => !ids.has(p.playerId))))
         return false;
     const cards = g.playerStates.flatMap(p => [...p.hand, ...p.played, ...p.discard]).map(c => c.cardId);

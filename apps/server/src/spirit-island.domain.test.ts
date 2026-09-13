@@ -252,7 +252,7 @@ test('Branch & Claw mixes exactly 31 minor powers only into the expansion deck',
  const core=chosen(),bc=branchClaw();
  assert.equal(core.minor.some(id=>cardPower(core,id).expansion),false);
  assert.equal(bc.minor.filter(id=>cardPower(bc,id).expansion).length,31);
- assert.equal(bc.minor.length,67);assert.equal(bc.major.length,22);parseSpiritState(bc);
+ assert.equal(bc.minor.length,67);assert.equal(bc.major.length,43);parseSpiritState(bc);
 });
 for(const card of SPIRIT_POWERS.filter(c=>c.expansion&&c.deck==='MINOR'))
  test(`Branch minor ${card.key}: all initial choices terminate at both threshold settings`,()=>{
@@ -330,4 +330,72 @@ test('Mists resolves an added building movement before the next Build action',()
  const later=s.lands.find(a=>a.id!==l.id&&a.terrain===l.terrain)!;later.pieces=[];makePiece(s,later,'EXPLORER');s.queue=[step('SPECIAL',actor,null,0,'BUILD')];settle(s);
  assert.equal(s.queue[0]?.kind,'MOVE');assert.equal(land(s,l.id).pieces.filter(p=>p.kind==='TOWN').length,1);assert.equal(land(s,later.id).pieces.filter(p=>p.kind==='TOWN').length,0);
  s=chooseText(s,'이 선택 마치기');s=drain(s);assert.equal(land(s,later.id).pieces.filter(p=>p.kind==='TOWN').length,1);
+});
+
+const majorCards=SPIRIT_POWERS.filter(c=>c.expansion&&c.deck==='MAJOR');
+test('Branch major deck has 21 unique powers and core excludes every expansion card',()=>{
+ assert.equal(majorCards.length,21);const core=chosen(),bc=branchClaw();assert.equal(core.major.some(id=>cardPower(core,id).expansion),false);assert.equal(bc.major.filter(id=>cardPower(bc,id).expansion).length,21);assert.equal(bc.major.length,43);
+ for(const key of ['strangling-firevine','pyroclastic-flow','volcanic-eruption','tigers-hunting'])assert.ok(majorCards.find(c=>c.key===key)?.sourceTerrain);
+});
+for(const c of majorCards)for(const level of [0,1])test(`Branch major ${c.key}: threshold ${level} resolves and preserves state`,()=>{
+ let s=chosen(2),p=s.players[0]!;p.energy=20;p.elements=Array.from({length:4},()=>['SUN','MOON','FIRE','AIR','WATER','EARTH','PLANT','ANIMAL'] as const).flat();
+ for(const l of s.lands){l.tokens={beasts:2,disease:2,wilds:2};makePiece(s,l,'CITY');makePiece(s,l,'EXPLORER');}
+ // Keep source restrictions valid and preserve total Presence.
+ const old=s.lands.find(l=>presence(l,p.playerId)>0)!;old.presence=old.presence.filter(x=>x.playerId!==p.playerId);land(s,'A4').presence.push({playerId:p.playerId,count:1});
+ s=minorEffect(s,c.key,'A2',p.playerId,level);s=drain(s);if(s.phase==='FINISHED')s.finishedAt=now;
+ assert.equal(s.queue.length,0);parseSpiritState(s);assert.ok(spiritProjectionIsConsistent(view(s)));
+});
+test('Bloodwrack defense uses disease count after addition, with damage split across neighbors',()=>{
+ let s=chosen();land(s,'A2').tokens.disease=1;s=drain(minorEffect(s,'bloodwrack-plague','A2',s.players[0]!.playerId,0));const l=land(s,'A2');assert.equal(l.tokens.disease,3);for(const id of [l.id,...l.adjacent])assert.equal(land(s,id).defend,3);
+});
+test('Savage transformation replaces without destruction fear and discards attached strife',()=>{
+ let s=chosen();const l=land(s,'A2');l.pieces=[];const x=makePiece(s,l,'EXPLORER');x.strife=2;s=drain(minorEffect(s,'savage-transformation',l.id,s.players[0]!.playerId,0));assert.equal(land(s,l.id).pieces.length,0);assert.equal(land(s,l.id).tokens.beasts,1);assert.equal(s.fear,2);
+});
+test('Pent-Up Calamity counts removed tokens, permits return, and does not count Blight',()=>{
+ let s=chosen();const l=land(s,'A2');l.tokens={beasts:1,disease:1,wilds:0};s.players[0]!.elements=['MOON','MOON','FIRE','FIRE','FIRE'];s=minorEffect(s,'pent-up-calamity',l.id);s=chooseText(s,'토큰을 제거하여 공포와 피해');s=chooseText(s,'야수 1개 제거');s=chooseText(s,'질병 1개 제거');s=chooseText(s,'제거 완료 · 공포 2 · 피해 6');s=drain(s);assert.equal(land(s,l.id).tokens.beasts,1);assert.equal(land(s,l.id).tokens.disease,1);assert.equal(land(s,l.id).pieces.some(p=>p.kind==='CITY'),false);
+});
+test('Unlock draws two without forgetting and offers delayed forgetting instead of payment',()=>{
+ let s=chosen();const p=s.players[0]!,count=p.hand.length;s.players[0]!.elements=Array.from({length:2},()=>['SUN','MOON','FIRE','AIR','WATER','EARTH','PLANT','ANIMAL'] as const).flat();
+ s=minorEffect(s,'unlock-the-gates-of-deepest-power');assert.equal(s.offered.length,2);const id=s.offered[0]!,key=cardPower(s,id).key;s=chooseText(s,cardPower(s,id).title);assert.equal(s.players[0]!.hand.length,count+1);s=chooseText(s,'라운드 끝 망각 · 무료 준비');assert.ok(s.players[0]!.played.includes(id));assert.ok(s.flags.includes(`unlocked:${p.playerId}:${key}`));
+ s.queue=[step('SPECIAL',p.playerId,null,0,'NEW_ROUND')];settle(s);assert.ok(s.majorDiscard.includes(id));assert.equal(s.flags.some(f=>f.startsWith('unlocked:')),false);parseSpiritState(s);
+});
+test('Cast Down removes the board, blight and presence, preserves survivors and awards sacrifice victory',()=>{
+ let s=chosen();const actor=s.players[0]!.playerId;s.players[0]!.elements=Array.from({length:4},()=>['SUN','MOON','WATER','EARTH'] as const).flat();grantPower(s,'cast-down-into-the-briny-deep');const id=hold(s,'cast-down-into-the-briny-deep');s.stage='SLOW';land(s,'A2').presence.push({playerId:actor,count:0});
+ // Move the existing Presence into a coastal sacred site using its other track token.
+ land(s,'A2').presence=[];land(s,'A5').presence=[];land(s,'A2').presence=[{playerId:actor,count:2}];s.players[0]!.energyTrack++;
+ s=drain(apply(s,{kind:'USE_POWER',cardId:id,target:'A2',threshold:1,fast:false,repeat:false,shadowReach:false}));assert.deepEqual(s.destroyedBoards,['A']);assert.equal(s.lands.length,0);assert.equal(s.result?.reason,'SACRIFICE');assert.ok(spiritProjectionIsConsistent(view(s)));parseSpiritState(s);
+});
+test('Ruin snapshots Strife attackers so they can destroy each other',()=>{
+ let s=chosen(),l=land(s,'A2');l.pieces=[];const city=makePiece(s,l,'CITY'),town=makePiece(s,l,'TOWN'),explorer=makePiece(s,l,'EXPLORER');city.strife=town.strife=explorer.strife=1;s.queue=[step('SPECIAL',s.players[0]!.playerId,l.id,0,'BCM_RUIN')];settle(s);s=drain(s);assert.equal(land(s,l.id).pieces.length,0);
+});
+test('Ruin Ravage ignores Strife and defense and only damages adjacent Invaders',()=>{
+ let s=chosen(),l=land(s,'A2'),actor=s.players[0]!.playerId;l.pieces=[];makePiece(s,l,'CITY').strife=1;makePiece(s,l,'DAHAN');l.defend=100;s.flags.push(`ruin:${l.id}`);const next=land(s,l.adjacent[0]!);next.pieces=[];makePiece(s,next,'CITY');s.queue=[step('SPECIAL',actor,l.id,0,'RAVAGE')];settle(s);s=drain(s);assert.equal(land(s,l.id).pieces.find(p=>p.kind==='CITY')?.strife,1);assert.equal(land(s,l.id).pieces.filter(p=>p.kind==='DAHAN').length,1);assert.equal(land(s,next.id).pieces.length,0);
+});
+test('Fire and Flood selects one common sacred source and two distinct targets',()=>{
+ let s=chosen(),p=s.players[0]!,l=land(s,'A2');land(s,'A5').presence=[];l.presence=[{playerId:p.playerId,count:2}];p.energyTrack++;p.elements=['FIRE','FIRE','FIRE','WATER','WATER','WATER'];
+ s=minorEffect(s,'fire-and-flood',l.id);assert.equal(s.queue[0]?.key,'BCM_FIRE_FLOOD_SOURCE');s=chooseText(s,'A2 공통 성소');assert.equal(choiceOptions(s).some(o=>o.landId==='A2'),false);const target=choiceOptions(s).find(o=>o.landId==='A3')!;s=chooseText(s,target.label);s=drain(s);assert.equal(land(s,'A2').pieces.some(p=>p.kind==='CITY'),false);parseSpiritState(s);
+});
+test('Firevine from range zero adds both Wilds and damages after both additions',()=>{
+ let s=chosen(),p=s.players[0]!;land(s,'A5').presence=[];land(s,'A4').presence=[{playerId:p.playerId,count:1}];land(s,'A4').pieces=[];makePiece(s,land(s,'A4'),'CITY');s=drain(minorEffect(s,'strangling-firevine','A4',p.playerId,0));assert.equal(land(s,'A4').tokens.wilds,2);assert.equal(land(s,'A4').pieces[0]?.damage,2);
+});
+test('Bringer Cast Down keeps the board and others Presence while destroying its own',()=>{
+ let s=setup(2);s=apply(s,{kind:'SELECT_SPIRIT',spirit:'BRINGER'});s=apply(s,{kind:'SELECT_SPIRIT',spirit:'RIVER'},s.players[1]!.playerId);const p=s.players[0]!;
+ s.flags.push(`power:${p.playerId}`);const before=s.lands.length,other=s.players[1]!.playerId,otherPresence=s.lands.reduce((n,l)=>n+presence(l,other),0);s.queue=[step('SPECIAL',p.playerId,'A2',0,'BCM_SINK')];settle(s);s=drain(s);assert.equal(s.lands.length,before);assert.deepEqual(s.destroyedBoards,[]);assert.equal(s.lands.reduce((n,l)=>n+presence(l,p.playerId),0),0);assert.equal(s.lands.reduce((n,l)=>n+presence(l,other),0),otherPresence);
+});
+test('Sinking one board rescues immortal Dahan and preserves adjacent-board topology',()=>{
+ let s=chosen(2),actor=s.players[0]!.playerId;land(s,'B2').presence.push({playerId:actor,count:1});s.players[0]!.energyTrack++;s.flags.push('immortal:A2');land(s,'A2').vitality=true;const dahan=land(s,'A2').pieces.find(p=>p.kind==='DAHAN')!.id;
+ s.queue=[step('SPECIAL',actor,'A2',0,'BCM_SINK')];settle(s);s=drain(s);assert.deepEqual(s.destroyedBoards,['A']);assert.ok(s.lands.some(l=>l.pieces.some(p=>p.id===dahan)));assert.equal(s.lands.some(l=>l.adjacent.some(id=>id.startsWith('A'))),false);assert.ok(spiritProjectionIsConsistent(view(s)));parseSpiritState(s);
+});
+test('Unlock forced thresholds do not grant elements to other powers',()=>{
+ let s=chosen(),actor=s.players[0]!.playerId;s.flags.push(`unlocked:${actor}:cleansing-floods`);const unlocked=powerSteps(s,actor,'cleansing-floods','A2',actor,0),normal=powerSteps(s,actor,'accelerated-rot','A2',actor,1);assert.equal(unlocked.find(e=>e.kind==='DAMAGE')?.n,14);assert.equal(normal.find(e=>e.kind==='DAMAGE')?.n,4);assert.equal(s.flags.some(f=>f.startsWith('threshold-active:')),false);
+});
+test('Flow carries blight as movement without cascading or destroying Presence',()=>{
+ let s=chosen(),p=s.players[0]!;p.elements=['AIR','AIR','WATER','WATER'];land(s,'A5').blight=2;s.blightTotal+=2;s=minorEffect(s,'flow-like-water-reach-like-air');s=chooseText(s,'A5 현신 → A4');while(s.queue[0]?.tags[0]!=='BLIGHT')s=chooseText(s,'동반 이동 마치기');s=chooseText(s,'A5 오염 → A4');s=chooseText(s,'A5 오염 → A4');s=drain(s);assert.equal(land(s,'A4').blight,3);assert.equal(presence(land(s,'A4'),p.playerId),1);assert.equal(s.blightPool,6);parseSpiritState(s);
+});
+test('Ruin lets players resolve its Ravage before another matching land',()=>{
+ let s=chosen();const first=land(s,'A6'),later=land(s,'A1');s.stage='RAVAGE';s.ravage={stage:1,terrains:['MOUNTAIN'],coastal:false};s.flags.push(`ruin:${first.id}`);s=apply(s,{kind:'ADVANCE'});assert.equal(s.queue[0]?.key,'BCM_RAVAGE_ORDER');assert.ok(choiceOptions(s).some(o=>o.landId===first.id));s=chooseText(s,`${first.id} 파괴 먼저 해결`);s=drain(s);assert.equal(s.stage,'BUILD');assert.equal(s.queue.length,0);assert.ok(later.id);
+});
+test('An unrestricted repeat retains both numeric range and source terrain',()=>{
+ let s=chosen(),p=s.players[0]!;grantPower(s,'pyroclastic-flow');const id=hold(s,'pyroclastic-flow');p.resolved.push(id);p.repeatGrants.push({id:'major-repeat',remaining:1,maxCost:9,paid:false,used:[]});s.stage='FAST';land(s,'A5').presence=[];land(s,'A1').presence=[{playerId:p.playerId,count:1}];const option=powerOptions(s,p.playerId).find(o=>o.cardId===id)!;assert.equal(option.targets.includes('A8'),false);assert.ok(option.targets.includes('A1'));
+ land(s,'A1').presence=[];land(s,'A4').presence=[{playerId:p.playerId,count:1}];assert.equal(powerOptions(s,p.playerId).find(o=>o.cardId===id)?.targets.length,0);
 });

@@ -35,3 +35,12 @@ test('Branch minor card UI exposes terrain restrictions and expansion progress',
  s.game.stage='PREPARE';s.game.playerStates[0]!.spirit='RIVER';const card={cardId:'fleshrot',key:'fleshrot-fever'};s.game.playerStates[0]!.hand=[card];s.game.privateState.hand=[card];
  const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));assert.match(html,/살을 썩히는 열병/);assert.match(html,/대상: 밀림\/모래/);assert.match(html,/질병 1개 추가/);
 });
+test('Sunk boards disappear with an accessible notice and a nonrepeating sound',()=>{
+ const before=playing(),after=structuredClone(before);after.game.destroyedBoards=['A'];after.game.lands=[];after.game.gameRevision++;const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:after}));assert.match(html,/바다 아래로 가라앉은 섬: A/);assert.doesNotMatch(html,/aria-label="A 섬 구역"/);assert.deepEqual(spiritTransitionCues(before.game,after.game),['SINK']);assert.deepEqual(spiritTransitionCues(after.game,after.game),[]);
+});
+test('Branch majors show source terrain and distinct two-land range',()=>{
+ const s=playing(),cards=SPIRIT_POWERS.filter(c=>['fire-and-flood','pyroclastic-flow'].includes(c.key)).map(c=>({key:c.key,cardId:c.key}));s.game.playerStates[0]!.hand=cards;s.game.privateState.hand=cards;const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));assert.match(html,/사거리 1 · 2 · 성소에서/);assert.match(html,/산에서/);
+});
+test('Power acquisition choices display illustrated cards and instructions without a map target',()=>{
+ const s=playing(),c=SPIRIT_POWERS.find(c=>c.key==='bloodwrack-plague')!;s.game.pending={choiceId:'pick-major',playerId:s.game.privateState.playerId,title:'획득할 능력 카드 선택',options:[{id:'o0',label:c.title,landId:null,pieceId:null}]};const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));assert.match(html,/아래 카드나 효과를 고른 뒤/);assert.match(html,/피를 끓이는 역병/);assert.match(html,/si-options[^]*si-card-art si-power-art/);
+});
