@@ -1342,6 +1342,7 @@ function registerResumeHandler(
         runtime.splendorHostSuccession?.resumed(result.data.roomId, result.data.playerId);
         runtime.trainHostSuccession?.resumed(result.data.roomId, result.data.playerId);
         runtime.centuryHostSuccession?.resumed(result.data.roomId, result.data.playerId);
+        runtime.spiritHostSuccession?.resumed(result.data.roomId, result.data.playerId);
         runtime.jaipurHostSuccession?.resumed(result.data.roomId, result.data.playerId);
         runtime.spaceCrewHostSuccession?.resumed(result.data.roomId, result.data.playerId);
         runtime.loveLetterHostSuccession?.resumed(result.data.roomId, result.data.playerId);
@@ -2794,6 +2795,27 @@ function registerCenturyHandlers(socket: RealtimeSocket, runtime: ApplicationRun
   });
 }
 
+import { SpiritClientCommandSchema } from "@hangul-rummikub/shared";
+function registerSpiritHandlers(socket: RealtimeSocket, runtime: ApplicationRuntime): void {
+  for (const event of ["spirit:act"] as const) socket.on(event, (raw: unknown, acknowledge: (ack: StateSyncWireAck) => void) => {
+    const receivedAt = runtime.clock.now(), command = parseNumberRematch(SpiritClientCommandSchema, raw);
+    if (!command.success || command.output.kind !== event) { acknowledgeIfPresent(acknowledge, failureAck(raw, INVALID_PAYLOAD_ERROR, receivedAt)); return; }
+    void (async () => {
+      const binding = runtime.connectionRegistry.getAuthenticatedBinding(createSocketId(socket.id));
+      if (!binding) { acknowledgeIfPresent(acknowledge, failureAck(raw, UNAUTHENTICATED_ERROR, receivedAt)); return; }
+      if (!isRoomAdmissionCompatible("SPIRIT_ISLAND", socketAdmissionCapabilities(socket))) {
+        acknowledgeIfPresent(acknowledge, failureAck(raw, {code:"INCOMPATIBLE_GAME_CAPABILITY",message:"SPIRIT_ISLAND requires V2 capability.",recoverable:false}, receivedAt)); return;
+      }
+      if (!runtime.spiritService) { acknowledgeIfPresent(acknowledge, failureAck(raw, INTERNAL_ERROR, receivedAt)); return; }
+      const result = await runtime.spiritService.command({roomId:binding.roomId,actorPlayerId:binding.playerId,command:command.output,receivedAt,
+        authorization:{isCurrent:()=>socket.connected && isCurrentBinding(runtime,binding)}});
+      if (!result.ok) { acknowledgeIfPresent(acknowledge, failureAck(raw,result.error,receivedAt)); return; }
+      const loaded = await loadSnapshotForSocket(runtime,socket,binding.roomId,binding.playerId);
+      if (loaded && socket.connected && isCurrentBinding(runtime,binding)) acknowledgeIfPresent(acknowledge,snapshotSuccessAck(command.output.requestId,loaded.metadata,loaded.wireSnapshot));
+    })().catch(()=>acknowledgeIfPresent(acknowledge,failureAck(raw,INTERNAL_ERROR,receivedAt)));
+  });
+}
+
 import { SpaceCrewClientCommandSchema, SpaceCrewStartCommandSchema } from "@hangul-rummikub/shared";
 function registerSpaceCrewHandlers(io: RealtimeServer, socket: RealtimeSocket, runtime: ApplicationRuntime): void {
   socket.on("spaceCrew:start", (raw: unknown, acknowledge: (ack: StateSyncWireAck) => void) => {
@@ -3470,6 +3492,7 @@ function registerDisconnectHandler(
     runtime.splendorHostSuccession?.disconnected(binding.roomId, binding.playerId, disconnectedAt);
     runtime.trainHostSuccession?.disconnected(binding.roomId, binding.playerId, disconnectedAt);
     runtime.centuryHostSuccession?.disconnected(binding.roomId, binding.playerId, disconnectedAt);
+    runtime.spiritHostSuccession?.disconnected(binding.roomId, binding.playerId, disconnectedAt);
     runtime.jaipurHostSuccession?.disconnected(binding.roomId, binding.playerId, disconnectedAt);
     runtime.spaceCrewHostSuccession?.disconnected(binding.roomId, binding.playerId, disconnectedAt);
     runtime.loveLetterHostSuccession?.disconnected(binding.roomId, binding.playerId, disconnectedAt);
@@ -3568,6 +3591,7 @@ export function registerSocketIoHandlers(
   const unsubscribeSplendor = runtime.splendorService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
   const unsubscribeTrain = runtime.trainService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
   const unsubscribeCentury = runtime.centuryService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
+  const unsubscribeSpirit = runtime.spiritService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
   const unsubscribeSpaceCrew = runtime.spaceCrewService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
   const unsubscribeJaipur = runtime.jaipurService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
   const unsubscribeLoveLetter = runtime.loveLetterService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
@@ -3637,6 +3661,7 @@ export function registerSocketIoHandlers(
     registerSplendorHandlers(socket, runtime);
     registerTrainHandlers(socket, runtime);
     registerCenturyHandlers(socket, runtime);
+    registerSpiritHandlers(socket, runtime);
     registerJaipurHandlers(socket, runtime);
     registerSpaceCrewHandlers(io, socket, runtime);
     registerLoveLetterHandlers(socket, runtime);
@@ -3675,6 +3700,7 @@ export function registerSocketIoHandlers(
     unsubscribeSplendor?.();
     unsubscribeTrain?.();
     unsubscribeCentury?.();
+    unsubscribeSpirit?.();
     unsubscribeJaipur?.();
     unsubscribeSpaceCrew?.();
     unsubscribeLoveLetter?.();

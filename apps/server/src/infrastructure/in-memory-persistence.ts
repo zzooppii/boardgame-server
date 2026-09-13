@@ -3,6 +3,7 @@ import { LiarPromptHistorySchema } from "../games/liar-game/domain/prompts.js";
 import { BurgundySettingsSchema, BURGUNDY_DEFAULT_SETTINGS } from "@hangul-rummikub/shared";
 import { TrainGameStateAdapter, type TrainLifecycle } from "../games/train/compatibility/adapter.js";
 import { CenturyGameStateAdapter, type CenturyLifecycle } from "../games/century/compatibility/adapter.js";
+import { SpiritGameStateAdapter, type SpiritLifecycle } from "../games/spirit-island/compatibility/adapter.js";
 import { LostCitiesSettingsSchema, CityExpansionSettingsSchema } from "@hangul-rummikub/shared";
 import { IslandGameStateAdapter, type IslandLifecycle } from "../games/island/compatibility/adapter.js";
 import { SplendorSettingsSchema } from "@hangul-rummikub/shared";
@@ -134,6 +135,7 @@ type RoomGameLifecycleInspection =
   | Readonly<{gameType:"SPLENDOR";inspection:SplendorLifecycle}>
   | Readonly<{gameType:"TRAIN";inspection:TrainLifecycle}>
   | Readonly<{gameType:"CENTURY";inspection:CenturyLifecycle}>
+  | Readonly<{gameType:"SPIRIT_ISLAND";inspection:SpiritLifecycle}>
   | Readonly<{gameType:"JAIPUR";inspection:JaipurLifecycle}>
   | Readonly<{gameType:"SPACE_CREW";inspection:SpaceCrewLifecycle}>
   | Readonly<{gameType:"LOVE_LETTER";inspection:LoveLetterLifecycle}>
@@ -303,6 +305,13 @@ function cloneRoomWriteCandidate(
       const departedPlayerIds = Object.freeze([...(candidate.departedPlayerIds ?? [])]);
       if (new Set(departedPlayerIds).size !== departedPlayerIds.length || departedPlayerIds.some(id => !shell.players.some(p => p.playerId === id)) || shell.phase === "LOBBY" && departedPlayerIds.length > 0) throw new Error("Invalid departed CENTURY roster.");
       return Object.freeze({...shell, gameType:"CENTURY", game, departedPlayerIds});
+    }
+    case "SPIRIT_ISLAND": {
+      const adapter = new SpiritGameStateAdapter(), game = candidate.game === null ? null : adapter.cloneAndValidate(candidate.game);
+      validateRoomGameCoherence(shell.phase, shell.players, game, () => game === null ? null : adapter.inspectLifecycle(game));
+      const departedPlayerIds = Object.freeze([...(candidate.departedPlayerIds ?? [])]);
+      if (new Set(departedPlayerIds).size !== departedPlayerIds.length || departedPlayerIds.some(id => !shell.players.some(p => p.playerId === id)) || shell.phase === "LOBBY" && departedPlayerIds.length > 0) throw new Error("Invalid departed SPIRIT_ISLAND roster.");
+      return Object.freeze({...shell, gameType:"SPIRIT_ISLAND", game, departedPlayerIds});
     }
     case "SPACE_CREW": {
       const adapter = new SpaceCrewGameStateAdapter(), game = candidate.game === null ? null : adapter.cloneAndValidate(candidate.game);
@@ -560,6 +569,7 @@ function persistRoom(
     case "SPLENDOR":
     case "TRAIN":
     case "CENTURY":
+    case "SPIRIT_ISLAND":
     case "SPACE_CREW":
     case "JAIPUR":
     case "LOVE_LETTER":
@@ -600,6 +610,7 @@ function inspectRoomGame(
     case "SPLENDOR": return {gameType:"SPLENDOR",inspection:new SplendorGameStateAdapter().inspectLifecycle(room.game)};
     case "TRAIN": return {gameType:"TRAIN",inspection:new TrainGameStateAdapter().inspectLifecycle(room.game)};
     case "CENTURY": return {gameType:"CENTURY",inspection:new CenturyGameStateAdapter().inspectLifecycle(room.game)};
+    case "SPIRIT_ISLAND": return {gameType:"SPIRIT_ISLAND",inspection:new SpiritGameStateAdapter().inspectLifecycle(room.game)};
     case "SPACE_CREW": return {gameType:"SPACE_CREW",inspection:new SpaceCrewGameStateAdapter().inspectLifecycle(room.game)};
     case "JAIPUR": return {gameType:"JAIPUR",inspection:new JaipurGameStateAdapter().inspectLifecycle(room.game)};
     case "LOVE_LETTER": return {gameType:"LOVE_LETTER",inspection:new LoveLetterGameStateAdapter().inspectLifecycle(room.game)};

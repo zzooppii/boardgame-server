@@ -10,6 +10,7 @@ import { RoomGameControls } from "./features/lobby/RoomGameControls.js";
 import { SplendorScreen } from "./features/splendor/SplendorScreen.js";
 import { TrainScreen } from "./features/train/TrainScreen.js";
 import { CenturyScreen } from "./features/century/CenturyScreen.js";
+import { SpiritScreen } from "./features/spirit-island/SpiritScreen.js";
 import { JaipurScreen } from "./features/jaipur/JaipurScreen.js";
 import { LoveLetterScreen } from "./features/love-letter/LoveLetterScreen.js";
 import { GuryongtuScreen } from "./features/guryongtu/GuryongtuScreen.js";
@@ -23,6 +24,7 @@ import { LostCitiesScreen } from "./features/lost-cities/LostCitiesScreen.js";
 import "./features/splendor/splendor.css";
 import "./features/train/train.css";
 import "./features/century/century.css";
+import "./features/spirit-island/spirit.css";
 import "./features/jaipur/jaipur.css";
 import "./features/love-letter/loveLetter.css";
 import "./features/guryongtu/guryongtu.css";
@@ -403,6 +405,14 @@ export function App() {
     if (roomView.kind === "CENTURY") {
       return <ReconnectBoundary {...recovery}><CenturyScreen snapshot={roomView.snapshot}
         connected={app.connectionState === "CONNECTED" && !app.sessionReplaced && !app.resumePending && !app.reconnectNeeded} onCommand={app.actCentury} onRematch={() => app.selectRoomGame("CENTURY")}
+        onStart={app.startGame} onLeave={app.leaveRoom} onCopy={() => app.copyInvitation(invitationUrl)}
+        pending={app.operationLabel !== null || app.roomLeavePending || app.gameStartPending}
+        error={app.errorMessage} connectionLabel={connectionLabel}/></ReconnectBoundary>;
+    }
+
+    if (roomView.kind === "SPIRIT_ISLAND") {
+      return <ReconnectBoundary {...recovery}><SpiritScreen snapshot={roomView.snapshot}
+        connected={app.connectionState === "CONNECTED" && !app.sessionReplaced && !app.resumePending && !app.reconnectNeeded} onCommand={app.actSpirit} onRematch={() => app.selectRoomGame("SPIRIT_ISLAND")}
         onStart={app.startGame} onLeave={app.leaveRoom} onCopy={() => app.copyInvitation(invitationUrl)}
         pending={app.operationLabel !== null || app.roomLeavePending || app.gameStartPending}
         error={app.errorMessage} connectionLabel={connectionLabel}/></ReconnectBoundary>;

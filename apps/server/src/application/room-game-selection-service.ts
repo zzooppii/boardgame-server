@@ -55,7 +55,9 @@ export class RoomGameSelectionService {
           };
           candidate = command.payload.gameType === "SPACE_CREW"
             ? { ...lobby, gameType: "SPACE_CREW" }
-            : { ...lobby, gameType: command.payload.gameType };
+            : command.payload.gameType === "SPIRIT_ISLAND"
+              ? { ...lobby, gameType: "SPIRIT_ISLAND" }
+              : { ...lobby, gameType: command.payload.gameType };
           if (command.payload.gameType === "LIAR_GAME" && room.gameType === "LIAR_GAME") {
             candidate = { ...candidate, gameType: "LIAR_GAME", game: null, settings: room.settings ?? { category: "RANDOM", discussionSeconds: 90 } };
           }

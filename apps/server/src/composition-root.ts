@@ -10,6 +10,7 @@ import { IslandHostSuccession } from "./games/island/application/host-succession
 import { SplendorHostSuccession } from "./games/splendor/application/host-succession.js";
 import { TrainHostSuccession } from "./games/train/application/host-succession.js";
 import { CenturyHostSuccession } from "./games/century/application/host-succession.js";
+import { SpiritHostSuccession } from "./games/spirit-island/application/host-succession.js";
 import { JaipurHostSuccession } from "./games/jaipur/application/host-succession.js";
 import { LoveLetterHostSuccession } from "./games/love-letter/application/host-succession.js";
 import { GuryongtuHostSuccession } from "./games/guryongtu/application/host-succession.js";
@@ -29,6 +30,7 @@ import { IslandService } from "./games/island/application/service.js";
 import { SplendorService } from "./games/splendor/application/service.js";
 import { TrainService } from "./games/train/application/service.js";
 import { CenturyService } from "./games/century/application/service.js";
+import { SpiritService } from "./games/spirit-island/application/service.js";
 import { JaipurService } from "./games/jaipur/application/service.js";
 import { LoveLetterService } from "./games/love-letter/application/service.js";
 import { GuryongtuService } from "./games/guryongtu/application/service.js";
@@ -48,6 +50,7 @@ import { createIslandLifecycle } from "./games/island/application/lifecycle.js";
 import { createSplendorLifecycle } from "./games/splendor/application/lifecycle.js";
 import { createTrainLifecycle } from "./games/train/application/lifecycle.js";
 import { createCenturyLifecycle } from "./games/century/application/lifecycle.js";
+import { createSpiritLifecycle } from "./games/spirit-island/application/lifecycle.js";
 import { createJaipurLifecycle } from "./games/jaipur/application/lifecycle.js";
 import { createLoveLetterLifecycle } from "./games/love-letter/application/lifecycle.js";
 import { createGuryongtuLifecycle } from "./games/guryongtu/application/lifecycle.js";
@@ -180,6 +183,7 @@ export type ApplicationRuntime = Readonly<{
   splendorService?: SplendorService;
   trainService?: TrainService;
   centuryService?: CenturyService;
+  spiritService?: SpiritService;
   jaipurService?: JaipurService;
   spaceCrewService?: SpaceCrewService;
   loveLetterService?: LoveLetterService;
@@ -200,6 +204,7 @@ export type ApplicationRuntime = Readonly<{
   splendorHostSuccession?: SplendorHostSuccession;
   trainHostSuccession?: TrainHostSuccession;
   centuryHostSuccession?: CenturyHostSuccession;
+  spiritHostSuccession?: SpiritHostSuccession;
   jaipurHostSuccession?: JaipurHostSuccession;
   spaceCrewHostSuccession?: SpaceCrewHostSuccession;
   loveLetterHostSuccession?: LoveLetterHostSuccession;
@@ -326,6 +331,7 @@ export function createApplicationRuntime(
       { gameType: "SPLENDOR" },
       { gameType: "TRAIN" },
       { gameType: "CENTURY" },
+      { gameType: "SPIRIT_ISLAND" },
       { gameType: "JAIPUR" },
       { gameType: "SPACE_CREW" },
       { gameType: "LOVE_LETTER" },
@@ -374,6 +380,7 @@ export function createApplicationRuntime(
     splendor: createSplendorLifecycle(),
     train: createTrainLifecycle(),
     century: createCenturyLifecycle(),
+    spirit: createSpiritLifecycle(),
     jaipur: createJaipurLifecycle(),
     spaceCrew: createSpaceCrewLifecycle(),
     loveLetter: createLoveLetterLifecycle(),
@@ -680,6 +687,13 @@ export function createApplicationRuntime(
     const room = await persistence.findById(roomId);
     if (room?.gameType === "CENTURY" && room.phase === "FINISHED" && room.game) await onGameFinished({ roomId, gameId: room.game.gameId });
   });
+  const spiritService = new SpiritService({ roomRepository: persistence, roomUnitOfWork: persistence, idempotencyRepository: persistence,
+    roomMutationExecutor, presence: presenceReader, clock, ids: idGenerator, random: randomSource });
+  const spiritHostSuccession = new SpiritHostSuccession(spiritService.deps, roomId => spiritService.notify(roomId));
+  spiritService.subscribe(async roomId => {
+    const room = await persistence.findById(roomId);
+    if (room?.gameType === "SPIRIT_ISLAND" && room.phase === "FINISHED" && room.game) await onGameFinished({ roomId, gameId: room.game.gameId });
+  });
   const jaipurService = new JaipurService({ roomRepository: persistence, roomUnitOfWork: persistence, idempotencyRepository: persistence,
     roomMutationExecutor, presence: presenceReader, clock, ids: idGenerator, random: randomSource });
   const jaipurHostSuccession = new JaipurHostSuccession(jaipurService.deps, roomId => jaipurService.notify(roomId));
@@ -875,6 +889,7 @@ export function createApplicationRuntime(
     splendor: { gameType: "SPLENDOR", start: input => splendorService.start(input) },
     train: { gameType: "TRAIN", start: input => trainService.start(input) },
     century: { gameType: "CENTURY", start: input => centuryService.start(input) },
+    spirit: { gameType: "SPIRIT_ISLAND", start: input => spiritService.start(input) },
     jaipur: { gameType: "JAIPUR", start: input => jaipurService.start(input) },
     spaceCrew: { gameType: "SPACE_CREW", start: input => spaceCrewService.start(input) },
     loveLetter: { gameType: "LOVE_LETTER", start: input => loveLetterService.start(input) },
@@ -1092,6 +1107,7 @@ export function createApplicationRuntime(
     splendorService,
     trainService,
     centuryService,
+    spiritService,
     jaipurService,
     spaceCrewService,
     loveLetterService,
@@ -1112,6 +1128,7 @@ export function createApplicationRuntime(
     splendorHostSuccession,
     trainHostSuccession,
     centuryHostSuccession,
+    spiritHostSuccession,
     jaipurHostSuccession,
     spaceCrewHostSuccession,
     loveLetterHostSuccession,
@@ -1181,6 +1198,7 @@ export function createApplicationRuntime(
       splendorHostSuccession.start();
       trainHostSuccession.start();
       centuryHostSuccession.start();
+      spiritHostSuccession.start();
       jaipurHostSuccession.start();
       spaceCrewHostSuccession.start();
       spaceCrewService.startMaintenance();
@@ -1219,6 +1237,7 @@ export function createApplicationRuntime(
       splendorHostSuccession.stop();
       trainHostSuccession.stop();
       centuryHostSuccession.stop();
+      spiritHostSuccession.stop();
       jaipurHostSuccession.stop();
       spaceCrewHostSuccession.stop();
       spaceCrewService.stopMaintenance();

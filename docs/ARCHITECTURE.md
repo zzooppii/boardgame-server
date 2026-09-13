@@ -1032,3 +1032,7 @@ Phase 18 deployment checkpoint에서 Codex는 public `/health`, Home/assets, dir
 ### 라이어게임 10라운드 확장 (2026-09-12)
 
 `LIAR_GAME`은 서버 권위의 10라운드 경기와 결과 대기(`PLAYING / ROUND_RESULT`, 타이머 없음)를 지원한다. 완료 라운드에서 점수를 계산하며 비공개 방 출제 이력은 재경기·게임 교체에도 보존한다. 이력은 서버 내부 room record에만 저장하고 공개 DTO에는 포함하지 않는다. 상세 계약은 [LIAR_GAME_ARCHITECTURE.md](LIAR_GAME_ARCHITECTURE.md)를 따른다.
+
+## 정령섬 추가 (2026-09-13)
+
+`SPIRIT_ISLAND`는 1–4인 협동 게임으로 기존 Room/Session/UoW와 V2 projection 경계에 연결한다. 동시 준비와 직렬 능력 해결을 사용하고 턴 마감은 두지 않는다. 규칙은 [SPIRIT_ISLAND_GAME_RULES.md](./SPIRIT_ISLAND_GAME_RULES.md), 상태·선택·화면·효과음 경계는 [SPIRIT_ISLAND_ARCHITECTURE.md](./SPIRIT_ISLAND_ARCHITECTURE.md)를 따른다.

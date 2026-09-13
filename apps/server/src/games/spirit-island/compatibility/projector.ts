@@ -1,0 +1,11 @@
+import { SpiritPlayingProjectionSchema, SpiritFinishedProjectionSchema, SPIRIT_ELEMENTS, type PlayerId } from '@hangul-rummikub/shared';
+import { parse } from 'valibot';
+import type { SpiritStoredGame } from './adapter.js';
+import { powerOptions } from '../domain/game.js';
+import { elements, player } from '../domain/primitives.js';
+import { choiceOptions, choiceTitle } from '../domain/resolver.js';
+export function projectSpirit(game: SpiritStoredGame, viewer: PlayerId) {
+    const s = game.state, me = player(s, viewer), cards = (ids: string[]) => ids.map(id => s.cards.find(c => c.cardId === id)!), head = s.queue[0], owner = head?.target ?? head?.actor;
+    const base = { gameType: 'SPIRIT_ISLAND', rulesVersion: s.rulesVersion, gameId: s.gameId, gameRevision: s.revision, round: s.round, stage: s.stage, lands: s.lands, playerStates: s.players.map(p => ({ playerId: p.playerId, spirit: p.spirit, board: p.board, energy: p.energy, energyTrack: p.energyTrack, cardTrack: p.cardTrack, destroyedPresence: p.destroyedPresence, grown: p.grown, ready: p.ready, hand: cards(p.hand), played: cards(p.played), discard: cards(p.discard), resolved: p.resolved, elements: SPIRIT_ELEMENTS.flatMap(e => Array.from({ length: elements(s, p.playerId)[e] }, () => e)), fastRemaining: Math.max(0, p.fastGift + (p.spirit === 'LIGHTNING' ? elements(s, p.playerId).AIR : 0) - p.fastUsed), repeatRemaining: p.repeatGrants.reduce((n, r) => n + r.remaining, 0) })), fear: s.fear, fearPool: s.players.length * 4, terror: s.terror, fearDeckCount: s.fearDeck.length, earnedFearCount: s.fearEarned.length, blightPool: s.blightPool, ravage: s.ravage, build: s.build, explore: s.explore, invaderDeckCount: s.invaderDeck.length, pending: head ? { choiceId: `${s.transitionId}:${s.revision}`, playerId: owner, title: choiceTitle(head), options: owner === viewer ? choiceOptions(s).map(({ apply: _, ...o }) => o) : [] } : null, plans: s.plans, log: s.log, privateState: { playerId: viewer, hand: cards(me.hand), powerOptions: powerOptions(s, viewer) } };
+    return s.phase === 'FINISHED' ? parse(SpiritFinishedProjectionSchema, { ...base, phase: 'FINISHED', result: s.result }) : parse(SpiritPlayingProjectionSchema, { ...base, phase: 'PLAYING', turnId: s.transitionId });
+}

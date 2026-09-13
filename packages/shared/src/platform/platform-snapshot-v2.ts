@@ -3,6 +3,7 @@ import { BurgundySettingsSchema } from "../games/burgundy/actions.js";
 import { BurgundyPlayingProjectionSchema, BurgundyFinishedProjectionSchema, burgundyProjectionIsConsistent } from "../games/burgundy/contracts.js";
 import { TrainPlayingProjectionSchema, TrainFinishedProjectionSchema, trainProjectionIsConsistent } from "../games/train/contracts.js";
 import { CenturyPlayingProjectionSchema, CenturyFinishedProjectionSchema, centuryProjectionIsConsistent } from "../games/century/contracts.js";
+import { SpiritPlayingProjectionSchema, SpiritFinishedProjectionSchema, spiritProjectionIsConsistent } from "../games/spirit-island/contracts.js";
 import { SaboteurPlayingProjectionSchema, SaboteurFinishedProjectionSchema, saboteurProjectionIsConsistent } from "../games/saboteur/contracts.js";
 import { ISLAND_RESOURCES } from "../games/island/actions.js";
 import { SplendorPlayingProjectionSchema, SplendorFinishedProjectionSchema, splendorProjectionIsConsistent } from "../games/splendor/contracts.js";
@@ -376,6 +377,22 @@ export type CenturyFinishedPlatformSnapshotV2 = v.InferOutput<typeof CenturyFini
 export const CenturyLobbyPlatformSnapshotV2Schema: v.GenericSchema<unknown, CenturyLobbyPlatformSnapshotV2> = CenturyLobbyRaw;
 export const CenturyPlayingPlatformSnapshotV2Schema: v.GenericSchema<unknown, CenturyPlayingPlatformSnapshotV2> = CenturyPlayingRaw;
 export const CenturyFinishedPlatformSnapshotV2Schema: v.GenericSchema<unknown, CenturyFinishedPlatformSnapshotV2> = CenturyFinishedRaw;
+const SpiritOuter = { snapshotVersion: PlatformSnapshotVersionSchema, versions: PlatformSnapshotVersionsV2Schema, serverTime: ServerTimeSchema, self: PlatformSelfViewV2Schema };
+const SpiritRoom = { roomId: RoomIdSchema, roomCode: RoomCodeSchema, gameType: v.literal("SPIRIT_ISLAND") };
+const SpiritPlayers = v.pipe(v.array(PlatformPlayerViewV2Schema), v.minLength(1), v.maxLength(4));
+const SpiritLobbyRaw = v.pipe(v.strictObject({ ...SpiritOuter, room: v.strictObject({ ...SpiritRoom, phase: v.literal("LOBBY"),
+  players: v.pipe(v.array(PlatformPlayerViewV2Schema), v.maxLength(10)) }), game: v.null() }),
+  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)));
+const SpiritPlayingRaw = v.pipe(v.strictObject({ ...SpiritOuter, room: v.strictObject({ ...SpiritRoom, phase: v.literal("PLAYING"), players: SpiritPlayers }), game: SpiritPlayingProjectionSchema }),
+  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)), v.check(s => hasMatchingGamePlayers(s)), v.check(s => s.game.privateState.playerId === s.self.playerId), v.check(s => spiritProjectionIsConsistent(s.game)));
+const SpiritFinishedRaw = v.pipe(v.strictObject({ ...SpiritOuter, room: v.strictObject({ ...SpiritRoom, phase: v.literal("FINISHED"), players: SpiritPlayers }), game: SpiritFinishedProjectionSchema }),
+  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)), v.check(s => hasMatchingGamePlayers(s)), v.check(s => s.game.privateState.playerId === s.self.playerId), v.check(s => spiritProjectionIsConsistent(s.game)));
+export type SpiritLobbyPlatformSnapshotV2 = v.InferOutput<typeof SpiritLobbyRaw>;
+export type SpiritPlayingPlatformSnapshotV2 = v.InferOutput<typeof SpiritPlayingRaw>;
+export type SpiritFinishedPlatformSnapshotV2 = v.InferOutput<typeof SpiritFinishedRaw>;
+export const SpiritLobbyPlatformSnapshotV2Schema: v.GenericSchema<unknown, SpiritLobbyPlatformSnapshotV2> = SpiritLobbyRaw;
+export const SpiritPlayingPlatformSnapshotV2Schema: v.GenericSchema<unknown, SpiritPlayingPlatformSnapshotV2> = SpiritPlayingRaw;
+export const SpiritFinishedPlatformSnapshotV2Schema: v.GenericSchema<unknown, SpiritFinishedPlatformSnapshotV2> = SpiritFinishedRaw;
 const SpaceCrewOuter = { snapshotVersion: PlatformSnapshotVersionSchema, versions: PlatformSnapshotVersionsV2Schema, serverTime: ServerTimeSchema, self: PlatformSelfViewV2Schema };
 const SpaceCrewRoom = { roomId: RoomIdSchema, roomCode: RoomCodeSchema, gameType: v.literal("SPACE_CREW") };
 const SpaceCrewPlayers = v.pipe(v.array(PlatformPlayerViewV2Schema), v.minLength(3), v.maxLength(5));
@@ -649,6 +666,7 @@ export const LobbyPlatformSnapshotV2Schema = v.union([
   SplendorLobbyPlatformSnapshotV2Schema,
   TrainLobbyPlatformSnapshotV2Schema,
   CenturyLobbyPlatformSnapshotV2Schema,
+  SpiritLobbyPlatformSnapshotV2Schema,
   SpaceCrewLobbyPlatformSnapshotV2Schema,
   JaipurLobbyPlatformSnapshotV2Schema,
   LoveLetterLobbyPlatformSnapshotV2Schema,
@@ -809,6 +827,7 @@ export const PlayingPlatformSnapshotV2Schema = v.union([
   SplendorPlayingPlatformSnapshotV2Schema,
   TrainPlayingPlatformSnapshotV2Schema,
   CenturyPlayingPlatformSnapshotV2Schema,
+  SpiritPlayingPlatformSnapshotV2Schema,
   SpaceCrewPlayingPlatformSnapshotV2Schema,
   JaipurPlayingPlatformSnapshotV2Schema,
   LoveLetterPlayingPlatformSnapshotV2Schema,
@@ -969,6 +988,7 @@ export const FinishedPlatformSnapshotV2Schema = v.union([
   SplendorFinishedPlatformSnapshotV2Schema,
   TrainFinishedPlatformSnapshotV2Schema,
   CenturyFinishedPlatformSnapshotV2Schema,
+  SpiritFinishedPlatformSnapshotV2Schema,
   SpaceCrewFinishedPlatformSnapshotV2Schema,
   JaipurFinishedPlatformSnapshotV2Schema,
   LoveLetterFinishedPlatformSnapshotV2Schema,

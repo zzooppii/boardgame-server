@@ -2,6 +2,7 @@ import type { IslandLobbyPlatformSnapshotV2, IslandPlayingPlatformSnapshotV2, Is
 import type { SplendorLobbyPlatformSnapshotV2, SplendorPlayingPlatformSnapshotV2, SplendorFinishedPlatformSnapshotV2 } from "@hangul-rummikub/shared";
 import type { TrainLobbyPlatformSnapshotV2, TrainPlayingPlatformSnapshotV2, TrainFinishedPlatformSnapshotV2 } from "@hangul-rummikub/shared";
 import type { CenturyLobbyPlatformSnapshotV2, CenturyPlayingPlatformSnapshotV2, CenturyFinishedPlatformSnapshotV2 } from "@hangul-rummikub/shared";
+import type { SpiritLobbyPlatformSnapshotV2, SpiritPlayingPlatformSnapshotV2, SpiritFinishedPlatformSnapshotV2 } from "@hangul-rummikub/shared";
 import type { SpaceCrewLobbyPlatformSnapshotV2, SpaceCrewPlayingPlatformSnapshotV2, SpaceCrewFinishedPlatformSnapshotV2 } from "@hangul-rummikub/shared";
 import type { JaipurLobbyPlatformSnapshotV2, JaipurPlayingPlatformSnapshotV2, JaipurFinishedPlatformSnapshotV2 } from "@hangul-rummikub/shared";
 import type { LoveLetterLobbyPlatformSnapshotV2, LoveLetterPlayingPlatformSnapshotV2, LoveLetterFinishedPlatformSnapshotV2 } from "@hangul-rummikub/shared";
@@ -53,6 +54,7 @@ export const WEB_SUPPORTED_GAME_TYPES = Object.freeze([
   "SPLENDOR",
   "TRAIN",
   "CENTURY",
+  "SPIRIT_ISLAND",
   "SPACE_CREW",
   "JAIPUR",
   "LOVE_LETTER",
@@ -89,6 +91,7 @@ export type IslandWebSnapshot = IslandLobbyPlatformSnapshotV2 | IslandPlayingPla
 export type SplendorWebSnapshot = SplendorLobbyPlatformSnapshotV2 | SplendorPlayingPlatformSnapshotV2 | SplendorFinishedPlatformSnapshotV2;
 export type TrainWebSnapshot = TrainLobbyPlatformSnapshotV2 | TrainPlayingPlatformSnapshotV2 | TrainFinishedPlatformSnapshotV2;
 export type CenturyWebSnapshot = CenturyLobbyPlatformSnapshotV2 | CenturyPlayingPlatformSnapshotV2 | CenturyFinishedPlatformSnapshotV2;
+export type SpiritWebSnapshot = SpiritLobbyPlatformSnapshotV2 | SpiritPlayingPlatformSnapshotV2 | SpiritFinishedPlatformSnapshotV2;
 export type SpaceCrewWebSnapshot = SpaceCrewLobbyPlatformSnapshotV2 | SpaceCrewPlayingPlatformSnapshotV2 | SpaceCrewFinishedPlatformSnapshotV2;
 export type JaipurWebSnapshot = JaipurLobbyPlatformSnapshotV2 | JaipurPlayingPlatformSnapshotV2 | JaipurFinishedPlatformSnapshotV2;
 export type LoveLetterWebSnapshot = LoveLetterLobbyPlatformSnapshotV2 | LoveLetterPlayingPlatformSnapshotV2 | LoveLetterFinishedPlatformSnapshotV2;
@@ -111,6 +114,7 @@ export type CompatibleWebSnapshot =
   | Readonly<{kind: "PLATFORM_V2_SPLENDOR"; snapshotVersion: 2; gameType: "SPLENDOR"; platformSnapshot: SplendorWebSnapshot }>
   | Readonly<{kind: "PLATFORM_V2_TRAIN"; snapshotVersion: 2; gameType: "TRAIN"; platformSnapshot: TrainWebSnapshot }>
   | Readonly<{kind: "PLATFORM_V2_CENTURY"; snapshotVersion: 2; gameType: "CENTURY"; platformSnapshot: CenturyWebSnapshot }>
+  | Readonly<{kind: "PLATFORM_V2_SPIRIT_ISLAND"; snapshotVersion: 2; gameType: "SPIRIT_ISLAND"; platformSnapshot: SpiritWebSnapshot }>
   | Readonly<{kind: "PLATFORM_V2_SPACE_CREW"; snapshotVersion: 2; gameType: "SPACE_CREW"; platformSnapshot: SpaceCrewWebSnapshot }>
   | Readonly<{kind: "PLATFORM_V2_JAIPUR"; snapshotVersion: 2; gameType: "JAIPUR"; platformSnapshot: JaipurWebSnapshot }>
   | Readonly<{kind: "PLATFORM_V2_LOVE_LETTER"; snapshotVersion: 2; gameType: "LOVE_LETTER"; platformSnapshot: LoveLetterWebSnapshot }>
@@ -229,7 +233,7 @@ function decodePlatformSnapshotV2(
     input.room.gameType !== "HANGUL_TILE" &&
     input.room.gameType !== "NUMBER_TILE" &&
     input.room.gameType !== "GEM_CARD" &&
-    input.room.gameType !== "CITY_ROLE" && input.room.gameType !== "DRAW_RELAY" && input.room.gameType !== "SNEAKY_LUNCH" && input.room.gameType !== "WOLF_NIGHT" && input.room.gameType !== "LIAR_GAME" && input.room.gameType !== "SPYFALL" && input.room.gameType !== "WORD_DUET" && input.room.gameType !== "TRAIN" && input.room.gameType !== "CENTURY" && input.room.gameType !== "SPACE_CREW" && input.room.gameType !== "JAIPUR" && input.room.gameType !== "LOVE_LETTER" && input.room.gameType !== "GURYONGTU" && input.room.gameType !== "AZUL" && input.room.gameType !== "VEGAS" && input.room.gameType !== "BURGUNDY" && input.room.gameType !== "CARCASSONNE" && input.room.gameType !== "CLUE" && input.room.gameType !== "SABOTEUR" && input.room.gameType !== "LOST_CITIES" && input.room.gameType !== "SPLENDOR" && input.room.gameType !== "HALLI_GALLI" && input.room.gameType !== "ISLAND_SETTLERS"
+    input.room.gameType !== "CITY_ROLE" && input.room.gameType !== "DRAW_RELAY" && input.room.gameType !== "SNEAKY_LUNCH" && input.room.gameType !== "WOLF_NIGHT" && input.room.gameType !== "LIAR_GAME" && input.room.gameType !== "SPYFALL" && input.room.gameType !== "WORD_DUET" && input.room.gameType !== "TRAIN" && input.room.gameType !== "CENTURY" && input.room.gameType !== "SPIRIT_ISLAND" && input.room.gameType !== "SPACE_CREW" && input.room.gameType !== "JAIPUR" && input.room.gameType !== "LOVE_LETTER" && input.room.gameType !== "GURYONGTU" && input.room.gameType !== "AZUL" && input.room.gameType !== "VEGAS" && input.room.gameType !== "BURGUNDY" && input.room.gameType !== "CARCASSONNE" && input.room.gameType !== "CLUE" && input.room.gameType !== "SABOTEUR" && input.room.gameType !== "LOST_CITIES" && input.room.gameType !== "SPLENDOR" && input.room.gameType !== "HALLI_GALLI" && input.room.gameType !== "ISLAND_SETTLERS"
   ) {
     return typeof input.room.gameType === "string"
       ? { kind: "INCOMPATIBLE", reason: "UNSUPPORTED_GAME_TYPE" }
@@ -264,6 +268,11 @@ function decodePlatformSnapshotV2(
     const snapshot = validation.value;
     if (!isCenturySnapshot(snapshot)) return { kind: "INCOMPATIBLE", reason: "INVALID_V2_PROJECTION" };
     return { kind: "COMPATIBLE", value: { kind: "PLATFORM_V2_CENTURY", snapshotVersion: 2, gameType: "CENTURY", platformSnapshot: snapshot } };
+  }
+  if (input.room.gameType === "SPIRIT_ISLAND") {
+    const snapshot = validation.value;
+    if (!isSpiritSnapshot(snapshot)) return { kind: "INCOMPATIBLE", reason: "INVALID_V2_PROJECTION" };
+    return { kind: "COMPATIBLE", value: { kind: "PLATFORM_V2_SPIRIT_ISLAND", snapshotVersion: 2, gameType: "SPIRIT_ISLAND", platformSnapshot: snapshot } };
   }
   if (input.room.gameType === "SPACE_CREW") {
     const snapshot = validation.value;
@@ -445,6 +454,7 @@ function isIslandSnapshot(s: PlatformSnapshotV2): s is IslandWebSnapshot { retur
 function isSplendorSnapshot(s: PlatformSnapshotV2): s is SplendorWebSnapshot { return s.room.gameType === "SPLENDOR" && (s.game === null || s.game.gameType === "SPLENDOR"); }
 function isTrainSnapshot(s: PlatformSnapshotV2): s is TrainWebSnapshot { return s.room.gameType === "TRAIN" && (s.game === null || s.game.gameType === "TRAIN"); }
 function isCenturySnapshot(s: PlatformSnapshotV2): s is CenturyWebSnapshot { return s.room.gameType === "CENTURY" && (s.game === null || s.game.gameType === "CENTURY"); }
+function isSpiritSnapshot(s: PlatformSnapshotV2): s is SpiritWebSnapshot { return s.room.gameType === "SPIRIT_ISLAND" && (s.game === null || s.game.gameType === "SPIRIT_ISLAND"); }
 function isSpaceCrewSnapshot(s: PlatformSnapshotV2): s is SpaceCrewWebSnapshot { return s.room.gameType === "SPACE_CREW" && (s.game === null || s.game.gameType === "SPACE_CREW"); }
 function isJaipurSnapshot(s: PlatformSnapshotV2): s is JaipurWebSnapshot { return s.room.gameType === "JAIPUR" && (s.game === null || s.game.gameType === "JAIPUR"); }
 function isLoveLetterSnapshot(s: PlatformSnapshotV2): s is LoveLetterWebSnapshot { return s.room.gameType === "LOVE_LETTER" && (s.game === null || s.game.gameType === "LOVE_LETTER"); }

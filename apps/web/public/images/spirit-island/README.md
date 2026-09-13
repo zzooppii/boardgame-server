@@ -1,0 +1,7 @@
+# 정령섬 이미지
+
+`spirits.png`는 2026-09-13 내장 `image_gen.imagegen`으로 이 프로젝트를 위해 생성한 원본이다. 로비·정령 선택·개인 패널·카드 장식에 CSS crop으로 사용한다. 원작 보드게임의 카드나 정령 그림을 배포 파일로 복사하지 않았다. 지도·기물은 코드에서 SVG/CSS로 그린다. 효과음은 `features/spirit-island/sound.ts`의 Web Audio 합성이다.
+
+최종 프롬프트:
+
+> Use case: stylized-concept. Asset type: original panoramic illustration for a cooperative island-defense board-game web app, used in lobby and spirit-selection cards. Create a premium hand-painted fantasy board-game illustration, wide 3:2 landscape, no text, no letters, no logos, no UI, no card frames. Four clearly distinct elemental nature spirits arranged from left to right with their entire faces/upper bodies visible in separate quarters: a turquoise flowing river spirit formed from water and sunlit reeds, an amber lightning bird spirit with branching lightning wings, a massive moss-covered stone earth guardian, and a violet shadow flame spirit with glowing ember eyes. They rise around a lush tropical island, teal sea, waterfalls, layered green jungle, pale beaches and rocky ridges. Cohesive painterly brushwork, tactile gouache and ink textures, richly detailed atmospheric depth, luminous magic, dramatic but welcoming rather than horror. Keep important faces centered within each quarter so web cards can crop these four quarters individually. Original character designs; do not copy any existing Spirit Island artwork. Art only, absolutely no writing or watermark.

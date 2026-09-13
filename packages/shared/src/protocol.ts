@@ -1,6 +1,7 @@
 import { SpaceCrewActionSchema, SpaceCrewStartPayloadSchema, SpaceCrewPracticeSelectionPayloadSchema } from "./games/space-crew/actions.js";
 import { TrainActionSchema } from "./games/train/actions.js";
 import { CenturyActionSchema } from "./games/century/actions.js";
+import { SpiritActionSchema } from "./games/spirit-island/actions.js";
 import { SaboteurActionSchema } from "./games/saboteur/actions.js";
 import { JaipurActionSchema } from "./games/jaipur/actions.js";
 import { LoveLetterActionSchema } from "./games/love-letter/actions.js";
@@ -761,9 +762,13 @@ import { SpyfallSettingsSchema, SpyfallLocationSchema } from "./games/spyfall/co
 
 const TrainIdentity = { protocolVersion: ProtocolVersionSchema, requestId: RequestIdSchema, gameId: GameIdSchema, expectedGameRevision: GameRevisionSchema };
 const CenturyIdentity = { protocolVersion: ProtocolVersionSchema, requestId: RequestIdSchema, gameId: GameIdSchema, expectedGameRevision: GameRevisionSchema };
+const SpiritIdentity = { protocolVersion: ProtocolVersionSchema, requestId: RequestIdSchema, gameId: GameIdSchema, expectedGameRevision: GameRevisionSchema };
 export const TrainActCommandSchema = v.strictObject({ ...TrainIdentity, kind: v.literal('train:act'), turnId: TurnIdSchema, payload: TrainActionSchema });
 export const CenturyActCommandSchema = v.strictObject({ ...CenturyIdentity, kind: v.literal('century:act'), turnId: TurnIdSchema, payload: CenturyActionSchema });
+export const SpiritActCommandSchema = v.strictObject({ ...SpiritIdentity, kind: v.literal('spirit:act'), turnId: TurnIdSchema, payload: SpiritActionSchema });
 export const TrainClientCommandSchema = TrainActCommandSchema;
 export const CenturyClientCommandSchema = CenturyActCommandSchema;
+export const SpiritClientCommandSchema = SpiritActCommandSchema;
 export type TrainClientCommand = v.InferOutput<typeof TrainClientCommandSchema>;
 export type CenturyClientCommand = v.InferOutput<typeof CenturyClientCommandSchema>;
+export type SpiritClientCommand = v.InferOutput<typeof SpiritClientCommandSchema>;

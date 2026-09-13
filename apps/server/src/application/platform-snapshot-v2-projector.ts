@@ -5,6 +5,7 @@ import { projectIsland } from "../games/island/compatibility/projector.js";
 import { projectSplendor } from "../games/splendor/compatibility/projector.js";
 import { projectTrain } from "../games/train/compatibility/projector.js";
 import { projectCentury } from "../games/century/compatibility/projector.js";
+import { projectSpirit } from "../games/spirit-island/compatibility/projector.js";
 import { projectJaipur } from "../games/jaipur/compatibility/projector.js";
 import { projectLoveLetter } from "../games/love-letter/compatibility/projector.js";
 import { projectGuryongtu } from "../games/guryongtu/compatibility/projector.js";
@@ -141,6 +142,7 @@ export class PlatformSnapshotV2Projector {
     if(input.room.gameType === "SPLENDOR") return v.parse(PlatformSnapshotV2Schema, {...base,room:{...base.room,phase:input.room.phase},game:projectSplendor(input.room.game,input.selfPlayerId)});
     if(input.room.gameType === "TRAIN") return v.parse(PlatformSnapshotV2Schema, {...base,room:{...base.room,phase:input.room.phase},game:projectTrain(input.room.game,input.selfPlayerId)});
     if(input.room.gameType === "CENTURY") return v.parse(PlatformSnapshotV2Schema, {...base,room:{...base.room,phase:input.room.phase},game:projectCentury(input.room.game,input.selfPlayerId)});
+    if(input.room.gameType === "SPIRIT_ISLAND") return v.parse(PlatformSnapshotV2Schema, {...base,room:{...base.room,phase:input.room.phase},game:projectSpirit(input.room.game,input.selfPlayerId)});
     if(input.room.gameType === "SPACE_CREW") return v.parse(PlatformSnapshotV2Schema, {...base,room:{...base.room,phase:input.room.phase},game:projectSpaceCrew(input.room.game,input.selfPlayerId)});
     if(input.room.gameType === "JAIPUR") return v.parse(PlatformSnapshotV2Schema, {...base,room:{...base.room,phase:input.room.phase},game:projectJaipur(input.room.game,input.selfPlayerId)});
     if(input.room.gameType === "LOVE_LETTER") return v.parse(PlatformSnapshotV2Schema, {...base,room:{...base.room,phase:input.room.phase},game:projectLoveLetter(input.room.game,input.selfPlayerId)});

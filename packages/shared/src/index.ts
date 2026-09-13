@@ -91,3 +91,9 @@ export * from "./games/burgundy/expansion-data.js";
 
 export * from "./games/space-crew/actions.js";
 export * from "./games/space-crew/contracts.js";
+
+export * from "./games/spirit-island/actions.js";
+export * from "./games/spirit-island/catalog.js";
+export * from "./games/spirit-island/powers.js";
+export * from "./games/spirit-island/board.js";
+export * from "./games/spirit-island/contracts.js";

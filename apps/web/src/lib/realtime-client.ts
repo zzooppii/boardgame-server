@@ -1,6 +1,7 @@
 import { SpaceCrewStartCommandSchema, SpaceCrewClientCommandSchema, type SpaceCrewStartCommand, type SpaceCrewClientCommand } from "@hangul-rummikub/shared";
 import { TrainClientCommandSchema, type TrainClientCommand } from "@hangul-rummikub/shared";
 import { CenturyClientCommandSchema, type CenturyClientCommand } from "@hangul-rummikub/shared";
+import { SpiritClientCommandSchema, type SpiritClientCommand } from "@hangul-rummikub/shared";
 import { RoomPreparationCommandSchema, type RoomPreparationCommand } from "@hangul-rummikub/shared";
 import { SplendorClientCommandSchema, type SplendorClientCommand } from "@hangul-rummikub/shared";
 import { JaipurClientCommandSchema, type JaipurClientCommand } from "@hangul-rummikub/shared";
@@ -730,6 +731,15 @@ export class RealtimeClient {
     return this.#emitAcknowledged(command.kind, command.requestId, acknowledge => {
       switch (command.kind) {
         case "century:act": this.#socket.emit("century:act", command, acknowledge); break;
+      }
+    }, validateStateSyncWireAck, ack => hasConsistentSnapshotAcknowledgement(ack) && this.#acceptAcknowledgementSnapshotVersion(ack));
+  }
+
+  actSpirit(command: SpiritClientCommand): Promise<StateSyncWireAck> {
+    if (!parseRematch(SpiritClientCommandSchema, command).success) return Promise.reject(new RealtimeClientError("INVALID_COMMAND"));
+    return this.#emitAcknowledged(command.kind, command.requestId, acknowledge => {
+      switch (command.kind) {
+        case "spirit:act": this.#socket.emit("spirit:act", command, acknowledge); break;
       }
     }, validateStateSyncWireAck, ack => hasConsistentSnapshotAcknowledgement(ack) && this.#acceptAcknowledgementSnapshotVersion(ack));
   }

@@ -549,7 +549,9 @@ export class RoomSessionApplicationService {
       };
       const now = this.#clock.now();
       const roomCandidate: RoomWriteCandidate =
-        gameType === "HANGUL_TILE"
+        gameType === "SPIRIT_ISLAND"
+          ? {roomId,roomCode,gameType,phase:"LOBBY",hostPlayerId:playerId,players:[{playerId,nickname,joinOrder:0}],game:null,roomRevision,createdAt,updatedAt:createdAt}
+          : gameType === "HANGUL_TILE"
           ? {
               roomId,
               roomCode,

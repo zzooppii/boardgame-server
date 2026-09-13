@@ -3,6 +3,7 @@ import type { createIslandLifecycle } from "../games/island/application/lifecycl
 import type { createSplendorLifecycle } from "../games/splendor/application/lifecycle.js";
 import type { createTrainLifecycle } from "../games/train/application/lifecycle.js";
 import type { createCenturyLifecycle } from "../games/century/application/lifecycle.js";
+import type { createSpiritLifecycle } from "../games/spirit-island/application/lifecycle.js";
 import type { createJaipurLifecycle } from "../games/jaipur/application/lifecycle.js";
 import type { createLoveLetterLifecycle } from "../games/love-letter/application/lifecycle.js";
 import type { createGuryongtuLifecycle } from "../games/guryongtu/application/lifecycle.js";
@@ -82,6 +83,7 @@ export type PlayerLifecycleRouterDependencies = Readonly<{
   splendor?: ReturnType<typeof createSplendorLifecycle>;
   train?: ReturnType<typeof createTrainLifecycle>;
   century?: ReturnType<typeof createCenturyLifecycle>;
+  spirit?: ReturnType<typeof createSpiritLifecycle>;
   jaipur?: ReturnType<typeof createJaipurLifecycle>;
   spaceCrew?: ReturnType<typeof createSpaceCrewLifecycle>;
   loveLetter?: ReturnType<typeof createLoveLetterLifecycle>;
@@ -124,6 +126,7 @@ export class PlayerLifecycleRouter implements PlayerLifecycleActionRouting {
   readonly #splendor: ReturnType<typeof createSplendorLifecycle> | undefined;
   readonly #train: ReturnType<typeof createTrainLifecycle> | undefined;
   readonly #century: ReturnType<typeof createCenturyLifecycle> | undefined;
+  readonly #spirit: ReturnType<typeof createSpiritLifecycle> | undefined;
   readonly #jaipur: ReturnType<typeof createJaipurLifecycle> | undefined;
   readonly #spaceCrew: ReturnType<typeof createSpaceCrewLifecycle> | undefined;
   readonly #loveLetter: ReturnType<typeof createLoveLetterLifecycle> | undefined;
@@ -158,6 +161,7 @@ export class PlayerLifecycleRouter implements PlayerLifecycleActionRouting {
     this.#splendor = dependencies.splendor;
     this.#train = dependencies.train;
     this.#century = dependencies.century;
+    this.#spirit = dependencies.spirit;
     this.#jaipur = dependencies.jaipur;
     this.#spaceCrew = dependencies.spaceCrew;
     this.#loveLetter = dependencies.loveLetter;
@@ -206,6 +210,9 @@ export class PlayerLifecycleRouter implements PlayerLifecycleActionRouting {
       case "CENTURY":
         if (!this.#century) throw new Error("CENTURY lifecycle missing.");
         return this.#century.applyPlayingLeave(input);
+      case "SPIRIT_ISLAND":
+        if (!this.#spirit) throw new Error("SPIRIT_ISLAND lifecycle missing.");
+        return this.#spirit.applyPlayingLeave(input);
       case "SPACE_CREW":
         if (!this.#spaceCrew) throw new Error("SPACE_CREW lifecycle missing.");
         return this.#spaceCrew.applyPlayingLeave(input);
@@ -277,6 +284,7 @@ export class PlayerLifecycleRouter implements PlayerLifecycleActionRouting {
       case "SPLENDOR": return {status:"NO_CHANGE"};
       case "TRAIN": return {status:"NO_CHANGE"};
       case "CENTURY": return {status:"NO_CHANGE"};
+      case "SPIRIT_ISLAND": return {status:"NO_CHANGE"};
       case "SPACE_CREW": return {status:"NO_CHANGE"};
       case "JAIPUR": return {status:"NO_CHANGE"};
       case "LOVE_LETTER": return {status:"NO_CHANGE"};
