@@ -1,3 +1,4 @@
+import { farmlandIslandMain } from './branch-claw-farmland-events.js';
 import { industryIslandMain } from './branch-claw-industry-events.js';
 import { expandedIslandMain } from './branch-claw-settlement-events.js';
 import { SPIRIT_EVENTS, SPIRITS } from '@hangul-rummikub/shared';
@@ -10,9 +11,9 @@ const boards=(s:SpiritState)=>[...new Set(areas(s).map(l=>l.board))];
 const slots=(s:SpiritState,board:string|undefined)=>areas(s).filter(l=>l.board===board).flatMap(l=>l.presence.filter(p=>p.count>0).map(p=>({land:l,owner:p.playerId,count:p.count,key:JSON.stringify([l.id,p.playerId])})));
 export function islandEventOptions(s:SpiritState,e:SpiritStep,add:Add):boolean {
  if(!e.key.startsWith('BCE3_'))return false;
- const cost=e.n||2;
+ const cost=e.n||2,ravage=e.tags[1]==='RAVAGE';
  if(e.key==='BCE3_PROTECT') {
-  add(`${e.tags[0]} · 오염 확산을 받아들인다`,()=>prepend(s,{...e,key:'BCE3_BLIGHT'}));
+  add(`${e.tags[0]} · ${ravage?'추가 파괴를':'오염 확산을'} 받아들인다`,()=>prepend(s,{...e,key:ravage?'BCE9_RAVAGE':'BCE3_BLIGHT'}));
   if(slots(s,e.tags[0]).reduce((n,p)=>n+p.count,0)>=cost)add(`${e.tags[0]} · 현신 ${cost}개로 보호한다`,()=>prepend(s,{...e,key:'BCE3_PLEDGE',used:[]}));
  } else if(e.key==='BCE3_PLEDGE') {
   const available=slots(s,e.tags[0]);
@@ -22,7 +23,7 @@ export function islandEventOptions(s:SpiritState,e:SpiritStep,add:Add):boolean {
   if(e.used.length<cost)for(const slot of available.filter(p=>e.used.filter(key=>key===p.key).length<p.count))add(`${label(slot)} 현신 선택 (${e.used.length}/${cost})`,()=>prepend(s,{...e,used:[...e.used,slot.key]}),slot.land.id);
   if(e.used.length===cost)add(`현신 ${cost}개 희생 확정 · 이 보드 보호`,()=>{
    requireRule(e.used.every(key=>available.some(p=>p.key===key&&p.count>=e.used.filter(k=>k===key).length)));
-   for(const key of e.used){const slot=available.find(p=>p.key===key);requireRule(slot);addPresence(slot.land,slot.owner,-1);player(s,slot.owner).destroyedPresence++;event(s,'BLIGHT',`${slot.land.id} 현신 희생 · ${e.tags[0]} 오염 확산 방지`,slot.owner,slot.land.id);}
+   for(const key of e.used){const slot=available.find(p=>p.key===key);requireRule(slot);addPresence(slot.land,slot.owner,-1);player(s,slot.owner).destroyedPresence++;event(s,'BLIGHT',`${slot.land.id} 현신 희생 · ${e.tags[0]} ${ravage?'추가 파괴':'오염 확산'} 방지`,slot.owner,slot.land.id);}
   });
  } else if(e.key==='BCE3_BLIGHT') {
   for(const l of areas(s).filter(l=>l.board===e.tags[0]&&(e.tags[1]==='CITY'?countPieces(l,['CITY'])>0:e.tags[1]==='INLAND'?!l.coastal:e.tags[1]==='COAST'?l.coastal:e.tags[1]==='BUILDINGS'?countPieces(l,['TOWN','CITY'])>0||l.adjacent.some(id=>countPieces(land(s,id),['TOWN','CITY'])>0):l.adjacent.some(id=>land(s,id).blight>0))))add(`${l.id} · 오염 확산`,()=>prepend(s,step('BLIGHT',e.actor,l.id,1)),l.id);
@@ -42,7 +43,7 @@ export function islandEventAutomatic(s:SpiritState,e:SpiritStep):boolean {
  if(!e.key.startsWith('BCE3_'))return false;
  switch(e.key){
  case 'BCE3_MAIN': {
-  if(industryIslandMain(s,e)||expandedIslandMain(s,e))return true;
+  if(farmlandIslandMain(s,e)||industryIslandMain(s,e)||expandedIslandMain(s,e))return true;
   requireRule(s.currentEvent);const def=SPIRIT_EVENTS[s.currentEvent];requireRule(def.type==='ISLAND');
   s.eventIslandState=s.blighted?'BLIGHTED':'HEALTHY';event(s,'EVENT',`${def.title} · ${s.blighted?def.blighted:def.healthy}`);
   const main:SpiritStep[]=[];
