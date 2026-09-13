@@ -83,6 +83,7 @@ function extraFear(s: SpiritState, e: SpiritStep, piece: SpiritPiece, killed: bo
     }
 } }
 export function choiceTitle(e: SpiritStep): string {
+ if(e.key==='BCF_DISCORD_ATTACK')return `${e.land} 불화 · ${e.tags.includes('SOURCE:CITY')?'도시':e.tags.includes('SOURCE:TOWN')?'마을':'탐험가'}의 동시 공격 · 다른 침략자에게 남은 피해 ${e.n}`;
  if(e.key==='BCF_LAND')return `${SPIRIT_FEAR_NAMES[e.tags[0]??'']} · 공포 ${e.n} · ${SPIRIT_FEAR_HELP[e.tags[0]??'']?.[e.n-1]??'지역 선택'}`;
  if(e.key==='BCE3_PROTECT'&&e.tags[1]==='RAVAGE')return '현신 2개를 희생해 이 보드의 추가 파괴를 막을까요?';
  if(e.key==='BCE3_BLIGHT'&&e.tags[1]==='CITY')return '도시가 있는 지역에 오염을 놓으세요';

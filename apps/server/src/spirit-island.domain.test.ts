@@ -895,7 +895,7 @@ for(const terror of [1,2,3] as const)test(`War addition preserves terror ${terro
  let s=warGame();for(const l of s.lands)l.tokens.beasts=0;s.terror=terror;s.fearDeck=s.fearDeck.slice(-(terror===1?7:terror===2?4:1));const before=s.fearDeck.length;s=eventChoose(s,'격퇴');s=eventChoose(s,'에너지 1 지원 추가');s=eventChoose(s,'비용 확정');assert.equal(s.terror,terror);assert.equal(s.fearDeck.length,before+1);s=drain(s);s.queue=[step('FEAR',s.players[0]!.playerId,null,4)];settle(s);assert.equal(s.terror,terror);assert.equal(s.fearDeck.length,before);
 });
 test('War does not duplicate fear cards when every card is already in use',()=>{
- let s=warGame();for(const l of s.lands)l.tokens.beasts=0;s.fearDeck=spiritFearKeys(s.settings.expansion);s=eventChoose(s,'격퇴');s=eventChoose(s,'에너지 1 지원 추가');s=eventChoose(s,'비용 확정');assert.equal(s.fearDeck.length,26);assert.equal(new Set(s.fearDeck).size,26);assert.ok(s.log.some(e=>e.text.includes('미사용 공포 카드 없음')));
+ let s=warGame();for(const l of s.lands)l.tokens.beasts=0;s.fearDeck=spiritFearKeys(s.settings.expansion);s=eventChoose(s,'격퇴');s=eventChoose(s,'에너지 1 지원 추가');s=eventChoose(s,'비용 확정');assert.equal(s.fearDeck.length,27);assert.equal(new Set(s.fearDeck).size,27);assert.ok(s.log.some(e=>e.text.includes('미사용 공포 카드 없음')));
 });
 test('War discards a major per board, with public cost, before choosing that board coast',()=>{
  let s=warGame(2);const major=[...s.major],minor=[...s.minor];s=eventChoose(s,'공격을 허용');assert.equal(s.queue[0]!.key,'BCE14_ATTACK');assert.equal(s.queue[0]!.tags[0],'A');assert.equal(s.queue[0]!.n,cardPower(s,major[0]!).cost);assert.ok(s.majorDiscard.includes(major[0]!));assert.deepEqual(s.minor,minor);s=drain(s);assert.ok(s.log.some(e=>e.text.includes(`B 전쟁 피해 판정 · ${cardPower(s,major[1]!).title}`)));assert.deepEqual(s.minor,minor);
@@ -925,7 +925,7 @@ for(const key of SPIRIT_BRANCH_FEAR_KEYS)for(const level of [1,2,3] as const)for
  let s=branchFearGame(key,level,n);settle(s);s=drain(s);assert.equal(s.queue.length,0);assert.ok(s.fearDiscard.includes(key));assert.ok(s.log.some(l=>l.text.includes(`공포 수준 ${level}`)));parseSpiritState(s);
 });
 test('Expansion fear pool adds only completed cards and keeps deck size and core pool unchanged',()=>{
- assert.deepEqual(spiritFearKeys('CORE'),[...SPIRIT_FEAR_KEYS]);assert.equal(spiritFearKeys('BRANCH_CLAW').length,26);assert.equal(new Set(spiritFearKeys('BRANCH_CLAW')).size,26);let s=setup();const result=applySpiritAction(s,s.players[0]!.playerId,{kind:'CONFIGURE',settings:{...s.settings,expansion:'BRANCH_CLAW',blightCard:true,progression:false}},now,s.transitionId,values=>[...values].reverse());assert.ok(result.ok);s=result.state;assert.equal(s.fearDeck.length,9);assert.deepEqual(s.fearDeck,[...spiritFearKeys('BRANCH_CLAW')].reverse().slice(0,9));assert.equal(chosen().fearDeck.some(k=>SPIRIT_BRANCH_FEAR_KEYS.includes(k)),false);
+ assert.deepEqual(spiritFearKeys('CORE'),[...SPIRIT_FEAR_KEYS]);assert.equal(spiritFearKeys('BRANCH_CLAW').length,27);assert.equal(new Set(spiritFearKeys('BRANCH_CLAW')).size,27);let s=setup();const result=applySpiritAction(s,s.players[0]!.playerId,{kind:'CONFIGURE',settings:{...s.settings,expansion:'BRANCH_CLAW',blightCard:true,progression:false}},now,s.transitionId,values=>[...values].reverse());assert.ok(result.ok);s=result.state;assert.equal(s.fearDeck.length,9);assert.deepEqual(s.fearDeck,[...spiritFearKeys('BRANCH_CLAW')].reverse().slice(0,9));assert.equal(chosen().fearDeck.some(k=>SPIRIT_BRANCH_FEAR_KEYS.includes(k)),false);
 });
 test('Demoralized stacks defense and Time removes it',()=>{
  let s=branchFearGame('demoralized',3);land(s,'A1').defend=2;settle(s);assert.equal(land(s,'A1').defend,5);assert.equal(land(s,'A8').defend,3);s.stage='TIME';s=drain(apply(s,{kind:'ADVANCE'}));assert.ok(s.lands.every(l=>l.defend===0));
@@ -1026,4 +1026,17 @@ test('Ravage restores strife-reduced health before Dahan counterattack',()=>{
 });
 test('Dahan Threaten III damages every strife land including previously placed strife',()=>{
  let s=strifeFear('threaten',3);makePiece(s,land(s,'A1'),'DAHAN');makePiece(s,land(s,'A1'),'TOWN');makePiece(s,land(s,'A2'),'DAHAN');makePiece(s,land(s,'A2'),'DAHAN');makePiece(s,land(s,'A2'),'TOWN').strife=1;settle(s);s=eventChoose(s,'A1');s=drain(s);assert.equal(land(s,'A1').pieces.find(p=>p.kind==='TOWN')!.damage,1);assert.equal(countPieces(land(s,'A2'),['TOWN']),0);assert.ok(s.lands.every(l=>l.strifeHealthLoss===0));parseSpiritState(s);
+});
+
+test('Discord requires two invaders and different lands for each spirit',()=>{
+ let s=strifeFear('discord',1,2);makePiece(s,land(s,'A1'),'TOWN');makePiece(s,land(s,'A1'),'EXPLORER');makePiece(s,land(s,'A2'),'TOWN');makePiece(s,land(s,'A2'),'EXPLORER');makePiece(s,land(s,'A3'),'TOWN');makePiece(s,land(s,'A3'),'DAHAN');settle(s);assert.deepEqual(choiceOptions(s).map(o=>o.landId),['A1','A2']);s=eventChoose(s,'A1');s=eventChoose(s,'분쟁 추가');assert.deepEqual(choiceOptions(s).map(o=>o.landId),['A2']);s=drain(s);assert.equal(land(s,'A1').pieces.reduce((n,p)=>n+p.strife,0),1);assert.equal(land(s,'A2').pieces.reduce((n,p)=>n+p.strife,0),1);parseSpiritState(s);
+});
+test('Discord II damages pre-existing strife across the island without lowering health',()=>{
+ let s=strifeFear('discord',2);const a=land(s,'A1');makePiece(s,a,'TOWN');makePiece(s,a,'EXPLORER');makePiece(s,land(s,'A2'),'TOWN').strife=2;makePiece(s,land(s,'A2'),'DAHAN');settle(s);s=eventChoose(s,'A1');s=drain(s);assert.equal(land(s,'A1').pieces.find(p=>p.kind==='TOWN')!.damage,1);assert.equal(countPieces(land(s,'A2'),['TOWN']),0);assert.equal(countPieces(land(s,'A2'),['DAHAN']),1);assert.ok(s.lands.every(l=>l.strifeHealthLoss===0));parseSpiritState(s);
+});
+test('Discord III retains destroyed attackers damage and excludes self, Dahan and other lands',()=>{
+ let s=strifeFear('discord',3);const a=land(s,'A1'),city=makePiece(s,a,'CITY'),town=makePiece(s,a,'TOWN'),explorer=makePiece(s,a,'EXPLORER');city.strife=1;town.strife=1;explorer.strife=1;makePiece(s,a,'DAHAN');a.defend=100;settle(s);s=eventChoose(s,'A1');s=eventChoose(s,'도시');assert.match(view(s).pending!.title,/도시의 동시 공격/);assert.ok(choiceOptions(s).every(o=>o.landId==='A1'&&o.pieceId!==city.id&&o.pieceId!==a.pieces.find(p=>p.kind==='DAHAN')!.id));s=eventChoose(s,'마을');s=eventChoose(s,'마을');s=eventChoose(s,'탐험가');assert.equal(countPieces(land(s,'A1'),['TOWN','EXPLORER']),0);assert.match(view(s).pending!.title,/마을의 동시 공격/);s=drain(s);assert.equal(countPieces(land(s,'A1'),['CITY']),0);assert.equal(countPieces(land(s,'A1'),['DAHAN']),1);assert.equal(countPieces(land(s,'A8'),['CITY']),1);parseSpiritState(s);
+});
+test('Discord III uses base damage once per strifed piece and preserves strife on survivors',()=>{
+ let s=strifeFear('discord',3);s.settings.adversary='SWEDEN';s.settings.level=3;s.flags.push('event-aggression','event-normal-city');const a=land(s,'A1'),town=makePiece(s,a,'TOWN');makePiece(s,a,'CITY');town.strife=3;settle(s);s=eventChoose(s,'A1');s=eventChoose(s,'마을');assert.equal(s.queue[0]!.n,2);s=drain(s);assert.equal(land(s,'A1').pieces.find(p=>p.kind==='CITY')!.damage,2);assert.equal(land(s,'A1').pieces.find(p=>p.kind==='TOWN')!.strife,4);
 });

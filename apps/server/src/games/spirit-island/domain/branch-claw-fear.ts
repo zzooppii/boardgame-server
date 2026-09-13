@@ -1,6 +1,6 @@
 import { SPIRIT_BRANCH_FEAR_KEYS } from '@hangul-rummikub/shared';
 import type { SpiritState, SpiritStep } from './state.js';
-import { step, prepend, countPieces, invaders, health, event, destroyFromHealthLoss } from './primitives.js';
+import { step, prepend, countPieces, invaders, health, event, destroyFromHealthLoss, damagePiece } from './primitives.js';
 type Add=(label:string,apply:()=>void,landId?:string|null,pieceId?:string|null)=>unknown;
 const areas=(s:SpiritState)=>s.lands.filter(l=>l.number>0);
 export function branchFear(s:SpiritState,e:SpiritStep,key:string,level:number):boolean {
@@ -8,7 +8,7 @@ export function branchFear(s:SpiritState,e:SpiritStep,key:string,level:number):b
  if(key==='quarantine'){s.flags.push('quarantine-coast');if(level===2)s.flags.push('quarantine-source');if(level===3)s.flags.push('quarantine-disease');return true;}
  if(key==='demoralized'){for(const l of areas(s))l.defend+=level;return true;}
  if(key==='departure'&&level>=2)for(const l of areas(s).filter(l=>l.coastal))l.defend+=2*(level-1);
- const after:SpiritStep[]=(key==='unrest'||key==='panic')&&level>=2||key==='threaten'&&level===2?[step('SPECIAL',e.actor,null,0,'BCF_STRIFE_HEALTH')]:key==='threaten'&&level===3?[step('SPECIAL',e.actor,null,0,'BCF_THREATEN_DAMAGE')]:[];
+ const after:SpiritStep[]=(key==='unrest'||key==='panic')&&level>=2||key==='threaten'&&level===2?[step('SPECIAL',e.actor,null,0,'BCF_STRIFE_HEALTH')]:key==='threaten'&&level===3?[step('SPECIAL',e.actor,null,0,'BCF_THREATEN_DAMAGE')]:key==='discord'&&level>=2?[step('SPECIAL',e.actor,null,level,'BCF_DISCORD')]:[];
  prepend(s,...s.players.map(p=>step('SPECIAL',p.playerId,null,level,'BCF_LAND',p.playerId,[key])),...after,step('CHECK',e.actor));return true;
 }
 export function branchFearOptions(s:SpiritState,e:SpiritStep,add:Add):boolean {
@@ -17,6 +17,9 @@ export function branchFearOptions(s:SpiritState,e:SpiritStep,add:Add):boolean {
  for(const l of areas(s)){
   const remove=(kinds:string[])=>{if(l.pieces.some(p=>kinds.includes(p.kind)))add(`${l.id} · ${kinds.length>1?'탐험가/마을':'탐험가'} 1개 제거`,()=>prepend(s,step('REMOVE',e.actor,l.id,1,'',null,kinds)),l.id);};
   const budget=(n:number)=>{if(invaders(l).some(p=>health(l,p)<=n))add(`${l.id} · 체력 합계 최대 ${n} 제거 (받은 피해와 무관)`,()=>prepend(s,step('SPECIAL',e.actor,l.id,n,'REMOVE_HEALTH')),l.id);};
+  if(key==='discord'&&invaders(l).length>=2&&!s.flags.includes(`fear-used:${l.id}`))add(`${l.id} · 다른 정령과 겹치지 않는 지역 · 분쟁 1개`,()=>{
+   s.flags.push(`fear-used:${l.id}`);prepend(s,step('SPECIAL',e.actor,l.id,1,'TOKEN:ADD:strife',null,['REQUIRED']));
+  },l.id);
   if(key==='unrest'||key==='panic'||key==='threaten'){
    const eligible=key==='unrest'||key==='panic'&&level===3||key==='panic'&&(l.tokens.beasts>0||l.tokens.disease>0||countPieces(l,['DAHAN'])>0)||key==='threaten'&&countPieces(l,['DAHAN'])>0;
    const kinds=key==='unrest'&&level<3?['TOWN']:['EXPLORER','TOWN','CITY'];
@@ -55,6 +58,12 @@ export function branchFearOptions(s:SpiritState,e:SpiritStep,add:Add):boolean {
 
 export function branchFearAutomatic(s:SpiritState,e:SpiritStep):boolean {
  if(e.kind!=='SPECIAL')return false;
+ if(e.key==='BCF_DISCORD'){
+  if(e.n===2){
+   for(const l of areas(s))for(const p of [...invaders(l)].filter(p=>p.strife>0)){const n=p.strife;damagePiece(s,l,p,n,e.actor);event(s,'DAMAGE',`${l.id} 불화 · 분쟁 ${n}개로 피해 ${n}`,e.actor,l.id);}
+  }else prepend(s,...areas(s).flatMap(l=>invaders(l).filter(p=>p.strife>0).map(p=>step('DAMAGE',e.actor,l.id,p.kind==='EXPLORER'?1:p.kind==='TOWN'?2:3,'BCF_DISCORD_ATTACK',null,[`EXCLUDE:${p.id}`,`SOURCE:${p.kind}`]))));
+  return true;
+ }
  if(e.key==='BCF_STRIFE_HEALTH'){
   for(const l of s.lands){l.strifeHealthLoss++;for(const p of [...invaders(l)])destroyFromHealthLoss(s,l,p,e.actor);}return true;
  }

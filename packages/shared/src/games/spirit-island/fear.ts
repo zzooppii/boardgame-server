@@ -19,6 +19,7 @@ export const SPIRIT_FEAR_HELP: Record<string, readonly [string,string,string]> =
 
 /** Implemented Branch & Claw cards; this is a public reference, not deck order. */
 export const SPIRIT_BRANCH_FEAR = {
+ discord:{name:'불화',artwork:'SHADOW',effects:['각자 침략자가 2개 이상인 서로 다른 지역의 침략자 하나에 분쟁 1개.','각자 침략자가 2개 이상인 서로 다른 지역의 침략자 하나에 분쟁 1개. 이후 섬 전체의 침략자는 자기 분쟁 수만큼 피해.','각자 침략자가 2개 이상인 서로 다른 지역의 침략자 하나에 분쟁 1개. 이후 분쟁이 있는 침략자는 같은 지역의 다른 침략자에게 동시에 피해.']},
  unrest:{name:'불안',artwork:'SHADOW',effects:['각자 마을 하나에 분쟁 1개.','각자 마을 하나에 분쟁 1개. 이후 이번 라운드 모든 침략자는 분쟁마다 체력 −1 (최소 1).','각자 침략자 하나에 분쟁 1개. 이후 이번 라운드 모든 침략자는 분쟁마다 체력 −1 (최소 1).']},
  panic:{name:'공황',artwork:'FANGS',effects:['각자 야수·질병·다한 중 하나가 있는 지역의 침략자 하나에 분쟁 1개.','각자 야수·질병·다한 중 하나가 있는 지역의 침략자 하나에 분쟁 1개. 이후 이번 라운드 모든 침략자는 분쟁마다 체력 −1 (최소 1).','각자 침략자 하나에 분쟁 1개. 이후 이번 라운드 모든 침략자는 분쟁마다 체력 −1 (최소 1).']},
  threaten:{name:'다한의 위협',artwork:'THUNDER',effects:['각자 다한 지역의 침략자 하나에 분쟁 1개.','각자 다한 지역의 침략자 하나에 분쟁 1개. 이후 이번 라운드 모든 침략자는 분쟁마다 체력 −1 (최소 1).','각자 다한 지역의 침략자 하나에 분쟁 1개. 이후 섬 전체에서 분쟁 지역마다 다한 수만큼 피해.']},
