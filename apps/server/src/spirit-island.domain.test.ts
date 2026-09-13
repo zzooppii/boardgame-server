@@ -466,7 +466,7 @@ for(const key of stageEvents)for(const stage of [1,2,3] as const)for(const n of 
  let s=eventGame(n,key);s.eventInvaderStage=stage;s=eventChoose(s,'이벤트 선택 시작');s=drain(s);assert.equal(s.queue.length,0);assert.equal(s.stage,'FEAR');parseSpiritState(s);
 });
 test('Stage events: all configured event keys are configured once; core contains none',()=>{
- const s=branchClaw();assert.deepEqual([...s.eventDeck].sort(),[...SPIRIT_EVENT_KEYS].sort());assert.equal(s.eventDeck.length,14);assert.equal(chosen().eventDeck.length,0);
+ const s=branchClaw();assert.deepEqual([...s.eventDeck].sort(),[...SPIRIT_EVENT_KEYS].sort());assert.equal(s.eventDeck.length,16);assert.equal(chosen().eventDeck.length,0);
 });
 test('Stage events: Prussia early III counts as II, real late III and empty deck count as III',()=>{
  const s=branchClaw();s.settings.adversary='PRUSSIA';s.settings.level=2;s.invaderDeck=[{stage:3,terrains:['JUNGLE','SANDS'],coastal:false},{stage:2,terrains:['MOUNTAIN'],coastal:false}];assert.equal(currentInvaderStage(s),2);s.invaderDeck.shift();assert.equal(currentInvaderStage(s),2);s.invaderDeck=[{stage:3,terrains:['JUNGLE','SANDS'],coastal:false}];assert.equal(currentInvaderStage(s),3);s.invaderDeck=[];assert.equal(currentInvaderStage(s),3);
@@ -625,4 +625,40 @@ test('Fierce Mien counts qualifying lands, not individual Dahan or uninvaded lan
 });
 test('Heavy Farming grows Dahan only in jungle and wetland with existing Dahan',()=>{
  const s=eventGame(1,'HEAVY_FARMING');s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'BCE5_GROW',null,['A'])];settle(s);const choices=choiceOptions(s);assert.ok(choices.length);for(const o of choices){const l=land(s,o.landId);assert.ok(['JUNGLE','WETLAND'].includes(l.terrain));assert.ok(l.pieces.some(p=>p.kind==='DAHAN'));}
+});
+
+for(const key of ['CULTURAL_ASSIMILATION','DISTANT_EXPLORATION'] as const)for(const terror of [1,2,3] as const)for(const n of [1,2,3,4])test(`Terror events: ${key} terror ${terror}, ${n} spirits`,()=>{
+ let s=eventGame(n,key);s.terror=terror;s=drain(eventChoose(s,'이벤트 선택 시작'));assert.equal(s.queue.length,0);assert.equal(s.eventTerrorLevel,terror);parseSpiritState(s);assert.ok(v.safeParse(s.phase==='PLAYING'?SpiritPlayingProjectionSchema:SpiritFinishedProjectionSchema,view(s)).success);if(key==='DISTANT_EXPLORATION'){assert.equal(view(s).eventDistantExplore,terror===1);assert.equal(view(s).eventFearfulMobs,terror>1);}
+});
+test('Cultural assimilation requires exactly one Dahan and a city here or across a board edge',()=>{
+ let s=eventGame(2,'CULTURAL_ASSIMILATION');s.queue=[];for(const l of s.lands)l.pieces=[];
+ const a=s.lands.find(l=>l.board==='A'&&l.adjacent.some(id=>land(s,id).board==='B'))!,b=land(s,a.adjacent.find(id=>land(s,id).board==='B')!);makePiece(s,a,'DAHAN');makePiece(s,b,'CITY');const wrong=land(s,'A5');if(wrong.id!==a.id){makePiece(s,wrong,'DAHAN');makePiece(s,wrong,'DAHAN');makePiece(s,wrong,'CITY');}
+ s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'BCE6_ASSIMILATE',null,['A'])];settle(s);assert.deepEqual(choiceOptions(s).map(o=>o.landId),[a.id]);const before=s.fear;s=eventChoose(s,a.id);s=drain(s);assert.equal(land(s,a.id).pieces.filter(p=>p.kind==='DAHAN').length,0);assert.equal(land(s,a.id).pieces.filter(p=>p.kind==='TOWN').length,1);assert.equal(s.fear,before);
+});
+test('Reprisal ignores Defend and Strife, deals three to Dahan, and causes no land damage',()=>{
+ let s=eventGame(1,'CULTURAL_ASSIMILATION');const l=land(s,'A1');l.pieces=[];l.defend=99;makePiece(s,l,'TOWN').strife=1;makePiece(s,l,'DAHAN');makePiece(s,l,'DAHAN');const blight=l.blight;s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'BCE6_REPRISAL',null,['A'])];settle(s);s=eventChoose(s,'A1');const result=land(s,'A1');assert.equal(result.pieces.filter(p=>p.kind==='DAHAN').length,1);assert.equal(result.pieces.find(p=>p.kind==='DAHAN')?.damage,1);assert.equal(result.blight,blight);assert.equal(result.pieces.find(p=>p.kind==='TOWN')?.strife,1);
+});
+test('Reckless offensive destroys one chosen building per Dahan irrespective of health before adding blight',()=>{
+ let s=eventGame(1,'CULTURAL_ASSIMILATION');const l=land(s,'A1');l.pieces=[];l.invaderHealth=20;makePiece(s,l,'DAHAN');makePiece(s,l,'DAHAN');makePiece(s,l,'TOWN');makePiece(s,l,'CITY');makePiece(s,l,'CITY');const blight=l.blight,before=s.fear;s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'BCE6_OFFENSIVE',null,['A'])];settle(s);s=eventChoose(s,'A1');assert.equal(land(s,'A1').blight,blight);s=eventChoose(s,'도시');assert.equal(land(s,'A1').blight,blight);s=eventChoose(s,'도시');assert.equal(land(s,'A1').blight,blight+1);assert.deepEqual(land(s,'A1').pieces.filter(p=>p.kind!=='DAHAN').map(p=>p.kind),['TOWN']);assert.equal(s.fear,(before+4)%4);assert.equal(s.queue.length,0);
+});
+test('Terror event branch remains fixed after a later fear increase and resets at Time',()=>{
+ let s=eventGame(1,'DISTANT_EXPLORATION');s=drain(eventChoose(s,'이벤트 선택 시작'));s.terror=2;assert.equal(view(s).eventTerrorLevel,1);assert.equal(view(s).eventDistantExplore,true);assert.equal(view(s).eventFearfulMobs,false);s.stage='TIME';s=drain(apply(s,{kind:'ADVANCE'}));assert.equal(view(s).eventTerrorLevel,null);assert.equal(view(s).eventDistantExplore,false);assert.equal(view(s).eventFearfulMobs,false);
+});
+test('Terror event first-round discard applies no branch or persistent effects',()=>{
+ const s=drain(eventGame(1,'DISTANT_EXPLORATION',1));assert.equal(s.eventTerrorLevel,null);assert.equal(view(s).eventDistantExplore,false);
+});
+for(const n of [2,3])for(const strife of [0,1])test(`Fearful Mobs uses ${n} current invaders and strife ${strife} does not cancel land bonus`,()=>{
+ let s=eventGame(1,'DISTANT_EXPLORATION');s.queue=[];s.flags.push('event-fearful-mobs');const l=land(s,'A1');l.pieces=[];l.defend=strife?1:3;for(let i=0;i<n;i++)makePiece(s,l,'EXPLORER').strife=strife;const before=l.blight;s.queue=[step('SPECIAL',s.players[0]!.playerId,l.id,0,'RAVAGE')];settle(s);s=drain(s);assert.equal(land(s,'A1').blight,before+(n===3?1:0));
+});
+test('Fearful Mobs counts current invaders rather than the count when event resolves',()=>{
+ let s=eventGame();s.queue=[];s.flags.push('event-fearful-mobs');const l=land(s,'A1');l.pieces=[];l.defend=2;for(let i=0;i<3;i++)makePiece(s,l,'EXPLORER');l.pieces.pop();s.queue=[step('SPECIAL',s.players[0]!.playerId,l.id,0,'RAVAGE')];settle(s);s=drain(s);assert.equal(land(s,'A1').blight,0);
+});
+test('Distant Exploration reaches distance two from a building, not three; core source range stays one',()=>{
+ const s=eventGame();s.queue=[];const actor=s.players[0]!.playerId;for(const l of s.lands){l.pieces=[];l.coastal=false;l.adjacent=[];l.tokens.wilds=0;}
+ const a=land(s,'A1'),b=land(s,'A2'),c=land(s,'A3'),d=land(s,'A4');a.adjacent=[b.id];b.adjacent=[a.id,c.id];c.adjacent=[b.id,d.id];d.adjacent=[c.id];makePiece(s,a,'TOWN');s.invaderDeck.unshift({stage:1,terrains:['JUNGLE'],coastal:false});s.queue=[step('SPECIAL',actor,null,0,'EXPLORE')];settle(s);assert.equal(c.pieces.length,0);
+ s.flags.push('event-distant-explore');s.invaderDeck.unshift({stage:3,terrains:['SANDS','JUNGLE'],coastal:false});s.queue=[step('SPECIAL',actor,null,0,'EXPLORE')];settle(s);assert.equal(c.pieces.filter(p=>p.kind==='EXPLORER').length,1);assert.equal(d.pieces.length,0);
+});
+test('Distant Exploration reaches inland from coastal land but honors wilds, skips and terrain',()=>{
+ const s=eventGame();s.queue=[];const actor=s.players[0]!.playerId;for(const l of s.lands){l.pieces=[];l.adjacent=[];l.coastal=false;l.tokens.wilds=0;}
+ const coast=land(s,'A1'),wild=land(s,'A2'),skip=land(s,'A5'),reach=land(s,'A6');coast.coastal=true;for(const l of [wild,skip,reach]){l.adjacent=[coast.id];coast.adjacent.push(l.id);}wild.tokens.wilds=1;skip.skip=true;s.flags.push('event-distant-explore');s.invaderDeck.unshift({stage:3,terrains:['MOUNTAIN','WETLAND'],coastal:false});s.queue=[step('SPECIAL',actor,null,0,'EXPLORE')];settle(s);assert.equal(wild.tokens.wilds,0);assert.equal(wild.pieces.length,0);assert.equal(skip.pieces.length,0);assert.equal(reach.pieces.length,1);
 });
