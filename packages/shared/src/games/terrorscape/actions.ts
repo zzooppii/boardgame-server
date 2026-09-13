@@ -76,7 +76,7 @@ export const TERROR_ITEM_INFO:Readonly<Record<TerrorItem,{name:string;descriptio
  AMULET:{name:'부적',description:'조우 공격 외 피해 한 번을 막고 소모. Lv5 조우 부상과 Death Blossom 즉사는 막지 못합니다.',noisy:true},
  SHORTSWORD:{name:'단검',description:'방어 +1. 사용 후에도 보관.',noisy:false},
  SECRET_MAP:{name:'비밀 지도',description:'열쇠 5개와 생존자 전원이 정원에 있으면 숨겨진 출구로 탈출.',noisy:false},
- FLASHLIGHT:{name:'손전등',description:'특수 행동 · 거실↔묘지 또는 연회장↔정원 비밀 통로 이동. 보관.',noisy:false},
+ FLASHLIGHT:{name:'손전등',description:'특수 행동 · 거실↔무덤 또는 연회장↔정원 비밀 통로 이동. 보관.',noisy:false},
  LONGSWORD:{name:'장검',description:'방어 +3. 살인마가 즉시 카드 1장을 뽑습니다. 보관.',noisy:true},
  TRAP_PARTS:{name:'덫',description:'특수 행동 · 현 위치에 덫 설치. 그 장소의 다음 첫 방어 +2. 소모.',noisy:false},
  CAMERA:{name:'소피아의 카메라',description:'소피아 전용 · 추가 행동으로 현 위치에 소음. 소모.',noisy:false},
