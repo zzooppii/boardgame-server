@@ -43,5 +43,6 @@ test('Terrorscape map: all rooms and doors are keyboard targets; private positio
  assert.equal((team.match(/tabindex="0"/g)??[]).length,32);
  assert.match(team,/tsc-floor-route/);assert.match(team,/메인 홀 ↔ 전시실 문/);assert.match(team,/지도 확대/);
  assert.match(team,/aria-label="ANNA"/);assert.doesNotMatch(killer,/aria-label="ANNA"/);
- assert.doesNotMatch(team,/rooms.webp|tsc-map-lines/);
+ assert.match(team,/<image[^>]+href="\/images\/terrorscape\/manor-floorplan.webp"[^>]+pointer-events="none"/);
+ assert.doesNotMatch(team,/rooms.webp|tsc-map-lines|tsc-furniture/);
 });
