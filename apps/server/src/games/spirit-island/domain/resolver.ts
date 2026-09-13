@@ -1,3 +1,4 @@
+import { invaderTrackAutomatic, trackCards, setTrack, takeNextFear, lowestMatching, beastsSkip } from './invader-track.js';
 import { SPIRIT_FEAR_HELP, SPIRIT_BRANCH_FEAR, SPIRIT_BRANCH_FEAR_KEYS } from '@hangul-rummikub/shared';
 import { branchFear, branchFearOptions, branchFearAutomatic } from './branch-claw-fear.js';
 import { warOptions, warAutomatic } from './branch-claw-war-events.js';
@@ -30,7 +31,7 @@ const kinds: readonly SpiritPiece['kind'][] = ['EXPLORER', 'TOWN', 'CITY', 'DAHA
 const labels: Record<SpiritPiece['kind'], string> = { EXPLORER: '탐험가', TOWN: '마을', CITY: '도시', DAHAN: '다한' };
 const selectedKinds = (e: SpiritStep) => kinds.filter(k => e.tags.includes(k));
 function buildIsSkipped(s: SpiritState, area: SpiritLand): boolean {
-    return area.skip || s.flags.includes('quarantine-disease')&&area.tokens.disease>0 || s.flags.includes(`no-build:${area.id}`)
+    return area.skip || s.flags.includes('normal-build')&&beastsSkip(s,area,'build') || s.flags.includes('quarantine-disease')&&area.tokens.disease>0 || s.flags.includes(`no-build:${area.id}`)
         || s.flags.includes('no-build-city') && countPieces(area, ['CITY']) > 0
         || s.flags.includes('no-build-dahan') && countPieces(area, ['DAHAN']) > 0
         || s.flags.includes('dahan-outnumber') && countPieces(area, ['DAHAN']) > countPieces(area, ['TOWN', 'CITY'])
@@ -370,7 +371,7 @@ function addPresenceAt(s: SpiritState, actor: PlayerId, id: string) { const prio
 else
     l.presence.push({ playerId: actor, count: 1 }); event(s, 'GROW', `${id} 현신 배치`, actor, id);if(player(s,actor).spirit==='KEEPER'&&prior===1)prepend(s,step('MOVE',actor,id,countPieces(l,['DAHAN']),'PUSH',actor,['DAHAN','REQUIRED'])); }
 export function automatic(s: SpiritState, e: SpiritStep): boolean {
-    if(branchFearAutomatic(s,e)||warAutomatic(s,e)||sacredAutomatic(s,e)||madnessAutomatic(s,e)||outpacedAutomatic(s,e)||investigationAutomatic(s,e)||farmlandEventAutomatic(s,e)||farmerEventAutomatic(s,e)||contactEventAutomatic(s,e)||terrorEventAutomatic(s,e)||industryEventAutomatic(s,e)||settlementEventAutomatic(s,e)||islandEventAutomatic(s,e)||stageEventAutomatic(s,e)||branchEventAutomatic(s,e)||branchMajorAutomatic(s,e)||branchMinorAutomatic(s,e)||branchClawAutomatic(s,e))return true;
+    if(invaderTrackAutomatic(s,e)||branchFearAutomatic(s,e)||warAutomatic(s,e)||sacredAutomatic(s,e)||madnessAutomatic(s,e)||outpacedAutomatic(s,e)||investigationAutomatic(s,e)||farmlandEventAutomatic(s,e)||farmerEventAutomatic(s,e)||contactEventAutomatic(s,e)||terrorEventAutomatic(s,e)||industryEventAutomatic(s,e)||settlementEventAutomatic(s,e)||islandEventAutomatic(s,e)||stageEventAutomatic(s,e)||branchEventAutomatic(s,e)||branchMajorAutomatic(s,e)||branchMinorAutomatic(s,e)||branchClawAutomatic(s,e))return true;
     const l = e.land ? land(s, e.land) : null, owner = e.target ?? e.actor, p = player(s, owner);
     if (e.kind === 'CHECK') {
         if(s.settings.scenario==='INSURRECTION') { const moved=s.flags.filter(f=>f.startsWith('raid:')); if(moved.length) {s.flags=s.flags.filter(f=>!f.startsWith('raid:')&&!f.startsWith('power:')); prepend(s,...moved.flatMap(f=>{const id=f.slice(5);const area=s.lands.find(l=>l.pieces.some(p=>p.id===id));return area?[step('DAMAGE',e.actor,area.id,1)]:[]}),e);return true;} }
@@ -454,7 +455,7 @@ export function automatic(s: SpiritState, e: SpiritStep): boolean {
         case 'RITUAL_FINISH': {s.terror=s.terror===1?2:s.terror===2?3:4;const earned=s.fearEarned.splice(0);prepend(s,...earned.map(key=>step('SPECIAL',e.actor,null,0,'FEAR_CARD',null,[key])),...(l?[step('MOVE',e.actor,l.id,countPieces(l,['DAHAN']),'PUSH',null,['DAHAN','REQUIRED','SPREAD'])]:[]),step('CHECK',e.actor));return true;}
         case 'ESCALATE_BUILD': {if(l&&!buildIsSkipped(s,l)){const green=s.players.find(p=>p.spirit==='GREEN'&&sacred(s,l,p.playerId));if(green){prepend(s,step('SPECIAL',e.actor,l.id,0,'GREEN_STOP',green.playerId,['BUILD_LAND']));return true;}prepend(s,step('SPECIAL',e.actor,l.id,0,'BUILD_LAND'));}return true;}
         case 'INVADER_START': prepend(s,...(s.blighted?s.players.map(q=>step('SPECIAL',q.playerId,null,0,'BLIGHT_PENALTY',q.playerId)):[]),...(s.settings.expansion==='BRANCH_CLAW'?[step('SPECIAL',e.actor,null,0,'BCE_START')]:[])); return true;
-        case 'IMMIGRATION': { if(s.settings.adversary==='ENGLAND'&&s.settings.level>=3&&s.immigration) {const old=s.build;s.build=s.immigration;automatic(s,step('SPECIAL',e.actor,null,0,'BUILD'));if(s.settings.level===6&&!s.flags.includes('fear-resolved'))automatic(s,step('SPECIAL',e.actor,null,0,'BUILD'));s.build=old;}s.stage='RAVAGE';return true;}
+        case 'IMMIGRATION': {if(s.settings.adversary==='ENGLAND'&&s.settings.level>=3)prepend(s,...Array.from({length:s.settings.level===6&&!s.flags.includes('fear-resolved')?2:1},()=>step('SPECIAL',e.actor,null,0,'BUILD_CARDS',null,['IMMIGRATION'])));s.stage='RAVAGE';return true;}
         case 'WORDS': if(l) s.flags.push(`words:${l.id}`); return true;
         case 'DREAD': if(l) s.flags.push(`dread:${l.id}`); return true;
         case 'AMBUSH': if(l) prepend(s,step('DESTROY',e.actor,l.id,countPieces(l,['DAHAN']),'',null,['EXPLORER'])); return true;
@@ -544,6 +545,7 @@ export function automatic(s: SpiritState, e: SpiritStep): boolean {
                 prepend(s, step('MOVE', e.actor, l.id, countPieces(l, ['EXPLORER']), 'PUSH', null, ['EXPLORER', 'REQUIRED', 'SPREAD']));
             return true;
         case 'RAVAGE':
+            if(l&&s.flags.includes('normal-ravage')&&!e.tags.includes('POWER_RAVAGE')&&beastsSkip(s,l,'ravage')){event(s,'FEAR',`${l.id} 야수 공포로 정상 파괴 생략`,e.actor,l.id);return true;}
             if(l&&s.flags.includes('quarantine-disease')&&l.tokens.disease>0){event(s,'FEAR',`${l.id} 격리로 파괴 생략`,e.actor,l.id);return true;}
             if(l?.ravageSkip){event(s,'FEAR',`${l.id} 조심스러운 발걸음으로 파괴 생략`,e.actor,l.id);return true;}
             if(l&&s.flags.includes('event-stricken')&&(l.tokens.disease>0||invaders(l).some(p=>p.strife>0))){event(s,'DAMAGE',`${l.id} 질병·분쟁으로 파괴 생략`,e.actor,l.id);return true;}
@@ -573,13 +575,15 @@ export function automatic(s: SpiritState, e: SpiritStep): boolean {
             }
             return true;
         case 'BUILD':
-            prepend(s,...s.lands.filter(l=>l.number>0&&matches(l,s.build)).map(l=>step('SPECIAL',e.actor,l.id,0,'BUILD_CARD_LAND')));
+            prepend(s,step('SPECIAL',e.actor,null,0,'BUILD_CARDS'));
             return true;
         case 'BUILD_CARD_LAND':
             if(l&&(invaders(l).length>0||s.settings.adversary==='ENGLAND'&&s.settings.level>=1&&l.adjacent.filter(id=>land(s,id).number>0).reduce((n,id)=>n+countPieces(land(s,id),['TOWN','CITY']),0)>=2))prepend(s,step('SPECIAL',e.actor,l.id,0,'ESCALATE_BUILD'));
             return true;
         case 'BUILD_LAND': if(l&&!buildIsSkipped(s,l)) {if(l.tokens.disease>0&&!s.flags.includes('event-lingering-plagues')){l.tokens.disease--;return true;}makePiece(s,l,countPieces(l,['TOWN'])>countPieces(l,['CITY'])?'CITY':'TOWN');event(s,'BUILD',`${l.id} 건설`,e.actor,l.id);} return true;
         case 'EXPLORE': {
+            const nextFear=takeNextFear(s,'explore');
+            if(nextFear===2){event(s,'FEAR','탐험가의 망설임 · 다음 정상 탐험의 카드 공개 생략',e.actor);return true;}
             const card = s.invaderDeck.shift();
             if (!card) {
                 s.phase = 'FINISHED';
@@ -589,8 +593,11 @@ export function automatic(s: SpiritState, e: SpiritStep): boolean {
                 return true;
             }
             if(protectedInvaderCard(s,card))s.protectedInvader=null;
-            s.explore = card; const explored: string[]=[];
+            setTrack(s,'explore',[...trackCards(s,'explore'),card]); const explored: string[]=[];
+            const lowest=nextFear===1?lowestMatching(s,card):[];
+            if(nextFear===3)event(s,'FEAR','탐험가의 망설임 · 카드 공개와 심화만 진행',e.actor);
             for (const area of s.lands.filter(l => l.number>0 && matches(l, card) && !l.skip)) {
+                if(nextFear===3||lowest.includes(area.id)||beastsSkip(s,area,'explore'))continue;
                 if(s.flags.includes('quarantine-coast')&&area.coastal||s.flags.includes('quarantine-disease')&&area.tokens.disease>0)continue;
                 if (s.flags.includes('no-explore-dahan') && countPieces(area, ['DAHAN']) >= 2)
                     continue;
@@ -602,20 +609,21 @@ export function automatic(s: SpiritState, e: SpiritStep): boolean {
             }
             const after:SpiritStep[]=s.flags.includes('event-farmland')?farmlandExploreSteps(s,e,explored):[];
             if(s.settings.scenario==='BLITZ')for(const q of s.players){const ids=explored.filter(id=>id[0]===q.board);if(ids.length)after.push(step('SPECIAL',q.playerId,null,0,'BLITZ_EXPLORE',q.playerId,ids));}
-            if(card.stage===2&&!card.coastal){if(s.settings.adversary==='SWEDEN')after.push(...explored.map(id=>step('SPECIAL',e.actor,id,0,'SWEDEN_ESCALATE')));else if(s.settings.adversary!=='NONE')after.push(...s.players.map(q=>step('SPECIAL',q.playerId,null,0,'ESCALATE',q.playerId,[q.board])));}
+            if(card.stage===2&&!card.coastal){if(s.settings.adversary==='SWEDEN')after.push(...(nextFear===3?s.lands.filter(l=>l.number>0&&matches(l,card)).map(l=>l.id):explored).map(id=>step('SPECIAL',e.actor,id,0,'SWEDEN_ESCALATE')));else if(s.settings.adversary!=='NONE')after.push(...s.players.map(q=>step('SPECIAL',q.playerId,null,0,'ESCALATE',q.playerId,[q.board])));}
             prepend(s,...after);
             return true;
         }
-        case 'ADVANCE_INVADERS':
-            if(s.settings.adversary==='ENGLAND'&&s.settings.level===3&&s.ravage?.stage===2) s.flags.push('immigration-ended');
-            if(s.settings.adversary==='ENGLAND'&&s.settings.level>=3) s.immigration=s.settings.level===3&&(s.ravage?.stage!==1||s.flags.includes('immigration-ended'))?null:s.ravage;
-            if (s.ravage)
-                s.invaderDiscard.push(s.ravage);
-            s.ravage = s.build;
-            s.build = s.explore;
-            s.explore = null;
+        case 'ADVANCE_INVADERS': {
+            const ravages=trackCards(s,'ravage'),builds=trackCards(s,'build');
+            if(s.settings.adversary==='ENGLAND'&&s.settings.level===3&&ravages.some(c=>c.stage===2))s.flags.push('immigration-ended');
+            if(s.settings.adversary==='ENGLAND'&&s.settings.level>=3)setTrack(s,'immigration',s.settings.level===3?(s.flags.includes('immigration-ended')?[]:ravages.filter(c=>c.stage===1)):ravages);
+            s.invaderDiscard.push(...ravages);
+            setTrack(s,'ravage',builds.filter((_,i)=>!s.heldBuild.includes(i)));
+            setTrack(s,'build',[...builds.filter((_,i)=>s.heldBuild.includes(i)),...trackCards(s,'explore')]);
+            setTrack(s,'explore',[]);s.heldBuild=[];
             if(s.flags.includes('event-sacred-explorers')||s.flags.includes('event-fortification'))prepend(s,step('SPECIAL',e.actor,null,0,'BCE2_AFTER_ADVANCE'));
             return true;
+        }
         case 'TIME':
             for (const q of s.players)
                 if (q.reclaimAtEnd > 0)
@@ -652,7 +660,7 @@ export function automatic(s: SpiritState, e: SpiritStep): boolean {
                 area.vitality = false;
                 area.dahanHealth = 0;area.eventBuildingHealthLoss=false;area.eventHealthLoss=false;area.eventHealthBonus=null;
             }
-            s.flags = s.flags.filter(f=>f==='immigration-ended'||f==='event-next-city'||f==='event-next-town'||f==='event-next-city-extra'||f==='event-next-build');
+            s.flags = s.flags.filter(f=>f.startsWith('fear-next-')||f.startsWith('fear-extra-explore:')||f==='immigration-ended'||f==='event-next-city'||f==='event-next-town'||f==='event-next-city-extra'||f==='event-next-build');
             s.currentEvent=null;s.eventTerrorLevel=null;s.eventInvaderStage=null;s.eventIslandState=null;s.vengeance = [];
             s.plans = [];
             s.round++;

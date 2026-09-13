@@ -895,7 +895,7 @@ for(const terror of [1,2,3] as const)test(`War addition preserves terror ${terro
  let s=warGame();for(const l of s.lands)l.tokens.beasts=0;s.terror=terror;s.fearDeck=s.fearDeck.slice(-(terror===1?7:terror===2?4:1));const before=s.fearDeck.length;s=eventChoose(s,'격퇴');s=eventChoose(s,'에너지 1 지원 추가');s=eventChoose(s,'비용 확정');assert.equal(s.terror,terror);assert.equal(s.fearDeck.length,before+1);s=drain(s);s.queue=[step('FEAR',s.players[0]!.playerId,null,4)];settle(s);assert.equal(s.terror,terror);assert.equal(s.fearDeck.length,before);
 });
 test('War does not duplicate fear cards when every card is already in use',()=>{
- let s=warGame();for(const l of s.lands)l.tokens.beasts=0;s.fearDeck=spiritFearKeys(s.settings.expansion);s=eventChoose(s,'격퇴');s=eventChoose(s,'에너지 1 지원 추가');s=eventChoose(s,'비용 확정');assert.equal(s.fearDeck.length,27);assert.equal(new Set(s.fearDeck).size,27);assert.ok(s.log.some(e=>e.text.includes('미사용 공포 카드 없음')));
+ let s=warGame();for(const l of s.lands)l.tokens.beasts=0;s.fearDeck=spiritFearKeys(s.settings.expansion);s=eventChoose(s,'격퇴');s=eventChoose(s,'에너지 1 지원 추가');s=eventChoose(s,'비용 확정');assert.equal(s.fearDeck.length,30);assert.equal(new Set(s.fearDeck).size,30);assert.ok(s.log.some(e=>e.text.includes('미사용 공포 카드 없음')));
 });
 test('War discards a major per board, with public cost, before choosing that board coast',()=>{
  let s=warGame(2);const major=[...s.major],minor=[...s.minor];s=eventChoose(s,'공격을 허용');assert.equal(s.queue[0]!.key,'BCE14_ATTACK');assert.equal(s.queue[0]!.tags[0],'A');assert.equal(s.queue[0]!.n,cardPower(s,major[0]!).cost);assert.ok(s.majorDiscard.includes(major[0]!));assert.deepEqual(s.minor,minor);s=drain(s);assert.ok(s.log.some(e=>e.text.includes(`B 전쟁 피해 판정 · ${cardPower(s,major[1]!).title}`)));assert.deepEqual(s.minor,minor);
@@ -925,7 +925,7 @@ for(const key of SPIRIT_BRANCH_FEAR_KEYS)for(const level of [1,2,3] as const)for
  let s=branchFearGame(key,level,n);settle(s);s=drain(s);assert.equal(s.queue.length,0);assert.ok(s.fearDiscard.includes(key));assert.ok(s.log.some(l=>l.text.includes(`공포 수준 ${level}`)));parseSpiritState(s);
 });
 test('Expansion fear pool adds only completed cards and keeps deck size and core pool unchanged',()=>{
- assert.deepEqual(spiritFearKeys('CORE'),[...SPIRIT_FEAR_KEYS]);assert.equal(spiritFearKeys('BRANCH_CLAW').length,27);assert.equal(new Set(spiritFearKeys('BRANCH_CLAW')).size,27);let s=setup();const result=applySpiritAction(s,s.players[0]!.playerId,{kind:'CONFIGURE',settings:{...s.settings,expansion:'BRANCH_CLAW',blightCard:true,progression:false}},now,s.transitionId,values=>[...values].reverse());assert.ok(result.ok);s=result.state;assert.equal(s.fearDeck.length,9);assert.deepEqual(s.fearDeck,[...spiritFearKeys('BRANCH_CLAW')].reverse().slice(0,9));assert.equal(chosen().fearDeck.some(k=>SPIRIT_BRANCH_FEAR_KEYS.includes(k)),false);
+ assert.deepEqual(spiritFearKeys('CORE'),[...SPIRIT_FEAR_KEYS]);assert.equal(spiritFearKeys('BRANCH_CLAW').length,30);assert.equal(new Set(spiritFearKeys('BRANCH_CLAW')).size,30);let s=setup();const result=applySpiritAction(s,s.players[0]!.playerId,{kind:'CONFIGURE',settings:{...s.settings,expansion:'BRANCH_CLAW',blightCard:true,progression:false}},now,s.transitionId,values=>[...values].reverse());assert.ok(result.ok);s=result.state;assert.equal(s.fearDeck.length,9);assert.deepEqual(s.fearDeck,[...spiritFearKeys('BRANCH_CLAW')].reverse().slice(0,9));assert.equal(chosen().fearDeck.some(k=>SPIRIT_BRANCH_FEAR_KEYS.includes(k)),false);
 });
 test('Demoralized stacks defense and Time removes it',()=>{
  let s=branchFearGame('demoralized',3);land(s,'A1').defend=2;settle(s);assert.equal(land(s,'A1').defend,5);assert.equal(land(s,'A8').defend,3);s.stage='TIME';s=drain(apply(s,{kind:'ADVANCE'}));assert.ok(s.lands.every(l=>l.defend===0));
@@ -1039,4 +1039,62 @@ test('Discord III retains destroyed attackers damage and excludes self, Dahan an
 });
 test('Discord III uses base damage once per strifed piece and preserves strife on survivors',()=>{
  let s=strifeFear('discord',3);s.settings.adversary='SWEDEN';s.settings.level=3;s.flags.push('event-aggression','event-normal-city');const a=land(s,'A1'),town=makePiece(s,a,'TOWN');makePiece(s,a,'CITY');town.strife=3;settle(s);s=eventChoose(s,'A1');s=eventChoose(s,'마을');assert.equal(s.queue[0]!.n,2);s=drain(s);assert.equal(land(s,'A1').pieces.find(p=>p.kind==='CITY')!.damage,2);assert.equal(land(s,'A1').pieces.find(p=>p.kind==='TOWN')!.strife,4);
+});
+
+function fearTrack(key:string,level:1|2|3,n=1){const s=strifeFear(key,level,n);settle(s);return drain(s);}
+function invaderStep(s:SpiritState,key:string){s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,key)];settle(s);return drain(s);}
+test('Immigration Slows I chooses lowest matching number even when it is empty, once per card',()=>{
+ let s=fearTrack('immigration',1,2);s.build={stage:3,terrains:['MOUNTAIN','JUNGLE'],coastal:false};s.buildExtra=[{...s.build}];
+ for(const l of s.lands)l.pieces=[];
+ for(const board of ['A','B']){const matching=s.lands.filter(l=>l.board===board&&s.build!.terrains.includes(l.terrain));for(const l of matching.slice(1))makePiece(s,l,'EXPLORER');}
+ s=invaderStep(s,'BUILD');for(const board of ['A','B']){const matching=s.lands.filter(l=>l.board===board&&s.build!.terrains.includes(l.terrain));assert.equal(countPieces(matching[0]!,['TOWN','CITY']),0);for(const l of matching.slice(1)){assert.equal(countPieces(l,['TOWN']),1);assert.equal(countPieces(l,['CITY']),1);}}assert.ok(!s.flags.some(f=>f.startsWith('fear-next-build:')));
+});
+test('Immigration Slows II holds only first Build card and keeps oldest-first order',()=>{
+ let s=fearTrack('immigration',2);s.build={stage:1,terrains:['MOUNTAIN'],coastal:false};s.buildExtra=[{stage:1,terrains:['JUNGLE'],coastal:false}];s.explore={stage:1,terrains:['SANDS'],coastal:false};s.ravage={stage:1,terrains:['WETLAND'],coastal:false};const before=[s.build,s.buildExtra[0],s.explore];
+ s=invaderStep(s,'BUILD');assert.deepEqual(s.heldBuild,[0]);assert.match(view(s).fearInvaderNotices.join(' '),/건설 카드 1번/);s=invaderStep(s,'ADVANCE_INVADERS');assert.deepEqual(s.ravage,before[1]);assert.deepEqual(s.build,before[0]);assert.deepEqual(s.buildExtra,[before[2]]);assert.deepEqual(s.heldBuild,[]);assert.equal(s.explore,null);assert.deepEqual(s.exploreExtra,[]);parseSpiritState(s);
+});
+test('Immigration Slows III skips one card, preserves disease, and shifts normally',()=>{
+ let s=fearTrack('immigration',3);const a=land(s,'A1');makePiece(s,a,'EXPLORER');a.tokens.disease=1;s.build={stage:1,terrains:[a.terrain],coastal:false};s=invaderStep(s,'BUILD');assert.equal(a.tokens.disease,1);assert.equal(countPieces(land(s,'A1'),['TOWN']),0);const card=s.build;s=invaderStep(s,'ADVANCE_INVADERS');assert.deepEqual(s.ravage,card);assert.equal(s.build,null);
+});
+test('Next Build fear survives an empty slot and Time, and does not affect England immigration',()=>{
+ let s=fearTrack('immigration',3);s.settings.adversary='ENGLAND';s.settings.level=4;s.immigration={stage:1,terrains:['MOUNTAIN'],coastal:false};makePiece(s,land(s,'A1'),'EXPLORER');s.build=null;s=invaderStep(s,'IMMIGRATION');assert.equal(countPieces(land(s,'A1'),['TOWN']),1);assert.ok(s.flags.includes('fear-next-build:3'));s=invaderStep(s,'BUILD');s=invaderStep(s,'NEW_ROUND');assert.ok(s.flags.includes('fear-next-build:3'));s.build=s.immigration;s=invaderStep(s,'BUILD');assert.equal(countPieces(land(s,'A1'),['CITY']),0);assert.ok(!s.flags.includes('fear-next-build:3'));
+});
+test('Reluctant Explorers I skips lowest matching land on each board and preserves wilds',()=>{
+ let s=fearTrack('reluctant',1,2);s.invaderDeck=[{stage:3,terrains:['MOUNTAIN','WETLAND'],coastal:false}];for(const l of s.lands){l.pieces=[];if(l.coastal)makePiece(s,l,'CITY');}for(const b of ['A','B'])land(s,`${b}1`).tokens.wilds=1;s=invaderStep(s,'EXPLORE');for(const b of ['A','B']){assert.equal(countPieces(land(s,`${b}1`),['EXPLORER']),0);assert.equal(land(s,`${b}1`).tokens.wilds,1);}assert.equal(s.explore?.stage,3);assert.ok(!s.flags.some(f=>f.startsWith('fear-next-explore:')));
+});
+test('Reluctant Explorers II delays reveal and explores two cards next round, including repeated terrain',()=>{
+ let s=fearTrack('reluctant',2);s.invaderDeck=[{stage:1,terrains:['MOUNTAIN'],coastal:false},{stage:3,terrains:['MOUNTAIN','JUNGLE'],coastal:false}];s.explore=null;const a=land(s,'A1');a.pieces=[];makePiece(s,a,'CITY');const deck=[...s.invaderDeck];s=invaderStep(s,'EXPLORE_START');assert.deepEqual(s.invaderDeck,deck);assert.equal(s.explore,null);s=invaderStep(s,'NEW_ROUND');s=invaderStep(s,'EXPLORE_START');assert.equal(countPieces(land(s,'A1'),['EXPLORER']),2);assert.deepEqual([s.explore,...s.exploreExtra],deck);s=invaderStep(s,'ADVANCE_INVADERS');assert.deepEqual([s.build,...s.buildExtra],deck);assert.ok(!s.flags.some(f=>f.startsWith('fear-extra-explore:')));
+});
+test('Reluctant Explorers III reveals and escalates without exploring or consuming wilds',()=>{
+ let s=fearTrack('reluctant',3);s.settings.adversary='PRUSSIA';s.settings.level=1;s.invaderDeck=[{stage:2,terrains:['MOUNTAIN'],coastal:false}];for(const l of s.lands)l.pieces=[];makePiece(s,land(s,'A1'),'CITY');land(s,'A1').tokens.wilds=1;s=invaderStep(s,'EXPLORE');assert.equal(s.explore?.stage,2);assert.equal(countPieces(land(s,'A1'),['EXPLORER']),0);assert.equal(land(s,'A1').tokens.wilds,1);assert.equal(s.lands.reduce((n,l)=>n+countPieces(l,['TOWN']),0),1);
+});
+test('Reluctant Explorers delayed extra card still loses on an exhausted deck',()=>{
+ let s=fearTrack('reluctant',2);s.invaderDeck=[];s=invaderStep(s,'EXPLORE_START');assert.equal(s.phase,'PLAYING');s=invaderStep(s,'NEW_ROUND');s=invaderStep(s,'EXPLORE_START');assert.equal(s.result?.reason,'INVADERS');
+});
+test('Wild Beasts allows same land and invader for all spirits, with adjacent beasts',()=>{
+ let s=strifeFear('wildbeasts',1,2);for(const l of s.lands){l.pieces=[];l.tokens.beasts=0;}const a=land(s,'A1');makePiece(s,a,'CITY');land(s,a.adjacent.find(id=>id!=='A0')!).tokens.beasts=1;settle(s);assert.deepEqual(choiceOptions(s).map(o=>o.landId),['A1']);s=drain(s);assert.equal(land(s,'A1').pieces[0]!.strife,2);assert.ok(!s.flags.some(f=>f.startsWith('fear-wildbeasts:')));
+});
+for(const level of [2,3] as const)test(`Wild Beasts ${level} skips normal builds/explores with dynamic beasts, preserving tokens`,()=>{
+ let s=fearTrack('wildbeasts',level);const a=land(s,'A1');a.pieces=[];makePiece(s,a,'EXPLORER');a.tokens.beasts=1;a.tokens.disease=1;a.tokens.wilds=1;s.build={stage:1,terrains:[a.terrain],coastal:false};s=invaderStep(s,'BUILD');assert.equal(countPieces(land(s,'A1'),['TOWN']),0);assert.equal(land(s,'A1').tokens.disease,1);s.invaderDeck=[{...s.build!}];s=invaderStep(s,'EXPLORE');assert.equal(land(s,'A1').tokens.wilds,1);land(s,'A1').tokens.beasts=0;s=invaderStep(s,'BUILD');assert.equal(land(s,'A1').tokens.disease,0);s=invaderStep(s,'NEW_ROUND');assert.equal(view(s).fearBeasts,0);
+});
+test('Wild Beasts III skips normal ravage but allows a power ravage and England extra build',()=>{
+ let s=fearTrack('wildbeasts',3);const a=land(s,'A1');a.pieces=[];makePiece(s,a,'TOWN').strife=1;a.tokens.beasts=1;s.ravage={stage:1,terrains:[a.terrain],coastal:false};s.stage='RAVAGE';s=drain(apply(s,{kind:'ADVANCE'}));assert.equal(land(s,'A1').pieces[0]!.strife,1);s.queue=[step('SPECIAL',s.players[0]!.playerId,'A1',0,'RAVAGE',null,['POWER_RAVAGE'])];settle(s);s=drain(s);assert.equal(land(s,'A1').pieces[0]!.strife,0);s.settings.adversary='ENGLAND';s.settings.level=4;s.immigration=s.ravage;s=invaderStep(s,'IMMIGRATION');assert.equal(countPieces(land(s,'A1'),['CITY']),1);
+});
+test('Two normal ravage cards act separately with defense applied twice and strife consumed once',()=>{
+ let s=fearTrack('reluctant',1);const a=land(s,'A1');a.pieces=[];makePiece(s,a,'CITY').strife=1;a.defend=2;s.ravage={stage:1,terrains:[a.terrain],coastal:false};s.ravageExtra=[{...s.ravage}];const blight=a.blight;s.stage='RAVAGE';s=drain(apply(s,{kind:'ADVANCE'}));assert.equal(land(s,'A1').blight,blight);assert.equal(land(s,'A1').pieces[0]!.strife,0);assert.equal(s.log.filter(e=>e.text.includes('A1 파괴 ·')).length,2);assert.equal(s.stage,'BUILD');
+});
+test('Ravage conversion applies to first card only and normal damage bonus to the second',()=>{
+ let s=fearTrack('reluctant',1);const a=land(s,'A1');a.pieces=[];makePiece(s,a,'EXPLORER');a.defend=20;s.ravage={stage:1,terrains:[a.terrain],coastal:false};s.ravageExtra=[{...s.ravage}];s.flags.push('event-next-build','event-next-town');s.stage='RAVAGE';s=drain(apply(s,{kind:'ADVANCE'}));assert.equal(countPieces(land(s,'A1'),['TOWN']),1);assert.ok(s.log.some(e=>e.text.includes('A1 파괴 · 피해 4')));assert.ok(!s.flags.includes('event-next-town'));
+});
+test('England immigration keeps all ravage cards and does not duplicate discarded cards',()=>{
+ let s=fearTrack('reluctant',1);s.settings.adversary='ENGLAND';s.settings.level=4;s.ravage={stage:1,terrains:['MOUNTAIN'],coastal:false};s.ravageExtra=[{stage:2,terrains:['JUNGLE'],coastal:false}];const cards=[s.ravage,...s.ravageExtra],before=s.invaderDiscard.length;s=invaderStep(s,'ADVANCE_INVADERS');assert.deepEqual([s.immigration,...s.immigrationExtra],cards);assert.equal(s.invaderDiscard.length,before+2);parseSpiritState(s);
+});
+test('Immigration Slows I skips occupied lowest land only on the first of two matching cards',()=>{
+ let s=fearTrack('immigration',1);const a=land(s,'A1');a.pieces=[];makePiece(s,a,'EXPLORER');s.build={stage:3,terrains:['MOUNTAIN','JUNGLE'],coastal:false};s.buildExtra=[{...s.build}];s=invaderStep(s,'BUILD');assert.equal(countPieces(land(s,'A1'),['TOWN']),1);assert.equal(countPieces(land(s,'A1'),['CITY']),0);
+});
+test('Public invader stacks reject orphan cards and internal held indices stay private',()=>{
+ let s=fearTrack('immigration',2);s.build={stage:1,terrains:['MOUNTAIN'],coastal:false};s.buildExtra=[{stage:2,terrains:['JUNGLE'],coastal:false}];s=invaderStep(s,'BUILD');const g=view(s);assert.deepEqual(g.buildExtra,s.buildExtra);assert.ok(!('heldBuild' in g));s.heldBuild=[2];assert.throws(()=>parseSpiritState(s));s.heldBuild=[];s.build=null;assert.throws(()=>parseSpiritState(s));
+});
+test('Fortification excludes terrain on an additional public invader card',()=>{
+ const s=fearTrack('reluctant',1);s.ravage={stage:1,terrains:['MOUNTAIN'],coastal:false};s.ravageExtra=[{stage:1,terrains:['JUNGLE'],coastal:false}];s.build=null;s.explore=null;s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'BCE2_FORTIFY')];settle(s);const labels=choiceOptions(s).map(o=>o.label);assert.ok(labels.every(label=>!label.includes('밀림')&&!label.includes('산')));assert.equal(labels.length,2);
 });

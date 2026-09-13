@@ -5,6 +5,8 @@ type Add=(label:string,apply:()=>void,landId?:string|null,pieceId?:string|null)=
 const areas=(s:SpiritState)=>s.lands.filter(l=>l.number>0);
 export function branchFear(s:SpiritState,e:SpiritStep,key:string,level:number):boolean {
  if(!SPIRIT_BRANCH_FEAR_KEYS.includes(key))return false;
+ if(key==='reluctant'||key==='immigration'){s.flags.push(`fear-next-${key==='reluctant'?'explore':'build'}:${level}`);if(key==='reluctant'&&level===2)s.flags.push(`fear-extra-explore:${s.round+1}`);return true;}
+ if(key==='wildbeasts'&&level>=2)s.flags.push(`fear-wildbeasts:${level}`);
  if(key==='quarantine'){s.flags.push('quarantine-coast');if(level===2)s.flags.push('quarantine-source');if(level===3)s.flags.push('quarantine-disease');return true;}
  if(key==='demoralized'){for(const l of areas(s))l.defend+=level;return true;}
  if(key==='departure'&&level>=2)for(const l of areas(s).filter(l=>l.coastal))l.defend+=2*(level-1);
@@ -20,6 +22,7 @@ export function branchFearOptions(s:SpiritState,e:SpiritStep,add:Add):boolean {
   if(key==='discord'&&invaders(l).length>=2&&!s.flags.includes(`fear-used:${l.id}`))add(`${l.id} · 다른 정령과 겹치지 않는 지역 · 분쟁 1개`,()=>{
    s.flags.push(`fear-used:${l.id}`);prepend(s,step('SPECIAL',e.actor,l.id,1,'TOKEN:ADD:strife',null,['REQUIRED']));
   },l.id);
+  if(key==='wildbeasts'&&invaders(l).length>0&&(l.tokens.beasts>0||areas(s).some(from=>l.adjacent.includes(from.id)&&from.tokens.beasts>0)))add(`${l.id} · 야수 또는 인접 야수 · 분쟁 1개`,()=>prepend(s,step('SPECIAL',e.actor,l.id,1,'TOKEN:ADD:strife',null,['REQUIRED'])),l.id);
   if(key==='unrest'||key==='panic'||key==='threaten'){
    const eligible=key==='unrest'||key==='panic'&&level===3||key==='panic'&&(l.tokens.beasts>0||l.tokens.disease>0||countPieces(l,['DAHAN'])>0)||key==='threaten'&&countPieces(l,['DAHAN'])>0;
    const kinds=key==='unrest'&&level<3?['TOWN']:['EXPLORER','TOWN','CITY'];

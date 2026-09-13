@@ -22,3 +22,5 @@
 
 .si-event-art.si-art-RIVER,.si-event-art.si-art-LIGHTNING,.si-event-art.si-art-SHADOW,.si-event-art.si-art-EARTH{background-image:url('/images/spirit-island/spirits.png');background-size:400% auto}
 @media(max-width:650px){.si-event-art.si-art-OCEAN,.si-event-art.si-art-THUNDER{background-size:400% auto}}
+
+.si-statusbar .si-invader>div{display:flex;flex-direction:column;gap:3px}.si-statusbar .si-invader strong{white-space:normal;overflow-wrap:anywhere}.si-statusbar .si-invader>div+div{border-top:1px solid var(--si-line);padding-top:6px}.si-fear-notices{flex-direction:column;gap:6px;border-left:3px solid #ba9bd8;background:#342d4438;border-radius:6px;margin:12px 0}.si-fear-notices p{margin:0;line-height:1.6}

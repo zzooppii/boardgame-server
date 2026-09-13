@@ -1,3 +1,4 @@
+import { shownCards } from './invader-track.js';
 import { SPIRIT_TERRAIN_LABELS, type SpiritTerrain } from '@hangul-rummikub/shared';
 import type { SpiritState, SpiritStep } from './state.js';
 import { step, prepend, land, countPieces, makePiece, event } from './primitives.js';
@@ -22,7 +23,7 @@ function explore(s:SpiritState,e:SpiritStep,town:string|null){
 }
 export function farmlandEventOptions(s:SpiritState,e:SpiritStep,add:Add):boolean {
  if(e.key==='BCE9_TERRAIN'){
-  const shown=[s.ravage,s.build,s.explore,s.immigration].flatMap(c=>c?.terrains??[]),terrains:SpiritTerrain[]=['MOUNTAIN','JUNGLE','SANDS','WETLAND'];
+  const shown=shownCards(s).flatMap(c=>c.terrains),terrains:SpiritTerrain[]=['MOUNTAIN','JUNGLE','SANDS','WETLAND'];
   for(const terrain of terrains.filter(t=>!shown.includes(t)))add(`${SPIRIT_TERRAIN_LABELS[terrain]} · 추가 파괴`,()=>prepend(s,...boards(s).map(b=>step('SPECIAL',e.actor,null,2,'BCE3_PROTECT',null,[b,'RAVAGE',terrain]))));
  }else if(e.key==='BCE9_EXPLORE'){
   for(const id of e.tags)add(`${id} · 탐험가 대신 마을`,()=>explore(s,e,id),id);

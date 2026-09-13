@@ -22,7 +22,7 @@ test('Ocean tracks show upcoming permanent elements and scenario objective',()=>
 test('Branch & Claw development selection exposes ten spirits and clearly states missing content',()=>{
  const s=playing();s.game.stage='SELECT';s.game.playerStates[0]!.spirit=null;s.game.settings.expansion='BRANCH_CLAW';
  const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));
- assert.equal((html.match(/이 정령 선택/g)??[]).length,10);assert.match(html,/si-art-FANGS/);assert.match(html,/si-art-KEEPER/);assert.match(html,/이벤트 25\/25장 개발 덱 · 확장 공포 12\/15장 · 나머지 확장 카드 미포함/);
+ assert.equal((html.match(/이 정령 선택/g)??[]).length,10);assert.match(html,/si-art-FANGS/);assert.match(html,/si-art-KEEPER/);assert.match(html,/이벤트 25\/25장 개발 덱 · 확장 공포 15\/15장 · 나머지 확장 카드 미포함/);
 });
 test('Branch & Claw map shows token counts and growth distinguishes selected options and costs',()=>{
  const s=playing(),p=s.game.playerStates[0]!;s.game.settings.expansion='BRANCH_CLAW';p.spirit='FANGS';p.grown=false;p.growthSelections=[3];p.canCallPredators=true;
@@ -121,7 +121,7 @@ test('War panel explains energy-only payment, major damage and face-down fear in
 });
 
 test('Branch fear preview displays illustrations and current level without revealing hidden cards',()=>{
- const s=playing();s.game.terror=2;s.game.revealedFear=Object.values(SPIRIT_BRANCH_FEAR).map((c,i)=>({position:i+1,name:c.name,effects:[...c.effects]}));const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));for(const text of ['미리 공개된 공포 카드','실제 해결 시점의 수준','공포 2 · 현재 수준','si-art-FANGS',...Object.values(SPIRIT_BRANCH_FEAR).map(c=>c.name)])assert.ok(html.includes(text),text);assert.equal(SPIRIT_BRANCH_FEAR_KEYS.length,12);s.game.revealedFear=[];assert.ok(!renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s})).includes('미리 공개된 공포 카드'));
+ const s=playing();s.game.terror=2;s.game.revealedFear=Object.values(SPIRIT_BRANCH_FEAR).map((c,i)=>({position:i+1,name:c.name,effects:[...c.effects]}));const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));for(const text of ['미리 공개된 공포 카드','실제 해결 시점의 수준','공포 2 · 현재 수준','si-art-FANGS',...Object.values(SPIRIT_BRANCH_FEAR).map(c=>c.name)])assert.ok(html.includes(text),text);assert.equal(SPIRIT_BRANCH_FEAR_KEYS.length,15);s.game.revealedFear=[];assert.ok(!renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s})).includes('미리 공개된 공포 카드'));
 });
 
 test('Tread Carefully shows a separate ravage skip and suppresses blight risk without blocking converted builds',()=>{
@@ -133,3 +133,11 @@ test('Quarantine shows dynamic disease blocking and current level notices',()=>{
 });
 
 test('Strife health loss explains immediate destruction in the game view',()=>{const s=playing();s.game.lands[0]!.strifeHealthLoss=2;assert.match(renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s})),/분쟁으로 침략자 체력 감소/);});
+
+test('Fear track displays all invader cards in order and pending delays',()=>{
+ const s=playing();s.game.build={stage:1,terrains:['MOUNTAIN'],coastal:false};s.game.buildExtra=[{stage:3,terrains:['JUNGLE','WETLAND'],coastal:false}];s.game.fearInvaderNotices=['이주 둔화 · 건설 카드 1번은 건설 칸에 남습니다','3라운드 침략자 단계 · 탐험 카드 1장 추가'];s.game.fearBeasts=2;
+ const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));for(const text of ['건설 · 2장 순서대로','1. ','2. ','공포로 바뀐 침략자 진행',...s.game.fearInvaderNotices,'야수 공포 · 야수 지역의 정상 건설·탐험 생략'])assert.ok(html.includes(text),text);
+});
+test('Ravage preview includes additional cards and dynamic beast skip without blocking converted build',()=>{
+ const s=playing(),l=s.game.lands[0]!;s.game.ravage={stage:1,terrains:['JUNGLE'],coastal:false};s.game.ravageExtra=[{stage:1,terrains:[l.terrain],coastal:false}];l.pieces=[{id:'city',kind:'CITY',damage:0,strife:0}];assert.equal(ravagePreview(s.game,l).active,true);s.game.fearBeasts=3;l.tokens.beasts=1;assert.equal(ravagePreview(s.game,l).blocked,true);assert.equal(ravagePreview(s.game,l).blight,false);s.game.eventRavageToBuild=true;assert.equal(ravagePreview(s.game,l).convertsToBuild,false);s.game.ravage={stage:1,terrains:[l.terrain],coastal:false};assert.equal(ravagePreview(s.game,l).convertsToBuild,true);s.game.eventRavageToBuild=false;l.tokens.beasts=0;assert.equal(ravagePreview(s.game,l).blocked,false);
+});

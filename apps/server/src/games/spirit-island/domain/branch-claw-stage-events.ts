@@ -1,3 +1,4 @@
+import { shownCards } from './invader-track.js';
 import { SPIRIT_EVENTS, SPIRIT_TERRAIN_LABELS, type SpiritLand, type SpiritTerrain } from '@hangul-rummikub/shared';
 import type { SpiritState, SpiritStep } from './state.js';
 import { step, prepend, land, sacred, invaders, countPieces, makePiece, removePiece, damagePiece, fear, event, requireRule } from './primitives.js';
@@ -50,7 +51,7 @@ export function stageEventOptions(s:SpiritState,e:SpiritStep,add:Add):boolean {
  } else if(e.key==='BCE2_TEND'||e.key==='BCE2_COMING') {
   for(const l of areas(s).filter(l=>l.board===e.tags[0]&&(e.key==='BCE2_TEND'?l.blight>0&&countPieces(l,['DAHAN'])>=2:['MOUNTAIN','SANDS'].includes(l.terrain)&&countPieces(l,['DAHAN'])>0)))add(`${l.id} · ${e.key==='BCE2_TEND'?'오염 제거':'다한 추가'}`,()=>{if(e.key==='BCE2_TEND')prepend(s,step('REMOVE_BLIGHT',e.actor,l.id,1));else{makePiece(s,l,'DAHAN');event(s,'GROW',`${l.id} 다한 +1`,e.actor,l.id);}},l.id);
  } else if(e.key==='BCE2_FORTIFY') {
-  const shown=[s.ravage,s.build,s.explore,s.immigration].flatMap(c=>c?.terrains??[]);
+  const shown=shownCards(s).flatMap(c=>c.terrains);
   const terrains:SpiritTerrain[]=['MOUNTAIN','JUNGLE','SANDS','WETLAND'];
   for(const terrain of terrains.filter(t=>!shown.includes(t)))add(`${SPIRIT_TERRAIN_LABELS[terrain]} · 추가 건설`,()=>{
    event(s,'BUILD',`요새화 · ${SPIRIT_TERRAIN_LABELS[terrain]}에서 추가 건설`,e.actor);
