@@ -1,7 +1,8 @@
+import { currentInvaderStage } from './games/spirit-island/domain/branch-claw-stage-events.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import * as v from 'valibot';
-import { GameIdSchema, PlayerIdSchema, ServerTimeSchema, TurnIdSchema, SPIRITS, SPIRIT_POWERS, SpiritPlayingProjectionSchema, spiritProjectionIsConsistent, type SpiritAction, type SpiritId } from '@hangul-rummikub/shared';
+import { SPIRIT_EVENT_KEYS, type SpiritEventKey, GameIdSchema, PlayerIdSchema, ServerTimeSchema, TurnIdSchema, SPIRITS, SPIRIT_POWERS, SpiritPlayingProjectionSchema, spiritProjectionIsConsistent, type SpiritAction, type SpiritId } from '@hangul-rummikub/shared';
 import { createSpiritGame, applySpiritAction, parseSpiritState, powerOptions, type SpiritState } from './games/spirit-island/domain/game.js';
 import { projectSpirit } from './games/spirit-island/compatibility/projector.js';
 import { choiceOptions, settle, SPIRIT_FEAR_KEYS } from './games/spirit-island/domain/resolver.js';
@@ -400,7 +401,7 @@ test('An unrestricted repeat retains both numeric range and source terrain',()=>
  land(s,'A1').presence=[];land(s,'A4').presence=[{playerId:p.playerId,count:1}];assert.equal(powerOptions(s,p.playerId).find(o=>o.cardId===id)?.targets.length,0);
 });
 
-function eventGame(n=1,key:'NEW_SPECIES'|'LITTLE_RAIN'='NEW_SPECIES',round=2) {
+function eventGame(n=1,key:SpiritEventKey='NEW_SPECIES',round=2) {
  let s=setup(n);s=apply(s,{kind:'CONFIGURE',settings:{...s.settings,expansion:'BRANCH_CLAW',progression:false,blightCard:true}});
  for(const [i,p] of s.players.entries())s=drain(apply(s,{kind:'SELECT_SPIRIT',spirit:SPIRITS[i]!.id},p.playerId));
  s.round=round;s.stage='FAST';s.eventDeck=[key,...s.eventDeck.filter(k=>k!==key)];
@@ -453,9 +454,66 @@ test('Events: both event branches resolve for one through four spirits',()=>{
  for(const n of [1,2,3,4])for(const key of ['NEW_SPECIES','LITTLE_RAIN'] as const)for(const paid of [false,true]){let s=eventChoose(eventGame(n,key),'이벤트 선택 시작');if(paid){for(const p of s.players)p.elements=[...p.elements,...Array.from({length:4},()=>key==='NEW_SPECIES'?'MOON' as const:'WATER' as const)];s=eventChoose(s,`비용 ${4*n}`);s=eventChoose(s,'비용 확정');}else s=eventChoose(s,key==='NEW_SPECIES'?'외래종':'가뭄을 감수');s=drain(s);assert.equal(s.queue.length,0);parseSpiritState(s);}
 });
 test('Events: exhausted preview deck reshuffles through injected random source at next round',()=>{
- let s=eventGame();s.queue=[];s.currentEvent=null;s.eventDiscard=['NEW_SPECIES','LITTLE_RAIN'];s.eventDeck=[];s.stage='FAST';s.round=3;let calls=0;
- const result=applySpiritAction(s,s.players[0]!.playerId,{kind:'READY',ready:true},now,v.parse(TurnIdSchema,'event-shuffle'),a=>{calls++;return [...a].reverse();});assert.ok(result.ok);assert.equal(calls,1);assert.equal(result.state.currentEvent,'LITTLE_RAIN');assert.equal(result.state.eventDeck[0],'NEW_SPECIES');parseSpiritState(result.state);
+ let s=eventGame();s.queue=[];s.currentEvent=null;s.eventDiscard=[...SPIRIT_EVENT_KEYS];s.eventDeck=[];s.stage='FAST';s.round=3;let calls=0;
+ const result=applySpiritAction(s,s.players[0]!.playerId,{kind:'READY',ready:true},now,v.parse(TurnIdSchema,'event-shuffle'),a=>{calls++;return [...a].reverse();});assert.ok(result.ok);assert.equal(calls,1);assert.equal(result.state.currentEvent,SPIRIT_EVENT_KEYS.at(-1));assert.equal(result.state.eventDeck[0],SPIRIT_EVENT_KEYS.at(-2));parseSpiritState(result.state);
 });
 test('Events: Ocean is excluded from disease placement even with Dahan and invaders',()=>{
  let s=setup();s=apply(s,{kind:'CONFIGURE',settings:{...s.settings,expansion:'BRANCH_CLAW',progression:false,blightCard:true}});s=drain(apply(s,{kind:'SELECT_SPIRIT',spirit:'OCEAN'}));s.currentEvent='NEW_SPECIES';const ocean=land(s,'A0');makePiece(s,ocean,'DAHAN');makePiece(s,ocean,'CITY');s.queue=[step('SPECIAL',s.players[0]!.playerId,null,1,'BCE_DISEASE')];settle(s);assert.ok(!choiceOptions(s).some(o=>o.landId==='A0'));s=drain(s);assert.equal(land(s,'A0').tokens.disease,0);
+});
+
+const stageEvents=['SEEKING_INTERIOR','RECONNAISSANCE','DISCOVERIES','STRANGE_TALES'] as const;
+for(const key of stageEvents)for(const stage of [1,2,3] as const)for(const n of [1,2,3,4])test(`Stage event ${key}: invader stage ${stage}, ${n} spirits`,()=>{
+ let s=eventGame(n,key);s.eventInvaderStage=stage;s=eventChoose(s,'이벤트 선택 시작');s=drain(s);assert.equal(s.queue.length,0);assert.equal(s.stage,'FEAR');parseSpiritState(s);
+});
+test('Stage events: all six event keys are configured once; core contains none',()=>{
+ const s=branchClaw();assert.deepEqual([...s.eventDeck].sort(),[...SPIRIT_EVENT_KEYS].sort());assert.equal(s.eventDeck.length,6);assert.equal(chosen().eventDeck.length,0);
+});
+test('Stage events: Prussia early III counts as II, real late III and empty deck count as III',()=>{
+ const s=branchClaw();s.settings.adversary='PRUSSIA';s.settings.level=2;s.invaderDeck=[{stage:3,terrains:['JUNGLE','SANDS'],coastal:false},{stage:2,terrains:['MOUNTAIN'],coastal:false}];assert.equal(currentInvaderStage(s),2);s.invaderDeck.shift();assert.equal(currentInvaderStage(s),2);s.invaderDeck=[{stage:3,terrains:['JUNGLE','SANDS'],coastal:false}];assert.equal(currentInvaderStage(s),3);s.invaderDeck=[];assert.equal(currentInvaderStage(s),3);
+});
+test('Stage events: reveal freezes the invader stage through later deck advancement',()=>{
+ let s=eventGame(1,'DISCOVERIES');const revealed=s.eventInvaderStage;s.invaderDeck=[{stage:3,terrains:['MOUNTAIN','JUNGLE'],coastal:false}];assert.equal(view(s).eventInvaderStage,revealed);s=eventChoose(s,'이벤트 선택 시작');assert.equal(s.flags.includes('event-aggression'),false);assert.equal(s.queue[0]?.key,'BCE2_DISCOVERY');
+});
+test('Stage events: seeking interior moves only coastal explorers into adjacent inland lands',()=>{
+ let s=eventGame(1,'SEEKING_INTERIOR');for(const l of s.lands)l.tokens.beasts=0;s.eventInvaderStage=1;s=eventChoose(s,'이벤트 선택 시작');while(s.queue[0]?.kind==='MOVE'){const from=land(s,s.queue[0].land);assert.equal(from.coastal,true);for(const o of choiceOptions(s)){assert.ok(o.landId);assert.equal(land(s,o.landId).coastal,false);assert.ok(from.adjacent.includes(o.landId));}s=eventChoose(s,'→');}s=drain(s);parseSpiritState(s);
+});
+test('Stage events: diaspora chooses one global maximum and visits each neighbor at most once',()=>{
+ let s=eventGame(2,'SEEKING_INTERIOR');s.eventInvaderStage=2;const source=land(s,'A5');for(let i=0;i<8;i++)makePiece(s,source,'EXPLORER');s=eventChoose(s,'이벤트 선택 시작');assert.deepEqual(choiceOptions(s).map(o=>o.landId),['A5']);s=eventChoose(s,'A5');const first=choiceOptions(s)[0]!;const destination=first.landId!;s=eventChoose(s,first.label);s=eventChoose(s,'→');assert.equal(s.queue[0]?.key,'BCE2_DISPERSE');assert.ok(choiceOptions(s).every(o=>o.landId!==destination));s=drain(s);parseSpiritState(s);
+});
+test('Stage events: urbanization rounds up, resets damage, preserves strife and generates no fear',()=>{
+ let s=eventGame(1,'RECONNAISSANCE');s.eventInvaderStage=2;const l=land(s,'A5');l.pieces=[];for(let i=0;i<3;i++){const p=makePiece(s,l,'TOWN');p.strife=i+1;p.damage=1;}const initial=s.fear;s=eventChoose(s,'이벤트 선택 시작');s=drain(s);const out=land(s,'A5');assert.equal(out.pieces.filter(p=>p.kind==='CITY').length,2);assert.equal(out.pieces.filter(p=>p.kind==='TOWN').length,1);assert.deepEqual(out.pieces.filter(p=>p.kind==='CITY').map(p=>p.strife),[1,2]);assert.ok(out.pieces.filter(p=>p.kind==='CITY').every(p=>p.damage===0));assert.equal(s.fear,initial);
+});
+test('Stage events: reconnaissance adds extra explorers only where exploration succeeds',()=>{
+ let s=eventGame(1,'RECONNAISSANCE');s=drain(eventChoose(s,'이벤트 선택 시작'));s.invaderDeck=[{stage:1,terrains:['MOUNTAIN'],coastal:false}];const a=land(s,'A1'),b=land(s,'A6');a.tokens.wilds=1;b.skip=false;makePiece(s,b,'TOWN');const beforeA=a.pieces.length,beforeB=b.pieces.length;s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'EXPLORE')];settle(s);s=drain(s);assert.equal(land(s,'A1').pieces.length,beforeA);assert.equal(land(s,'A1').tokens.wilds,0);assert.equal(land(s,'A6').pieces.length,beforeB+2);
+});
+test('Stage events: Stricken checks current tokens, skips only ravage and preserves strife/disease',()=>{
+ let s=eventGame(1,'RECONNAISSANCE');s=drain(eventChoose(s,'이벤트 선택 시작'));const l=land(s,'A5');l.pieces=[];const town=makePiece(s,l,'TOWN');town.strife=1;makePiece(s,l,'DAHAN');const before=JSON.stringify(l);s.queue=[step('SPECIAL',s.players[0]!.playerId,l.id,0,'RAVAGE')];settle(s);assert.equal(JSON.stringify(l),before);l.tokens.disease=1;s.queue=[step('SPECIAL',s.players[0]!.playerId,l.id,0,'BUILD_LAND')];settle(s);assert.equal(l.tokens.disease,0);assert.equal(town.strife,1);assert.equal(l.skip,false);
+});
+test('Stage events: retreat must move two Dahan together when possible, and one only as fallback',()=>{
+ let s=eventGame(1,'RECONNAISSANCE');s.queue=[];for(const l of s.lands)l.pieces=l.pieces.filter(p=>p.kind!=='DAHAN');const l=land(s,'A2');makePiece(s,l,'DAHAN');makePiece(s,l,'DAHAN');s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'BCE2_RETREAT',null,['A','CITY'])];settle(s);assert.ok(choiceOptions(s).every(o=>o.label.includes('다한 2개')));const destination=choiceOptions(s)[0]!.landId!;s=eventChoose(s,'다한 2개');s=drain(s);assert.equal(land(s,'A2').pieces.filter(p=>p.kind==='DAHAN').length,0);assert.equal(land(s,destination).pieces.filter(p=>p.kind==='DAHAN').length,2);
+ s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'BCE2_RETREAT',null,['A','CITY'])];makePiece(s,land(s,'A2'),'DAHAN');settle(s);assert.ok(choiceOptions(s).every(o=>o.label.includes('다한 1개')));
+});
+test('Stage events: disease chooses only jungle/wetland with most buildings, ties remain selectable',()=>{
+ const s=eventGame(1,'DISCOVERIES');const a=land(s,'A3'),b=land(s,'A5');for(let i=0;i<2;i++){makePiece(s,a,'TOWN');makePiece(s,b,'CITY');}for(let i=0;i<5;i++)makePiece(s,land(s,'A4'),'CITY');s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'BCE2_DISEASE',null,['A'])];settle(s);assert.deepEqual(choiceOptions(s).map(o=>o.landId).sort(),['A3','A5']);
+});
+test('Stage events: aggression adds one per land even when strife suppresses individual damage',()=>{
+ let s=eventGame(1,'DISCOVERIES');s.eventInvaderStage=2;s=drain(eventChoose(s,'이벤트 선택 시작'));const l=land(s,'A5');l.pieces=[];for(let i=0;i<2;i++){const p=makePiece(s,l,'TOWN');p.strife=1;}s.queue=[step('SPECIAL',s.players[0]!.playerId,l.id,0,'RAVAGE')];settle(s);s=drain(s);assert.equal(land(s,'A5').blight,0);assert.ok(s.log.some(e=>e.text.includes('A5 파괴 · 피해 1,')));assert.equal(view(s).eventRavageBonus,1);
+});
+test('Stage events: rumors add fear now, explorers only after advancing, once and at current sites',()=>{
+ let s=eventGame(1,'STRANGE_TALES');for(const l of s.lands)l.tokens.beasts=0;s=drain(eventChoose(s,'이벤트 선택 시작'));assert.equal(s.fear,1);assert.equal(view(s).eventAfterAdvance,'SACRED_EXPLORERS');const site=land(s,'A5'),before=site.pieces.length;s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'ADVANCE_INVADERS')];settle(s);s=drain(s);assert.equal(land(s,'A5').pieces.length,before+1);assert.equal(view(s).eventAfterAdvance,null);s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'ADVANCE_INVADERS')];settle(s);s=drain(s);assert.equal(land(s,'A5').pieces.length,before+1);
+});
+test('Stage events: fortification excludes all occupied action terrains including immigration',()=>{
+ let s=eventGame(1,'STRANGE_TALES');s.eventInvaderStage=2;for(const l of s.lands)l.tokens.beasts=0;s=drain(eventChoose(s,'이벤트 선택 시작'));assert.equal(view(s).eventAfterAdvance,'FORTIFICATION');s.ravage={stage:1,terrains:['MOUNTAIN'],coastal:false};s.build={stage:1,terrains:['JUNGLE'],coastal:false};s.immigration={stage:1,terrains:['SANDS'],coastal:false};s.explore=null;s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'BCE2_AFTER_ADVANCE')];settle(s);assert.deepEqual(choiceOptions(s).map(o=>o.label),['습지 · 추가 건설']);const empty=land(s,'A5');empty.pieces=[];const occupied=land(s,'A2');occupied.tokens.disease=1;s=eventChoose(s,'습지');s=drain(s);assert.equal(land(s,'A5').pieces.length,0);assert.equal(land(s,'A2').tokens.disease,0);assert.equal(view(s).eventAfterAdvance,null);
+});
+test('Stage events: all terrain slots occupied makes fortification a safe no-op',()=>{
+ const s=eventGame(1,'STRANGE_TALES');s.queue=[];s.ravage={stage:3,terrains:['MOUNTAIN','JUNGLE'],coastal:false};s.build={stage:3,terrains:['SANDS','WETLAND'],coastal:false};s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'BCE2_FORTIFY')];settle(s);assert.equal(s.queue.length,0);
+});
+test('Stage events: deferred effects and round modifiers reset at time passing',()=>{
+ let s=eventGame();s.queue=[];s.flags.push('event-recon','event-aggression','event-stricken','event-fortification');s.stage='TIME';s=drain(apply(s,{kind:'ADVANCE'}));const g=view(s);assert.equal(g.eventInvaderStage,null);assert.equal(g.eventAfterAdvance,null);assert.equal(g.eventRavageBonus,0);assert.equal(g.eventStricken,false);assert.equal(g.eventExploreBonus,false);
+});
+test('Stage events: prowling beasts offer Fangs a presence follow without entering Ocean',()=>{
+ let s=branchClaw('FANGS');const actor=s.players[0]!.playerId,source=s.lands.find(l=>presence(l,actor)>0&&l.tokens.beasts>0)!;source.pieces=source.pieces.filter(p=>p.kind==='DAHAN');s.queue=[step('SPECIAL',actor,null,0,'BCE2_PROWL',null,[source.id])];settle(s);const first=choiceOptions(s)[0]!;assert.ok(first.landId);assert.ok(land(s,first.landId).number>0);s=eventChoose(s,first.label);assert.equal(s.queue[0]?.key,'FOLLOW_DAHAN');s=drain(s);parseSpiritState(s);
+});
+test('Stage events: Dahan retreat retains Thunder presence-follow choices',()=>{
+ let s=setup();s=apply(s,{kind:'CONFIGURE',settings:{...s.settings,expansion:'BRANCH_CLAW',progression:false,blightCard:true}});s=drain(apply(s,{kind:'SELECT_SPIRIT',spirit:'THUNDER'}));const actor=s.players[0]!.playerId,source=s.lands.find(l=>presence(l,actor)>0)!;makePiece(s,source,'CITY');makePiece(s,source,'DAHAN');makePiece(s,source,'DAHAN');s.queue=[step('SPECIAL',actor,null,0,'BCE2_RETREAT',null,['A','CITY'])];settle(s);const option=choiceOptions(s).find(o=>o.label.startsWith(source.id))!;assert.ok(option);s=eventChoose(s,option.label);s=eventChoose(s,'→');assert.equal(s.queue[0]?.key,'PUSH');s=eventChoose(s,'→');assert.equal(s.queue[0]?.key,'FOLLOW_DAHAN');s=drain(s);parseSpiritState(s);
 });
