@@ -1,6 +1,8 @@
+import { BRANCH_CLAW_MINOR_POWERS } from './branch-claw-powers.js';
 import type { SpiritPower } from './catalog.js';
 // Mechanical card facts checked against the base-game card catalog; original Korean UI descriptions.
 export const SPIRIT_POWERS: readonly SpiritPower[] = [
+    ...BRANCH_CLAW_MINOR_POWERS,
     { "key": "shatter-homesteads", "name": "Shatter Homesteads", "cost": 2, "speed": "SLOW", "range": 2, "sacred": true, "sourceTerrain": null, "target": "ANY", "terrains": [], "elements": ["FIRE", "AIR"], "deck": "LIGHTNING", "title": "거처를 무너뜨리다", "description": "공포 1. 마을 1개 파괴." },
     { "key": "raging-storm", "name": "Raging Storm", "cost": 3, "speed": "SLOW", "range": 1, "sacred": false, "sourceTerrain": null, "target": "ANY", "terrains": [], "elements": ["FIRE", "AIR", "WATER"], "deck": "LIGHTNING", "title": "휘몰아치는 폭풍", "description": "각 침략자에게 피해 1." },
     { "key": "lightning-s-boon", "name": "Lightning's Boon", "cost": 1, "speed": "FAST", "range": 0, "sacred": false, "sourceTerrain": null, "target": "SPIRIT", "terrains": [], "elements": ["FIRE", "AIR"], "deck": "LIGHTNING", "title": "번개의 축복", "description": "대상 정령은 느린 능력 최대 2개를 빠르게 사용." },

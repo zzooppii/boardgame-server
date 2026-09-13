@@ -29,3 +29,9 @@ test('Branch & Claw map shows token counts and growth distinguishes selected opt
  for(const text of ['야수 2','질병 1','야생 1','si-island-token-strife','선택 완료','현신을 영구 제거','거리 제한 없음'])assert.ok(html.includes(text),text);
  assert.match(html,/서로 다른 성장 2개 선택/);
 });
+test('Branch minor card UI exposes terrain restrictions and expansion progress',()=>{
+ const s=playing();s.game.settings.expansion='BRANCH_CLAW';s.game.stage='SELECT';s.game.playerStates[0]!.spirit=null;
+ const settings=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));assert.match(settings,/보조 능력 31장/);assert.match(settings,/주요 능력/);
+ s.game.stage='PREPARE';s.game.playerStates[0]!.spirit='RIVER';const card={cardId:'fleshrot',key:'fleshrot-fever'};s.game.playerStates[0]!.hand=[card];s.game.privateState.hand=[card];
+ const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));assert.match(html,/살을 썩히는 열병/);assert.match(html,/대상: 밀림\/모래/);assert.match(html,/질병 1개 추가/);
+});

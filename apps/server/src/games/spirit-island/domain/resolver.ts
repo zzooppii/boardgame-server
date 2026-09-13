@@ -1,6 +1,7 @@
+import { branchMinorOptions, branchMinorAutomatic } from './branch-claw-minor.js';
 import { branchClawOptions, branchClawAutomatic } from './branch-claw.js';
 import { tokenOptions } from './tokens.js';
-import { SPIRIT_ELEMENTS, SPIRIT_ELEMENT_LABELS, spiritDefinition, spiritPower, type PlayerId, type SpiritChoiceOption, type SpiritPiece } from '@hangul-rummikub/shared';
+import { SPIRIT_ELEMENTS, SPIRIT_ELEMENT_LABELS, spiritDefinition, spiritPower, type PlayerId, type SpiritChoiceOption, type SpiritPiece, type SpiritLand } from '@hangul-rummikub/shared';
 import type { SpiritState, SpiritStep } from './state.js';
 import { setupScenario } from './settings.js';
 import { powerSteps } from './powers.js';
@@ -11,6 +12,15 @@ export type SpiritOption = SpiritChoiceOption & {
 const kinds: readonly SpiritPiece['kind'][] = ['EXPLORER', 'TOWN', 'CITY', 'DAHAN'];
 const labels: Record<SpiritPiece['kind'], string> = { EXPLORER: '탐험가', TOWN: '마을', CITY: '도시', DAHAN: '다한' };
 const selectedKinds = (e: SpiritStep) => kinds.filter(k => e.tags.includes(k));
+function buildIsSkipped(s: SpiritState, area: SpiritLand): boolean {
+    return area.skip || s.flags.includes(`no-build:${area.id}`)
+        || s.flags.includes('no-build-city') && countPieces(area, ['CITY']) > 0
+        || s.flags.includes('no-build-dahan') && countPieces(area, ['DAHAN']) > 0
+        || s.flags.includes('dahan-outnumber') && countPieces(area, ['DAHAN']) > countPieces(area, ['TOWN', 'CITY'])
+        || s.flags.includes('no-build-coastal') && area.coastal
+        || s.flags.includes('no-city-coastal') && area.coastal && countPieces(area, ['TOWN']) > countPieces(area, ['CITY']);
+}
+
 const branchNames: Record<string, string> = { DAMAGE: '피해', REMOVE_BLIGHT: '오염 제거', DEFEND: '방어', FEAR: '공포', PUSH_TOWN: '마을 밀기', PUSH_DAHAN: '다한 밀기', PUSH_EXPLORER: '탐험가 밀기', PUSH_INVADERS: '탐험가/마을 밀기', GATHER_DAHAN: '다한 모으기', GATHER_INVADERS: '탐험가/마을 모으기', EACH_BUILDING: '각 마을/도시 피해', HUNT: '다한마다 서로 다른 침략자에게 피해 1' };
 export function branch(s: SpiritState, e: SpiritStep, key: string) {
     const [k, raw] = key.split(':'), n = Number(raw);
@@ -79,26 +89,26 @@ export function choiceOptions(s: SpiritState): SpiritOption[] {
     const add = (label: string, apply: () => void, landId: string | null = null, pieceId: string | null = null) => list.push({ id: `o${list.length}`, label, landId, pieceId, apply });
     const optional = () => add('이 선택 마치기', () => undefined);
     const l = e.land ? land(s, e.land) : null, owner = e.target ?? e.actor, p = player(s, owner);
-    if (branchClawOptions(s,e,add)||tokenOptions(s,e,add)) return list;
+    if (branchMinorOptions(s,e,add)||branchClawOptions(s,e,add)||tokenOptions(s,e,add)) return list;
     if (e.kind === 'DAMAGE' && e.n > 0 && l) {
         const areas = e.tags.includes('ADJACENT') ? [l, ...l.adjacent.map(id => land(s, id))] : [l];
         for (const area of areas)
             for (const piece of area.pieces.filter(p => (e.tags.includes('DAHAN_ONLY') ? p.kind === 'DAHAN' : p.kind !== 'DAHAN') && (!e.tags.includes('BUILDINGS_ONLY') || p.kind === 'TOWN' || p.kind === 'CITY') && (!e.tags.includes('DISTINCT') || !e.used.includes(p.id)))) {
-                add(`${area.id} ${labels[piece.kind]} · 체력 ${health(area, piece) - piece.damage} → 피해 1`, () => { const killed = damagePiece(s, area, piece, 1, e.actor); extraFear(s, e, piece, killed); event(s, 'DAMAGE', `${area.id} ${labels[piece.kind]} ${killed ? '파괴' : '피해 1'}`, e.actor, area.id); if (e.n > 1)
+                add(`${area.id} ${labels[piece.kind]}${piece.strife?' · 분쟁 '+piece.strife:''} · 체력 ${health(area, piece) - piece.damage} → 피해 1`, () => { const killed = damagePiece(s, area, piece, 1, e.actor); extraFear(s, e, piece, killed); event(s, 'DAMAGE', `${area.id} ${labels[piece.kind]} ${killed ? '파괴' : '피해 1'}`, e.actor, area.id); if (e.n > 1)
                     prepend(s, { ...e, n: e.n - 1, used: e.tags.includes('DISTINCT') ? [...e.used, piece.id] : e.used }); }, area.id, piece.id);
             }
     }
     else if ((e.kind === 'DESTROY' || e.kind === 'REMOVE' || e.kind === 'REPLACE') && e.n > 0 && l) {
         for (const piece of l.pieces.filter(p => selectedKinds(e).includes(p.kind) && !(s.flags.includes(`power:${e.actor}`)&&player(s,e.actor).spirit==='BRINGER'&&s.flags.includes(`dream-killed:${p.id}`)) && !(p.kind === 'DAHAN' && s.flags.includes(`immortal:${l.id}`))))
-            add(`${labels[piece.kind]}${piece.damage ? ' (피해 ' + piece.damage + ')' : ''} ${e.kind === 'REPLACE' ? '교체' : e.kind === 'REMOVE' ? '제거' : '파괴'}`, () => {
+            add(`${labels[piece.kind]}${piece.strife?' · 분쟁 '+piece.strife:''}${piece.damage ? ' (피해 ' + piece.damage + ')' : ''} ${e.kind === 'REPLACE' ? '교체' : e.kind === 'REMOVE' ? '제거' : '파괴'}`, () => {
                 removePiece(s, l, piece, e.kind === 'DESTROY', e.actor);
                 extraFear(s, e, piece, e.kind === 'DESTROY');
                 if (e.kind === 'REPLACE') {
                     const kind = e.key==='SWEDEN_TOWN'?'TOWN':e.key === 'DAHAN' ? 'DAHAN' : e.key === 'DOWNGRADE' ? (piece.kind === 'CITY' ? 'TOWN' : 'EXPLORER') : 'EXPLORER';
-                    const replacement=makePiece(s, l, kind);
+                    const replacement=makePiece(s, l, kind, false);
                     if(piece.kind!=='DAHAN'&&kind!=='DAHAN')replacement.strife=piece.strife;
                     if (e.key === 'EXPLORER2')
-                        makePiece(s, l, kind);
+                        makePiece(s, l, kind, false);
                 }
                 event(s, 'DAMAGE', `${l.id} ${labels[piece.kind]} ${e.kind === 'REPLACE' ? '교체' : e.kind === 'REMOVE' ? '제거' : '파괴'}`, e.actor, l.id);
                 if (e.n > 1)
@@ -121,7 +131,7 @@ export function choiceOptions(s: SpiritState): SpiritOption[] {
                 if (e.tags.includes('MORE_BUILDINGS'))
                     destinations = destinations.filter(d => countPieces(d, ['TOWN', 'CITY']) > countPieces(source, ['TOWN', 'CITY']));
                 for (const dest of destinations)
-                    add(`${source.id} ${labels[piece.kind]}${piece.damage ? ' (피해 ' + piece.damage + ')' : ''} → ${dest.id}`, () => {
+                    add(`${source.id} ${labels[piece.kind]}${piece.strife?' · 분쟁 '+piece.strife:''}${piece.damage ? ' (피해 ' + piece.damage + ')' : ''} → ${dest.id}`, () => {
                         if(e.tags.includes('BC_CHASE')&&piece.kind!=='DAHAN')s.flags.push('bc-chased');
                         source.pieces = source.pieces.filter(q => q.id !== piece.id);
                         dest.pieces.push(piece);
@@ -337,7 +347,7 @@ function addPresenceAt(s: SpiritState, actor: PlayerId, id: string) { const prio
 else
     l.presence.push({ playerId: actor, count: 1 }); event(s, 'GROW', `${id} 현신 배치`, actor, id);if(player(s,actor).spirit==='KEEPER'&&prior===1)prepend(s,step('MOVE',actor,id,countPieces(l,['DAHAN']),'PUSH',actor,['DAHAN','REQUIRED'])); }
 export function automatic(s: SpiritState, e: SpiritStep): boolean {
-    if(branchClawAutomatic(s,e))return true;
+    if(branchMinorAutomatic(s,e)||branchClawAutomatic(s,e))return true;
     const l = e.land ? land(s, e.land) : null, owner = e.target ?? e.actor, p = player(s, owner);
     if (e.kind === 'CHECK') {
         if(s.settings.scenario==='INSURRECTION') { const moved=s.flags.filter(f=>f.startsWith('raid:')); if(moved.length) {s.flags=s.flags.filter(f=>!f.startsWith('raid:')&&!f.startsWith('power:')); prepend(s,...moved.flatMap(f=>{const id=f.slice(5);const area=s.lands.find(l=>l.pieces.some(p=>p.id===id));return area?[step('DAMAGE',e.actor,area.id,1)]:[]}),e);return true;} }
@@ -419,7 +429,7 @@ export function automatic(s: SpiritState, e: SpiritStep): boolean {
         case 'SWEDEN_ESCALATE':if(l&&countPieces(l,['DAHAN'])>0&&invaders(l).length>=countPieces(l,['DAHAN']))prepend(s,step('REPLACE',e.actor,l.id,1,'SWEDEN_TOWN',null,['DAHAN']));return true;
         case 'SCENARIO_SETUP': setupScenario(s); return true;
         case 'RITUAL_FINISH': {s.terror=s.terror===1?2:s.terror===2?3:4;const earned=s.fearEarned.splice(0);prepend(s,...earned.map(key=>step('SPECIAL',e.actor,null,0,'FEAR_CARD',null,[key])),...(l?[step('MOVE',e.actor,l.id,countPieces(l,['DAHAN']),'PUSH',null,['DAHAN','REQUIRED','SPREAD'])]:[]),step('CHECK',e.actor));return true;}
-        case 'ESCALATE_BUILD': {if(l){const green=s.players.find(p=>p.spirit==='GREEN'&&sacred(s,l,p.playerId));if(green){prepend(s,step('SPECIAL',e.actor,l.id,0,'GREEN_STOP',green.playerId,['BUILD_LAND']));return true;}prepend(s,step('SPECIAL',e.actor,l.id,0,'BUILD_LAND'));}return true;}
+        case 'ESCALATE_BUILD': {if(l&&!buildIsSkipped(s,l)){const green=s.players.find(p=>p.spirit==='GREEN'&&sacred(s,l,p.playerId));if(green){prepend(s,step('SPECIAL',e.actor,l.id,0,'GREEN_STOP',green.playerId,['BUILD_LAND']));return true;}prepend(s,step('SPECIAL',e.actor,l.id,0,'BUILD_LAND'));}return true;}
         case 'INVADER_START': if(s.blighted) prepend(s,...s.players.map(q=>step('SPECIAL',q.playerId,null,0,'BLIGHT_PENALTY',q.playerId))); return true;
         case 'IMMIGRATION': { if(s.settings.adversary==='ENGLAND'&&s.settings.level>=3&&s.immigration) {const old=s.build;s.build=s.immigration;automatic(s,step('SPECIAL',e.actor,null,0,'BUILD'));if(s.settings.level===6&&!s.flags.includes('fear-resolved'))automatic(s,step('SPECIAL',e.actor,null,0,'BUILD'));s.build=old;}s.stage='RAVAGE';return true;}
         case 'WORDS': if(l) s.flags.push(`words:${l.id}`); return true;
@@ -512,6 +522,7 @@ export function automatic(s: SpiritState, e: SpiritStep): boolean {
             return true;
         case 'RAVAGE':
             if (l && !l.skip) {
+                if(invaders(l).length&&s.flags.includes(`trade-build:${l.id}`)){s.flags.splice(s.flags.indexOf(`trade-build:${l.id}`),1);prepend(s,step('SPECIAL',e.actor,l.id,0,'ESCALATE_BUILD'));return true;}
                 const green=s.players.find(p=>p.spirit==='GREEN'&&sacred(s,l,p.playerId));
                 if(green&&!e.tags.includes('GREEN_ALLOWED')&&invaders(l).length) {prepend(s,step('SPECIAL',e.actor,l.id,0,'GREEN_STOP',green.playerId,['RAVAGE']));return true;}
                 const originalDahan=countPieces(l,['DAHAN']);
@@ -535,20 +546,12 @@ export function automatic(s: SpiritState, e: SpiritStep): boolean {
             }
             return true;
         case 'BUILD':
-            for (const area of s.lands.filter(l => l.number>0 && matches(l, s.build) && !l.skip && (invaders(l).length || s.settings.adversary==='ENGLAND'&&s.settings.level>=1&&l.adjacent.filter(id=>land(s,id).number>0).reduce((n,id)=>n+countPieces(land(s,id),['TOWN','CITY']),0)>=2))) {
-                if (s.flags.includes(`no-build:${area.id}`))continue;
-                if (s.flags.includes('no-build-city') && countPieces(area, ['CITY']) || s.flags.includes('no-build-dahan') && countPieces(area, ['DAHAN']) || s.flags.includes('dahan-outnumber') && countPieces(area, ['DAHAN']) > countPieces(area, ['TOWN', 'CITY']) || s.flags.includes('no-build-coastal') && area.coastal)
-                    continue;
-                const green=s.players.find(p=>p.spirit==='GREEN'&&sacred(s,area,p.playerId)); if(green) {s.queue.push(step('SPECIAL',e.actor,area.id,0,'GREEN_STOP',green.playerId,['BUILD_LAND']));continue;}
-                if(area.tokens.disease>0){area.tokens.disease--;event(s,'BUILD',`${area.id} 질병으로 건설 차단`,e.actor,area.id);continue;}
-                const city = countPieces(area, ['TOWN']) > countPieces(area, ['CITY']);
-                if (city && area.coastal && s.flags.includes('no-city-coastal'))
-                    continue;
-                makePiece(s, area, city ? 'CITY' : 'TOWN');
-                event(s, 'BUILD', `${area.id} ${city ? '도시' : '마을'} 건설`, e.actor, area.id);
-            }
+            prepend(s,...s.lands.filter(l=>l.number>0&&matches(l,s.build)).map(l=>step('SPECIAL',e.actor,l.id,0,'BUILD_CARD_LAND')));
             return true;
-        case 'BUILD_LAND': if(l) {if(l.tokens.disease>0){l.tokens.disease--;return true;}makePiece(s,l,countPieces(l,['TOWN'])>countPieces(l,['CITY'])?'CITY':'TOWN');event(s,'BUILD',`${l.id} 건설`,e.actor,l.id);} return true;
+        case 'BUILD_CARD_LAND':
+            if(l&&(invaders(l).length>0||s.settings.adversary==='ENGLAND'&&s.settings.level>=1&&l.adjacent.filter(id=>land(s,id).number>0).reduce((n,id)=>n+countPieces(land(s,id),['TOWN','CITY']),0)>=2))prepend(s,step('SPECIAL',e.actor,l.id,0,'ESCALATE_BUILD'));
+            return true;
+        case 'BUILD_LAND': if(l&&!buildIsSkipped(s,l)) {if(l.tokens.disease>0){l.tokens.disease--;return true;}makePiece(s,l,countPieces(l,['TOWN'])>countPieces(l,['CITY'])?'CITY':'TOWN');event(s,'BUILD',`${l.id} 건설`,e.actor,l.id);} return true;
         case 'EXPLORE': {
             const card = s.invaderDeck.shift();
             if (!card) {

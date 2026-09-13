@@ -232,3 +232,102 @@ test('Green may skip a Build before disease is consumed',()=>{
  const homes=s.lands.filter(l=>presence(l,actor)>0),l=homes[0]!,other=homes[1]!;l.presence.find(p=>p.playerId===actor)!.count++;other.presence=other.presence.filter(p=>p.playerId!==actor);parseSpiritState(s);makePiece(s,l,'TOWN');l.tokens.disease=1;s.build={stage:1,terrains:[l.terrain],coastal:false};
  s.queue=[step('SPECIAL',actor,null,0,'BUILD')];settle(s);const stop=choiceOptions(s).find(o=>o.landId===l.id&&o.label.includes('막기'))!;assert.ok(stop);s=apply(s,{kind:'CHOOSE',choiceId:`${s.transitionId}:${s.revision}`,optionId:stop.id});assert.equal(land(s,l.id).tokens.disease,1);
 });
+
+function grantPower(s:SpiritState,key:string,index=0) {
+ const id=s.cards.find(c=>c.key===key)!.cardId;
+ for(const zone of ['minor','major','minorDiscard','majorDiscard','forgotten','offered'] as const)s[zone]=s[zone].filter(c=>c!==id);
+ for(const p of s.players)for(const zone of ['hand','played','discard'] as const)p[zone]=p[zone].filter(c=>c!==id);
+ for(const p of s.progressions)p.cards=p.cards.filter(c=>c!==id);
+ s.players[index]!.hand.push(id);return id;
+}
+function chooseText(s:SpiritState,label:string) {
+ const o=choiceOptions(s).find(o=>o.label===label);assert.ok(o,`Missing ${label}: ${choiceOptions(s).map(o=>o.label).join(', ')}`);
+ return apply(s,{kind:'CHOOSE',choiceId:`${s.transitionId}:${s.revision}`,optionId:o.id},s.queue[0]!.target??s.queue[0]!.actor);
+}
+function minorEffect(s:SpiritState,key:string,id='A2',target=s.players[0]!.playerId,level=1) {
+ s.queue=powerSteps(s,s.players[0]!.playerId,key,id,target,level);settle(s);return s;
+}
+test('Branch & Claw mixes exactly 31 minor powers only into the expansion deck',()=>{
+ assert.equal(SPIRIT_POWERS.filter(c=>c.expansion&&c.deck==='MINOR').length,31);
+ const core=chosen(),bc=branchClaw();
+ assert.equal(core.minor.some(id=>cardPower(core,id).expansion),false);
+ assert.equal(bc.minor.filter(id=>cardPower(bc,id).expansion).length,31);
+ assert.equal(bc.minor.length,67);assert.equal(bc.major.length,22);parseSpiritState(bc);
+});
+for(const card of SPIRIT_POWERS.filter(c=>c.expansion&&c.deck==='MINOR'))
+ test(`Branch minor ${card.key}: all initial choices terminate at both threshold settings`,()=>{
+  for(const level of [0,1]){
+   let s=chosen(2);const p=s.players[0]!,l=land(s,'A2');p.energy=10;l.tokens={beasts:2,disease:2,wilds:2};makePiece(s,l,'TOWN');makePiece(s,l,'EXPLORER');makePiece(s,l,'DAHAN');
+   p.elements=Array.from({length:4},()=>['SUN','MOON','FIRE','AIR','WATER','EARTH','PLANT','ANIMAL'] as const).flat();
+   s=minorEffect(s,card.key,card.target==='SPIRIT'?'A5':l.id,s.players[1]!.playerId,level);
+   const options=choiceOptions(s);
+   if(!s.queue.length){assert.equal(s.phase,'PLAYING');continue;}
+   for(const option of options){let candidate=structuredClone(s);candidate=apply(candidate,{kind:'CHOOSE',choiceId:`${candidate.transitionId}:${candidate.revision}`,optionId:option.id},candidate.queue[0]!.target??candidate.queue[0]!.actor);candidate=drain(candidate);assert.equal(candidate.queue.length,0);parseSpiritState(candidate);}
+  }
+ });
+test('Absorb Corruption moves blight without cascades or presence destruction, then pays to remove it',()=>{
+ let s=chosen();const actor=s.players[0]!.playerId,l=land(s,'A5'),from=land(s,l.adjacent.find(id=>land(s,id).blight>0)!);assert.ok(from);l.blight++;s.blightTotal++;s.players[0]!.energy=2;s.players[0]!.elements=['PLANT','PLANT'];const present=presence(l,actor),total=s.blightTotal,pool=s.blightPool;
+ s=minorEffect(s,'absorb-corruption',l.id);s=chooseText(s,'오염 모은 뒤 에너지 1로 제거');s=chooseText(s,`${from.id} → ${l.id} 오염 1개 이동`);s=drain(s);
+ assert.equal(land(s,l.id).blight,1);assert.equal(land(s,from.id).blight,0);assert.equal(presence(land(s,l.id),actor),present);assert.equal(s.blightTotal,total);assert.equal(s.blightPool,pool+1);assert.equal(s.players[0]!.energy,1);
+});
+test('Portents triggers once on actual destruction, not removal, and repeated copies stack',()=>{
+ let s=chosen();const l=land(s,'A1'),actor=s.players[0]!.playerId;l.pieces=[];makePiece(s,l,'EXPLORER');makePiece(s,l,'EXPLORER');
+ s=minorEffect(s,'portents-of-disaster',l.id);s=minorEffect(s,'portents-of-disaster',l.id);const before=s.effectCounter;
+ s.queue=[step('REMOVE',actor,l.id,1,'',null,['EXPLORER'])];settle(s);s=drain(s);assert.equal(s.flags.filter(f=>f.startsWith('portents:')).length,2);
+ s.queue=[step('DESTROY',actor,l.id,1,'',null,['EXPLORER'])];settle(s);s=drain(s);assert.equal(s.flags.some(f=>f.startsWith('portents:')),false);assert.ok(s.effectCounter>before);assert.equal(s.fear,2);
+});
+test('Confounding Mists triggers on arrivals but not movement or replacement',()=>{
+ let s=chosen(),actor=s.players[0]!.playerId,l=land(s,'A1');s=minorEffect(s,'confounding-mists',l.id);s=chooseText(s,'추가되는 침략자 밀어내기');
+ const piece=makePiece(s,land(s,l.id),'CITY');settle(s);assert.equal(s.queue[0]?.kind,'MOVE');assert.ok(choiceOptions(s).some(o=>o.pieceId===piece.id));s=chooseText(s,'이 선택 마치기');
+ s.queue=[step('REPLACE',actor,l.id,1,'DOWNGRADE',null,['CITY'])];settle(s);s=drain(s);assert.equal(land(s,l.id).pieces.find(p=>p.kind==='TOWN')?.kind,'TOWN');assert.equal(s.queue.length,0);
+ const other=land(s,l.adjacent[0]!);makePiece(s,other,'EXPLORER');s.queue=[step('MOVE',actor,l.id,1,'GATHER',null,['EXPLORER','REQUIRED'])];settle(s);s=drain(s);assert.equal(s.queue.length,0);
+});
+test('Call to Trade replaces only the first Ravage with a Build, consuming disease not strife',()=>{
+ let s=chosen(),actor=s.players[0]!.playerId,l=land(s,'A2');l.pieces=[];makePiece(s,l,'CITY').strife=1;makePiece(s,l,'DAHAN');l.tokens.disease=1;
+ s=drain(minorEffect(s,'call-to-trade',l.id));const before=land(s,l.id).blight;
+ s.queue=[step('SPECIAL',actor,l.id,0,'RAVAGE')];settle(s);s=drain(s);assert.equal(land(s,l.id).tokens.disease,0);assert.equal(land(s,l.id).pieces.find(p=>p.kind==='CITY')!.strife,1);assert.equal(land(s,l.id).blight,before);
+ s.queue=[step('SPECIAL',actor,l.id,0,'RAVAGE')];settle(s);assert.equal(land(s,l.id).pieces.find(p=>p.kind==='CITY')?.strife,0);s=drain(s);assert.equal(land(s,l.id).pieces.some(p=>p.kind==='CITY'),false);assert.equal(s.flags.some(f=>f.startsWith('trade-build:')),false);
+});
+test('Spur pays the recipient card cost, adds elements and reopens their ready state',()=>{
+ let s=chosen(2);const target=s.players[1]!.playerId;s.stage='FAST';s.players[1]!.energy=1;s.players[1]!.ready=true;const id=s.players[1]!.hand.find(id=>cardPower(s,id).cost===2)!;const power=cardPower(s,id);
+ s=minorEffect(s,'spur-on-with-words-of-fire','A1',target);s=chooseText(s,`${power.title} · 에너지 2`);
+ assert.equal(s.players[1]!.energy,0);assert.ok(s.players[1]!.played.includes(id));assert.equal(s.players[1]!.ready,false);assert.ok(!s.players[1]!.hand.includes(id));assert.ok(view(s,1).playerStates[1]!.elements.length>0);parseSpiritState(s);
+});
+test('Sky permits one fast power in Slow phase and does not consume a normal fast gift',()=>{
+ let s=chosen();const actor=s.players[0]!.playerId,id=hold(s,'flash-floods');s.players[0]!.fastGift=1;s=minorEffect(s,'sky-stretches-to-shore','A5');s.stage='SLOW';const o=powerOptions(s,actor).find(o=>o.cardId===id)!;assert.ok(o?.slow);
+ s=drain(apply(s,{kind:'USE_POWER',cardId:id,target:o.targets[0]!,threshold:0,fast:false,repeat:false,shadowReach:false}));assert.equal(s.flags.includes(`sky:${actor}`),false);assert.equal(s.players[0]!.fastUsed,0);assert.ok(s.flags.includes(`shore:${actor}`));
+});
+test('Scour uses its own speed threshold without consuming gifted speed',()=>{
+ let s=chosen();const actor=s.players[0]!.playerId;grantPower(s,'scour-the-land');const id=hold(s,'scour-the-land');s.stage='FAST';s.players[0]!.elements=['AIR','AIR'];s.players[0]!.fastGift=1;
+ const o=powerOptions(s,actor).find(o=>o.cardId===id)!;assert.ok(o?.fast);s=drain(apply(s,{kind:'USE_POWER',cardId:id,target:o.targets[0]!,threshold:1,fast:true,repeat:false,shadowReach:false}));assert.equal(s.players[0]!.fastUsed,0);
+});
+test('Inflame threshold can add disease and strife together',()=>{
+ let s=chosen();s.players[0]!.elements=['ANIMAL','ANIMAL','ANIMAL'];const l=land(s,'A2');s=minorEffect(s,'inflame-the-fires-of-life',l.id);s=chooseText(s,'두 효과 모두 적용');s=drain(s);assert.equal(land(s,l.id).tokens.disease,1);assert.equal(land(s,l.id).pieces.reduce((n,p)=>n+p.strife,0),1);assert.equal(s.fear,1);
+});
+test('Sky and Scour speed conversions each rebate once in Blitz',()=>{
+ for(const key of ['wash-away','scour-the-land']){
+  let s=chosen();s.settings.scenario='BLITZ';const actor=s.players[0]!.playerId;grantPower(s,key);const id=hold(s,key);s.stage='FAST';s.players[0]!.elements=key==='scour-the-land'?['AIR','AIR']:[];
+  if(key==='wash-away')s=minorEffect(s,'sky-stretches-to-shore','A5');const before=s.players[0]!.energy,o=powerOptions(s,actor).find(o=>o.cardId===id)!;
+  s=drain(apply(s,{kind:'USE_POWER',cardId:id,target:o.targets[0]!,threshold:1,fast:true,repeat:false,shadowReach:false}));assert.equal(s.players[0]!.energy,before+1);assert.ok(s.flags.includes(`blitz-fast:${id}`));assert.equal(s.flags.includes(`sky:${actor}`),false);
+ }
+});
+test('Trade conversion respects fear build prevention and keeps unused disease',()=>{
+ let s=chosen();const actor=s.players[0]!.playerId,l=land(s,'A2');l.tokens.disease=1;s.flags.push('no-build-dahan',`trade-build:${l.id}`);const pieces=l.pieces.length;
+ s.queue=[step('SPECIAL',actor,l.id,0,'RAVAGE')];settle(s);s=drain(s);assert.equal(land(s,l.id).pieces.length,pieces);assert.equal(land(s,l.id).tokens.disease,1);assert.equal(s.flags.includes(`trade-build:${l.id}`),false);
+});
+test('Sky speed change persists for repeated powers without consuming another grant',()=>{
+ let s=chosen();const actor=s.players[0]!.playerId,id=hold(s,'flash-floods');s=minorEffect(s,'sky-stretches-to-shore','A5');s.stage='SLOW';let option=powerOptions(s,actor).find(o=>o.cardId===id)!;
+ s=drain(apply(s,{kind:'USE_POWER',cardId:id,target:option.targets[0]!,threshold:0,fast:false,repeat:false,shadowReach:false}));
+ s.players[0]!.repeatGrants.push({id:'repeat-sky',remaining:1,maxCost:3,paid:false,used:[]});option=powerOptions(s,actor).find(o=>o.cardId===id)!;assert.ok(option?.slow&&option.repeat);
+ s=drain(apply(s,{kind:'USE_POWER',cardId:id,target:option.targets[0]!,threshold:0,fast:false,repeat:true,shadowReach:false}));assert.equal(s.players[0]!.repeatGrants[0]!.remaining,0);assert.equal(s.flags.includes(`sky:${actor}`),false);
+});
+test('Sky may delay a power into Slow even in Blitz',()=>{
+ let s=chosen();s.settings.scenario='BLITZ';const actor=s.players[0]!.playerId,id=hold(s,'flash-floods');s=minorEffect(s,'sky-stretches-to-shore','A5');s.stage='SLOW';const option=powerOptions(s,actor).find(o=>o.cardId===id)!;assert.ok(option?.slow);
+ s=drain(apply(s,{kind:'USE_POWER',cardId:id,target:option.targets[0]!,threshold:0,fast:false,repeat:false,shadowReach:false}));assert.equal(s.flags.includes(`sky:${actor}`),false);
+});
+test('Mists resolves an added building movement before the next Build action',()=>{
+ let s=chosen(),actor=s.players[0]!.playerId,l=land(s,'A1');l.pieces=[];makePiece(s,l,'EXPLORER');s.flags.push(`bc-mists:${l.id}:${actor}`);s.build={stage:1,terrains:[l.terrain],coastal:false};
+ const later=s.lands.find(a=>a.id!==l.id&&a.terrain===l.terrain)!;later.pieces=[];makePiece(s,later,'EXPLORER');s.queue=[step('SPECIAL',actor,null,0,'BUILD')];settle(s);
+ assert.equal(s.queue[0]?.kind,'MOVE');assert.equal(land(s,l.id).pieces.filter(p=>p.kind==='TOWN').length,1);assert.equal(land(s,later.id).pieces.filter(p=>p.kind==='TOWN').length,0);
+ s=chooseText(s,'이 선택 마치기');s=drain(s);assert.equal(land(s,later.id).pieces.filter(p=>p.kind==='TOWN').length,1);
+});

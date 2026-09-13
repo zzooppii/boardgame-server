@@ -1,11 +1,12 @@
 import { SPIRIT_BOARDS, spiritFearTiers, type SpiritSettings, type PlayerId } from '@hangul-rummikub/shared';
 import type { SpiritState } from './state.js';
 import { SPIRIT_FEAR_KEYS } from './resolver.js';
-import { requireRule, makePiece, land, countPieces, presence, step, event } from './primitives.js';
+import { cardPower, requireRule, makePiece, land, countPieces, presence, step, event } from './primitives.js';
 export function configureSpirit(s: SpiritState, settings: SpiritSettings, shuffle: <T>(values:T[])=>T[]) {
  requireRule(settings.adversary!=='NONE'||settings.level===0);
  requireRule(settings.expansion!=='BRANCH_CLAW'||settings.blightCard&&!settings.progression);
- s.settings={...settings}; s.configured=true; const {adversary:a,level:n}=settings;
+ s.settings={...settings}; s.configured=true;
+ if(settings.expansion==='BRANCH_CLAW'){const cards=s.forgotten.filter(id=>cardPower(s,id).expansion&&cardPower(s,id).deck==='MINOR');s.forgotten=s.forgotten.filter(id=>!cards.includes(id));s.minor=shuffle([...s.minor,...cards]);} const {adversary:a,level:n}=settings;
  s.fearTiers=[...spiritFearTiers(settings)];
  s.fearDeck=shuffle([...SPIRIT_FEAR_KEYS]).slice(0,settings.scenario==='RITUAL'?15:s.fearTiers.reduce((x,y)=>x+y,0));
  if(settings.blightCard) {s.blightCard=shuffle<'SPIRAL'|'MEMORY'>(['SPIRAL','MEMORY'])[0]??'SPIRAL';s.blightPool=2*s.players.length+1;s.blightTotal=s.blightPool+s.lands.reduce((n,l)=>n+l.blight,0);}

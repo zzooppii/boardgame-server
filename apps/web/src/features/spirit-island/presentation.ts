@@ -8,7 +8,7 @@ export function powerArtwork(p: SpiritPower): number {
  if(/flame|fire|storm|rot/.test(k))return 9;
  if(/heal|renew|vigor|bounty|sanctity|purif/.test(k))return 10;
  if(/fear|dread|shadow|haunt|delusion/.test(k))return 11;
- if(/animal|beast|ants|hunt/.test(k))return 12;
+ if(/animal|beast|ants|hunt|serpents|panther|wasp|rotflies|ferocity/.test(k))return 12;
  if(/tree|stone|earth|mountain/.test(k))return 13;
  if(/dahan|migrat|call|voice/.test(k))return 14;
  if(/water|rain|wash|melt|flow/.test(k))return 15;
@@ -41,4 +41,9 @@ export const stageGuidance: Record<SpiritProjection['stage'],readonly [string,st
 export function victoryGoal(g:SpiritProjection): readonly [string,string] {
  if(g.settings.scenario==='INSURRECTION')return g.terror===1?['공포 수준 II 달성','다한이 인원당 2개 미만이면 패배']:g.terror===2?['건물 수 ≤ 다한 수','모든 지역에서 충족하면 승리']:['건물 우세 지역 줄이기',`건물 수가 다한보다 많은 지역을 ${g.playerStates.length}곳 미만으로`];
  return [g.terror===1?'모든 침략자':g.terror===2?'마을과 도시':g.terror===3?'모든 도시':'섬을 해방!',g.terror<4?'없애면 승리':'승리 조건 달성'];
+}
+
+export function powerTargetLabel(power: SpiritPower): string {
+ const names: Record<SpiritPower['target'], string> = {ANY:'',SPIRIT:'정령',OTHER_SPIRIT:'다른 정령',DAHAN:'다한이 있는 지역',INVADERS:'침략자가 있는 지역',NO_BLIGHT:'오염 없는 지역',BLIGHT:'오염이 있는 지역',NO_INVADERS:'침략자 없는 지역',COASTAL:'해안',BEASTS:'야수가 있는 지역',CITY:'도시가 있는 지역',INLAND:'내륙',COAST_OR_WETLAND:'해안 또는 습지'};
+ return [power.terrains.map(t=>({MOUNTAIN:'산',JUNGLE:'밀림',SANDS:'모래',WETLAND:'습지'}[t])).join('/'),names[power.target]].filter(Boolean).join(' · ');
 }

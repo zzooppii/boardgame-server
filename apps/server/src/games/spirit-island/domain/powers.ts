@@ -1,3 +1,4 @@
+import { branchMinorPower } from './branch-claw-minor.js';
 import { branchClawPower } from './branch-claw.js';
 import type { PlayerId, SpiritPiece } from '@hangul-rummikub/shared';
 import { spiritPower } from '@hangul-rummikub/shared';
@@ -5,6 +6,7 @@ import type { SpiritState, SpiritStep } from './state.js';
 import { step, land, player, meets, countPieces, invaders, presence, sacred, requireRule, elements } from './primitives.js';
 /** Build a serializable sequence. Choices and post-move conditions are resolved against the current candidate. */
 export function powerSteps(s: SpiritState, actor: PlayerId, key: string, landId: string | null, target: PlayerId, level: number): SpiritStep[] {
+    const minor=branchMinorPower(s,actor,key,landId,target,level);if(minor!==null)return minor;
     const expanded=branchClawPower(s,actor,key,landId,target,level);if(expanded!==null)return expanded;
     const l = landId ? land(s, landId) : null, p = player(s, actor), bonus = (t: Parameters<typeof meets>[2]) => level > 0 && meets(s, actor, t);
     const e = (kind: SpiritStep['kind'], n = 0, k = '', tags: string[] = [], at = landId, to: PlayerId | null = target) => step(kind, actor, at, n, k, to, tags);

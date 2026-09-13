@@ -2,7 +2,7 @@ import * as v from 'valibot';
 import { GameRevisionSchema, SPIRIT_POWERS, SPIRITS, SPIRIT_BOARDS, SPIRIT_BOARD_DATA, spiritBoardLinks, SpiritActionSchema, SPIRIT_DEFAULT_SETTINGS, spiritDefinition, type PlayerId, type SpiritPower, type SpiritInvaderCard, type SpiritTerrain } from '@hangul-rummikub/shared';
 import { SpiritStateSchema, type SpiritState } from './state.js';
 import { SPIRIT_FEAR_KEYS, settle, choiceOptions } from './resolver.js';
-import { SpiritRuleError, requireRule, player, presence, addPresence, makePiece, event, step, cardPower, playLimit, elements, innateLevel, targetAllowed, checkEnd, countPieces, land } from './primitives.js';
+import { powerSpeed, setPowerSpeed, SpiritRuleError, requireRule, player, presence, addPresence, makePiece, event, step, cardPower, playLimit, elements, innateLevel, targetAllowed, checkEnd, countPieces, land } from './primitives.js';
 import { configureSpirit, startRitual } from './settings.js';
 import { powerSteps } from './powers.js';
 export type { SpiritState } from './state.js';
@@ -48,7 +48,7 @@ export function createSpiritGame(input: {
     const cards = SPIRIT_POWERS.map(p => ({ cardId: input.id(), key: p.key }));
     const progressions = SPIRITS.map(d => ({ spirit: d.id, cards: d.progression.map(key => cards.find(c => c.key === key)!.cardId) }));
     const reserved = new Set(progressions.flatMap(p => p.cards));
-    const deck = (kind: string) => input.shuffle(cards.filter(c => SPIRIT_POWERS.find(p => p.key === c.key)!.deck === kind && !reserved.has(c.cardId)).map(c => c.cardId));
+    const deck = (kind: string) => input.shuffle(cards.filter(c => SPIRIT_POWERS.find(p => p.key === c.key)!.deck === kind && !SPIRIT_POWERS.find(p=>p.key===c.key)!.expansion && !reserved.has(c.cardId)).map(c => c.cardId));
     const terrains: SpiritTerrain[] = ['MOUNTAIN', 'JUNGLE', 'SANDS', 'WETLAND'];
     const first: SpiritInvaderCard[] = terrains.map(t => ({ stage: 1, terrains: [t], coastal: false }));
     const second: SpiritInvaderCard[] = [...terrains.map(t => ({ stage: 2 as const, terrains: [t], coastal: false })), { stage: 2, terrains: [], coastal: true }];
@@ -56,7 +56,7 @@ export function createSpiritGame(input: {
     const links = spiritBoardLinks(input.playerIds.length);
     const s: SpiritState = {settings: {...SPIRIT_DEFAULT_SETTINGS}, configured:false,blighted:false,blightCard:null,fearTiers:[3,3,3],immigration:null,hearts:[], rulesVersion: 'spirit-island-core-v2', gameId: input.gameId, revision: v.parse(GameRevisionSchema, 0), startedAt: input.now, finishedAt: null, phase: 'PLAYING', transitionId: input.transitionId, round: 1, stage: 'SELECT',
         players: input.playerIds.map((playerId, i) => ({ playerId, spirit: null, removedPresence:0, growthSelections:[],reclaimedCards:[],bonusPlays: 0, drowned: 0, greenRepeats: 0, trackChoices: [], board: SPIRIT_BOARDS[i]!, energy: 0, energyTrack: 0, cardTrack: 0, destroyedPresence: 0, grown: false, ready: false, paid: false, reclaimedOne: false, hand: [], played: [], discard: [], resolved: [], elements: [], fastUsed: 0, fastGift: 0, repeatGrants: [], rangeBonus: 0, sharedWith: [], reclaimAtEnd: 0, progression: 0 })),
-        lands: SPIRIT_BOARDS.slice(0, input.playerIds.length).flatMap(board => SPIRIT_BOARD_DATA[board].terrains.map((terrain, i) => { const id = `${board}${i + 1}`; return { id, board, number: i + 1, terrain, coastal: i < 3, adjacent: links.flatMap(([a, b]) => a === id ? [b] : b === id ? [a] : []), pieces: [], presence: [], tokens:{beasts:0,wilds:0,disease:0}, invaderHealth:0, blight: i + 1 === SPIRIT_BOARD_DATA[board].blight ? 1 : 0, defend: 0, skip: false, protectDahan: false, vitality: false, dahanHealth: 0 }; })), cards, minor: deck('MINOR'), major: deck('MAJOR'), minorDiscard: [], majorDiscard: [], forgotten: cards.filter(c => !['MINOR', 'MAJOR'].includes(SPIRIT_POWERS.find(p => p.key === c.key)!.deck)).map(c => c.cardId), progressions,
+        lands: SPIRIT_BOARDS.slice(0, input.playerIds.length).flatMap(board => SPIRIT_BOARD_DATA[board].terrains.map((terrain, i) => { const id = `${board}${i + 1}`; return { id, board, number: i + 1, terrain, coastal: i < 3, adjacent: links.flatMap(([a, b]) => a === id ? [b] : b === id ? [a] : []), pieces: [], presence: [], tokens:{beasts:0,wilds:0,disease:0}, invaderHealth:0, blight: i + 1 === SPIRIT_BOARD_DATA[board].blight ? 1 : 0, defend: 0, skip: false, protectDahan: false, vitality: false, dahanHealth: 0 }; })), cards, minor: deck('MINOR'), major: deck('MAJOR'), minorDiscard: [], majorDiscard: [], forgotten: cards.filter(c => (!['MINOR', 'MAJOR'].includes(SPIRIT_POWERS.find(p => p.key === c.key)!.deck)||SPIRIT_POWERS.find(p=>p.key===c.key)!.expansion)).map(c => c.cardId), progressions,
         revealedFear: [], fear: 0, fearDeck: input.shuffle([...SPIRIT_FEAR_KEYS]).slice(0, 9), fearEarned: [], fearDiscard: [], terror: 1, blightPool: 5 * input.playerIds.length + 1, blightTotal: 6 * input.playerIds.length + 1, invaderDeck: [...input.shuffle(first).slice(0, 3), ...input.shuffle(second).slice(0, 4), ...input.shuffle(third).slice(0, 5)], invaderDiscard: [], ravage: null, build: null, explore: null, queue: [], offered: [], offerRecipient: null, offerOther: null, offerDeck: 'MINOR', effectCounter: 0, pieceCounter: 0, log: [], plans: [], flags: [], vengeance: [], result: null };
     for (const l of s.lands) {
         const def = SPIRIT_BOARD_DATA[l.board];
@@ -81,7 +81,9 @@ export function powerOptions(s: SpiritState, id: PlayerId) {
         const c = cardId.startsWith('innate') ? innate(s, id, cardId === 'innate2') : cardPower(s, cardId), resolved = p.resolved.includes(cardId), grant = p.repeatGrants.find(r => r.remaining > 0 && !r.used.includes(cardId) && repeatCost(s,c,cardId) <= r.maxCost && (!r.paid || p.energy >= repeatCost(s,c,cardId)));
         if (resolved && !(p.spirit==='GREEN' && cardId==='innate' && p.greenRepeats>0) && (!grant || cardId.startsWith('innate')))
             return [];
-        const fast = s.stage === 'FAST' && (s.settings.scenario==='BLITZ' || c.speed === 'FAST' || fastRemaining > 0 || p.spirit === 'THUNDER' && cardId.startsWith('innate') && elements(s,id).AIR>=4), slow = s.settings.scenario!=='BLITZ' && s.stage === 'SLOW' && c.speed === 'SLOW';
+        const speed=powerSpeed(s,id,cardId,c);
+        const fast=s.stage==='FAST'&&(speed==='FAST'||fastRemaining>0||s.flags.includes(`sky:${id}`)||c.key==='scour-the-land'&&elements(s,id).AIR>=3||p.spirit==='THUNDER'&&cardId.startsWith('innate')&&elements(s,id).AIR>=4);
+        const slow=s.stage==='SLOW'&&(speed==='SLOW'||s.flags.includes(`sky:${id}`));
         if (!fast && !slow)
             return [];
         return [{ cardId, key: c.key, fast, slow, targets: c.target === 'SPIRIT' || c.target === 'OTHER_SPIRIT' ? s.players.filter(q => c.target !== 'OTHER_SPIRIT' || q.playerId !== id || s.players.length === 1).map(q => q.playerId) : s.lands.filter(l => targetAllowed(s, id, c, l)).map(l => l.id), thresholdMax: cardId.startsWith('innate') ? innateLevel(s, id,cardId==='innate2') : 1, repeat: resolved, shadowTargets: c.target === 'SPIRIT' || c.target === 'OTHER_SPIRIT' ? [] : s.lands.filter(l => !targetAllowed(s, id, c, l) && targetAllowed(s, id, c, l, true)).map(l => l.id) }];
@@ -230,8 +232,14 @@ export function applySpiritAction(current: SpiritState, actor: PlayerId, input: 
                     }
                     else
                         p.resolved.push(a.cardId);
-                    if (a.fast && c.speed === 'SLOW' && s.settings.scenario!=='BLITZ' && !(p.spirit==='THUNDER' && a.cardId.startsWith('innate') && elements(s,actor).AIR>=4))
-                        p.fastUsed++;
+                    const speed=powerSpeed(s,actor,a.cardId,c);
+                    if(a.fast&&speed==='SLOW') {
+                        const own=c.key==='scour-the-land'&&elements(s,actor).AIR>=3||p.spirit==='THUNDER'&&a.cardId.startsWith('innate')&&elements(s,actor).AIR>=4;
+                        if(!own){const regular=p.fastGift+(p.spirit==='LIGHTNING'?elements(s,actor).AIR:0)-p.fastUsed;if(regular>0)p.fastUsed++;else{const at=s.flags.indexOf(`sky:${actor}`);requireRule(at>=0);s.flags.splice(at,1);}}
+                        setPowerSpeed(s,actor,a.cardId,'FAST');
+                    } else if(!a.fast&&speed==='FAST') {
+                        const at=s.flags.indexOf(`sky:${actor}`);requireRule(at>=0);s.flags.splice(at,1);setPowerSpeed(s,actor,a.cardId,'SLOW');
+                    }
                     if (!a.repeat && p.spirit==='GREEN' && a.cardId==='innate') p.greenRepeats=a.threshold-1;
                     s.flags=s.flags.filter(f=>!f.startsWith('power:')&&!f.startsWith('dream-')); s.flags.push(`power:${actor}`);
                     if (a.shadowReach) {
@@ -241,12 +249,13 @@ export function applySpiritAction(current: SpiritState, actor: PlayerId, input: 
                     const target = s.players.find(q => q.playerId === a.target)?.playerId ?? actor, at = s.lands.some(l => l.id === a.target) ? a.target : null;
                     s.flags = s.flags.filter(f => f !== 'harbinger-fear');
                     event(s, 'POWER', c.title, actor, at);
-                    if(s.settings.scenario==='BLITZ'&&!a.repeat) {
+                    if(s.settings.scenario==='BLITZ'&&!a.repeat&&a.fast) {
                         if(a.cardId.startsWith('innate')&&c.speed==='FAST')p.energy++;
                         if(c.speed==='SLOW') {
                             const thunder=p.spirit==='THUNDER'&&a.cardId.startsWith('innate')&&elements(s,actor).AIR>=4;
                             const conversions=p.fastGift+(p.spirit==='LIGHTNING'?elements(s,actor).AIR:0)-p.fastUsed;
-                            if(thunder||conversions>0){p.energy++;if(!thunder)p.fastUsed++;s.flags.push(`blitz-fast:${a.cardId}`);}
+                            const scour=c.key==='scour-the-land'&&elements(s,actor).AIR>=3;const sky=s.flags.indexOf(`sky:${actor}`);
+                            if(thunder||scour||conversions>0||sky>=0){p.energy++;if(!thunder&&!scour){if(conversions>0)p.fastUsed++;else s.flags.splice(sky,1);}s.flags.push(`blitz-fast:${a.cardId}`);}
                         }
                     }
                     const effects = powerSteps(s, actor, c.key, at, target, a.threshold).filter(e => !a.repeat || !['PAID_REPEAT', 'FREE_REPEAT', 'REPEAT_WINDS', 'REPEAT_LAND_PAIN'].includes(e.key));

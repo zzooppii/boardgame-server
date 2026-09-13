@@ -15,7 +15,7 @@ export function tokenOptions(s:SpiritState,e:SpiritStep,add:(label:string,apply:
  const [,mode,key]=e.key.split(':'),l=e.land?land(s,e.land):null;if(!l||e.n===0)return true;
  const repeat=()=>{if(e.n>1)prepend(s,{...e,n:e.n-1});};
  if(key==='strife') {
-  if(mode==='ADD')for(const piece of l.pieces.filter(p=>p.kind!=='DAHAN'&&(!e.tags.some(t=>['EXPLORER','TOWN','CITY'].includes(t))||e.tags.includes(p.kind))))add(`${l.id} ${piece.kind}에 분쟁 추가`,()=>{piece.strife++;repeat();},l.id,piece.id);
+  if(mode==='ADD')for(const piece of l.pieces.filter(p=>p.kind!=='DAHAN'&&(!e.tags.some(t=>['EXPLORER','TOWN','CITY'].includes(t))||e.tags.includes(p.kind))))add(`${l.id} ${piece.kind==='EXPLORER'?'탐험가':piece.kind==='TOWN'?'마을':'도시'} · 피해 ${piece.damage} · 분쟁 ${piece.strife} → 분쟁 추가`,()=>{piece.strife++;repeat();},l.id,piece.id);
   if(mode==='REMOVE')for(const piece of l.pieces.filter(p=>p.strife>0))add(`${l.id} 분쟁 제거`,()=>{piece.strife--;repeat();},l.id,piece.id);
  } else {
   const token=tokenKey(key??'');if(!token)throw new Error('Unknown island token');

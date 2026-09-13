@@ -14,7 +14,9 @@ export function addPresence(l: SpiritLand, id: PlayerId, n: number) { const p = 
     p.count += n;
 else
     l.presence.push({ playerId: id, count: n }); l.presence = l.presence.filter(p => p.count > 0); }
-export function makePiece(s: SpiritState, l: SpiritLand, kind: SpiritPiece['kind']) { const p = { id: `${s.gameId}:p${++s.pieceCounter}`, kind, damage: 0, strife: 0 }; l.pieces.push(p); return p; }
+export function makePiece(s: SpiritState, l: SpiritLand, kind: SpiritPiece['kind'], arrival = true) { const p = { id: `${s.gameId}:p${++s.pieceCounter}`, kind, damage: 0, strife: 0 }; l.pieces.push(p);
+    if(arrival&&kind!=='DAHAN')for(const owner of s.players.filter(q=>s.flags.includes(`bc-mists:${l.id}:${q.playerId}`)))prepend(s,step('MOVE',owner.playerId,l.id,1,'PUSH',owner.playerId,[kind,`ONLY:${p.id}`]));
+    return p; }
 export function event(s: SpiritState, kind: SpiritState['log'][number]['kind'], text: string, actor: PlayerId | null = null, landId: string | null = null) { s.log.push({ id: ++s.effectCounter, kind, text, landId, playerId: actor }); s.log = s.log.slice(-50); }
 export function step(kind: SpiritStep['kind'], actor: PlayerId, landId: string | null = null, n = 0, key = '', target: PlayerId | null = null, tags: string[] = [], used: string[] = []): SpiritStep { return { kind, actor, land: landId, n, key, target, tags, used }; }
 export function prepend(s: SpiritState, ...steps: SpiritStep[]) { s.queue.unshift(...steps); }
@@ -47,7 +49,7 @@ export function targetAllowed(s: SpiritState, id: PlayerId, c: SpiritPower, l: S
         return false;
     if (c.target === 'SPIRIT' || c.target === 'OTHER_SPIRIT')
         return false;
-    let range = c.range + player(s, id).rangeBonus;
+    let range = c.range + player(s, id).rangeBonus + (l.coastal?s.flags.filter(f=>f===`shore:${id}`).length*3:0);
     if (c.key === 'sap-the-strength-of-multitudes' && meets(s, id, { AIR: 1 }))
         range++;
     if (c.key === 'talons-of-lightning' && meets(s, id, { FIRE: 3, AIR: 3 }))
@@ -92,6 +94,7 @@ export function removePiece(s: SpiritState, l: SpiritLand, piece: SpiritPiece, d
     if (destroy && piece.kind === 'DAHAN' && l.vitality && s.flags.includes(`immortal:${l.id}`))
         return;
     l.pieces = l.pieces.filter(p => p.id !== piece.id);
+    if(destroy&&piece.kind!=='DAHAN')for(const owner of s.players){const key=`portents:${l.id}:${owner.playerId}`,n=s.flags.filter(f=>f===key).length;if(n){s.flags=s.flags.filter(f=>f!==key);fear(s,n,owner.playerId,l.id);}}
     if (destroy && (piece.kind === 'CITY' || piece.kind === 'TOWN'))
         fear(s, piece.kind === 'CITY' ? 2 : 1, actor, l.id, true);
     if(destroy && s.settings.scenario==='INSURRECTION' && (piece.kind==='TOWN'||piece.kind==='CITY')) {const index=s.queue.findIndex(e=>e.kind==='CHECK');s.queue.splice(index<0?s.queue.length:index,0,step('SPECIAL',actor,l.id,0,'MILITARY',null,[piece.kind==='CITY'?'TOWN':'EXPLORER']));}
@@ -139,3 +142,14 @@ export function drowning(s: SpiritState, l: SpiritLand, piece: SpiritPiece) { co
 function dreaming(s: SpiritState, actor: PlayerId) { return player(s,actor).spirit === 'BRINGER' && s.flags.includes(`power:${actor}`); }
 function dreamDestroy(s: SpiritState, l: SpiritLand, piece: SpiritPiece, actor: PlayerId) { if(piece.kind === 'DAHAN' || s.flags.includes(`dream-killed:${piece.id}`)) return; s.flags.push(`dream-killed:${piece.id}`); fear(s,piece.kind === 'CITY' ? 5 : piece.kind === 'TOWN' ? 2 : 0,actor,l.id); if(piece.kind !== 'CITY') { const index = s.queue.findIndex(e=>e.kind === 'CHECK'); s.queue.splice(index<0?s.queue.length:index,0,step('MOVE',actor,l.id,1,'PUSH',actor,[piece.kind,'REQUIRED',`ONLY:${piece.id}`])); } }
 export function advancedInnateLevel(s: SpiritState,id: PlayerId,second: boolean): number | null { const p=player(s,id); const tests: Partial<Record<SpiritElement,number>>[] = p.spirit === 'GREEN' ? second ? [{WATER:1,PLANT:3},{WATER:2,PLANT:4},{WATER:3,EARTH:1,PLANT:5}] : [{MOON:1,PLANT:2},{MOON:2,PLANT:3},{MOON:3,PLANT:4}] : p.spirit === 'THUNDER' ? second ? [{SUN:2,FIRE:1},{SUN:4,FIRE:3}] : [{ANIMAL:1}] : p.spirit === 'OCEAN' ? second ? [{WATER:2,EARTH:1},{WATER:3,EARTH:2},{WATER:4,EARTH:3}] : [{MOON:1,AIR:1,WATER:2},{MOON:2,AIR:1,WATER:3},{MOON:3,AIR:2,WATER:4}] : p.spirit === 'BRINGER' ? second ? [{MOON:1,AIR:1},{MOON:2,AIR:1,ANIMAL:1},{MOON:3,AIR:2,ANIMAL:1}] : [{MOON:2,AIR:2},{MOON:3}] : []; if(!tests.length) return null; return tests.reduce((n,t,i)=>meets(s,id,t)?i+1:n,0); }
+
+/** A speed change applies to the power, including later repeats during this round. */
+export function powerSpeed(s: SpiritState, actor: PlayerId, cardId: string, power: SpiritPower): SpiritPower['speed'] {
+    if (s.flags.includes(`speed:${actor}:${cardId}:SLOW`)) return 'SLOW';
+    if (s.flags.includes(`speed:${actor}:${cardId}:FAST`)) return 'FAST';
+    return s.settings.scenario === 'BLITZ' ? 'FAST' : power.speed;
+}
+export function setPowerSpeed(s: SpiritState, actor: PlayerId, cardId: string, speed: SpiritPower['speed']): void {
+    s.flags = s.flags.filter(f => f !== `speed:${actor}:${cardId}:SLOW` && f !== `speed:${actor}:${cardId}:FAST`);
+    s.flags.push(`speed:${actor}:${cardId}:${speed}`);
+}
