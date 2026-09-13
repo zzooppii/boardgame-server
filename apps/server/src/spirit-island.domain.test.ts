@@ -466,7 +466,7 @@ for(const key of stageEvents)for(const stage of [1,2,3] as const)for(const n of 
  let s=eventGame(n,key);s.eventInvaderStage=stage;s=eventChoose(s,'이벤트 선택 시작');s=drain(s);assert.equal(s.queue.length,0);assert.equal(s.stage,'FEAR');parseSpiritState(s);
 });
 test('Stage events: all configured event keys are configured once; core contains none',()=>{
- const s=branchClaw();assert.deepEqual([...s.eventDeck].sort(),[...SPIRIT_EVENT_KEYS].sort());assert.equal(s.eventDeck.length,20);assert.equal(chosen().eventDeck.length,0);
+ const s=branchClaw();assert.deepEqual([...s.eventDeck].sort(),[...SPIRIT_EVENT_KEYS].sort());assert.equal(s.eventDeck.length,21);assert.equal(chosen().eventDeck.length,0);
 });
 test('Stage events: Prussia early III counts as II, real late III and empty deck count as III',()=>{
  const s=branchClaw();s.settings.adversary='PRUSSIA';s.settings.level=2;s.invaderDeck=[{stage:3,terrains:['JUNGLE','SANDS'],coastal:false},{stage:2,terrains:['MOUNTAIN'],coastal:false}];assert.equal(currentInvaderStage(s),2);s.invaderDeck.shift();assert.equal(currentInvaderStage(s),2);s.invaderDeck=[{stage:3,terrains:['JUNGLE','SANDS'],coastal:false}];assert.equal(currentInvaderStage(s),3);s.invaderDeck=[];assert.equal(currentInvaderStage(s),3);
@@ -752,4 +752,39 @@ test('Cash crops presence protection can be planned and cancelled, then spends t
 });
 test('Farmland beasts require a town and no blight; exploration choice is actor and revision scoped',()=>{
  let s=eventGame(2);for(const l of s.lands){l.pieces=[];l.blight=0;}makePiece(s,land(s,'A1'),'TOWN');makePiece(s,land(s,'A2'),'TOWN');land(s,'A2').blight=1;s.blightTotal=s.blightPool+1;makePiece(s,land(s,'A3'),'CITY');const actor=s.players[0]!.playerId;s.queue=[step('SPECIAL',actor,null,0,'BCE9_BEAST',null,['A'])];settle(s);assert.deepEqual(choiceOptions(s).map(o=>o.landId),['A1']);s=eventChoose(s,'A1');assert.ok(land(s,'A1').tokens.beasts>0);s.queue=[step('SPECIAL',actor,null,0,'BCE9_EXPLORE',null,['A1','A2'])];settle(s);const before=JSON.stringify(s),option=choiceOptions(s)[0]!;assert.equal(applySpiritAction(s,s.players[1]!.playerId,{kind:'CHOOSE',choiceId:`${s.transitionId}:${s.revision}`,optionId:option.id},now,s.transitionId).ok,false);assert.equal(applySpiritAction(s,actor,{kind:'CHOOSE',choiceId:'old',optionId:option.id},now,s.transitionId).ok,false);assert.equal(JSON.stringify(s),before);
+});
+
+for(const terror of [1,2,3] as const)for(const n of [1,2,3,4])test(`Investigation: terror ${terror}, ${n} spirits`,()=>{
+ let s=eventGame(n,'INVESTIGATION');s.terror=terror;s=drain(eventChoose(s,'이벤트 선택 시작'));assert.equal(s.eventTerrorLevel,terror);assert.equal(view(s).eventUnnatural,terror>=2);assert.equal(s.queue.length,0);parseSpiritState(s);
+});
+test('Investigation first round is skipped and early targets exclude any Dahan or Invader',()=>{
+ const first=drain(eventGame(1,'INVESTIGATION',1));assert.equal(first.eventTerrorLevel,null);assert.equal(view(first).eventUnnatural,false);const s=eventGame();for(const l of s.lands)l.pieces=[];makePiece(s,land(s,'A1'),'DAHAN');makePiece(s,land(s,'A2'),'EXPLORER');s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'BCE10_EXPLORE',null,['A'])];settle(s);assert.deepEqual(choiceOptions(s).map(o=>o.landId),['A3','A4','A5','A6','A7','A8']);
+});
+test('Unnatural damage follows current presence, applies to extra Ravage and expires at Time',()=>{
+ let s=eventGame();s.queue=[];s.flags.push('event-unnatural');const p=s.players[0]!,l=land(s,'A1');l.pieces=[];makePiece(s,l,'EXPLORER');const home=s.lands.find(l=>presence(l,p.playerId)>0)!;if(home!==l){l.presence=home.presence;home.presence=[];}const backup=s.lands.find(a=>a!==l&&presence(a,p.playerId)===0)!;backup.presence.push({playerId:p.playerId,count:1});p.energyTrack++;l.defend=2;s.queue=[step('SPECIAL',p.playerId,l.id,0,'RAVAGE')];settle(s);s=drain(s);assert.equal(land(s,'A1').blight,1);s.stage='TIME';s=drain(apply(s,{kind:'ADVANCE'}));assert.equal(view(s).eventUnnatural,false);
+});
+test('Unnatural does not harm Dahan when there are no Invaders',()=>{
+ const s=eventGame();s.queue=[];s.flags.push('event-unnatural');const p=s.players[0]!,l=s.lands.find(l=>presence(l,p.playerId)>0)!;l.pieces=[];makePiece(s,l,'DAHAN');s.queue=[step('SPECIAL',p.playerId,l.id,0,'RAVAGE')];settle(s);assert.equal(l.pieces.filter(p=>p.kind==='DAHAN').length,1);assert.equal(l.pieces[0]!.damage,0);
+});
+function rouseGame(){let s=eventGame(1,'INVESTIGATION');s.queue=[];const p=s.players[0]!;grantPower(s,'wash-away');const id=hold(s,'wash-away');const home=s.lands.find(l=>presence(l,p.playerId)>0)!;for(let i=0;i<3;i++)makePiece(s,home,'DAHAN');s.queue=[step('SPECIAL',p.playerId,null,0,'BCE10_ROUSE',p.playerId)];settle(s);return {s,id,home:home.id};}
+test('Rouse uses one prepared Slow power now, preserves speed and leaves a granted repeat for Slow',()=>{
+ let {s,id,home}=rouseGame();const p=s.players[0]!,before=p.energy;p.repeatGrants.push({id:'later',remaining:1,maxCost:9,paid:false,used:[]});s=eventChoose(s,'씻어내는 물결');assert.equal(s.queue[0]?.key,'BCE10_TARGET');s=drain(eventChoose(s,`→ ${home} · 기본`));assert.ok(s.players[0]!.resolved.includes(id));assert.equal(s.players[0]!.energy,before);assert.equal(s.players[0]!.repeatGrants[0]?.remaining,1);assert.equal(s.stage,'FEAR');assert.equal(s.flags.some(f=>f.startsWith('speed:')),false);assert.equal(powerOptions(s,p.playerId).length,0);s.stage='SLOW';assert.ok(powerOptions(s,p.playerId).some(o=>o.cardId===id&&o.repeat));
+});
+test('Rouse cannot normally reuse an already used power, but may spend one existing repeat grant',()=>{
+ let {s,id,home}=rouseGame();s.players[0]!.resolved.push(id);assert.ok(!choiceOptions(s).some(o=>o.label.includes('씻어내는 물결')));s.players[0]!.repeatGrants.push({id:'repeat',remaining:2,maxCost:9,paid:true,used:[]});s.players[0]!.energy=2;s=eventChoose(s,'반복 권한');s=drain(eventChoose(s,`→ ${home} · 기본`));assert.equal(s.players[0]!.repeatGrants[0]!.remaining,1);assert.equal(s.players[0]!.energy,1);assert.equal(s.players[0]!.resolved.filter(c=>c===id).length,1);
+});
+test('Rouse ignores Fast powers and Slow cards whose speed was already changed to Fast',()=>{
+ const {s,id}=rouseGame();grantPower(s,'lightning-s-boon');hold(s,'lightning-s-boon');s.flags.push(`speed:${s.players[0]!.playerId}:${id}:FAST`);assert.ok(!choiceOptions(s).some(o=>o.label.includes('씻어내는 물결')||o.label.includes('번개의 축복')));
+});
+test('Rouse cancellation preserves cards and energy and requires three Dahan across own lands',()=>{
+ let {s,home}=rouseGame();const p=s.players[0]!,before=JSON.stringify(p);s=eventChoose(s,'씻어내는 물결');s=eventChoose(s,'능력 선택으로');assert.equal(JSON.stringify(s.players[0]),before);s=eventChoose(s,'즉시 사용 생략');assert.equal(JSON.stringify(s.players[0]),before);for(const l of s.lands)l.pieces=l.pieces.filter(p=>p.kind!=='DAHAN');makePiece(s,land(s,home),'DAHAN');makePiece(s,land(s,home),'DAHAN');const other=s.lands.find(l=>presence(l,p.playerId)===0)!;makePiece(s,other,'DAHAN');s.queue=[step('SPECIAL',p.playerId,null,0,'BCE10_ROUSE',p.playerId)];settle(s);assert.equal(s.queue.length,0);
+});
+test('Rouse validates actor and revision and never exposes an off-turn USE_POWER shortcut',()=>{
+ const {s,id,home}=rouseGame(),actor=s.players[0]!.playerId,before=JSON.stringify(s),o=choiceOptions(s)[0]!;assert.equal(applySpiritAction(s,actor,{kind:'CHOOSE',choiceId:'stale',optionId:o.id},now,s.transitionId).ok,false);assert.equal(applySpiritAction(s,actor,{kind:'USE_POWER',cardId:id,target:home,threshold:0,fast:false,repeat:false,shadowReach:false},now,s.transitionId).ok,false);assert.equal(JSON.stringify(s),before);
+});
+test('Rouse allows a qualified Slow innate and validates its threshold and range',()=>{
+ let s=chosen(1,'RIVER');s.stage='FEAR';const p=s.players[0]!,home=s.lands.find(l=>presence(l,p.playerId)>0)!;home.presence.find(x=>x.playerId===p.playerId)!.count++;p.energyTrack++;for(let i=0;i<3;i++)makePiece(s,home,'DAHAN');p.elements=Array.from({length:4},()=>['SUN','WATER','EARTH'] as const).flat();s.queue=[step('SPECIAL',p.playerId,null,0,'BCE10_ROUSE',p.playerId)];settle(s);s=eventChoose(s,'고유 능력 ·');assert.ok(choiceOptions(s).some(o=>o.label.includes('고유 1단계')));assert.ok(!choiceOptions(s).some(o=>o.label.includes('고유 0단계')));s=drain(eventChoose(s,`→ ${home.id} · 고유 1단계`));assert.ok(s.players[0]!.resolved.includes('innate'));s.stage='SLOW';assert.ok(!powerOptions(s,p.playerId).some(o=>o.cardId==='innate'));
+});
+test('Rouse hands the next opportunity to its owner and hides their private power choices',()=>{
+ let s=eventGame(2);s.queue=[];for(const p of s.players){const home=s.lands.find(l=>presence(l,p.playerId)>0)!;for(let i=0;i<3;i++)makePiece(s,home,'DAHAN');}s.queue=s.players.map(p=>step('SPECIAL',p.playerId,null,0,'BCE10_ROUSE',p.playerId));settle(s);s=eventChoose(s,'즉시 사용 생략');const p=s.players[1]!,option=choiceOptions(s).at(-1)!;assert.equal(s.queue[0]?.target,p.playerId);const projected=view(s);assert.deepEqual(projected.pending?.options,[]);assert.equal(applySpiritAction(s,s.players[0]!.playerId,{kind:'CHOOSE',choiceId:`${s.transitionId}:${s.revision}`,optionId:option.id},now,s.transitionId).ok,false);s=eventChoose(s,'즉시 사용 생략');assert.equal(s.queue.length,0);
 });

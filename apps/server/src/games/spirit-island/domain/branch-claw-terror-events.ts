@@ -1,3 +1,4 @@
+import { investigationMain } from './branch-claw-investigation-events.js';
 import { SPIRIT_EVENTS, type SpiritLand } from '@hangul-rummikub/shared';
 import type { SpiritState, SpiritStep } from './state.js';
 import { step, prepend, land, countPieces, invaders, fear, event, requireRule } from './primitives.js';
@@ -27,6 +28,7 @@ export function terrorEventOptions(s:SpiritState,e:SpiritStep,add:Add):boolean {
 }
 export function terrorEventAutomatic(s:SpiritState,e:SpiritStep):boolean {
  if(e.key==='BCE6_MAIN'){
+  if(investigationMain(s,e))return true;
   const key=s.currentEvent;requireRule(key==='CULTURAL_ASSIMILATION'||key==='DISTANT_EXPLORATION');
   const def=SPIRIT_EVENTS[key];s.eventTerrorLevel=s.terror;const late=s.terror>=def.lateFrom;event(s,'EVENT',`${def.title} · 공포 ${s.terror} · ${late?def.late:def.early}`);
   const main:SpiritStep[]=[];

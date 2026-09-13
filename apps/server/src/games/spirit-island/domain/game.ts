@@ -1,5 +1,5 @@
 import * as v from 'valibot';
-import { GameRevisionSchema, SPIRIT_EVENTS, SPIRIT_POWERS, SPIRITS, SPIRIT_BOARDS, SPIRIT_BOARD_DATA, spiritBoardLinks, SpiritActionSchema, SPIRIT_DEFAULT_SETTINGS, spiritDefinition, type PlayerId, type SpiritPower, type SpiritInvaderCard, type SpiritTerrain } from '@hangul-rummikub/shared';
+import { GameRevisionSchema, SPIRIT_EVENTS, SPIRIT_POWERS, SPIRITS, SPIRIT_BOARDS, SPIRIT_BOARD_DATA, spiritBoardLinks, SpiritActionSchema, SPIRIT_DEFAULT_SETTINGS, spiritDefinition, type SpiritAction, type PlayerId, type SpiritPower, type SpiritInvaderCard, type SpiritTerrain } from '@hangul-rummikub/shared';
 import { SpiritStateSchema, type SpiritState } from './state.js';
 import { SPIRIT_FEAR_KEYS, settle, choiceOptions } from './resolver.js';
 import { powerSpeed, setPowerSpeed, SpiritRuleError, requireRule, player, presence, addPresence, makePiece, event, step, cardPower, playLimit, elements, innateLevel, targetAllowed, checkEnd, countPieces, land } from './primitives.js';
@@ -75,12 +75,12 @@ export function createSpiritGame(input: {
     }
     return parseSpiritState(s);
 }
-function innate(s: SpiritState, id: PlayerId, second = false): SpiritPower { const p = player(s, id); requireRule(p.spirit);
+export function innate(s: SpiritState, id: PlayerId, second = false): SpiritPower { const p = player(s, id); requireRule(p.spirit);
  if(p.spirit==='FANGS'||p.spirit==='KEEPER')return {key:second?'innate2':'innate',name:'Innate',title:second?(p.spirit==='FANGS'?'광란의 습격':'퍼지는 야생'):spiritDefinition(p.spirit).innate,description:'',cost:0,speed:p.spirit==='FANGS'&&!second?'FAST':'SLOW',range:p.spirit==='FANGS'?1:second?1+(elements(s,id).PLANT>=3?1:0)+(elements(s,id).AIR>=1?1:0):0,sacred:false,sourceTerrain:null,target:p.spirit==='FANGS'?second?'BEASTS':'NO_BLIGHT':second?'NO_BLIGHT':'ANY',terrains:[],elements:[],deck:p.spirit};
  const advanced = ['GREEN','THUNDER','OCEAN','BRINGER'].includes(p.spirit); if (advanced) return {key:second?'innate2':'innate',name:'Innate',title:second ? ({GREEN:'온 섬을 덮는 녹음',THUNDER:'분노의 공격',OCEAN:'해안을 집어삼키다',BRINGER:'밤의 공포'}[p.spirit as 'GREEN'|'THUNDER'|'OCEAN'|'BRINGER']) : spiritDefinition(p.spirit).innate,description:'',cost:0,speed:p.spirit==='BRINGER'||p.spirit==='GREEN'&&second||p.spirit==='OCEAN'&&!second?'FAST':'SLOW',range:p.spirit==='GREEN'?second?1:0:p.spirit==='THUNDER'?second?0:1:0,sacred:p.spirit==='GREEN'&&second,sourceTerrain:null,target:p.spirit==='BRINGER'?second?'INVADERS':'SPIRIT':p.spirit==='OCEAN'?'COASTAL':'ANY',terrains:[],elements:[],deck:p.spirit}; return { key: 'innate', name: 'Innate', title: spiritDefinition(p.spirit).innate, description: '', cost: 0, speed: p.spirit === 'SHADOW' ? 'FAST' : 'SLOW', range: 1, sacred: p.spirit === 'RIVER' || p.spirit === 'LIGHTNING', sourceTerrain: null, target: p.spirit === 'EARTH' ? 'SPIRIT' : 'ANY', terrains: [], elements: [], deck: p.spirit }; }
-export function powerOptions(s: SpiritState, id: PlayerId) {
+export function powerOptions(s: SpiritState, id: PlayerId, eventSlow = false) {
     const p = player(s, id);
-    if (!['FAST', 'SLOW'].includes(s.stage) || s.queue.length || p.ready || !p.spirit || s.phase !== 'PLAYING')
+    if ((!eventSlow&&(!['FAST', 'SLOW'].includes(s.stage) || s.queue.length || p.ready)) || !p.spirit || s.phase !== 'PLAYING')
         return [];
     const fastRemaining = Math.max(0, p.fastGift + (p.spirit === 'LIGHTNING' ? elements(s, id).AIR : 0) - p.fastUsed);
     return [...p.played, ...(innateLevel(s, id) ? ['innate'] : []), ...(['GREEN','THUNDER','OCEAN','BRINGER','FANGS','KEEPER'].includes(p.spirit) && innateLevel(s,id,true) ? ['innate2'] : [])].flatMap(cardId => {
@@ -88,8 +88,8 @@ export function powerOptions(s: SpiritState, id: PlayerId) {
         if (resolved && !(p.spirit==='GREEN' && cardId==='innate' && p.greenRepeats>0) && (!grant || cardId.startsWith('innate')))
             return [];
         const speed=powerSpeed(s,id,cardId,c);
-        const fast=s.stage==='FAST'&&(speed==='FAST'||fastRemaining>0||s.flags.includes(`sky:${id}`)||c.key==='scour-the-land'&&elements(s,id).AIR>=3||p.spirit==='THUNDER'&&cardId.startsWith('innate')&&elements(s,id).AIR>=4);
-        const slow=s.stage==='SLOW'&&(speed==='SLOW'||s.flags.includes(`sky:${id}`));
+        const fast=!eventSlow&&s.stage==='FAST'&&(speed==='FAST'||fastRemaining>0||s.flags.includes(`sky:${id}`)||c.key==='scour-the-land'&&elements(s,id).AIR>=3||p.spirit==='THUNDER'&&cardId.startsWith('innate')&&elements(s,id).AIR>=4);
+        const slow=eventSlow?speed==='SLOW':s.stage==='SLOW'&&(speed==='SLOW'||s.flags.includes(`sky:${id}`));
         if (!fast && !slow)
             return [];
         return [{ cardId, key: c.key, fast, slow, targets: c.target === 'SPIRIT' || c.target === 'OTHER_SPIRIT' ? s.players.filter(q => c.target !== 'OTHER_SPIRIT' || q.playerId !== id || s.players.length === 1).map(q => q.playerId) : s.lands.filter(l => targetAllowed(s, id, c, l)).map(l => l.id), thresholdMax: cardId.startsWith('innate') ? innateLevel(s, id,cardId==='innate2') : 1, repeat: resolved, shadowTargets: c.target === 'SPIRIT' || c.target === 'OTHER_SPIRIT' ? [] : s.lands.filter(l => !targetAllowed(s, id, c, l) && targetAllowed(s, id, c, l, true)).map(l => l.id) }];
@@ -224,49 +224,7 @@ export function applySpiritAction(current: SpiritState, actor: PlayerId, input: 
                     }
                     break;
                 case 'USE_POWER': {
-                    const opt = powerOptions(s, actor).find(o => o.cardId === a.cardId && o.repeat === a.repeat);
-                    requireRule(opt && (a.fast ? opt.fast : opt.slow) && a.threshold <= opt.thresholdMax && (!a.cardId.startsWith('innate') || a.threshold >= 1));
-                    requireRule((a.shadowReach ? opt.shadowTargets : opt.targets).includes(a.target));
-                    const c = a.cardId.startsWith('innate') ? innate(s, actor,a.cardId==='innate2') : cardPower(s, a.cardId);
-                    if (a.repeat && p.spirit==='GREEN' && a.cardId==='innate') p.greenRepeats--;
-                    else if (a.repeat) {
-                        const grant = p.repeatGrants.find(r => r.remaining && !r.used.includes(a.cardId) && repeatCost(s,c,a.cardId) <= r.maxCost && (!r.paid || p.energy >= repeatCost(s,c,a.cardId)));
-                        requireRule(grant);
-                        grant.remaining--;
-                        grant.used.push(a.cardId);
-                        if (grant.paid)
-                            p.energy -= repeatCost(s,c,a.cardId);
-                    }
-                    else
-                        p.resolved.push(a.cardId);
-                    const speed=powerSpeed(s,actor,a.cardId,c);
-                    if(a.fast&&speed==='SLOW') {
-                        const own=c.key==='scour-the-land'&&elements(s,actor).AIR>=3||p.spirit==='THUNDER'&&a.cardId.startsWith('innate')&&elements(s,actor).AIR>=4;
-                        if(!own){const regular=p.fastGift+(p.spirit==='LIGHTNING'?elements(s,actor).AIR:0)-p.fastUsed;if(regular>0)p.fastUsed++;else{const at=s.flags.indexOf(`sky:${actor}`);requireRule(at>=0);s.flags.splice(at,1);}}
-                        setPowerSpeed(s,actor,a.cardId,'FAST');
-                    } else if(!a.fast&&speed==='FAST') {
-                        const at=s.flags.indexOf(`sky:${actor}`);requireRule(at>=0);s.flags.splice(at,1);setPowerSpeed(s,actor,a.cardId,'SLOW');
-                    }
-                    if (!a.repeat && p.spirit==='GREEN' && a.cardId==='innate') p.greenRepeats=a.threshold-1;
-                    s.flags=s.flags.filter(f=>!f.startsWith('power:')&&!f.startsWith('dream-')); s.flags.push(`power:${actor}`);s.flags=s.flags.filter(f=>!f.startsWith('source-shadow:'));if(a.shadowReach)s.flags.push(`source-shadow:${actor}`);
-                    if (a.shadowReach) {
-                        requireRule(p.energy >= 1);
-                        p.energy--;
-                    }
-                    const target = s.players.find(q => q.playerId === a.target)?.playerId ?? actor, at = s.lands.some(l => l.id === a.target) ? a.target : null;
-                    s.flags = s.flags.filter(f => f !== 'harbinger-fear');
-                    event(s, 'POWER', c.title, actor, at);
-                    if(s.settings.scenario==='BLITZ'&&!a.repeat&&a.fast) {
-                        if(a.cardId.startsWith('innate')&&c.speed==='FAST')p.energy++;
-                        if(c.speed==='SLOW') {
-                            const thunder=p.spirit==='THUNDER'&&a.cardId.startsWith('innate')&&elements(s,actor).AIR>=4;
-                            const conversions=p.fastGift+(p.spirit==='LIGHTNING'?elements(s,actor).AIR:0)-p.fastUsed;
-                            const scour=c.key==='scour-the-land'&&elements(s,actor).AIR>=3;const sky=s.flags.indexOf(`sky:${actor}`);
-                            if(thunder||scour||conversions>0||sky>=0){p.energy++;if(!thunder&&!scour){if(conversions>0)p.fastUsed++;else s.flags.splice(sky,1);}s.flags.push(`blitz-fast:${a.cardId}`);}
-                        }
-                    }
-                    const effects = powerSteps(s, actor, c.key, at, target, a.threshold).filter(e => !a.repeat || !['PAID_REPEAT', 'FREE_REPEAT', 'REPEAT_WINDS', 'REPEAT_LAND_PAIN', 'BCM_REPEAT'].includes(e.key));
-                    s.queue.push(...effects, step('CHECK', actor));
+                    resolveSpiritPower(s,actor,a);
                     settle(s);
                     break;
                 }
@@ -319,3 +277,52 @@ export function cancelSpirit(current: SpiritState, now: SpiritState['startedAt']
 function preparedCost(s:SpiritState,id:string) {const c=cardPower(s,id);return c.cost-(s.settings.scenario==='BLITZ'&&c.speed==='FAST'?1:0);}
 
 function repeatCost(s:SpiritState,c:SpiritPower,id:string) {return Math.max(0,c.cost-(s.settings.scenario==='BLITZ'&&(c.speed==='FAST'||s.flags.includes(`blitz-fast:${id}`))?1:0));}
+
+/** Applies a validated power through the same path during its phase or an event opportunity. */
+export function resolveSpiritPower(s:SpiritState,actor:PlayerId,a:Extract<SpiritAction,{kind:'USE_POWER'}>,eventSlow=false){
+ const p=player(s,actor);
+                    const opt = powerOptions(s, actor, eventSlow).find(o => o.cardId === a.cardId && o.repeat === a.repeat);
+                    requireRule(opt && (a.fast ? opt.fast : opt.slow) && a.threshold <= opt.thresholdMax && (!a.cardId.startsWith('innate') || a.threshold >= 1));
+                    requireRule((a.shadowReach ? opt.shadowTargets : opt.targets).includes(a.target));
+                    const c = a.cardId.startsWith('innate') ? innate(s, actor,a.cardId==='innate2') : cardPower(s, a.cardId);
+                    if (a.repeat && p.spirit==='GREEN' && a.cardId==='innate') p.greenRepeats--;
+                    else if (a.repeat) {
+                        const grant = p.repeatGrants.find(r => r.remaining && !r.used.includes(a.cardId) && repeatCost(s,c,a.cardId) <= r.maxCost && (!r.paid || p.energy >= repeatCost(s,c,a.cardId)));
+                        requireRule(grant);
+                        grant.remaining--;
+                        grant.used.push(a.cardId);
+                        if (grant.paid)
+                            p.energy -= repeatCost(s,c,a.cardId);
+                    }
+                    else
+                        p.resolved.push(a.cardId);
+                    const speed=powerSpeed(s,actor,a.cardId,c);
+                    if(a.fast&&speed==='SLOW') {
+                        const own=c.key==='scour-the-land'&&elements(s,actor).AIR>=3||p.spirit==='THUNDER'&&a.cardId.startsWith('innate')&&elements(s,actor).AIR>=4;
+                        if(!own){const regular=p.fastGift+(p.spirit==='LIGHTNING'?elements(s,actor).AIR:0)-p.fastUsed;if(regular>0)p.fastUsed++;else{const at=s.flags.indexOf(`sky:${actor}`);requireRule(at>=0);s.flags.splice(at,1);}}
+                        setPowerSpeed(s,actor,a.cardId,'FAST');
+                    } else if(!a.fast&&speed==='FAST') {
+                        const at=s.flags.indexOf(`sky:${actor}`);requireRule(at>=0);s.flags.splice(at,1);setPowerSpeed(s,actor,a.cardId,'SLOW');
+                    }
+                    if (!a.repeat && p.spirit==='GREEN' && a.cardId==='innate') p.greenRepeats=a.threshold-1;
+                    s.flags=s.flags.filter(f=>!f.startsWith('power:')&&!f.startsWith('dream-')); s.flags.push(`power:${actor}`);s.flags=s.flags.filter(f=>!f.startsWith('source-shadow:'));if(a.shadowReach)s.flags.push(`source-shadow:${actor}`);
+                    if (a.shadowReach) {
+                        requireRule(p.energy >= 1);
+                        p.energy--;
+                    }
+                    const target = s.players.find(q => q.playerId === a.target)?.playerId ?? actor, at = s.lands.some(l => l.id === a.target) ? a.target : null;
+                    s.flags = s.flags.filter(f => f !== 'harbinger-fear');
+                    event(s, 'POWER', c.title, actor, at);
+                    if(s.settings.scenario==='BLITZ'&&!a.repeat&&a.fast) {
+                        if(a.cardId.startsWith('innate')&&c.speed==='FAST')p.energy++;
+                        if(c.speed==='SLOW') {
+                            const thunder=p.spirit==='THUNDER'&&a.cardId.startsWith('innate')&&elements(s,actor).AIR>=4;
+                            const conversions=p.fastGift+(p.spirit==='LIGHTNING'?elements(s,actor).AIR:0)-p.fastUsed;
+                            const scour=c.key==='scour-the-land'&&elements(s,actor).AIR>=3;const sky=s.flags.indexOf(`sky:${actor}`);
+                            if(thunder||scour||conversions>0||sky>=0){p.energy++;if(!thunder&&!scour){if(conversions>0)p.fastUsed++;else s.flags.splice(sky,1);}s.flags.push(`blitz-fast:${a.cardId}`);}
+                        }
+                    }
+                    const effects = powerSteps(s, actor, c.key, at, target, a.threshold).filter(e => !a.repeat || !['PAID_REPEAT', 'FREE_REPEAT', 'REPEAT_WINDS', 'REPEAT_LAND_PAIN', 'BCM_REPEAT'].includes(e.key));
+                    s.queue.unshift(...effects, step('CHECK', actor));
+
+}
