@@ -1,6 +1,6 @@
 import * as v from 'valibot';
 /** Only completed events are included in this explicitly labelled preview deck. */
-export const SpiritEventKeySchema = v.picklist(['NEW_SPECIES', 'LITTLE_RAIN', 'SEEKING_INTERIOR', 'RECONNAISSANCE', 'DISCOVERIES', 'STRANGE_TALES']);
+export const SpiritEventKeySchema = v.picklist(['NEW_SPECIES', 'LITTLE_RAIN', 'SEEKING_INTERIOR', 'RECONNAISSANCE', 'DISCOVERIES', 'STRANGE_TALES', 'TIGHT_KNIT', 'WELL_PREPARED']);
 export type SpiritEventKey = v.InferOutput<typeof SpiritEventKeySchema>;
 export const SPIRIT_EVENTS = {
  NEW_SPECIES: { type:'CHOICE', title: '새로운 종의 확산', name: 'New Species Spread', artwork: 'KEEPER', element: 'MOON', free: '외래종의 번성을 지켜본다', paid: '위험한 종을 변화시킨다', main: '무료: 보드마다 보조 덱 맨 위 카드를 버립니다. 빠른 능력이면 건물이 있는 지역에 오염 1개를 추가합니다. 해결 후 이 이벤트를 덱 위에서 세 번째에 돌려놓습니다. 지원: 인원당 비용 4, 달 원소 지원. 인원당 공포 1, 보드마다 건물이 있는 지역에 야수 1개를 추가합니다.', token: '새 질병 · 보드 절반(올림)을 골라, 침략자와 다한이 함께 있는 지역에 질병 1개와 다한 피해 2를 줍니다.', dahan: '춤과 무늬의 공물 · 자기 현신이 있는 지역들에 다한이 합계 2개 이상인 정령은 에너지 1을 얻습니다.' },
@@ -9,6 +9,8 @@ export const SPIRIT_EVENTS = {
  RECONNAISSANCE: { type:'STAGE', title:'밀려오는 정찰대', name:'Wave of Reconnaissance / Urbanization', artwork:'LIGHTNING', element:null, free:null, paid:null, early:'정찰의 물결', late:'도시화', main:'침략 I: 이번 라운드 탐험에 성공한 지역마다 탐험가 1개를 더 추가합니다. 침략 II·III: 마을이 2개 이상인 각 지역에서 마을 절반(올림)을 도시로 교체합니다.', token:'병든 침략자 · 이번 라운드 질병 또는 분쟁이 있는 지역에서는 파괴 행동을 생략합니다. 질병·분쟁은 이 생략으로 소모되지 않습니다.', dahan:'후퇴 · 보드마다 도시가 있는 한 지역의 다한 2개를 도시 없는 인접한 한 지역으로 밉니다. 2개가 불가능하면 가능한 1개를 옮깁니다.' },
  DISCOVERIES: { type:'STAGE', title:'흥미로운 발견', name:'Interesting Discoveries / Increasing Aggression', artwork:'KEEPER', element:null, free:null, paid:null, early:'흥미로운 발견', late:'거세지는 침략', main:'침략 I: 보드마다 성소 하나를 골라 탐험가 1개를 모으고 탐험가 1개를 추가합니다. 침략 II·III: 이번 라운드 파괴 행동에서 침략자 피해가 지역마다 1 증가합니다.', token:'폐 질환의 확산 · 보드마다 밀림·습지 중 마을과 도시 합계가 가장 많은 지역에 질병 1개를 놓습니다. 건물이 적어도 1개 있어야 합니다.', dahan:'땅을 돌보다 · 보드마다 다한이 2개 이상인 지역에서 오염 1개를 제거합니다.' },
  STRANGE_TALES: { type:'STAGE', title:'낯선 섬의 소문', name:'Strange Tales Attract Explorers / Fortification', artwork:'SHADOW', element:null, free:null, paid:null, early:'소문을 따라오는 탐험가', late:'요새화', main:'침략 I: 성소가 있는 정령마다 공포 1. 침략 카드를 전진시킨 뒤 성소가 있는 각 지역에 탐험가 1개를 추가합니다. 침략 II·III: 침략 카드를 전진시킨 뒤 침략자 행동 칸에 표시되지 않은 지형 하나에서 정상 건설을 진행합니다. 가능한 지형이 없으면 생략합니다.', token:'야수의 공격 · 야수마다 차례로 침략자에게 피해 2. 마을이나 도시를 파괴한 야수만 제거합니다.', dahan:'성장하는 다한 · 보드마다 다한이 있는 산 또는 모래 지역에 다한 1개를 추가합니다.' },
+ TIGHT_KNIT: { type:'ISLAND', title:'단단히 뭉친 공동체', name:'Tight-Knit Communities / Blight Spreads', artwork:'KEEPER', healthy:'단단히 뭉친 공동체', blighted:'퍼져가는 오염', main:'건강한 섬: 이번 라운드 마을·도시 체력 +1. 오염된 섬: 보드마다 오염 지역에 인접한 지역에 오염 1개를 추가합니다. 해당 보드의 현신 합계 2개를 파괴하여 그 보드를 보호할 수 있습니다.', token:'방심한 탐험가를 사냥하다 · 야수마다 같은 지역의 탐험가 1개를 파괴합니다. 이후 야수가 없는 보드 하나에 야수 1개를 추가합니다.', dahan:'성장하는 다한 · 보드마다 다한이 있는 해안 지역에 다한 1개를 추가합니다.' },
+ WELL_PREPARED: { type:'ISLAND', title:'철저히 준비한 탐험가', name:'Well-Prepared Explorers / Blight Spreads', artwork:'RIVER', healthy:'철저히 준비한 탐험가', blighted:'퍼져가는 오염', main:'건강한 섬: 이번 라운드 탐험가 체력 +1. 오염된 섬: 보드마다 오염 지역에 인접한 지역에 오염 1개를 추가합니다. 해당 보드의 현신 합계 2개를 파괴하여 그 보드를 보호할 수 있습니다.', token:'야수의 배회 · 야수마다 침략자가 있는 지역이면 공포 1. 없다면 인접 지역으로 이동합니다.', dahan:'성장하는 다한 · 보드마다 다한이 있는 내륙 지역에 다한 1개를 추가합니다.' },
 } as const;
 export const SPIRIT_EVENT_KEYS = SpiritEventKeySchema.options;
 export const SPIRIT_EVENT_COUNT = SPIRIT_EVENT_KEYS.length;

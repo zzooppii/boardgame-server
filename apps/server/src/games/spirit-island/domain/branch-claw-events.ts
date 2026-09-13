@@ -29,7 +29,7 @@ export function branchEventOptions(s:SpiritState,e:SpiritStep,add:Add):boolean {
  if(!e.key.startsWith('BCE_'))return false;
  const owner=e.target??e.actor, p=player(s,owner), key=s.currentEvent;
  if(e.key==='BCE_REVEAL') {
-  add(s.round===1?'첫 라운드 · 효과 없이 버리기':'이벤트 선택 시작',()=>{if(s.round!==1){requireRule(key);prepend(s,step('SPECIAL',e.actor,null,0,SPIRIT_EVENTS[key].type==='CHOICE'?'BCE_CHOICE':'BCE2_MAIN'));}});
+  add(s.round===1?'첫 라운드 · 효과 없이 버리기':'이벤트 선택 시작',()=>{if(s.round!==1){requireRule(key);prepend(s,step('SPECIAL',e.actor,null,0,SPIRIT_EVENTS[key].type==='CHOICE'?'BCE_CHOICE':SPIRIT_EVENTS[key].type==='ISLAND'?'BCE3_MAIN':'BCE2_MAIN'));}});
  } else if(e.key==='BCE_CHOICE') {
   requireRule(key);const def=SPIRIT_EVENTS[key];requireRule(def.type==='CHOICE');
   add(def.free,()=>finishMain(s,e,false));

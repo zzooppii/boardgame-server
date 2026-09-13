@@ -21,7 +21,7 @@ test('Ocean tracks show upcoming permanent elements and scenario objective',()=>
 test('Branch & Claw development selection exposes ten spirits and clearly states missing content',()=>{
  const s=playing();s.game.stage='SELECT';s.game.playerStates[0]!.spirit=null;s.game.settings.expansion='BRANCH_CLAW';
  const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));
- assert.equal((html.match(/이 정령 선택/g)??[]).length,10);assert.match(html,/si-art-FANGS/);assert.match(html,/si-art-KEEPER/);assert.match(html,/이벤트 6\/25장 개발 덱 · 나머지 확장 카드 미포함/);
+ assert.equal((html.match(/이 정령 선택/g)??[]).length,10);assert.match(html,/si-art-FANGS/);assert.match(html,/si-art-KEEPER/);assert.match(html,/이벤트 8\/25장 개발 덱 · 나머지 확장 카드 미포함/);
 });
 test('Branch & Claw map shows token counts and growth distinguishes selected options and costs',()=>{
  const s=playing(),p=s.game.playerStates[0]!;s.game.settings.expansion='BRANCH_CLAW';p.spirit='FANGS';p.grown=false;p.growthSelections=[3];p.canCallPredators=true;
@@ -48,7 +48,7 @@ test('Power acquisition choices display illustrated cards and instructions witho
 
 test('Event panel exposes illustrated ordered effects, preview limits and team contribution progress',()=>{
  const s=playing();s.game.currentEvent='NEW_SPECIES';s.game.round=2;s.game.eventPayment={cost:4,element:'MOON',energy:1,support:2,remaining:1,contributions:[{playerId:s.self.playerId,energy:1,support:2}]};
- const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));for(const label of ['새로운 종의 확산','si-event-art','6 / 25장','토큰 이벤트','다한 이벤트','확정 전에는 소모되지 않습니다','이벤트 비용 충족도','1 더 필요'])assert.ok(html.includes(label),label);
+ const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));for(const label of ['새로운 종의 확산','si-event-art','8 / 25장','토큰 이벤트','다한 이벤트','확정 전에는 소모되지 않습니다','이벤트 비용 충족도','1 더 필요'])assert.ok(html.includes(label),label);
 });
 test('Event reveal has a distinct cue, without replaying on the same revision',()=>{
  const s=playing();const next=parse(SpiritPlayingPlatformSnapshotV2Schema,{...s,game:{...s.game,gameRevision:1,currentEvent:'LITTLE_RAIN',log:[{id:1,kind:'EVENT',text:'공개',playerId:null,landId:null}]}}).game;
@@ -65,4 +65,8 @@ test('Stage event UI announces exploration, ravage bonus and conditional skips',
 });
 test('Ravage preview reflects event damage and Stricken without marking buildings skipped',()=>{
  const s=playing(),l=s.game.lands[0]!;l.pieces=[{id:'town',kind:'TOWN',damage:0,strife:0}];l.defend=1;s.game.ravage={stage:1,terrains:[l.terrain],coastal:false};assert.equal(ravagePreview(s.game,l).blight,false);s.game.eventRavageBonus=1;assert.equal(ravagePreview(s.game,l).blight,true);l.tokens.disease=1;s.game.eventStricken=true;assert.equal(ravagePreview(s.game,l).blocked,true);assert.equal(ravagePreview(s.game,l).blight,false);assert.equal(l.skip,false);
+});
+
+test('Island event panel shows the resolved branch even when island state later changes',()=>{
+ const s=playing();s.game.currentEvent='WELL_PREPARED';s.game.round=2;s.game.eventIslandState='HEALTHY';s.game.blighted=true;const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));assert.match(html,/적용 분기 · 건강한 섬/);assert.match(html,/탐험가.*체력 \+1/);assert.match(html,/si-art-RIVER/);s.game.eventIslandState='BLIGHTED';const changed=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));assert.match(changed,/적용 분기 · 오염된 섬/);assert.doesNotMatch(changed,/<p class="si-event-notice">이번 라운드 탐험가 체력 \+1<\/p>/);
 });

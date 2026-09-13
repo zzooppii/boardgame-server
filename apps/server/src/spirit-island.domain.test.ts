@@ -465,8 +465,8 @@ const stageEvents=['SEEKING_INTERIOR','RECONNAISSANCE','DISCOVERIES','STRANGE_TA
 for(const key of stageEvents)for(const stage of [1,2,3] as const)for(const n of [1,2,3,4])test(`Stage event ${key}: invader stage ${stage}, ${n} spirits`,()=>{
  let s=eventGame(n,key);s.eventInvaderStage=stage;s=eventChoose(s,'이벤트 선택 시작');s=drain(s);assert.equal(s.queue.length,0);assert.equal(s.stage,'FEAR');parseSpiritState(s);
 });
-test('Stage events: all six event keys are configured once; core contains none',()=>{
- const s=branchClaw();assert.deepEqual([...s.eventDeck].sort(),[...SPIRIT_EVENT_KEYS].sort());assert.equal(s.eventDeck.length,6);assert.equal(chosen().eventDeck.length,0);
+test('Stage events: all configured event keys are configured once; core contains none',()=>{
+ const s=branchClaw();assert.deepEqual([...s.eventDeck].sort(),[...SPIRIT_EVENT_KEYS].sort());assert.equal(s.eventDeck.length,8);assert.equal(chosen().eventDeck.length,0);
 });
 test('Stage events: Prussia early III counts as II, real late III and empty deck count as III',()=>{
  const s=branchClaw();s.settings.adversary='PRUSSIA';s.settings.level=2;s.invaderDeck=[{stage:3,terrains:['JUNGLE','SANDS'],coastal:false},{stage:2,terrains:['MOUNTAIN'],coastal:false}];assert.equal(currentInvaderStage(s),2);s.invaderDeck.shift();assert.equal(currentInvaderStage(s),2);s.invaderDeck=[{stage:3,terrains:['JUNGLE','SANDS'],coastal:false}];assert.equal(currentInvaderStage(s),3);s.invaderDeck=[];assert.equal(currentInvaderStage(s),3);
@@ -516,4 +516,34 @@ test('Stage events: prowling beasts offer Fangs a presence follow without enteri
 });
 test('Stage events: Dahan retreat retains Thunder presence-follow choices',()=>{
  let s=setup();s=apply(s,{kind:'CONFIGURE',settings:{...s.settings,expansion:'BRANCH_CLAW',progression:false,blightCard:true}});s=drain(apply(s,{kind:'SELECT_SPIRIT',spirit:'THUNDER'}));const actor=s.players[0]!.playerId,source=s.lands.find(l=>presence(l,actor)>0)!;makePiece(s,source,'CITY');makePiece(s,source,'DAHAN');makePiece(s,source,'DAHAN');s.queue=[step('SPECIAL',actor,null,0,'BCE2_RETREAT',null,['A','CITY'])];settle(s);const option=choiceOptions(s).find(o=>o.label.startsWith(source.id))!;assert.ok(option);s=eventChoose(s,option.label);s=eventChoose(s,'→');assert.equal(s.queue[0]?.key,'PUSH');s=eventChoose(s,'→');assert.equal(s.queue[0]?.key,'FOLLOW_DAHAN');s=drain(s);parseSpiritState(s);
+});
+
+for(const key of ['TIGHT_KNIT','WELL_PREPARED'] as const)for(const blighted of [false,true])for(let n=1;n<=4;n++)test(`Island events: ${key} / blighted ${blighted} / ${n} players resolves`,()=>{
+ let s=eventGame(n,key);s.blighted=blighted;s=drain(eventChoose(s,'이벤트 선택 시작'));assert.equal(s.stage,'FEAR');assert.equal(s.eventIslandState,blighted?'BLIGHTED':'HEALTHY');assert.equal(s.queue.length,0);parseSpiritState(s);assert.ok(v.safeParse(SpiritPlayingProjectionSchema,view(s)).success);
+});
+test('Island events: health bonus changes only intended pieces and stacks with existing modifiers',()=>{
+ const s=eventGame(),l=land(s,'A1');l.pieces=[];l.invaderHealth=2;l.dahanHealth=1;l.eventHealthBonus='BUILDINGS';const pieces=(['EXPLORER','TOWN','CITY','DAHAN'] as const).map(k=>makePiece(s,l,k));assert.deepEqual(pieces.map(p=>health(l,p)),[1,5,6,3]);l.eventHealthBonus='EXPLORERS';assert.deepEqual(pieces.map(p=>health(l,p)),[2,4,5,3]);l.eventHealthLoss=true;assert.deepEqual(pieces.map(p=>health(l,p)),[2,3,4,2]);
+});
+test('Island events: health bonus and branch reset next round; first round does not apply bonus',()=>{
+ let s=eventGame(1,'WELL_PREPARED',1);s=drain(s);assert.equal(s.eventIslandState,null);assert.ok(s.lands.every(l=>l.eventHealthBonus===null));s=eventGame(1,'WELL_PREPARED');s=drain(eventChoose(s,'이벤트 선택 시작'));assert.ok(s.lands.every(l=>l.eventHealthBonus==='EXPLORERS'));s.stage='TIME';s=drain(apply(s,{kind:'ADVANCE'}));assert.equal(s.eventIslandState,null);assert.ok(s.lands.every(l=>l.eventHealthBonus===null));
+});
+test('Island events: pledge cancellation is free and two spirits may jointly protect a board',()=>{
+ let s=eventGame(2,'TIGHT_KNIT');s.blighted=true;s.queue=[];for(const l of s.lands)l.presence=[];const a=land(s,'A1'),b=land(s,'A2');a.presence=[{playerId:s.players[0]!.playerId,count:1}];b.presence=[{playerId:s.players[1]!.playerId,count:2}];s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'BCE3_PROTECT',null,['A'])];settle(s);
+ const before=JSON.stringify(s.lands);s=eventChoose(s,'현신 2개로 보호');s=eventChoose(s,'A1');assert.equal(JSON.stringify(s.lands),before);s=eventChoose(s,'희생 취소');assert.equal(JSON.stringify(s.lands),before);
+ s=eventChoose(s,'현신 2개로 보호');s=eventChoose(s,'A1');assert.ok(!choiceOptions(s).some(o=>o.label.startsWith('A1')));s=eventChoose(s,'A2');assert.equal(JSON.stringify(s.lands),before);const counts=s.players.map(p=>p.destroyedPresence);s=eventChoose(s,'희생 확정');assert.equal(presence(land(s,'A1'),s.players[0]!.playerId),0);assert.equal(presence(land(s,'A2'),s.players[1]!.playerId),1);assert.deepEqual(s.players.map(p=>p.destroyedPresence),counts.map(n=>n+1));assert.equal(s.queue.length,0);
+});
+test('Island events: one presence cannot protect and outside-board presence cannot be pledged',()=>{
+ const s=eventGame(2);for(const l of s.lands.filter(l=>l.board==='A'))l.presence=[];land(s,'A1').presence=[{playerId:s.players[0]!.playerId,count:1}];s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'BCE3_PROTECT',null,['A'])];settle(s);assert.equal(choiceOptions(s).length,1);assert.match(choiceOptions(s)[0]!.label,/받아들인다/);
+});
+test('Island events: blight spread uses adjacency not existing blight, including cross-board neighbors',()=>{
+ const s=eventGame(2);for(const l of s.lands)l.blight=0;const a=land(s,'A1'),b=land(s,'B1');a.adjacent=[b.id];b.blight=1;s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'BCE3_BLIGHT',null,['A'])];settle(s);const expected=s.lands.filter(l=>l.board==='A'&&l.adjacent.includes('B1')).map(l=>l.id);assert.deepEqual(choiceOptions(s).map(o=>o.landId),expected);assert.ok(expected.includes('A1'));
+});
+test('Island events: prey destroys explorers regardless of health and adds only one beast on an empty board',()=>{
+ let s=eventGame(3,'TIGHT_KNIT');for(const l of s.lands)l.tokens.beasts=0;const l=land(s,'A1');l.pieces=[];l.tokens.beasts=2;l.eventHealthBonus='EXPLORERS';for(let i=0;i<3;i++)makePiece(s,l,'EXPLORER');s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'BCE3_TOKEN')];settle(s);s=eventChoose(s,'탐험가 파괴');s=eventChoose(s,'탐험가 파괴');assert.equal(land(s,'A1').pieces.length,1);assert.ok(choiceOptions(s).every(o=>o.landId?.startsWith('B')||o.landId?.startsWith('C')));s=eventChoose(s,'B1');assert.equal(s.lands.reduce((n,l)=>n+l.tokens.beasts,0),3);assert.equal(s.queue.length,0);
+});
+for(const key of ['TIGHT_KNIT','WELL_PREPARED'] as const)test(`Island events: ${key} Dahan birth stays in its coastal/inland band`,()=>{
+ const s=eventGame(1,key);s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'BCE3_DAHAN',null,['A'])];settle(s);assert.ok(choiceOptions(s).length>0);for(const o of choiceOptions(s)){assert.ok(o.landId);const l=land(s,o.landId);assert.equal(l.coastal,key==='TIGHT_KNIT');assert.ok(l.pieces.some(p=>p.kind==='DAHAN'));}
+});
+test('Island events: another actor or stale revision cannot change a sacrifice plan',()=>{
+ let s=eventGame(2,'TIGHT_KNIT');s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'BCE3_PROTECT',null,['B'])];settle(s);s=eventChoose(s,'현신 2개로 보호');const option=choiceOptions(s).find(o=>o.landId);assert.ok(option);const before=JSON.stringify(s),action:SpiritAction={kind:'CHOOSE',choiceId:`${s.transitionId}:${s.revision}`,optionId:option.id};assert.equal(applySpiritAction(s,s.players[1]!.playerId,action,now,s.transitionId).ok,false);assert.equal(applySpiritAction(s,s.players[0]!.playerId,{...action,choiceId:'stale'},now,s.transitionId).ok,false);assert.equal(JSON.stringify(s),before);
 });
