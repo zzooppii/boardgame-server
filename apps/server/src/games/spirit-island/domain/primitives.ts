@@ -88,7 +88,7 @@ export function fear(s: SpiritState, n: number, actor: PlayerId, at: string | nu
         break;
     }
 } }
-export const health = (l: SpiritLand, p: SpiritPiece) => p.kind === 'CITY' ? 3+l.invaderHealth : p.kind === 'TOWN' ? 2+l.invaderHealth : p.kind === 'DAHAN' ? 2 + l.dahanHealth : 1;
+export const health = (l: SpiritLand, p: SpiritPiece) => Math.max(1,(p.kind === 'CITY' ? 3+l.invaderHealth : p.kind === 'TOWN' ? 2+l.invaderHealth : p.kind === 'DAHAN' ? 2 + l.dahanHealth : 1)-(l.eventHealthLoss&&p.kind!=='EXPLORER'?1:0));
 export function removePiece(s: SpiritState, l: SpiritLand, piece: SpiritPiece, destroy: boolean, actor: PlayerId): void {
     if (destroy && dreaming(s, actor)) { dreamDestroy(s, l, piece, actor); return; }
     if (destroy && piece.kind === 'DAHAN' && l.vitality && s.flags.includes(`immortal:${l.id}`))

@@ -1,3 +1,4 @@
+import { branchEventOptions, branchEventAutomatic } from './branch-claw-events.js';
 import { branchMajorOptions, branchMajorAutomatic, oceanDistance } from './branch-claw-major.js';
 import { branchMinorOptions, branchMinorAutomatic } from './branch-claw-minor.js';
 import { branchClawOptions, branchClawAutomatic } from './branch-claw.js';
@@ -67,7 +68,7 @@ function extraFear(s: SpiritState, e: SpiritStep, piece: SpiritPiece, killed: bo
     }
 } }
 export function choiceTitle(e: SpiritStep): string {
- const titles:Record<string,string>={BCM_RAVAGE_ORDER:'파괴를 먼저 해결할 지역을 고르세요',BCM_FIREVINE_SOURCE:'불덩굴이 뻗어 나올 모래 지역을 고르세요',BCM_FIRE_FLOOD_SOURCE:'두 대상의 사거리를 잴 공통 성소를 고르세요',BCM_FIRE_FLOOD_SECOND:'홍수가 덮칠 두 번째 지역을 고르세요',BCM_FIRE_FLOOD_BONUS:'추가 피해 4를 받을 지역을 고르세요',BCM_REPEAT:'능력을 반복할 지역을 고르세요',BCM_CALAMITY_REMOVE:'토큰을 제거하고 쌓인 공포·피해를 확정하세요',BCM_UNLOCK_PLAY:'새 주요 능력의 준비 비용을 선택하세요',BCM_SINK_RESCUE:'가라앉는 섬에서 살아남은 다한을 옮기세요',BCM_FLOW_MOVE:'이동할 현신과 목적지를 고르세요',BCM_FLOW_CARRY:'현신과 함께 이동할 기물을 고르세요',OCEAN_SETUP:'바다와 이어질 시작 해안을 고르세요',FOLLOW_DAHAN:'이동한 기물을 따라갈 현신을 선택하세요',FANGS_SETUP:'야수가 있는 시작 지역을 고르세요',GREEN_STOP:'현신을 희생해 침략자 행동을 막을까요?',HEART_SETUP:'지켜낼 섬의 심장을 고르세요',HEART_PRESENCE:'심장 가까이에 시작 현신을 놓으세요',RITUAL_ENERGY:'의식에 기여할 에너지를 선택하세요',RITUAL_PRESENCE:'의식에 희생할 현신을 선택하세요',BLITZ_EXPLORE:'추가 탐험가가 들어올 지역을 고르세요',MIDNIGHT_PLAY:'꿈에서 얻은 주요 능력을 즉시 준비할까요?'};
+ const titles:Record<string,string>={BCE_REVEAL:'공개된 이벤트를 함께 읽고 진행하세요',BCE_CHOICE:'팀과 의논해 이벤트의 대응을 고르세요',BCE_PAY:'원소·카드·에너지로 비용을 분담하세요 · 확정 전에는 소모되지 않습니다',BCE_DISEASE:'서로 다른 보드에서 질병이 퍼질 지역을 고르세요',BCE_BLIGHT_LAND:'이벤트로 오염을 추가할 지역을 고르세요',BCE_BEAST_LAND:'야수가 나타날 지역을 고르세요',BCE_PRESENCE:'다한과 함께하는 지역에 현신을 추가할까요?',BCM_RAVAGE_ORDER:'파괴를 먼저 해결할 지역을 고르세요',BCM_FIREVINE_SOURCE:'불덩굴이 뻗어 나올 모래 지역을 고르세요',BCM_FIRE_FLOOD_SOURCE:'두 대상의 사거리를 잴 공통 성소를 고르세요',BCM_FIRE_FLOOD_SECOND:'홍수가 덮칠 두 번째 지역을 고르세요',BCM_FIRE_FLOOD_BONUS:'추가 피해 4를 받을 지역을 고르세요',BCM_REPEAT:'능력을 반복할 지역을 고르세요',BCM_CALAMITY_REMOVE:'토큰을 제거하고 쌓인 공포·피해를 확정하세요',BCM_UNLOCK_PLAY:'새 주요 능력의 준비 비용을 선택하세요',BCM_SINK_RESCUE:'가라앉는 섬에서 살아남은 다한을 옮기세요',BCM_FLOW_MOVE:'이동할 현신과 목적지를 고르세요',BCM_FLOW_CARRY:'현신과 함께 이동할 기물을 고르세요',OCEAN_SETUP:'바다와 이어질 시작 해안을 고르세요',FOLLOW_DAHAN:'이동한 기물을 따라갈 현신을 선택하세요',FANGS_SETUP:'야수가 있는 시작 지역을 고르세요',GREEN_STOP:'현신을 희생해 침략자 행동을 막을까요?',HEART_SETUP:'지켜낼 섬의 심장을 고르세요',HEART_PRESENCE:'심장 가까이에 시작 현신을 놓으세요',RITUAL_ENERGY:'의식에 기여할 에너지를 선택하세요',RITUAL_PRESENCE:'의식에 희생할 현신을 선택하세요',BLITZ_EXPLORE:'추가 탐험가가 들어올 지역을 고르세요',MIDNIGHT_PLAY:'꿈에서 얻은 주요 능력을 즉시 준비할까요?'};
  if(titles[e.key])return titles[e.key]!;
  switch (e.kind) {
     case 'DAMAGE': return `피해 ${e.n} 남음 · 피해를 받을 기물을 선택하세요`;
@@ -91,7 +92,7 @@ export function choiceOptions(s: SpiritState): SpiritOption[] {
     const add = (label: string, apply: () => void, landId: string | null = null, pieceId: string | null = null) => list.push({ id: `o${list.length}`, label, landId, pieceId, apply });
     const optional = () => add('이 선택 마치기', () => undefined);
     const l = e.land ? land(s, e.land) : null, owner = e.target ?? e.actor, p = player(s, owner);
-    if (branchMajorOptions(s,e,add)||branchMinorOptions(s,e,add)||branchClawOptions(s,e,add)||tokenOptions(s,e,add)) return list;
+    if (branchEventOptions(s,e,add)||branchMajorOptions(s,e,add)||branchMinorOptions(s,e,add)||branchClawOptions(s,e,add)||tokenOptions(s,e,add)) return list;
     if (e.kind === 'DAMAGE' && e.n > 0 && l) {
         const areas = e.tags.includes('ADJACENT_ONLY') ? l.adjacent.map(id=>land(s,id)) : e.tags.includes('ADJACENT') ? [l, ...l.adjacent.map(id => land(s, id))] : [l];
         for (const area of areas)
@@ -349,7 +350,7 @@ function addPresenceAt(s: SpiritState, actor: PlayerId, id: string) { const prio
 else
     l.presence.push({ playerId: actor, count: 1 }); event(s, 'GROW', `${id} 현신 배치`, actor, id);if(player(s,actor).spirit==='KEEPER'&&prior===1)prepend(s,step('MOVE',actor,id,countPieces(l,['DAHAN']),'PUSH',actor,['DAHAN','REQUIRED'])); }
 export function automatic(s: SpiritState, e: SpiritStep): boolean {
-    if(branchMajorAutomatic(s,e)||branchMinorAutomatic(s,e)||branchClawAutomatic(s,e))return true;
+    if(branchEventAutomatic(s,e)||branchMajorAutomatic(s,e)||branchMinorAutomatic(s,e)||branchClawAutomatic(s,e))return true;
     const l = e.land ? land(s, e.land) : null, owner = e.target ?? e.actor, p = player(s, owner);
     if (e.kind === 'CHECK') {
         if(s.settings.scenario==='INSURRECTION') { const moved=s.flags.filter(f=>f.startsWith('raid:')); if(moved.length) {s.flags=s.flags.filter(f=>!f.startsWith('raid:')&&!f.startsWith('power:')); prepend(s,...moved.flatMap(f=>{const id=f.slice(5);const area=s.lands.find(l=>l.pieces.some(p=>p.id===id));return area?[step('DAMAGE',e.actor,area.id,1)]:[]}),e);return true;} }
@@ -432,7 +433,7 @@ export function automatic(s: SpiritState, e: SpiritStep): boolean {
         case 'SCENARIO_SETUP': setupScenario(s); return true;
         case 'RITUAL_FINISH': {s.terror=s.terror===1?2:s.terror===2?3:4;const earned=s.fearEarned.splice(0);prepend(s,...earned.map(key=>step('SPECIAL',e.actor,null,0,'FEAR_CARD',null,[key])),...(l?[step('MOVE',e.actor,l.id,countPieces(l,['DAHAN']),'PUSH',null,['DAHAN','REQUIRED','SPREAD'])]:[]),step('CHECK',e.actor));return true;}
         case 'ESCALATE_BUILD': {if(l&&!buildIsSkipped(s,l)){const green=s.players.find(p=>p.spirit==='GREEN'&&sacred(s,l,p.playerId));if(green){prepend(s,step('SPECIAL',e.actor,l.id,0,'GREEN_STOP',green.playerId,['BUILD_LAND']));return true;}prepend(s,step('SPECIAL',e.actor,l.id,0,'BUILD_LAND'));}return true;}
-        case 'INVADER_START': if(s.blighted) prepend(s,...s.players.map(q=>step('SPECIAL',q.playerId,null,0,'BLIGHT_PENALTY',q.playerId))); return true;
+        case 'INVADER_START': prepend(s,...(s.blighted?s.players.map(q=>step('SPECIAL',q.playerId,null,0,'BLIGHT_PENALTY',q.playerId)):[]),...(s.settings.expansion==='BRANCH_CLAW'?[step('SPECIAL',e.actor,null,0,'BCE_START')]:[])); return true;
         case 'IMMIGRATION': { if(s.settings.adversary==='ENGLAND'&&s.settings.level>=3&&s.immigration) {const old=s.build;s.build=s.immigration;automatic(s,step('SPECIAL',e.actor,null,0,'BUILD'));if(s.settings.level===6&&!s.flags.includes('fear-resolved'))automatic(s,step('SPECIAL',e.actor,null,0,'BUILD'));s.build=old;}s.stage='RAVAGE';return true;}
         case 'WORDS': if(l) s.flags.push(`words:${l.id}`); return true;
         case 'DREAD': if(l) s.flags.push(`dread:${l.id}`); return true;
@@ -530,7 +531,7 @@ export function automatic(s: SpiritState, e: SpiritStep): boolean {
                 if(s.flags.includes(`ruin:${l.id}`)){const high=s.settings.adversary==='SWEDEN'&&s.settings.level>=3;const n=invaders(l).reduce((n,p)=>n+(p.kind==='EXPLORER'?1:p.kind==='TOWN'?(high?3:2):(high?5:3)),0);prepend(s,step('DAMAGE',e.actor,l.id,n,'',null,['ADJACENT_ONLY']));return true;}
                 const originalDahan=countPieces(l,['DAHAN']);
                 const sweden=s.settings.adversary==='SWEDEN', highSweden=sweden&&s.settings.level>=3;
-                const attackers=invaders(l),total=attackers.reduce((n,p)=>n+(p.strife>0?0:p.kind==='EXPLORER'?1:p.kind==='TOWN'?(highSweden?3:2):(highSweden?5:3)),0),amount=Math.max(0,total-defense(s,l)-(e.tags.includes('POWER_RAVAGE')?e.n:0));
+                const attackers=invaders(l),total=attackers.reduce((n,p)=>n+(p.strife>0?0:p.kind==='EXPLORER'?1:p.kind==='TOWN'?(highSweden?3:2):(highSweden?5:3)),0),amount=Math.max(0,total-defense(s,l)-(s.flags.includes('event-canny')?countPieces(l,['DAHAN']):0)-(e.tags.includes('POWER_RAVAGE')?e.n:0));
                 for(const attacker of attackers)if(attacker.strife>0)attacker.strife--;
                 // Damage to Dahan must destroy as many as possible before assigning any remainder.
                 if (amount > 0 && !l.protectDahan && !s.flags.includes(`immortal:${l.id}`)) {
@@ -545,7 +546,7 @@ export function automatic(s: SpiritState, e: SpiritStep): boolean {
                 }
                 const dead=originalDahan-countPieces(l,['DAHAN']), thunder=s.players.find(p=>p.spirit==='THUNDER');
                 if (attackers.length > 0) prepend(s, ...(amount >= 2 ? [step('BLIGHT', e.actor, l.id, 1),...(sweden&&s.settings.level>=1&&amount>=6?[step('BLIGHT',e.actor,l.id,1,'EXTRA')]:[]),...(sweden&&s.settings.level>=5?[step('SPECIAL',e.actor,l.id,0,'SWEDEN_MINE')]:[])] : []), ...(thunder?Array.from({length:dead},()=>step('SPECIAL',e.actor,l.id,1,'DESTROY_PRESENCE',thunder.playerId)):[]), step('DAMAGE', e.actor, l.id, (s.flags.includes(`words:${l.id}`)?originalDahan:countPieces(l, ['DAHAN'])) * 2), step('CHECK', e.actor));
-                event(s, 'DAMAGE', `${l.id} 파괴 · 피해 ${total}, 방어 ${defense(s, l)}`, e.actor, l.id);
+                event(s, 'DAMAGE', `${l.id} 파괴 · 피해 ${total}, 방어 ${defense(s, l)+(s.flags.includes('event-canny')?originalDahan:0)}`, e.actor, l.id);
             }
             return true;
         case 'BUILD':
@@ -621,10 +622,10 @@ export function automatic(s: SpiritState, e: SpiritStep): boolean {
                 area.skip = false;
                 area.protectDahan = false;
                 area.vitality = false;
-                area.dahanHealth = 0;
+                area.dahanHealth = 0;area.eventHealthLoss=false;
             }
             s.flags = s.flags.filter(f=>f==='immigration-ended');
-            s.vengeance = [];
+            s.currentEvent=null;s.vengeance = [];
             s.plans = [];
             s.round++;
             s.stage = 'PREPARE';

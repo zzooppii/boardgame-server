@@ -20,7 +20,7 @@ test('Ocean tracks show upcoming permanent elements and scenario objective',()=>
 test('Branch & Claw development selection exposes ten spirits and clearly states missing content',()=>{
  const s=playing();s.game.stage='SELECT';s.game.playerStates[0]!.spirit=null;s.game.settings.expansion='BRANCH_CLAW';
  const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));
- assert.equal((html.match(/이 정령 선택/g)??[]).length,10);assert.match(html,/si-art-FANGS/);assert.match(html,/si-art-KEEPER/);assert.match(html,/확장 이벤트와 나머지 카드 미포함/);
+ assert.equal((html.match(/이 정령 선택/g)??[]).length,10);assert.match(html,/si-art-FANGS/);assert.match(html,/si-art-KEEPER/);assert.match(html,/이벤트 2\/25장 개발 덱 · 나머지 확장 카드 미포함/);
 });
 test('Branch & Claw map shows token counts and growth distinguishes selected options and costs',()=>{
  const s=playing(),p=s.game.playerStates[0]!;s.game.settings.expansion='BRANCH_CLAW';p.spirit='FANGS';p.grown=false;p.growthSelections=[3];p.canCallPredators=true;
@@ -43,4 +43,13 @@ test('Branch majors show source terrain and distinct two-land range',()=>{
 });
 test('Power acquisition choices display illustrated cards and instructions without a map target',()=>{
  const s=playing(),c=SPIRIT_POWERS.find(c=>c.key==='bloodwrack-plague')!;s.game.pending={choiceId:'pick-major',playerId:s.game.privateState.playerId,title:'획득할 능력 카드 선택',options:[{id:'o0',label:c.title,landId:null,pieceId:null}]};const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));assert.match(html,/아래 카드나 효과를 고른 뒤/);assert.match(html,/피를 끓이는 역병/);assert.match(html,/si-options[^]*si-card-art si-power-art/);
+});
+
+test('Event panel exposes illustrated ordered effects, preview limits and team contribution progress',()=>{
+ const s=playing();s.game.currentEvent='NEW_SPECIES';s.game.round=2;s.game.eventPayment={cost:4,element:'MOON',energy:1,support:2,remaining:1,contributions:[{playerId:s.self.playerId,energy:1,support:2}]};
+ const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));for(const label of ['새로운 종의 확산','si-event-art','2 / 25장','토큰 이벤트','다한 이벤트','확정 전에는 소모되지 않습니다','이벤트 비용 충족도','1 더 필요'])assert.ok(html.includes(label),label);
+});
+test('Event reveal has a distinct cue, without replaying on the same revision',()=>{
+ const s=playing();const next=parse(SpiritPlayingPlatformSnapshotV2Schema,{...s,game:{...s.game,gameRevision:1,currentEvent:'LITTLE_RAIN',log:[{id:1,kind:'EVENT',text:'공개',playerId:null,landId:null}]}}).game;
+ assert.deepEqual(spiritTransitionCues(s.game,next),['EVENT']);assert.deepEqual(spiritTransitionCues(next,next),[]);
 });

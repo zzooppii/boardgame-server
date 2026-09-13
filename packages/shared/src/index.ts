@@ -101,3 +101,4 @@ export * from "./games/spirit-island/contracts.js";
 export * from './games/spirit-island/settings.js';
 
 export * from './games/spirit-island/fear.js';
+export * from './games/spirit-island/events.js';

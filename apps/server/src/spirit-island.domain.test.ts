@@ -6,7 +6,7 @@ import { createSpiritGame, applySpiritAction, parseSpiritState, powerOptions, ty
 import { projectSpirit } from './games/spirit-island/compatibility/projector.js';
 import { choiceOptions, settle, SPIRIT_FEAR_KEYS } from './games/spirit-island/domain/resolver.js';
 import { powerSteps } from './games/spirit-island/domain/powers.js';
-import { step, makePiece, land, defense, presence, innateLevel, cardPower } from './games/spirit-island/domain/primitives.js';
+import { step, makePiece, land, defense, presence, innateLevel, cardPower, health } from './games/spirit-island/domain/primitives.js';
 const now = v.parse(ServerTimeSchema, 1000);
 let seq = 0;
 function setup(n = 1) { return createSpiritGame({ gameId: v.parse(GameIdSchema, 'spirit-test'), playerIds: Array.from({ length: n }, (_, i) => v.parse(PlayerIdSchema, `p${i}`)), now, transitionId: v.parse(TurnIdSchema, `turn-${++seq}`), id: () => `card-${++seq}`, shuffle: <T>(a: T[]) => a }); }
@@ -398,4 +398,64 @@ test('Ruin lets players resolve its Ravage before another matching land',()=>{
 test('An unrestricted repeat retains both numeric range and source terrain',()=>{
  let s=chosen(),p=s.players[0]!;grantPower(s,'pyroclastic-flow');const id=hold(s,'pyroclastic-flow');p.resolved.push(id);p.repeatGrants.push({id:'major-repeat',remaining:1,maxCost:9,paid:false,used:[]});s.stage='FAST';land(s,'A5').presence=[];land(s,'A1').presence=[{playerId:p.playerId,count:1}];const option=powerOptions(s,p.playerId).find(o=>o.cardId===id)!;assert.equal(option.targets.includes('A8'),false);assert.ok(option.targets.includes('A1'));
  land(s,'A1').presence=[];land(s,'A4').presence=[{playerId:p.playerId,count:1}];assert.equal(powerOptions(s,p.playerId).find(o=>o.cardId===id)?.targets.length,0);
+});
+
+function eventGame(n=1,key:'NEW_SPECIES'|'LITTLE_RAIN'='NEW_SPECIES',round=2) {
+ let s=setup(n);s=apply(s,{kind:'CONFIGURE',settings:{...s.settings,expansion:'BRANCH_CLAW',progression:false,blightCard:true}});
+ for(const [i,p] of s.players.entries())s=drain(apply(s,{kind:'SELECT_SPIRIT',spirit:SPIRITS[i]!.id},p.playerId));
+ s.round=round;s.stage='FAST';s.eventDeck=[key,...s.eventDeck.filter(k=>k!==key)];
+ for(const p of s.players)s=apply(s,{kind:'READY',ready:true},p.playerId);
+ return s;
+}
+function eventChoose(s:SpiritState,text:string) {const option=choiceOptions(s).find(o=>o.label.includes(text));assert.ok(option,`${text}: ${choiceOptions(s).map(o=>o.label).join(',')}`);const e=s.queue[0]!;return apply(s,{kind:'CHOOSE',choiceId:`${s.transitionId}:${s.revision}`,optionId:option.id},e.target??e.actor);}
+test('Events: core has no deck; expansion reveals after blight penalties and skips first round effects',()=>{
+ let core=chosen();core.stage='FAST';core=apply(core,{kind:'READY',ready:true});assert.equal(core.currentEvent,null);assert.equal(core.queue.length,0);
+ let s=eventGame(1,'NEW_SPECIES',1);const before=JSON.stringify(s.lands);assert.equal(s.currentEvent,'NEW_SPECIES');assert.equal(s.queue[0]?.key,'BCE_REVEAL');s=drain(s);assert.equal(JSON.stringify(s.lands),before);assert.equal(s.stage,'FEAR');
+ s=branchClaw('KEEPER');s.blighted=true;s.stage='FAST';s=apply(s,{kind:'READY',ready:true});assert.equal(s.queue[0]?.key,'BLIGHT_PENALTY');assert.equal(s.currentEvent,null);s=drain(s);assert.equal(s.currentEvent,'NEW_SPECIES');
+});
+test('Events: pending reveal blocks advancing and concealed deck order never projects',()=>{
+ const s=eventGame(2),before=JSON.stringify(s);assert.equal(applySpiritAction(s,s.players[0]!.playerId,{kind:'ADVANCE'},now,s.transitionId).ok,false);assert.equal(JSON.stringify(s),before);
+ const other=view(s,0);assert.equal(other.currentEvent,'NEW_SPECIES');assert.ok(!JSON.stringify(other).includes('LITTLE_RAIN'));assert.ok(!Object.hasOwn(other,'eventDeck'));assert.ok(spiritProjectionIsConsistent(other));
+});
+test('Events: unsupported, duplicate and missing event cards fail canonical validation',()=>{
+ const s=eventGame();assert.throws(()=>parseSpiritState({...s,eventDeck:['NEW_SPECIES']}));assert.throws(()=>parseSpiritState({...s,eventDeck:[]}));assert.throws(()=>parseSpiritState({...s,eventDeck:['UNKNOWN']}));
+});
+test('Events: support pledges can be cancelled with no resources consumed',()=>{
+ let s=eventChoose(eventGame(),'이벤트 선택 시작');s.players[0]!.energy=5;s=eventChoose(s,'비용 4');const energy=s.players[0]!.energy,hand=[...s.players[0]!.hand];s=eventChoose(s,'에너지 1 지원 추가');assert.equal(s.players[0]!.energy,energy);assert.equal(view(s).eventPayment?.energy,1);s=eventChoose(s,'지원 취소');assert.equal(s.eventPayment,null);assert.equal(s.players[0]!.energy,energy);assert.deepEqual(s.players[0]!.hand,hand);
+});
+test('Events: energy can be split among teammates, authenticated and committed only when funded',()=>{
+ let s=eventChoose(eventGame(2),'이벤트 선택 시작');for(const p of s.players)p.energy=5;s=eventChoose(s,'비용 8');const first=s.queue[0]!.target!;
+ const before=JSON.stringify(s),option=choiceOptions(s)[0]!;assert.equal(applySpiritAction(s,s.players.find(p=>p.playerId!==first)!.playerId,{kind:'CHOOSE',choiceId:`${s.transitionId}:${s.revision}`,optionId:option.id},now,s.transitionId).ok,false);assert.equal(JSON.stringify(s),before);
+ assert.ok(!choiceOptions(s).some(o=>o.label.includes('비용 확정')));
+ for(let i=0;i<3;i++)s=eventChoose(s,'에너지 1 지원 추가');s=eventChoose(s,'다음 정령');for(let i=0;i<5;i++)s=eventChoose(s,'에너지 1 지원 추가');assert.equal(view(s).eventPayment?.remaining,0);s=eventChoose(s,'비용 확정');assert.equal(s.eventPayment,null);assert.equal(s.players.reduce((n,p)=>n+p.energy,0),2);assert.ok(s.queue[0]?.key==='BCE_BEAST_LAND');s=drain(s);parseSpiritState(s);
+});
+test('Events: forgetting a played card replaces its element support rather than double counting',()=>{
+ let s=eventChoose(eventGame(),'이벤트 선택 시작');const id=grantPower(s,'call-of-the-dahan-ways');s.players[0]!.hand=s.players[0]!.hand.filter(c=>c!==id);s.players[0]!.played.push(id);
+ s=eventChoose(s,'비용 4');const initial=view(s).eventPayment!.support;s=eventChoose(s,'망각으로 지원 4 (사용 원소 제외)');assert.equal(view(s).eventPayment!.support,initial+4-cardPower(s,id).elements.filter(e=>e==='MOON').length);assert.ok(s.players[0]!.played.includes(id));assert.ok(!choiceOptions(s).some(o=>o.label.includes(cardPower(s,id).title)&&o.label.includes('손패 버림')));s=eventChoose(s,'비용 확정');assert.ok(!s.players[0]!.played.includes(id));assert.ok(s.minorDiscard.includes(id));
+});
+test('Events: one card cannot be pledged twice or discarded then forgotten',()=>{
+ let s=eventChoose(eventGame(),'이벤트 선택 시작');const id=grantPower(s,'call-of-the-dahan-ways');s=eventChoose(s,'비용 4');s=eventChoose(s,`${cardPower(s,id).title} · 손패 버림`);const opts=choiceOptions(s).filter(o=>o.label.includes(cardPower(s,id).title));assert.equal(opts.length,1);assert.match(opts[0]!.label,/취소/);
+ const broken=structuredClone(s);broken.eventPayment!.pledges[0]!.cards.push({cardId:id,mode:'FORGET'});assert.throws(()=>parseSpiritState(broken));
+});
+test('Events: new species free branch discards power, returns event, and resolves disease then Dahan',()=>{
+ let s=eventChoose(eventGame(),'이벤트 선택 시작');const l=land(s,'A2');makePiece(s,l,'DAHAN');const old=l.tokens.disease,dahanBefore=l.pieces.filter(p=>p.kind==='DAHAN').length;const before=s.minor[0]!;s=eventChoose(s,'외래종');s=drain(s);assert.ok(s.minorDiscard.includes(before));assert.ok(s.eventDeck.includes('NEW_SPECIES'));assert.ok(!s.eventDiscard.includes('NEW_SPECIES'));assert.equal(land(s,'A2').tokens.disease,old+1);assert.equal(land(s,'A2').pieces.filter(p=>p.kind==='DAHAN').length,dahanBefore-1);parseSpiritState(s);
+});
+test('Events: beasts attack sequentially and only the beast finishing a building is removed',()=>{
+ let s=eventGame(1,'LITTLE_RAIN');s.queue=[];const l=land(s,'A2');l.pieces=[];makePiece(s,l,'CITY');l.tokens.beasts=2;s.queue=[step('SPECIAL',s.players[0]!.playerId,l.id,2,'BCE_BEAST_ATTACK')];settle(s);s=drain(s);assert.equal(land(s,'A2').pieces.length,0);assert.equal(land(s,'A2').tokens.beasts,1);
+});
+test('Events: drought health respects England and heals/reset at time passing',()=>{
+ let s=eventGame(1,'LITTLE_RAIN');const l=land(s,'A2');l.invaderHealth=1;s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'BCE_HEALTH')];settle(s);assert.equal(l.eventHealthLoss,true);assert.equal(health(l,l.pieces.find(p=>p.kind==='CITY')!),3);assert.equal(health(l,l.pieces.find(p=>p.kind==='DAHAN')!),1);assert.equal(land(s,'A2').invaderHealth,1);s.queue=[];s.stage='TIME';s=drain(apply(s,{kind:'ADVANCE'}));assert.ok(s.lands.every(l=>!l.eventHealthLoss));assert.equal(s.currentEvent,null);
+});
+test('Events: canny defense is per Dahan during ravage and does not alter power defense',()=>{
+ let s=eventGame(1,'LITTLE_RAIN');s.queue=[];s.flags.push('event-canny');const l=land(s,'A2');l.pieces=[];makePiece(s,l,'TOWN');makePiece(s,l,'DAHAN');makePiece(s,l,'DAHAN');assert.equal(defense(s,l),0);s.queue=[step('SPECIAL',s.players[0]!.playerId,l.id,0,'RAVAGE')];settle(s);s=drain(s);assert.equal(land(s,'A2').blight,0);assert.equal(land(s,'A2').pieces.filter(p=>p.kind==='DAHAN').length,2);
+});
+test('Events: both event branches resolve for one through four spirits',()=>{
+ for(const n of [1,2,3,4])for(const key of ['NEW_SPECIES','LITTLE_RAIN'] as const)for(const paid of [false,true]){let s=eventChoose(eventGame(n,key),'이벤트 선택 시작');if(paid){for(const p of s.players)p.elements=[...p.elements,...Array.from({length:4},()=>key==='NEW_SPECIES'?'MOON' as const:'WATER' as const)];s=eventChoose(s,`비용 ${4*n}`);s=eventChoose(s,'비용 확정');}else s=eventChoose(s,key==='NEW_SPECIES'?'외래종':'가뭄을 감수');s=drain(s);assert.equal(s.queue.length,0);parseSpiritState(s);}
+});
+test('Events: exhausted preview deck reshuffles through injected random source at next round',()=>{
+ let s=eventGame();s.queue=[];s.currentEvent=null;s.eventDiscard=['NEW_SPECIES','LITTLE_RAIN'];s.eventDeck=[];s.stage='FAST';s.round=3;let calls=0;
+ const result=applySpiritAction(s,s.players[0]!.playerId,{kind:'READY',ready:true},now,v.parse(TurnIdSchema,'event-shuffle'),a=>{calls++;return [...a].reverse();});assert.ok(result.ok);assert.equal(calls,1);assert.equal(result.state.currentEvent,'LITTLE_RAIN');assert.equal(result.state.eventDeck[0],'NEW_SPECIES');parseSpiritState(result.state);
+});
+test('Events: Ocean is excluded from disease placement even with Dahan and invaders',()=>{
+ let s=setup();s=apply(s,{kind:'CONFIGURE',settings:{...s.settings,expansion:'BRANCH_CLAW',progression:false,blightCard:true}});s=drain(apply(s,{kind:'SELECT_SPIRIT',spirit:'OCEAN'}));s.currentEvent='NEW_SPECIES';const ocean=land(s,'A0');makePiece(s,ocean,'DAHAN');makePiece(s,ocean,'CITY');s.queue=[step('SPECIAL',s.players[0]!.playerId,null,1,'BCE_DISEASE')];settle(s);assert.ok(!choiceOptions(s).some(o=>o.landId==='A0'));s=drain(s);assert.equal(land(s,'A0').tokens.disease,0);
 });

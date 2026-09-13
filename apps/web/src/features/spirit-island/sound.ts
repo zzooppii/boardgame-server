@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { SpiritProjection, SpiritId } from '@hangul-rummikub/shared';
-export type SpiritCue = 'PICK' | 'SELECT' | 'GROW' | 'CARD' | 'POWER' | 'MOVE' | 'DAMAGE' | 'FEAR' | 'BLIGHT' | 'BUILD' | 'EXPLORE' | 'PHASE' | 'WIN' | 'LOSE' | 'PLAN' | 'ERROR' | 'SINK';
+export type SpiritCue = 'EVENT' | 'PICK' | 'SELECT' | 'GROW' | 'CARD' | 'POWER' | 'MOVE' | 'DAMAGE' | 'FEAR' | 'BLIGHT' | 'BUILD' | 'EXPLORE' | 'PHASE' | 'WIN' | 'LOSE' | 'PLAN' | 'ERROR' | 'SINK';
 export function spiritTransitionCues(previous: SpiritProjection | null, next: SpiritProjection | null): SpiritCue[] {
     if (!previous || !next || previous.gameId !== next.gameId || next.gameRevision <= previous.gameRevision)
         return [];
@@ -60,6 +60,7 @@ export class SpiritAudio {
                 (spirit==='FANGS'?[164.81,246.94,329.63]:spirit==='KEEPER'?[130.81,196,261.63]:spirit==='RIVER'||spirit==='OCEAN'?[392,523.25,783.99]:spirit==='EARTH'||spirit==='GREEN'?[196,293.66,392]:spirit==='SHADOW'||spirit==='BRINGER'?[220,311.13,440]:[1046.5,1568,2093]).forEach((hz, i) => this.tone(hz, at + i * .07, .4, .15));
                 at += .5;
             }
+            else if (cue === 'EVENT') { this.paper(at); this.tone(392,at+.15,.4,.15); this.tone(523.25,at+.28,.55,.12); at+=.85; }
             else if (cue === 'GROW') {
                 [392, 493.88, 587.33].forEach((hz, i) => this.tone(hz, at + i * .09, .23));
                 at += .45;
