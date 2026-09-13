@@ -1,3 +1,4 @@
+import { sacredAutomatic } from './branch-claw-sacred-events.js';
 import { madnessOptions, madnessAutomatic } from './branch-claw-madness-events.js';
 import { outpacedOptions, outpacedAutomatic } from './branch-claw-outpaced-events.js';
 import { investigationOptions, investigationAutomatic, unnaturalBonus } from './branch-claw-investigation-events.js';
@@ -364,7 +365,7 @@ function addPresenceAt(s: SpiritState, actor: PlayerId, id: string) { const prio
 else
     l.presence.push({ playerId: actor, count: 1 }); event(s, 'GROW', `${id} 현신 배치`, actor, id);if(player(s,actor).spirit==='KEEPER'&&prior===1)prepend(s,step('MOVE',actor,id,countPieces(l,['DAHAN']),'PUSH',actor,['DAHAN','REQUIRED'])); }
 export function automatic(s: SpiritState, e: SpiritStep): boolean {
-    if(madnessAutomatic(s,e)||outpacedAutomatic(s,e)||investigationAutomatic(s,e)||farmlandEventAutomatic(s,e)||farmerEventAutomatic(s,e)||contactEventAutomatic(s,e)||terrorEventAutomatic(s,e)||industryEventAutomatic(s,e)||settlementEventAutomatic(s,e)||islandEventAutomatic(s,e)||stageEventAutomatic(s,e)||branchEventAutomatic(s,e)||branchMajorAutomatic(s,e)||branchMinorAutomatic(s,e)||branchClawAutomatic(s,e))return true;
+    if(sacredAutomatic(s,e)||madnessAutomatic(s,e)||outpacedAutomatic(s,e)||investigationAutomatic(s,e)||farmlandEventAutomatic(s,e)||farmerEventAutomatic(s,e)||contactEventAutomatic(s,e)||terrorEventAutomatic(s,e)||industryEventAutomatic(s,e)||settlementEventAutomatic(s,e)||islandEventAutomatic(s,e)||stageEventAutomatic(s,e)||branchEventAutomatic(s,e)||branchMajorAutomatic(s,e)||branchMinorAutomatic(s,e)||branchClawAutomatic(s,e))return true;
     const l = e.land ? land(s, e.land) : null, owner = e.target ?? e.actor, p = player(s, owner);
     if (e.kind === 'CHECK') {
         if(s.settings.scenario==='INSURRECTION') { const moved=s.flags.filter(f=>f.startsWith('raid:')); if(moved.length) {s.flags=s.flags.filter(f=>!f.startsWith('raid:')&&!f.startsWith('power:')); prepend(s,...moved.flatMap(f=>{const id=f.slice(5);const area=s.lands.find(l=>l.pieces.some(p=>p.id===id));return area?[step('DAMAGE',e.actor,area.id,1)]:[]}),e);return true;} }

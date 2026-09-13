@@ -1,3 +1,4 @@
+import { sacredMain, sacredPaymentOptions, threatenedSites } from './branch-claw-sacred-events.js';
 import { madnessCost, madnessMain, madnessPaymentOptions } from './branch-claw-madness-events.js';
 import { contactEventMain } from './branch-claw-contact-events.js';
 import { currentInvaderStage } from './branch-claw-stage-events.js';
@@ -15,7 +16,7 @@ export function eventPaymentView(s:SpiritState) {
  return {cost:payment.cost,element:payment.element,contributions,support,energy,remaining:Math.max(0,payment.cost-support-energy)};
 }
 function finishMain(s:SpiritState,e:SpiritStep,paid:boolean) {
- if(madnessMain(s,e,paid)||contactEventMain(s,e,paid))return;
+ if(sacredMain(s,e,paid)||madnessMain(s,e,paid)||contactEventMain(s,e,paid))return;
  requireRule(s.currentEvent);const key=s.currentEvent;
  const effects:SpiritStep[]=[];
  if(paid) {
@@ -35,9 +36,9 @@ export function branchEventOptions(s:SpiritState,e:SpiritStep,add:Add):boolean {
   add(s.round===1?'첫 라운드 · 효과 없이 버리기':'이벤트 선택 시작',()=>{if(s.round!==1){requireRule(key);prepend(s,step('SPECIAL',e.actor,null,0,SPIRIT_EVENTS[key].type==='PERSONAL'?'BCE11_MAIN':SPIRIT_EVENTS[key].type==='DECISION'?'BCE8_CHOICE':SPIRIT_EVENTS[key].type==='CHOICE'?'BCE_CHOICE':SPIRIT_EVENTS[key].type==='ISLAND'?'BCE3_MAIN':SPIRIT_EVENTS[key].type==='TERROR'?'BCE6_MAIN':'BCE2_MAIN'));}});
  } else if(e.key==='BCE_CHOICE') {
   requireRule(key);const def=SPIRIT_EVENTS[key];requireRule(def.type==='CHOICE');
-  const cost=key==='MADNESS'?madnessCost(s):4*s.players.length;
+  const cost=key==='SACRED_SITES'?3*threatenedSites(s).length:key==='MADNESS'?madnessCost(s):4*s.players.length;
   add(def.free,()=>finishMain(s,e,false));
-  add(`${def.paid} · 비용 ${cost} · ${SPIRIT_ELEMENT_LABELS[def.element]} 지원`,()=>{s.eventPayment={cost,element:def.element,pledges:s.players.map(p=>({playerId:p.playerId,energy:0,cards:[]}))};prepend(s,step('SPECIAL',owner,null,0,'BCE_PAY',owner));});
+  add(`${def.paid} · 비용 ${cost} · ${SPIRIT_ELEMENT_LABELS[def.element]} 지원`,()=>{s.eventPayment={cost,element:def.element,pledges:s.players.map(p=>({playerId:p.playerId,energy:0,cards:[]}))};prepend(s,step('SPECIAL',owner,null,0,'BCE_PAY',owner,[],key==='SACRED_SITES'?threatenedSites(s).map(l=>l.id):[]));});
  } else if(e.key==='BCE_PAY') {
   const payment=s.eventPayment, view=eventPaymentView(s);requireRule(payment&&view);
   const pledge=payment.pledges.find(q=>q.playerId===owner);requireRule(pledge);
@@ -62,7 +63,7 @@ export function branchEventOptions(s:SpiritState,e:SpiritStep,add:Add):boolean {
    else {if(p.hand.includes(id))add(`${title} · 손패 버림으로 지원 2`,()=>{pledge.cards.push({cardId:id,mode:'DISCARD'});again();});add(`${title} · 망각으로 지원 4${p.played.includes(id)?' (사용 원소 제외)':''}`,()=>{pledge.cards.push({cardId:id,mode:'FORGET'});again();});}
   }
   if(s.players.length>1)add('다음 정령에게 지원 선택 넘기기',()=>{const next=s.players[(s.players.findIndex(p=>p.playerId===owner)+1)%s.players.length]!;prepend(s,{...e,target:next.playerId});});
-  madnessPaymentOptions(s,e,add);
+  madnessPaymentOptions(s,e,add);sacredPaymentOptions(s,e,add);
  } else if(e.key==='BCE_BLIGHT_LAND'||e.key==='BCE_BEAST_LAND') {
   for(const l of s.lands.filter(l=>l.number>0&&l.board===e.tags[0]&&(key==='LITTLE_RAIN'?l.terrain==='SANDS':buildings(l)>0)))add(`${l.id} · ${e.key==='BCE_BLIGHT_LAND'?'오염':'야수'} 추가`,()=>{if(e.key==='BCE_BLIGHT_LAND')prepend(s,step('BLIGHT',owner,l.id,1));else addToken(s,l,'beasts',1,owner);},l.id);
  } else if(e.key==='BCE_PRESENCE') {

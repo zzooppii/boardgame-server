@@ -466,7 +466,7 @@ for(const key of stageEvents)for(const stage of [1,2,3] as const)for(const n of 
  let s=eventGame(n,key);s.eventInvaderStage=stage;s=eventChoose(s,'이벤트 선택 시작');s=drain(s);assert.equal(s.queue.length,0);assert.equal(s.stage,'FEAR');parseSpiritState(s);
 });
 test('Stage events: all configured event keys are configured once; core contains none',()=>{
- const s=branchClaw();assert.deepEqual([...s.eventDeck].sort(),[...SPIRIT_EVENT_KEYS].sort());assert.equal(s.eventDeck.length,23);assert.equal(chosen().eventDeck.length,0);
+ const s=branchClaw();assert.deepEqual([...s.eventDeck].sort(),[...SPIRIT_EVENT_KEYS].sort());assert.equal(s.eventDeck.length,24);assert.equal(chosen().eventDeck.length,0);
 });
 test('Stage events: Prussia early III counts as II, real late III and empty deck count as III',()=>{
  const s=branchClaw();s.settings.adversary='PRUSSIA';s.settings.level=2;s.invaderDeck=[{stage:3,terrains:['JUNGLE','SANDS'],coastal:false},{stage:2,terrains:['MOUNTAIN'],coastal:false}];assert.equal(currentInvaderStage(s),2);s.invaderDeck.shift();assert.equal(currentInvaderStage(s),2);s.invaderDeck=[{stage:3,terrains:['JUNGLE','SANDS'],coastal:false}];assert.equal(currentInvaderStage(s),3);s.invaderDeck=[];assert.equal(currentInvaderStage(s),3);
@@ -847,3 +847,33 @@ test('Madness animal card support and excess energy adapt to the revised removal
 test('Madness beast push preserves Fangs follow-presence interaction',()=>{
  let s=branchClaw('FANGS');const actor=s.players[0]!.playerId,from=s.lands.find(l=>presence(l,actor)>0&&l.tokens.beasts>0)!;s.queue=[step('SPECIAL',actor,null,0,'BCE12_PUSH',actor)];settle(s);const o=choiceOptions(s).find(o=>o.label.startsWith(from.id))!;assert.ok(o.landId);s=eventChoose(s,o.label);assert.equal(s.queue[0]?.key,'FOLLOW_DAHAN');s=drain(s);parseSpiritState(s);
 });
+
+function sacredGame(n=1){let s=eventChoose(eventGame(n,'SACRED_SITES'),'이벤트 선택 시작');for(const p of s.players)p.energy=30;return s;}
+function sacredPresence(s:SpiritState,id:string,index:number,count=2){const l=land(s,id),p=s.players[index]!,old=presence(l,p.playerId);l.presence=l.presence.filter(x=>x.playerId!==p.playerId);l.presence.push({playerId:p.playerId,count});p.energyTrack+=count-old;}
+for(const paid of [false,true])for(const n of [1,2,3,4])test(`Sacred sites ${paid?'guard':'repulse'} with ${n} spirits`,()=>{
+ let s=sacredGame(n);s=eventChoose(s,paid?'직접 지킨다':'섬의 힘');if(paid){while(view(s).eventPayment!.remaining)s=eventChoose(s,'에너지 1 지원 추가');s=eventChoose(s,'비용 확정');}s=drain(s);assert.equal(s.queue.length,0);assert.equal(s.eventPayment,null);parseSpiritState(s);
+});
+test('Sacred guard charges once per land and plans sacrifice without consuming presence or energy',()=>{
+ let s=sacredGame(2);sacredPresence(s,'A1',0);sacredPresence(s,'A1',1);sacredPresence(s,'A2',0);makePiece(s,land(s,'A1'),'TOWN');makePiece(s,land(s,'A2'),'TOWN');s=eventChoose(s,'직접 지킨다');const cost=view(s).eventPayment!.cost;assert.equal(s.queue[0]!.used.filter(id=>id==='A1').length,1);s=eventChoose(s,'A1 · 피해 2 계획');assert.equal(view(s).eventPayment!.cost,cost-3);assert.equal(presence(land(s,'A1'),s.players[0]!.playerId),2);s=eventChoose(s,'지원 취소 · 이벤트');assert.equal(presence(land(s,'A1'),s.players[1]!.playerId),2);assert.equal(s.players[0]!.energy,30);
+ s=eventChoose(s,'직접 지킨다');s=eventChoose(s,'A1 · 피해 2 계획');while(view(s).eventPayment!.remaining)s=eventChoose(s,'에너지 1 지원 추가');s=eventChoose(s,'비용 확정');s=drain(s);assert.equal(presence(land(s,'A1'),s.players[0]!.playerId),1);assert.equal(presence(land(s,'A1'),s.players[1]!.playerId),1);assert.equal(presence(land(s,'A2'),s.players[0]!.playerId),2);parseSpiritState(s);
+});
+test('Sacred sacrifice includes a spirit with only one presence and zero damage plan costs zero',()=>{
+ let s=sacredGame(2);for(const l of s.lands)l.pieces=[];makePiece(s,land(s,'A8'),'CITY');makePiece(s,land(s,'A1'),'EXPLORER');sacredPresence(s,'A1',0);sacredPresence(s,'A1',1,1);s=eventChoose(s,'직접 지킨다');assert.equal(view(s).eventPayment!.cost,3);s=eventChoose(s,'A1 · 피해 2 계획');assert.equal(view(s).eventPayment!.cost,0);s=eventChoose(s,'비용 확정');s=drain(s);assert.equal(presence(land(s,'A1'),s.players[0]!.playerId),1);assert.equal(presence(land(s,'A1'),s.players[1]!.playerId),0);assert.equal(s.players[0]!.energy,30);assert.equal(s.players[1]!.energy,30);
+});
+test('Sacred plan rejects duplicate or ineligible lands, wrong costs, actor and revision',()=>{
+ let s=sacredGame(2);sacredPresence(s,'A1',0);makePiece(s,land(s,'A1'),'TOWN');s=eventChoose(s,'직접 지킨다');const actor=s.queue[0]!.target!,other=s.players.find(p=>p.playerId!==actor)!.playerId,o=choiceOptions(s).find(o=>o.label.startsWith('A1 ·'))!,before=JSON.stringify(s);assert.equal(applySpiritAction(s,other,{kind:'CHOOSE',choiceId:`${s.transitionId}:${s.revision}`,optionId:o.id},now,s.transitionId).ok,false);assert.equal(applySpiritAction(s,actor,{kind:'CHOOSE',choiceId:'stale',optionId:o.id},now,s.transitionId).ok,false);assert.equal(JSON.stringify(s),before);
+ for(const ids of [['A1','A1'],['A0']]){const bad=structuredClone(s);bad.queue[0]!.used=ids;bad.eventPayment!.cost=3*ids.length;assert.throws(()=>parseSpiritState(bad));}const bad=structuredClone(s);bad.eventPayment!.cost++;assert.throws(()=>parseSpiritState(bad));s=eventChoose(s,'다음 정령');assert.equal(s.queue[0]!.target,other);parseSpiritState(s);
+});
+test('Sacred repulse pushes once per spirit sacred site, preserves cities and removes supply after movement',()=>{
+ let s=sacredGame(2);for(const l of s.lands)l.pieces=[];sacredPresence(s,'A1',0);sacredPresence(s,'A1',1);const l=land(s,'A1');makePiece(s,l,'CITY');makePiece(s,l,'TOWN');makePiece(s,l,'EXPLORER');const pool=s.blightPool,total=s.blightTotal;s=eventChoose(s,'섬의 힘');assert.equal(s.queue[0]!.kind,'MOVE');assert.equal(s.blightPool,pool);assert.ok(choiceOptions(s).every(o=>!o.label.includes('도시')));const away=choiceOptions(s).find(o=>o.landId&&o.landId!=='A1')!;s=eventChoose(s,away.label);assert.equal(s.blightPool,pool);s=drain(s);assert.equal(land(s,'A1').pieces.filter(p=>p.kind==='CITY').length,1);assert.equal(land(s,'A1').pieces.length,1);assert.equal(s.blightPool,pool-2);assert.equal(s.blightTotal,total-2);
+});
+test('Sacred supply removal flips a healthy card and continues remaining removal on the new side',()=>{
+ let s=sacredGame(2);s.blightCard='SPIRAL';s.blighted=false;s.blightPool=1;s.blightTotal=1+s.lands.reduce((n,l)=>n+l.blight,0);s.queue=[step('SPECIAL',s.players[0]!.playerId,null,2,'BCE13_POOL'),step('CHECK',s.players[0]!.playerId)];settle(s);assert.equal(s.blighted,true);assert.equal(s.blightPool,9);assert.equal(s.phase,'PLAYING');parseSpiritState(s);
+});
+for(const card of [null,'SPIRAL'] as const)test(`Sacred exhausted ${card??'no card'} supply ends in defeat`,()=>{
+ let s=sacredGame();s.blightCard=card;s.blighted=card!==null;s.blightPool=1;s.blightTotal=1+s.lands.reduce((n,l)=>n+l.blight,0);s=drain(eventChoose(s,'섬의 힘'));assert.equal(s.phase,'FINISHED');assert.equal(s.blightPool,0);parseSpiritState(s);
+});
+test('Spirit speakers gain a minor only with four Dahan across own presence lands',()=>{
+ let s=sacredGame(2);for(const l of s.lands)l.pieces=l.pieces.filter(p=>p.kind!=='DAHAN');const p=s.players[0]!,q=s.players[1]!,home=s.lands.find(l=>presence(l,p.playerId)>0)!,other=s.lands.find(l=>presence(l,q.playerId)>0&&presence(l,p.playerId)===0)!;for(let i=0;i<4;i++)makePiece(s,home,'DAHAN');for(let i=0;i<3;i++)makePiece(s,other,'DAHAN');const hands=s.players.map(p=>p.hand.length);s.queue=[step('SPECIAL',p.playerId,null,0,'BCE13_DAHAN')];settle(s);assert.equal(s.offered.length,4);s=drain(s);assert.equal(s.players[0]!.hand.length,hands[0]!+1);assert.equal(s.players[1]!.hand.length,hands[1]);parseSpiritState(s);
+});
+test('Sacred first round preserves blight supply and skips payment',()=>{const before=eventGame(1,'SACRED_SITES',1),pool=before.blightPool,s=drain(before);assert.equal(s.blightPool,pool);assert.equal(s.eventPayment,null);});
