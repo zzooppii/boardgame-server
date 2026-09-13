@@ -88,9 +88,9 @@ export function fear(s: SpiritState, n: number, actor: PlayerId, at: string | nu
         break;
     }
 } }
-export const health = (l: SpiritLand, p: SpiritPiece) => Math.max(1,(p.kind === 'CITY' ? 3+l.invaderHealth : p.kind === 'TOWN' ? 2+l.invaderHealth : p.kind === 'DAHAN' ? 2 + l.dahanHealth : 1)+(l.eventHealthBonus==='BUILDINGS'&&(p.kind==='TOWN'||p.kind==='CITY')||l.eventHealthBonus==='EXPLORERS'&&p.kind==='EXPLORER'?1:0)-(l.eventHealthLoss&&p.kind!=='EXPLORER'?1:0)-(l.eventBuildingHealthLoss&&(p.kind==='TOWN'||p.kind==='CITY')?1:0));
-export function removePiece(s: SpiritState, l: SpiritLand, piece: SpiritPiece, destroy: boolean, actor: PlayerId): void {
-    if (destroy && dreaming(s, actor)) { dreamDestroy(s, l, piece, actor); return; }
+export const health = (l: SpiritLand, p: SpiritPiece) => Math.max(1,(p.kind === 'CITY' ? 3+l.invaderHealth : p.kind === 'TOWN' ? 2+l.invaderHealth : p.kind === 'DAHAN' ? 2 + l.dahanHealth : 1)+(l.eventHealthBonus==='BUILDINGS'&&(p.kind==='TOWN'||p.kind==='CITY')||l.eventHealthBonus==='EXPLORERS'&&p.kind==='EXPLORER'?1:0)-(l.eventHealthLoss&&p.kind!=='EXPLORER'?1:0)-(l.eventBuildingHealthLoss&&(p.kind==='TOWN'||p.kind==='CITY')?1:0)-(p.kind!=='DAHAN'?l.strifeHealthLoss*p.strife:0));
+export function removePiece(s: SpiritState, l: SpiritLand, piece: SpiritPiece, destroy: boolean, actor: PlayerId, cause: 'EFFECT'|'HEALTH' = 'EFFECT'): void {
+    if (destroy && cause==='EFFECT' && dreaming(s, actor)) { dreamDestroy(s, l, piece, actor); return; }
     if (destroy && piece.kind === 'DAHAN' && l.vitality && s.flags.includes(`immortal:${l.id}`))
         return;
     l.pieces = l.pieces.filter(p => p.id !== piece.id);
@@ -109,6 +109,9 @@ export function removePiece(s: SpiritState, l: SpiritLand, piece: SpiritPiece, d
                 s.queue.splice(index < 0 ? s.queue.length : index, 0, step('DAMAGE', v.actor, l.id, 1, 'vengeance', null, v.adjacent ? ['ADJACENT'] : []));
             }
         }
+}
+export function destroyFromHealthLoss(s:SpiritState,l:SpiritLand,p:SpiritPiece,actor:PlayerId):void {
+ if(p.damage>=health(l,p)){removePiece(s,l,p,true,actor,'HEALTH');event(s,'DAMAGE',`${l.id} 체력 감소로 ${p.kind==='CITY'?'도시':p.kind==='TOWN'?'마을':'탐험가'} 파괴`,actor,l.id);}
 }
 export function damagePiece(s: SpiritState, l: SpiritLand, p: SpiritPiece, n: number, actor: PlayerId): boolean { if (dreaming(s, actor)) { if (p.kind !== 'DAHAN' && !s.flags.includes(`dream-killed:${p.id}`)) { const tag = s.flags.find(f => f.startsWith(`dream-damage:${p.id}:`)), prior = Number(tag?.split(':').at(-1) ?? 0); s.flags = s.flags.filter(f => f !== tag); s.flags.push(`dream-damage:${p.id}:${prior+n}`); if (prior+n+p.damage >= health(l,p)) dreamDestroy(s,l,p,actor); } return false; } if (p.kind === 'DAHAN' && s.flags.includes(`immortal:${l.id}`))
     return false; p.damage += n; if (p.damage >= health(l, p)) {
