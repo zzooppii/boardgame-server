@@ -1,4 +1,4 @@
-import { spiritPower, type SpiritPower, type SpiritProjection, type SpiritLand } from '@hangul-rummikub/shared';
+import { spiritPower, type SpiritPower, type SpiritProjection, type SpiritLand, type SpiritCard } from '@hangul-rummikub/shared';
 export function powerArtwork(p: SpiritPower): number {
  const k=p.key;
  if(/night|dream/.test(k))return 6;
@@ -49,4 +49,12 @@ export function victoryGoal(g:SpiritProjection): readonly [string,string] {
 export function powerTargetLabel(power: SpiritPower): string {
  const names: Record<SpiritPower['target'], string> = {ANY:'',SPIRIT:'정령',OTHER_SPIRIT:'다른 정령',DAHAN:'다한이 있는 지역',INVADERS:'침략자가 있는 지역',NO_BLIGHT:'오염 없는 지역',BLIGHT:'오염이 있는 지역',NO_INVADERS:'침략자 없는 지역',COASTAL:'해안',BEASTS:'야수가 있는 지역',CITY:'도시가 있는 지역',INLAND:'내륙',COAST_OR_WETLAND:'해안 또는 습지'};
  return [power.terrains.map(t=>({MOUNTAIN:'산',JUNGLE:'밀림',SANDS:'모래',WETLAND:'습지'}[t])).join('/'),names[power.target]].filter(Boolean).join(' · ');
+}
+
+/** A new snapshot renders before effects reset local selections. Never dereference old IDs. */
+export function spiritCardDraft(g:SpiritProjection,cards:readonly SpiritCard[],requested:readonly string[],requestedWard:string|null){
+ const byId=new Map(cards.map(c=>[c.cardId,c]));
+ const selected=[...new Set(requested)].flatMap(id=>{const card=byId.get(id);return card?[card]:[];});
+ const ward=g.settings.scenario==='WARD'&&selected.some(c=>c.cardId===requestedWard)?requestedWard:null;
+ return {ids:selected.map(c=>c.cardId),ward,cost:selected.reduce((total,c)=>total+(c.cardId===ward?0:preparedCardCost(g,spiritPower(c.key))),0)};
 }

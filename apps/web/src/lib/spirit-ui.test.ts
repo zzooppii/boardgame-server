@@ -1,5 +1,5 @@
 import { SPIRIT_BRANCH_FEAR, SPIRIT_BRANCH_FEAR_KEYS } from '@hangul-rummikub/shared';
-import { ravagePreview } from '../features/spirit-island/presentation.js';
+import { ravagePreview, spiritCardDraft } from '../features/spirit-island/presentation.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createElement } from 'react';
@@ -177,4 +177,22 @@ for(const scenario of ['WARD','FLAME','FORGOTTEN','SECOND_WAVE'] as const)test(`
 test('Scenario UI: wards and flames are labeled on the map and ward defense appears in preview',()=>{
  const s=playing();s.game.wards=['A1','A1'];s.game.flames=['A2'];assert.equal(ravagePreview(s.game,s.game.lands[0]!).defend,6);
  const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));assert.match(html,/aria-label="수호 표식"/);assert.match(html,/aria-label="불꽃 표식"/);
+});
+
+for(const transition of ['TIME_TO_PREPARE','FORGET','EVENT_DISCARD','SECOND_WAVE'] as const)test(`Spirit UI stale card selection: ${transition} renders only current cards`,()=>{
+ const snapshot=playing(),g=snapshot.game,p=g.playerStates[0]!,card=p.hand[0]!;
+ p.hand=p.hand.filter(c=>c.cardId!==card.cardId);p.played=[card];
+ const requested=[card.cardId];assert.ok(spiritCardDraft(g,[...p.hand,...p.played],requested,null).cost>0);
+ // Server update arrives while React still holds the previous local draft.
+ p.played=[];if(transition==='FORGET')p.discard=[];else p.discard=[card];
+ if(transition==='TIME_TO_PREPARE'){g.round++;g.stage='PREPARE';p.grown=false;}
+ if(transition==='SECOND_WAVE'){g.waveNumber=2;g.stage='SELECT';p.hand=[];p.spirit=null;}
+ const draft=spiritCardDraft(g,[...p.hand,...p.played],requested,card.cardId);
+ assert.deepEqual(draft,{ids:[],ward:null,cost:0});
+ g.privateState.hand=p.hand;assert.doesNotThrow(()=>renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot})));
+});
+test('Spirit UI draft keeps surviving cards and resets a removed ward before an effect runs',()=>{
+ const g=playing().game,p=g.playerStates[0]!,a=p.hand[0]!,b=p.hand[1]!;g.settings.scenario='WARD';
+ assert.deepEqual(spiritCardDraft(g,p.hand,[a.cardId,b.cardId],a.cardId),{ids:[a.cardId,b.cardId],ward:a.cardId,cost:SPIRIT_POWERS.find(c=>c.key===b.key)!.cost});
+ assert.deepEqual(spiritCardDraft(g,[b],[a.cardId,b.cardId,b.cardId],a.cardId),{ids:[b.cardId],ward:null,cost:SPIRIT_POWERS.find(c=>c.key===b.key)!.cost});
 });
