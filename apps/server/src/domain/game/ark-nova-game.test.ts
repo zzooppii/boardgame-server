@@ -144,3 +144,11 @@ test('All solo difficulties complete mixed legal command sequences after save/re
     assert.throws(()=>parseArkSoloState(forged));
   }
 });
+test('Owner admission projection preserves WAZA specialization and rejects unknown focus values',()=>{
+  for(const focus of [null,'SMALL','LARGE'] as const){
+    const s=create();s.wazaFocus=focus;
+    assert.equal(v.parse(ArkSoloViewSchema,projectArkSoloGame(s,playerId)).wazaFocus,focus);
+  }
+  const view=projectArkSoloGame(create(),playerId);
+  assert.equal(v.safeParse(ArkSoloViewSchema,{...view,wazaFocus:'MEDIUM'}).success,false);
+});

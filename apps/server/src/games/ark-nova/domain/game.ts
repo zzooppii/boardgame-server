@@ -541,7 +541,7 @@ export function projectArkSoloGame(s: ArkSoloState, viewer: PlayerId): ArkSoloVi
     activeBuild:s.activeBuild,buildBonuses:s.buildBonuses,
     repeatedAction:s.repeatedAction?{action:s.repeatedAction.action,mode:s.repeatedAction.mode,baseStrength:s.repeatedAction.baseStrength,remaining:s.repeatedAction.remaining,completed:s.repeatedAction.completed,awaiting:s.repeatedAction.awaiting}:null,
     extraAction:s.extraActions.length?{action:s.extraActions.at(-1)!.action,started:s.extraActions.at(-1)!.started,depth:s.extraActions.length}:null,
-    zooWork:s.zooWork,played:s.played,sponsorTokens:s.sponsorTokens,pouchedCounts:Object.fromEntries(Object.entries(s.pouched).map(([id,cards])=>[id,cards.length])),
+    wazaFocus:s.wazaFocus,zooWork:s.zooWork,played:s.played,sponsorTokens:s.sponsorTokens,pouchedCounts:Object.fromEntries(Object.entries(s.pouched).map(([id,cards])=>[id,cards.length])),
     effectOptions:(s.effects.active?[]:s.effects.frames.at(-1)??[]).map(j=>({id:j.id,kind:j.effect.kind,sourceId:j.sourceId,guide:projectArkEffectGuide(j.effect,s.actions,s.conservationBonuses)})),
     activeEffect:s.effects.active?{id:s.effects.active.id,kind:s.effects.active.effect.kind,sourceId:s.effects.active.sourceId,guide:projectArkEffectGuide(s.effects.active.effect,s.actions,s.conservationBonuses)}:null,
     revealedCards:s.goalReveal?{...s.goalReveal,kind:'RESISTANCE',keep:1}:s.cardReveal,

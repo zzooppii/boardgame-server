@@ -35,3 +35,12 @@ test('Archaeologist final requires every land border but no water or rock covera
   assert.equal(detail({...context('221'),buildings:border})?.conservation,1);
   assert.equal(detail({...context('221'),buildings:border.slice(1)})?.conservation,0);
 });
+test('Combined final sponsors apply once, clamp tracks, preserve the ledger and leave state unchanged',()=>{
+  const s={...context('214'),x:5,appeal:110,conservation:40,reputation:9,universities:['HAND_LIMIT','RESEARCH_2','RESEARCH_REPUTATION'],universityResearch:3};
+  s.played.push({cardId:'vet',key:'203'},{cardId:'reputation',key:'216'});
+  const before=structuredClone(s),result=calculateArkSoloFinalScore(s);
+  assert.equal(result.sponsorAppeal,5);assert.equal(result.sponsorPoints,2);assert.equal(result.goalPoints,0);
+  assert.equal(result.appeal,113);assert.equal(result.conservation,41);assert.equal(result.total,112);assert.equal(result.won,true);
+  assert.deepEqual(result.details,[{cardId:'goal',conservation:0,appeal:0},{cardId:'sponsor',conservation:0,appeal:5},{cardId:'vet',conservation:1,appeal:0},{cardId:'reputation',conservation:1,appeal:0}]);
+  assert.deepEqual(calculateArkSoloFinalScore(s),result);assert.deepEqual(s,before);
+});

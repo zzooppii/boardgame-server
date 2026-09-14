@@ -7,11 +7,11 @@ import {arkHexPoints, arkScreenPoint} from './presentation.js';
 const bonuses:Readonly<Record<string,string>>={REPUTATION_2:'↑2',X_1:'X',CARD_1:'▤',MONEY_5:'5',MONEY_10:'10',WORKER:'♟'};
 export const arkBoardCellInput=(cell:ArkCell):ArkCell=>({q:cell.q,r:cell.r});
 export type ArkNovaBoardProps=Readonly<{
-  feedback?:ArkFeedback|null;buildings:readonly ArkBuilding[];selected:ArkCell|null;ghost?:readonly ArkCell[];invalid?:boolean;
+  eligibleHousingIds?:readonly string[];feedback?:ArkFeedback|null;buildings:readonly ArkBuilding[];selected:ArkCell|null;ghost?:readonly ArkCell[];invalid?:boolean;
   disabled?:boolean;onSelect(cell:ArkCell):void;onRotate?():void;onReflect?():void;onCancel?():void;
 }>;
 /** Server buildings are immutable here; the translucent placement is only an input draft. */
-export function ArkNovaBoard({feedback,buildings,selected,ghost=[],invalid=false,disabled=false,onSelect,onRotate,onReflect,onCancel}:ArkNovaBoardProps) {
+export function ArkNovaBoard({eligibleHousingIds=[],feedback,buildings,selected,ghost=[],invalid=false,disabled=false,onSelect,onRotate,onReflect,onCancel}:ArkNovaBoardProps) {
   const [focused,setFocused]=useState(0);
   const occupied=new Map(buildings.flatMap(b=>b.cells.map(c=>[arkCellKey(c),b] as const)));
   function key(e:KeyboardEvent<SVGPolygonElement>,index:number) {
@@ -33,9 +33,9 @@ export function ArkNovaBoard({feedback,buildings,selected,ghost=[],invalid=false
       <BoardIllustrationDefs/><rect x="4" y="4" width="442" height="402" rx="14" fill="url(#ark-painted-grass)" pointerEvents="none"/>
       {ARK_MAP_A.map((cell,i)=>{
         const id=arkCellKey(cell),b=occupied.get(id),p=arkScreenPoint(cell),isSelected=selected!==null&&id===arkCellKey(selected);
-        const label=`${cell.q+1}열 ${cell.r+Math.ceil(cell.q/2)+1}칸, ${b?ARK_BUILDINGS[b.kind]?.name??'특수 건물':cell.terrain==='WATER'?'물':cell.terrain==='ROCK'?'바위':'빈 땅'}${b?.occupied?', 동물 입주':''}${cell.restricted?', 건설 II 필요':''}`;
+        const label=`${cell.q+1}열 ${cell.r+Math.ceil(cell.q/2)+1}칸, ${b?ARK_BUILDINGS[b.kind]?.name??'특수 건물':cell.terrain==='WATER'?'물':cell.terrain==='ROCK'?'바위':'빈 땅'}${b?.occupied?', 동물 입주':''}${b&&eligibleHousingIds.includes(b.id)?', 입주 가능':''}${cell.restricted?', 건설 II 필요':''}`;
         return <g key={id}><polygon points={arkHexPoints(cell)} role="button" data-cell-index={i} tabIndex={focused===i?0:-1} aria-label={label} aria-disabled={disabled} aria-pressed={isSelected}
-          className={`ark-hex terrain-${cell.terrain.toLowerCase()} ${isSelected?'is-anchor':''} ${b?`is-built ${b.occupied?'is-occupied':''} ${b.kind==='KIOSK'?'is-kiosk':b.kind==='PAVILION'?'is-pavilion':''}`:''}`}
+          className={`ark-hex terrain-${cell.terrain.toLowerCase()} ${isSelected?'is-anchor':''} ${b&&eligibleHousingIds.includes(b.id)?'is-eligible-housing':''} ${b?`is-built ${b.occupied?'is-occupied':''} ${b.kind==='KIOSK'?'is-kiosk':b.kind==='PAVILION'?'is-pavilion':''}`:''}`}
           onFocus={()=>setFocused(i)} onKeyDown={e=>key(e,i)} onClick={()=>{if(!disabled)onSelect(arkBoardCellInput(cell));}}/>
           {!b&&cell.bonus&&<BoardBonus x={p.x} y={p.y} label={bonuses[cell.bonus]??'+'}/>}
           {!b&&cell.restricted&&<BoardBonus x={p.x} y={p.y} label="II" restricted/>}

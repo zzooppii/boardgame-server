@@ -1,8 +1,6 @@
 import { type ArkAssociationGeneralTask, type ArkReward, type ArkActionCard } from '@hangul-rummikub/shared';
 import { ARK_UNIVERSITIES, type ArkBreakState } from './solo-break.js';
-export function arkUniversityResearch(universities:readonly string[]):number {
-  return Number(universities.includes('RESEARCH_2'))*2+Number(universities.includes('RESEARCH_REPUTATION'));
-}
+export {arkUniversityResearch} from '@hangul-rummikub/shared';
 export type ArkAssociationHoldings={partners:string[];partnerSupply:string[];universities:string[];universitySupply:string[]};
 /** Acquisition shared by normal association work and free bonuses. Never consumes staff or moves an action. */
 export function acquireArkAssociationTile(s:ArkAssociationHoldings,upgraded:boolean,task:Exclude<ArkAssociationGeneralTask,{kind:'REPUTATION'}>,rewardId:string):ArkReward[]|null {

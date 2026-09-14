@@ -37,7 +37,7 @@ export const ArkSoloViewSchema = v.pipe(v.strictObject({
   activeBuild:ArkActiveBuildSchema, buildBonuses:v.array(ArkBuildBonusSchema),
   repeatedAction:v.nullable(ArkRepeatedActionSchema),
   extraAction:v.nullable(v.strictObject({action:ArkExtraActionKindSchema,started:v.boolean(),depth:v.pipe(ArkCountSchema,v.minValue(1))})),
-  zooWork:v.nullable(ArkZooWorkSchema),played:cards,pouchedCounts:v.record(ArkRefSchema,ArkCountSchema),sponsorTokens:v.record(ArkRefSchema,ArkCountSchema),
+  wazaFocus:v.optional(v.nullable(v.picklist(['SMALL','LARGE']))),zooWork:v.nullable(ArkZooWorkSchema),played:cards,pouchedCounts:v.record(ArkRefSchema,ArkCountSchema),sponsorTokens:v.record(ArkRefSchema,ArkCountSchema),
   effectOptions:v.array(v.strictObject({id:ArkCountSchema,kind:ArkRefSchema,sourceId:ArkRefSchema,guide:ArkEffectGuideSchema})),
   activeEffect:v.nullable(v.strictObject({id:ArkCountSchema,kind:ArkRefSchema,sourceId:ArkRefSchema,guide:ArkEffectGuideSchema})),
   revealedCards:v.nullable(v.strictObject({kind:v.picklist(['HUNTER','SCAVENGING','PERCEPTION','RESISTANCE']),choiceId:ArkRefSchema,candidates:cards,keep:ArkCountSchema})),

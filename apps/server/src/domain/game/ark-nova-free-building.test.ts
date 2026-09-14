@@ -102,3 +102,19 @@ test('Official erratum permits relocation without flipping when no occupied encl
   const occupied=structuredClone(s);occupied.buildings[1]!.occupied=true;
   assert.equal(resolveArkEffect(occupied,1,{kind:'MOVE_ANIMAL',cardId:'bird',housingId:null},'cannot-skip-flip',random).ok,false);
 });
+
+test('Relocation then release frees only special capacity and removes subsequent bird income without replaying rewards',async()=>{
+  const {releaseArkProjectAnimal}=await import('../../games/ark-nova/domain/project-requirements.js');
+  const {arkSponsorIncome}=await import('../../games/ark-nova/domain/sponsor-effects.js');
+  const s=state({kind:'MOVE_TO_SPECIAL',buildingId:'aviary',moved:[]});s.appeal=37;s.played=[{key:'496',cardId:'bird'},{key:'233',cardId:'bird-sponsor'}];s.buildings[1]!.occupied=true;
+  const where=placement(s.buildings,'LargeBirdAviary');s.buildings.push({id:'aviary',kind:'LargeBirdAviary',cells:arkShape(where.building,where.anchor,where.rotation,where.reflected),occupied:false,used:0});
+  const moved=resolveArkEffect(s,1,{kind:'MOVE_ANIMAL',cardId:'bird',housingId:'initial-enclosure'},'move-release',random);assert.ok(moved.ok);
+  assert.equal(moved.state.appeal,37);assert.deepEqual(moved.state.played,s.played);
+  assert.ok(arkSponsorIncome(moved.state).some(j=>j.effect.kind==='GAIN'&&j.effect.resource==='MONEY'&&j.effect.amount===3));
+  const before=structuredClone(moved.state);
+  assert.equal(releaseArkProjectAnimal(moved.state,'116',1,'bird','initial-enclosure').ok,false);
+  const released=releaseArkProjectAnimal(moved.state,'116',1,'bird','aviary');assert.ok(released.ok);
+  assert.equal(released.appeal,33);assert.equal(released.buildings.find(b=>b.id==='aviary')!.used,0);
+  assert.equal(released.buildings[1]!.occupied,false);assert.deepEqual(moved.state,before);
+  assert.ok(!arkSponsorIncome({...moved.state,...released}).some(j=>j.sourceId==='bird-sponsor'));
+});

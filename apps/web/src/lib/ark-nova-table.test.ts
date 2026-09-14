@@ -220,3 +220,34 @@ test('Ark card rewards expose only reachable display cards and disable an empty 
   assert.ok(html.includes(arkCardName('201')));assert.ok(!html.includes(arkCardName('205')));
   assert.match(html,/<button disabled="">덱에서 가져오기/);
 });
+
+test('Animal advice explains exact payment, matching partner and physical housing without changing state',async()=>{
+  const {arkAnimalSelectionAdvice}=await import('../features/ark-nova/action-controls.js');
+  const s=structuredClone(arkSoloSetupFixture);s.hand=[{key:'404',cardId:'caracal'},{key:'461',cardId:'tarsier'}];s.money=5;
+  const before=structuredClone(s),advice=arkAnimalSelectionAdvice(s,'caracal')!;
+  assert.equal(advice.price,9);assert.match(advice.issues.join(' '),/돈 4 부족/);assert.ok(advice.housingIds.includes('initial-enclosure'));assert.deepEqual(s,before);
+  s.partners=['Europe'];assert.match(arkAnimalSelectionAdvice(s,'tarsier')!.issues.join(' '),/같은 대륙/);
+  s.partners=['Asia'];assert.doesNotMatch(arkAnimalSelectionAdvice(s,'tarsier')!.issues.join(' '),/같은 대륙/);
+  s.played=[{cardId:'expert',key:'229'}];s.partners=['Africa'];s.money=3;
+  assert.equal(arkAnimalSelectionAdvice(s,'caracal')!.price,3);assert.deepEqual(arkAnimalSelectionAdvice(s,'caracal')!.issues,[]);
+  s.hand=[];s.display=[null,null,{key:'404',cardId:'market'},null,null,null];
+  assert.equal(arkAnimalSelectionAdvice(s,'market')!.price,6);
+});
+test('Animal advice handles WAZA condition waiver, specialization and flock housing exceptions',async()=>{
+  const {arkAnimalSelectionAdvice}=await import('../features/ark-nova/action-controls.js');
+  const s=structuredClone(arkSoloSetupFixture);s.money=100;s.hand=[{key:'403',cardId:'leopard'},{key:'436',cardId:'bison'}];
+  s.wazaFocus='SMALL';assert.ok(arkAnimalSelectionAdvice(s,'bison')!.issues.some(x=>x.includes('WAZA')));
+  s.wazaFocus=null;s.played=[{key:'263',cardId:'waza'},{key:'426',cardId:'elephant'},{key:'230',cardId:'large'}];
+  // Bison's three America requirements still exceed its one-condition waiver.
+  assert.ok(arkAnimalSelectionAdvice(s,'bison')!.issues.some(x=>x.includes('부족한 조건')));
+  assert.equal(arkAnimalSelectionAdvice(s,'bison')!.flock,false);
+  s.hand.push({key:'438',cardId:'flock-reindeer'});
+  assert.equal(arkAnimalSelectionAdvice(s,'flock-reindeer')!.flock,true);
+  s.buildings.push({id:'large-empty',kind:'ENCLOSURE_5',cells:[{q:0,r:0},{q:0,r:1},{q:0,r:2},{q:1,r:0},{q:1,r:1}],occupied:false,used:0});
+  s.played.push({key:'438',cardId:'reindeer'},{key:'439',cardId:'llama'});
+  assert.equal(arkAnimalSelectionAdvice(s,'bison')!.issues.length,0);
+});
+test('Eligible enclosure is exposed accessibly and receives its visual highlight',()=>{
+  const html=renderToStaticMarkup(createElement(ArkNovaBoard,{buildings:arkSoloSetupFixture.buildings,selected:null,eligibleHousingIds:['initial-enclosure'],onSelect:()=>{}}));
+  assert.match(html,/3칸 우리, 입주 가능/);assert.match(html,/is-eligible-housing/);
+});

@@ -1,3 +1,4 @@
+import {arkAnimalPrice,arkMissingCardConditions,arkAnimalHousingChoices,arkCanShareFlockEnclosure,arkCardDefinition,ARK_TAG_LABELS} from '@hangul-rummikub/shared';
 import {ARK_CARDS,arkReputationRange,arkActionStrength,arkPlacementReason,arkShape,type ArkActionKind,type ArkSoloCommand,type ArkSoloView} from '@hangul-rummikub/shared';
 
 /** Display the server's continuation constraint; commands are still validated by the server. */
@@ -39,4 +40,23 @@ export function arkZooSelectionHint(state:ArkSoloView,cardId:string|null):string
 
 export function arkReachableDisplayCards(state:Pick<ArkSoloView,'display'|'reputation'>){
   return state.display.filter((card,index)=>card!==null&&index<arkReputationRange(state.reputation)).filter(card=>card!==null);
+}
+
+/** Uses the same pure price, prerequisites and habitat kernels as server card play. */
+export function arkAnimalSelectionAdvice(state:ArkSoloView,cardId:string|null) {
+  const card=state.hand.find(c=>c.cardId===cardId)??state.display.find(c=>c?.cardId===cardId);
+  const animal=card&&ARK_CARDS.find(c=>c.key===card.key&&c.kind==='ANIMAL');
+  if(!animal)return null;
+  const slot=state.hand.some(c=>c.cardId===cardId)?0:state.display.findIndex(c=>c?.cardId===cardId)+1;
+  const price=arkAnimalPrice(animal,state,slot),missing=arkMissingCardConditions(animal,state);
+  const ignores=animal.size>=4&&state.played.some(c=>c.key==='263')?1:0;
+  const missingLabels=missing.map(key=>key==='Partner_Zoo'?'이 동물과 같은 대륙의 제휴 동물원':key==='AnimalsII'?'동물 행동 II':key==='Reputation'?'평판 3 이상':key==='Appeal'?'매력 25 이하':`${ARK_TAG_LABELS[key]??key} 아이콘`);
+  const issues:string[]=[];
+  if(missing.length>ignores)issues.push(`부족한 조건: ${missingLabels.join(', ')}${ignores?' (이 중 1개 무시 가능)':''}`);
+  if(state.money<price)issues.push(`돈 ${price-state.money} 부족 (필요 ${price} · 보유 ${state.money})`);
+  if(state.wazaFocus==='SMALL'&&animal.size>=4||state.wazaFocus==='LARGE'&&animal.size<=2)issues.push('현재 WAZA 전문화로 이 크기의 동물을 사용할 수 없습니다.');
+  const housingIds=arkAnimalHousingChoices(state.buildings,animal,state.played.some(c=>c.key==='219'));
+  const flock=arkCanShareFlockEnclosure(animal,state.played.map(arkCardDefinition));
+  if(!housingIds.length&&!flock)issues.push(`입주 가능한 우리가 없습니다. ${animal.standard?`${animal.size}칸 이상의 빈 우리 또는 허용된 특수 우리`:'허용된 특수 우리'}${animal.water?` · 물 ${animal.water}칸 인접`:''}${animal.rock?` · 바위 ${animal.rock}칸 인접`:''} 조건과 남은 용량을 확인하세요.`);
+  return {price,housingIds,flock,issues};
 }

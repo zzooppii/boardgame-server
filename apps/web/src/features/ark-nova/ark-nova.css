@@ -306,3 +306,7 @@
 @keyframes ark-arrival-ripple{from{opacity:1;transform:scale(.82)}to{opacity:0;transform:scale(1.08)}}
 @media(max-width:600px){.ark-feedback-host{right:16px;bottom:16px}.ark-feedback{padding:14px;gap:12px}.ark-feedback .ark-family-art{width:84px;flex-basis:84px}.ark-feedback strong{font-size:16px}}
 @media(prefers-reduced-motion:reduce){.ark-feedback,.ark-board-celebration,.ark-board-celebration.is-arrival{animation:none}}
+.ark-hex.is-eligible-housing{stroke:#fbf4a7;stroke-width:3.5;filter:drop-shadow(0 0 2px #345d30)}
+.ark-hex.is-eligible-housing.is-anchor{stroke:#fff;stroke-width:4.5}
+.ark-admission-guide{padding:14px;border:1px solid #b8c9a2;border-radius:12px;background:#f1f5e6;margin:12px 0}
+.ark-admission-guide p{font-size:13px;margin:6px 0}.ark-admission-guide .ark-admission-missing{color:#8f3825;font-weight:600}

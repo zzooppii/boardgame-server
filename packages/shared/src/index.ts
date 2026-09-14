@@ -137,3 +137,8 @@ export * from './games/pandemic/actions.js';
 export * from './games/perch/actions.js';
 export * from './games/pandemic/contracts.js';
 export * from './games/perch/contracts.js';
+
+export * from './games/ark-nova/card-requirements.js';
+export * from './games/ark-nova/animal-housing.js';
+export * from './games/ark-nova/zoo-icons.js';
+export * from './games/ark-nova/university-research.js';
