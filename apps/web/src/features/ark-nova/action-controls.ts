@@ -74,3 +74,13 @@ export function arkSponsorSelectionAdvice(state:ArkSoloView,cardId:string|null,p
   if(Object.hasOwn(ARK_UNIQUE_BUILDINGS,definition.key)&&!validateArkUniqueConstruction(state.buildings,definition,state.actions.some(a=>a.kind==='BUILD'&&a.upgraded),state.played.some(c=>c.key==='219'),placement).ok)issues.push('고유 건물을 배치할 수 없습니다. 지도에서 위치·회전·연결·지형·가장자리 조건을 확인하세요.');
   return {price,issues};
 }
+
+/** WAZA's extra play is hand-only, paid normally, and restricted to printed size 1–2. */
+export function arkWazaSelectionAdvice(state:ArkSoloView,cardId:string|null,housingId:string|null) {
+  const card=state.hand.find(c=>c.cardId===cardId);
+  if(!card||!ARK_CARDS.some(d=>d.key===card.key&&d.kind==='ANIMAL'&&d.size<=2))return null;
+  const advice=arkAnimalSelectionAdvice(state,cardId);
+  if(!advice)return null;
+  const housingHint=(housingId===null?advice.flock:advice.housingIds.includes(housingId))?null:'지도에서 입주 가능한 우리를 선택하세요.';
+  return {...advice,housingHint};
+}

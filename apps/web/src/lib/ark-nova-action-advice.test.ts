@@ -5,7 +5,7 @@ import {renderToStaticMarkup} from 'react-dom/server';
 import {type ArkAssociationTask,ARK_MAP_A,validateArkUniqueConstruction,ARK_CARDS} from '@hangul-rummikub/shared';
 import {arkSoloSetupFixture} from '../features/ark-nova/test-fixture.js';
 import {arkAssociationAdvice,arkDonationAdvice} from '../features/ark-nova/association-advice.js';
-import {arkSponsorSelectionAdvice} from '../features/ark-nova/action-controls.js';
+import {arkWazaSelectionAdvice,arkSponsorSelectionAdvice} from '../features/ark-nova/action-controls.js';
 import {ArkNovaEffects} from '../features/ark-nova/ArkNovaEffects.js';
 import {ArkNovaAssociation} from '../features/ark-nova/ArkNovaAssociation.js';
 function state(){const s=structuredClone(arkSoloSetupFixture);s.actions=s.actions.filter(a=>a.kind!=='ASSOCIATION').concat({kind:'ASSOCIATION',upgraded:false,venom:false,constriction:false,multiplier:0});s.workers=4;s.busyWorkers=0;s.taskWorkers={};s.x=5;return s;}
@@ -93,4 +93,35 @@ test('Paid sponsor effect renders hand-only choices and an empty-hand exit',()=>
   const render=()=>renderToStaticMarkup(createElement(ArkNovaEffects,{state:s,disabled:false,onSelect:()=>{},placement:null,cell:null,housingId:null,onUniqueCard:()=>{},onBuilding:()=>{},onRotate:()=>{},onReflect:()=>{}}));
   const html=render();assert.match(html,/과학 연구 기관/);assert.doesNotMatch(html,/아프리카 전문가|치타/);assert.match(html,/후원 등급만큼 돈/);assert.match(html,/<button disabled="">카드 사용/);
   s.hand=[];const empty=render();assert.match(empty,/손패에 후원자가 없습니다/);assert.match(empty,/<button>이 효과 포기/);
+});
+
+test('WAZA advice accepts only hand small animals and requires a valid selected habitat',()=>{
+  const s=state();s.hand=[{key:'404',cardId:'small'},{key:'401',cardId:'large'},{key:'223',cardId:'sponsor'}];s.display=[{key:'404',cardId:'market'},null,null,null,null,null];s.money=40;
+  for(const id of [null,'large','sponsor','market','missing'])assert.equal(arkWazaSelectionAdvice(s,id,null),null);
+  const before=structuredClone(s),advice=arkWazaSelectionAdvice(s,'small',null)!;
+  assert.ok(advice.housingHint);assert.equal(advice.price,9);assert.ok(advice.housingIds.length>0);
+  assert.equal(arkWazaSelectionAdvice(s,'small',advice.housingIds[0]!)!.housingHint,null);
+  assert.ok(arkWazaSelectionAdvice(s,'small','missing')!.housingHint);assert.deepEqual(s,before);
+  s.buildings=s.buildings.map(b=>({...b,occupied:true}));assert.match(arkWazaSelectionAdvice(s,'small',null)!.issues.join(' '),/우리가 없습니다/);
+});
+test('WAZA advice keeps payment, partner and specialization restrictions for the extra play',()=>{
+  const s=state();s.hand=[{key:'404',cardId:'small'},{key:'461',cardId:'tarsier'}];s.money=8;
+  assert.match(arkWazaSelectionAdvice(s,'small',null)!.issues.join(' '),/돈 1 부족/);
+  s.money=40;s.partners=['Europe'];assert.match(arkWazaSelectionAdvice(s,'tarsier',null)!.issues.join(' '),/같은 대륙/);
+  s.partners=['Asia'];assert.doesNotMatch(arkWazaSelectionAdvice(s,'tarsier',null)!.issues.join(' '),/같은 대륙/);
+  s.wazaFocus='LARGE';assert.match(arkWazaSelectionAdvice(s,'small',null)!.issues.join(' '),/WAZA 전문화/);
+});
+test('WAZA empty hand explains skipping into acquisition and never offers market animals',()=>{
+  const s=state();s.activeEffect={id:1,kind:'WAZA_PLAY',sourceId:'bonus',guide:{resource:null,amount:null,actions:[],buildings:[],slots:[],mayRefill:false,bonuses:[]}};
+  s.hand=[];s.display=[{key:'404',cardId:'market'},null,null,null,null,null];
+  const html=renderToStaticMarkup(createElement(ArkNovaEffects,{state:s,disabled:false,onSelect:()=>{},placement:null,cell:null,housingId:null,onUniqueCard:()=>{},onBuilding:()=>{},onRotate:()=>{},onReflect:()=>{}}));
+  assert.match(html,/소형 동물 획득으로 이어집니다/);assert.doesNotMatch(html,/카라칼/);assert.match(html,/<button disabled="">카드 사용/);assert.match(html,/<button>이 효과 포기/);
+});
+
+test('WAZA flock animals may enter without a new enclosure but invalid housing remains blocked',()=>{
+  const s=state();s.hand=[{key:'439',cardId:'lama'}];s.played=[{key:'438',cardId:'reindeer'}];s.money=10;s.buildings=[];
+  const advice=arkWazaSelectionAdvice(s,'lama',null)!;
+  assert.equal(advice.flock,true);assert.equal(advice.housingHint,null);assert.deepEqual(advice.issues,[]);
+  assert.ok(arkWazaSelectionAdvice(s,'lama','missing')!.housingHint);
+  s.played=[];assert.equal(arkWazaSelectionAdvice(s,'lama',null)!.flock,false);assert.match(arkWazaSelectionAdvice(s,'lama',null)!.issues.join(' '),/우리가 없습니다/);
 });
