@@ -1,6 +1,6 @@
 import {useState,type ReactNode} from 'react';
 import {ARK_MAP_A,arkCellKey,ARK_UNIQUE_BUILDINGS,ARK_ACTION_LABELS,ARK_BUILDINGS,ARK_CARDS,ARK_CONTINENTS,ARK_SOLO_UNIVERSITIES,ARK_TAG_LABELS,arkCardName,type ArkEffectGuide,type ArkSoloView,type ArkSoloCommand,type ArkCell} from '@hangul-rummikub/shared';
-import {arkWazaSelectionAdvice,arkSponsorSelectionAdvice,arkReachableDisplayCards} from './action-controls.js';
+import {arkFreeBuildPlacementHint,arkWazaSelectionAdvice,arkSponsorSelectionAdvice,arkReachableDisplayCards} from './action-controls.js';
 import {ArkNovaCardRow} from './ArkNovaCards.js';
 
 type Selection=Extract<ArkSoloCommand,{kind:'EFFECT'}>['selection'];
@@ -13,8 +13,9 @@ export function arkEffectSummary(kind:string,guide:ArkEffectGuide):string {
 }
 const bonusLabels:Readonly<Record<string,string>>={REPUTATION_2:'평판 2',X_3:'X 토큰 3',ENCLOSURE_3:'3칸 우리',CARDS_3:'카드 3장',MONEY_10:'돈 10',MULTIPLIER:'배수 토큰',UNIVERSITY:'대학',PARTNER:'제휴 동물원',PAID_SPONSOR:'후원자 사용'};
 const universities={HAND_LIMIT:'손패 한도 6 · 연구 1',RESEARCH_2:'연구 2',RESEARCH_REPUTATION:'연구 1 · 평판 2'};
-export function ArkNovaEffects({state:s,disabled,onSelect,placement,cell,housingId,onUniqueCard,onBuilding,onRotate,onReflect,onAnimalCard,onClearHousing}:{
+export function ArkNovaEffects({state:s,disabled,onSelect,placement,cell,housingId,onUniqueCard,onBuilding,onRotate,onReflect,onAnimalCard,onClearHousing,selectedBuildingKind}:{
   state:ArkSoloView;disabled:boolean;onSelect(selection:Selection):void;placement:Placement|null;cell:ArkCell|null;housingId:string|null;
+  selectedBuildingKind?:string;
   onAnimalCard?(cardId:string):void;onClearHousing?():void;
   onUniqueCard(key:string|null):void;onBuilding(kind:string):void;onRotate():void;onReflect():void;
 }) {
@@ -41,7 +42,10 @@ export function ArkNovaEffects({state:s,disabled,onSelect,placement,cell,housing
     const available=ARK_CONTINENTS.filter(c=>s.partnerSupply.includes(c)&&s.partners.length<(s.actions.some(a=>a.kind==='ASSOCIATION'&&a.upgraded)?4:2));
     controls=<>{available.map(continent=>button(ARK_TAG_LABELS[continent]??continent,{kind:'PARTNER',continent}))}{!available.length&&button('대상 없음 · 계속',{kind:'NONE'})}</>;
   } else if(kind==='FREE_UNIVERSITY')controls=<>{ARK_SOLO_UNIVERSITIES.filter(u=>s.universitySupply.includes(u)).map(university=>button(universities[university],{kind:'UNIVERSITY',university}))}{!s.universitySupply.length&&button('대상 없음 · 계속',{kind:'NONE'})}</>;
-  else if(kind==='FREE_BUILD')controls=<><p>건물을 고른 뒤 지도에서 기준 칸을 선택하세요.</p><select aria-label="무료 건물" value={placement?.building??''} onChange={e=>onBuilding(e.target.value)} disabled={disabled}><option value="">시설 선택</option>{guide.buildings.map(b=><option key={b} value={b}>{ARK_BUILDINGS[b]?.name??b}</option>)}</select><button disabled={disabled} onClick={onRotate}>회전 ↻</button><button disabled={disabled} onClick={onReflect}>반전 ↔</button>{button('무료 배치 확정',{kind:'BUILD',placement:placement??{building:'',anchor:{q:0,r:0},rotation:0,reflected:false}},!placement||!guide.buildings.includes(placement.building))}{skip()}</>;
+  else if(kind==='FREE_BUILD') {
+    const hint=arkFreeBuildPlacementHint(s,placement);
+    controls=<><p>건물을 고른 뒤 지도에서 기준 칸을 선택하세요.</p><select aria-label="무료 건물" value={selectedBuildingKind??placement?.building??''} onChange={e=>onBuilding(e.target.value)} disabled={disabled}><option value="">시설 선택</option>{guide.buildings.map(b=><option key={b} value={b}>{ARK_BUILDINGS[b]?.name??b}</option>)}</select><button disabled={disabled} onClick={onRotate}>회전 ↻</button><button disabled={disabled} onClick={onReflect}>반전 ↔</button>{hint&&<p role="status">{hint}</p>}{guide.buildings.length===0&&<p>현재 건설할 수 있는 시설이 없습니다. 이 효과를 포기할 수 있습니다.</p>}{button('무료 배치 확정',{kind:'BUILD',placement:placement??{building:'',anchor:{q:0,r:0},rotation:0,reflected:false}},hint!==null)}{skip()}</>;
+  }
   else if(kind==='PAID_SPONSOR'||kind==='WAZA_PLAY') {
     const cards=s.hand.filter(c=>ARK_CARDS.some(d=>d.key===c.key&&(kind==='PAID_SPONSOR'?d.kind==='SPONSOR':d.kind==='ANIMAL'&&d.size<=2)));
     const animalAdvice=kind==='WAZA_PLAY'?arkWazaSelectionAdvice(s,chosen[0]??null,housingId):null;

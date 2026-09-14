@@ -84,3 +84,10 @@ export function arkWazaSelectionAdvice(state:ArkSoloView,cardId:string|null,hous
   const housingHint=(housingId===null?advice.flock:advice.housingIds.includes(housingId))?null:'지도에서 입주 가능한 우리를 선택하세요.';
   return {...advice,housingHint};
 }
+
+/** Use the server-projected facility permissions, then the shared geometry kernel. */
+export function arkFreeBuildPlacementHint(state:ArkSoloView,placement:Extract<ArkSoloCommand,{kind:'BUILD'}>['placement']|null):string|null {
+  if(!placement)return '시설과 지도 기준 칸을 선택하세요.';
+  if(state.activeEffect?.kind!=='FREE_BUILD'||!state.activeEffect.guide.buildings.includes(placement.building))return '이 효과에서 허용된 시설을 선택하세요.';
+  return arkPlacementReason(state.buildings,placement.building,arkShape(placement.building,placement.anchor,placement.rotation,placement.reflected),state.actions.some(a=>a.kind==='BUILD'&&a.upgraded),state.played.some(c=>c.key==='219'));
+}

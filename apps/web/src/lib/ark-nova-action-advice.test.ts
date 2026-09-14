@@ -5,7 +5,7 @@ import {renderToStaticMarkup} from 'react-dom/server';
 import {type ArkAssociationTask,ARK_MAP_A,validateArkUniqueConstruction,ARK_CARDS} from '@hangul-rummikub/shared';
 import {arkSoloSetupFixture} from '../features/ark-nova/test-fixture.js';
 import {arkAssociationAdvice,arkDonationAdvice} from '../features/ark-nova/association-advice.js';
-import {arkWazaSelectionAdvice,arkSponsorSelectionAdvice} from '../features/ark-nova/action-controls.js';
+import {arkFreeBuildPlacementHint,arkWazaSelectionAdvice,arkSponsorSelectionAdvice} from '../features/ark-nova/action-controls.js';
 import {ArkNovaEffects} from '../features/ark-nova/ArkNovaEffects.js';
 import {ArkNovaAssociation} from '../features/ark-nova/ArkNovaAssociation.js';
 function state(){const s=structuredClone(arkSoloSetupFixture);s.actions=s.actions.filter(a=>a.kind!=='ASSOCIATION').concat({kind:'ASSOCIATION',upgraded:false,venom:false,constriction:false,multiplier:0});s.workers=4;s.busyWorkers=0;s.taskWorkers={};s.x=5;return s;}
@@ -124,4 +124,38 @@ test('WAZA flock animals may enter without a new enclosure but invalid housing r
   assert.equal(advice.flock,true);assert.equal(advice.housingHint,null);assert.deepEqual(advice.issues,[]);
   assert.ok(arkWazaSelectionAdvice(s,'lama','missing')!.housingHint);
   s.played=[];assert.equal(arkWazaSelectionAdvice(s,'lama',null)!.flock,false);assert.match(arkWazaSelectionAdvice(s,'lama',null)!.issues.join(' '),/우리가 없습니다/);
+});
+
+function freeBuildState(){
+  const s=state();s.activeEffect={id:1,kind:'FREE_BUILD',sourceId:'bonus',guide:{resource:null,amount:1,actions:[],buildings:['ENCLOSURE_1'],slots:[],mayRefill:false,bonuses:[]}};return s;
+}
+test('Free building advice blocks missing choices, overlap, boundary and unauthorized facilities',()=>{
+  const s=freeBuildState(),before=structuredClone(s);
+  const base={building:'ENCLOSURE_1',anchor:{q:0,r:0},rotation:0 as const,reflected:false};
+  assert.match(arkFreeBuildPlacementHint(s,null)!,/기준 칸/);
+  assert.match(arkFreeBuildPlacementHint(s,{...base,building:'ReptileHouse'})!,/허용된 시설/);
+  assert.match(arkFreeBuildPlacementHint(s,{...base,anchor:s.buildings[0]!.cells[0]!})!,/이미 건물/);
+  assert.match(arkFreeBuildPlacementHint(s,{...base,anchor:{q:-20,r:0}})!,/경계/);
+  const valid=ARK_MAP_A.map(c=>({...base,anchor:{q:c.q,r:c.r}})).find(p=>arkFreeBuildPlacementHint(s,p)===null);
+  assert.ok(valid);assert.deepEqual(s,before);
+});
+test('Free building geometry keeps restricted spaces and terrain separate from facility permission',()=>{
+  const s=freeBuildState();s.money=0;
+  const base={building:'ENCLOSURE_1',anchor:{q:0,r:0},rotation:0 as const,reflected:false};
+  const restricted=ARK_MAP_A.find(c=>c.restricted)!;
+  assert.match(arkFreeBuildPlacementHint(s,{...base,anchor:restricted})!,/업그레이드/);
+  s.actions=s.actions.map(a=>a.kind==='BUILD'?{...a,upgraded:true}:a);
+  assert.doesNotMatch(arkFreeBuildPlacementHint(s,{...base,anchor:restricted})??'',/업그레이드/);
+  const rock=ARK_MAP_A.find(c=>c.terrain==='ROCK')!;
+  assert.match(arkFreeBuildPlacementHint(s,{...base,anchor:rock})!,/물과 바위/);
+  s.played=[{key:'219',cardId:'expert'}];
+  assert.doesNotMatch(arkFreeBuildPlacementHint(s,{...base,anchor:rock})??'',/물과 바위/);
+});
+test('Free building controls retain facility before selecting a cell and block invalid confirmation',()=>{
+  const s=freeBuildState();
+  const props={state:s,disabled:false,onSelect:()=>{},placement:null,cell:null,housingId:null,onUniqueCard:()=>{},onBuilding:()=>{},onRotate:()=>{},onReflect:()=>{},selectedBuildingKind:'ENCLOSURE_1'};
+  const html=renderToStaticMarkup(createElement(ArkNovaEffects,props));
+  assert.match(html,/<option value="ENCLOSURE_1" selected="">/);assert.match(html,/<button disabled="">무료 배치 확정/);assert.match(html,/시설과 지도 기준 칸/);
+  const placement={building:'ENCLOSURE_1',anchor:s.buildings[0]!.cells[0]!,rotation:0 as const,reflected:false};
+  const occupied=renderToStaticMarkup(createElement(ArkNovaEffects,{...props,placement}));assert.match(occupied,/이미 건물이 있는 칸/);assert.match(occupied,/<button disabled="">무료 배치 확정/);
 });

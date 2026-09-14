@@ -28,3 +28,12 @@ test('Ark effect guide reports each gain resource without granting client contro
   }
   assert.equal(projectArkEffectGuide({kind:'DRAW',amount:2},actions,[]).resource,null);
 });
+
+test('Free building guide respects upgrade exceptions without upgrading the action',()=>{
+  const basic=actions.map(a=>({...a,upgraded:false}));
+  const effect={kind:'FREE_BUILD',buildings:['ENCLOSURE_2','ReptileHouse','LargeBirdAviary'],amount:1,ignoreBuildUpgrade:false} as const;
+  assert.deepEqual(projectArkEffectGuide({...effect,buildings:[...effect.buildings]},basic,[]).buildings,['ENCLOSURE_2']);
+  assert.deepEqual(projectArkEffectGuide({...effect,buildings:[...effect.buildings]},actions,[]).buildings,effect.buildings);
+  assert.deepEqual(projectArkEffectGuide({...effect,buildings:[...effect.buildings],ignoreBuildUpgrade:true},basic,[]).buildings,effect.buildings);
+  assert.ok(basic.every(a=>!a.upgraded));
+});
