@@ -569,3 +569,72 @@ for(const multiplier of [0,1])test(`WAZA plays a paid extra small animal and tak
   s=act(s,{kind:'EFFECT',choiceId:s.pending!.choiceId,effectId:job.id,selection:{kind:'MOVE',action:'SPONSORS',slot:1}});
   assert.equal(s.progress.turnsCompleted,turns+1);assert.equal(s.zooWork,null);assert.equal(s.appeal,27);
 });
+
+for(const completed of [6,26])for(const moneyFirst of [false,true])test(`Predator sponsors, hunting and delayed boost survive repeated Animals at turn ${completed+1}, money-first ${moneyFirst}`,()=>{
+  let s=setup(['404','408','239','234']);
+  // A boundary fixture with both sponsors already in play; preserve all physical cards.
+  for(const key of ['239','234'])s.played.push(s.hand.splice(s.hand.findIndex(c=>c.key===key),1)[0]!);
+  let placement:v.InferOutput<typeof ArkPlacementSchema>|undefined;
+  for(const cell of ARK_MAP_A)for(const rotation of [0,1,2,3,4,5]) {
+    const candidate={building:'ENCLOSURE_3',anchor:{q:cell.q,r:cell.r},rotation,reflected:false};
+    if(!placement&&!arkPlacementReason(s.buildings,candidate.building,arkShape(candidate.building,candidate.anchor,rotation,false),false))placement=v.parse(ArkPlacementSchema,candidate);
+  }
+  assert.ok(placement);s.buildings.push({id:'second-enclosure',kind:'ENCLOSURE_3',cells:arkShape(placement.building,placement.anchor,placement.rotation,false),occupied:false,used:0});
+  s.revision=v.parse(GameRevisionSchema,completed+1);
+  s.progress=completed===6?{round:1,turnsCompleted:6,turnInRound:6,stage:'ACTION'}:{round:6,turnsCompleted:26,turnInRound:1,stage:'ACTION'};
+  if(completed===26){s.donations=[0,1,2,3,4];s.breakStep='COMPLETE';}
+  const animalAction=s.actions.splice(s.actions.findIndex(a=>a.kind==='ANIMALS'),1)[0]!;animalAction.multiplier=1;s.actions.splice(1,0,animalAction);
+  const originalRow=s.actions.map(a=>a.kind),donations=[...s.donations];
+  for(const [key,housing] of [['404','initial-enclosure'],['408','second-enclosure']] as const){
+    s=act(s,{kind:'BEGIN_ZOO',action:'ANIMALS',x:0,gainReputation:false});
+    s=act(s,{kind:'PLAY_ZOO',card:{cardId:s.hand.find(c=>c.key===key)!.cardId,housingId:housing}});
+    assert.equal(s.progress.turnsCompleted,completed);assert.deepEqual(s.donations,donations);
+    const payment=s.money;
+    if(moneyFirst){const job=s.effects.frames.at(-1)!.find(j=>j.effect.kind==='GAIN'&&j.effect.resource==='MONEY')!;assert.ok(job);
+      const command={kind:'EFFECT',choiceId:s.pending!.choiceId,effectId:job.id,selection:{kind:'NONE'}} as const;
+      s=act(s,command);assert.equal(s.money,payment+3);
+      const before=structuredClone(s);assert.equal(applyArkSoloCommand(s,owner,s.revision,command,now,v.parse(TurnIdSchema,'duplicate-predator-trigger')).ok,false);assert.deepEqual(s,before);
+    }
+    s=resolve(s);assert.deepEqual(s.actions.map(a=>a.kind),originalRow);
+    s=act(s,{kind:'END_ZOO'});
+    if(key==='404'){assert.equal(s.repeatedAction?.awaiting,true);assert.equal(s.progress.turnsCompleted,completed);assert.deepEqual(s.actions.map(a=>a.kind),originalRow);}
+  }
+  assert.equal(s.money,8);assert.equal(s.appeal,30);assert.equal(s.progress.turnsCompleted,completed);
+  assert.equal(s.actions[0]!.kind,'ANIMALS');assert.equal(s.effects.frames.flat().filter(j=>j.effect.kind==='MOVE_ACTION').length,1);
+  const boost=s.effects.frames.at(-1)![0]!;assert.equal(boost.effect.kind,'MOVE_ACTION');
+  const before=structuredClone(s);assert.equal(applyArkSoloCommand(s,owner,s.revision,{kind:'FUNDRAISE',x:0},now,v.parse(TurnIdSchema,'before-boost')).ok,false);assert.deepEqual(s,before);
+  s=act(s,{kind:'EFFECT',choiceId:s.pending!.choiceId,effectId:boost.id,selection:{kind:'MOVE',action:'ASSOCIATION',slot:5}});
+  assert.equal(s.progress.turnsCompleted,completed+1);assert.equal(s.actions[4]!.kind,'ASSOCIATION');
+  if(completed===6){
+    if(s.pending?.kind==='BREAK_DISCARD')s=act(s,{kind:'DISCARD',choiceId:s.pending.choiceId,cards:s.hand.slice(0,s.pending.count).map(c=>c.cardId)});
+    assert.equal(s.progress.stage,'BREAK');assert.equal(s.breakStep,'CARD_INCOME');
+    const incomes=s.effects.frames.flat().filter(j=>j.effect.kind==='GAIN'&&j.effect.resource==='MONEY');
+    assert.equal(incomes.length,1);assert.deepEqual(incomes[0]!.effect,{kind:'GAIN',resource:'MONEY',amount:6});
+    const beforeIncome=s.money;s=resolve(s);assert.equal(s.money,beforeIncome+6);assert.equal(s.progress.round,2);assert.deepEqual(s.donations,[0]);
+  }else{
+    assert.equal(s.pending?.kind,'FINAL_GOAL');assert.equal(s.money,8);assert.deepEqual(s.donations,donations);
+    s=act(s,{kind:'FINAL_GOAL',choiceId:s.pending!.choiceId,discard:s.goals[0]!.cardId});
+    assert.equal(s.phase,'FINISHED');assert.equal(s.result?.appeal,30);assert.equal(s.money,8);
+    assert.equal(s.effects.frames.length,0);assert.equal(s.extraActions.length,0);assert.equal(s.repeatedAction,null);
+  }
+});
+for(const completed of [6,26])test(`Determination's repeated X action stays inside the parent Animals turn ${completed+1}`,()=>{
+  let s=setup(['485','404','223','201']);s.money=100;s.partners=['Europe'];s.partnerSupply=s.partnerSupply.filter(p=>p!=='Europe');
+  s.revision=v.parse(GameRevisionSchema,completed+1);s.progress=completed===6?{round:1,turnsCompleted:6,turnInRound:6,stage:'ACTION'}:{round:6,turnsCompleted:26,turnInRound:1,stage:'ACTION'};
+  if(completed===26){s.donations=[0,1,2,3,4];s.breakStep='COMPLETE';}
+  s.actions.find(a=>a.kind==='BUILD')!.multiplier=2;
+  const animals=s.actions.splice(s.actions.findIndex(a=>a.kind==='ANIMALS'),1)[0]!;s.actions.splice(1,0,animals);
+  s=act(s,{kind:'BEGIN_ZOO',action:'ANIMALS',x:0,gainReputation:false});
+  s=resolve(act(s,{kind:'PLAY_ZOO',card:{cardId:s.hand.find(c=>c.key==='485')!.cardId,housingId:'initial-enclosure'}}));
+  s=act(s,{kind:'END_ZOO'});const job=s.effects.frames.at(-1)![0]!;assert.equal(job.effect.kind,'EXTRA_ACTION');
+  s=act(s,{kind:'EFFECT',choiceId:s.pending!.choiceId,effectId:job.id,selection:{kind:'ACTION',action:'TAKE_X'}});
+  const row=s.actions.map(a=>a.kind),money=s.money;
+  for(let count=1;count<=3;count++){
+    s=act(s,{kind:'TAKE_X',action:'BUILD'});assert.equal(s.x,count);
+    if(count<3){assert.equal(s.money,money);assert.equal(s.progress.turnsCompleted,completed);assert.equal(s.extraActions.length,1);assert.equal(s.repeatedAction?.awaiting,true);assert.deepEqual(s.actions.map(a=>a.kind),row);
+      const before=structuredClone(s);assert.equal(applyArkSoloCommand(s,owner,s.revision,{kind:'FUNDRAISE',x:0},now,v.parse(TurnIdSchema,'wrong-nested-repeat')).ok,false);assert.deepEqual(s,before);}
+  }
+  assert.equal(s.progress.turnsCompleted,completed+1);assert.equal(s.extraActions.length,0);assert.equal(s.repeatedAction,null);assert.equal(s.actions[0]!.kind,'BUILD');
+  if(completed===6){if(s.pending?.kind==='BREAK_DISCARD')s=act(s,{kind:'DISCARD',choiceId:s.pending.choiceId,cards:s.hand.slice(0,s.pending.count).map(c=>c.cardId)});assert.equal(s.progress.round,2);assert.deepEqual(s.donations,[0]);}
+  else{assert.equal(s.pending?.kind,'FINAL_GOAL');s=act(s,{kind:'FINAL_GOAL',choiceId:s.pending!.choiceId,discard:s.goals[0]!.cardId});assert.equal(s.phase,'FINISHED');assert.equal(s.money,money);}
+});
