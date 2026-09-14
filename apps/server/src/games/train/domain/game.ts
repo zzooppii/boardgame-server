@@ -1,7 +1,7 @@
 import * as v from 'valibot';
-import { GameIdSchema, PlayerIdSchema, TurnIdSchema, GameRevisionSchema, ServerTimeSchema, TrainCardSchema, TrainTicketCardSchema, TrainCardIdSchema, TrainActionSchema, TrainCountSchema as count, TrainClaimSchema, TrainResultSchema, TrainFeedbackSchema, TRAIN_COLORS, TRAIN_ROUTES, TRAIN_TICKETS, TRAIN_RULES_VERSION, TRAIN_ROUTE_POINTS, type PlayerId, type TrainCard, type TrainTicketCard, type TrainCardId } from '@hangul-rummikub/shared';
+import { GameIdSchema, PlayerIdSchema, TurnIdSchema, GameRevisionSchema, ServerTimeSchema, TrainCardSchema, TrainTicketCardSchema, TrainCardIdSchema, TrainActionSchema, TrainCountSchema as count, TrainClaimSchema, TrainResultSchema, TrainFeedbackSchema, TRAIN_COLORS, getTrainMap, TrainMapIdSchema, type TrainMapId, type PlayerId, type TrainCard, type TrainTicketCard, type TrainCardId } from '@hangul-rummikub/shared';
 const ids = v.array(TrainCardIdSchema);
-const State = v.strictObject({ gameId: GameIdSchema, rulesVersion: v.literal(TRAIN_RULES_VERSION), revision: GameRevisionSchema, phase: v.picklist(['PLAYING', 'FINISHED']), startedAt: ServerTimeSchema, finishedAt: v.nullable(ServerTimeSchema), transitionId: TurnIdSchema, activePlayerId: PlayerIdSchema, startingPlayerId: PlayerIdSchema, step: v.picklist(['SETUP', 'TURN', 'DRAW_SECOND', 'CHOOSE_TICKETS']), setupIndex: count, round: v.pipe(count, v.minValue(1)), finalTurnsRemaining: v.nullable(v.pipe(count, v.maxValue(5))), finalTriggerPlayerId: v.nullable(PlayerIdSchema), consecutivePasses: count, cards: v.pipe(v.array(TrainCardSchema), v.length(110)), tickets: v.pipe(v.array(TrainTicketCardSchema), v.length(30)), deck: ids, discard: ids, market: v.pipe(ids, v.maxLength(5)), ticketDeck: ids, claims: v.array(TrainClaimSchema), players: v.pipe(v.array(v.strictObject({ playerId: PlayerIdSchema, trains: v.pipe(count, v.maxValue(45)), routePoints: count, hand: ids, tickets: ids, pendingTickets: v.pipe(ids, v.maxLength(3)) })), v.minLength(2), v.maxLength(5)), result: v.nullable(TrainResultSchema), feedback: TrainFeedbackSchema });
+const State = v.strictObject({ gameId: GameIdSchema, mapId: v.optional(TrainMapIdSchema, 'USA'), rulesVersion: v.picklist(['train-usa-classic-v1', 'train-korea-original-v1', 'train-japan-original-v1']), revision: GameRevisionSchema, phase: v.picklist(['PLAYING', 'FINISHED']), startedAt: ServerTimeSchema, finishedAt: v.nullable(ServerTimeSchema), transitionId: TurnIdSchema, deadlineAt: v.nullable(ServerTimeSchema), activePlayerId: PlayerIdSchema, startingPlayerId: PlayerIdSchema, step: v.picklist(['SETUP', 'TURN', 'DRAW_SECOND', 'CHOOSE_TICKETS']), setupIndex: count, round: v.pipe(count, v.minValue(1)), finalTurnsRemaining: v.nullable(v.pipe(count, v.maxValue(5))), finalTriggerPlayerId: v.nullable(PlayerIdSchema), consecutivePasses: count, cards: v.pipe(v.array(TrainCardSchema), v.length(110)), tickets: v.pipe(v.array(TrainTicketCardSchema), v.maxLength(30)), deck: ids, discard: ids, market: v.pipe(ids, v.maxLength(5)), ticketDeck: ids, claims: v.array(TrainClaimSchema), players: v.pipe(v.array(v.strictObject({ playerId: PlayerIdSchema, trains: v.pipe(count, v.maxValue(45)), routePoints: count, hand: ids, tickets: ids, pendingTickets: v.pipe(ids, v.maxLength(3)) })), v.minLength(2), v.maxLength(5)), result: v.nullable(TrainResultSchema), feedback: TrainFeedbackSchema });
 export type TrainState = v.InferOutput<typeof State>;
 export type TrainRandom = (maxExclusive: number) => number;
 export function shuffleTrain<T>(items: T[], random: TrainRandom): T[] { for (let i = items.length - 1; i > 0; i--) {
@@ -10,20 +10,20 @@ export function shuffleTrain<T>(items: T[], random: TrainRandom): T[] { for (let
         throw new Error('Invalid train random source.');
     [items[i], items[j]] = [items[j]!, items[i]!];
 } return items; }
-export function makeTrainCards(id: () => string): {
+export function makeTrainCards(id: () => string, mapId: TrainMapId = 'USA'): {
     cards: TrainCard[];
     tickets: TrainTicketCard[];
-} { return { cards: TRAIN_COLORS.flatMap(color => Array.from({ length: color === 'LOCOMOTIVE' ? 14 : 12 }, () => v.parse(TrainCardSchema, { cardId: id(), color }))), tickets: TRAIN_TICKETS.map(t => v.parse(TrainTicketCardSchema, { cardId: id(), ticketId: t.ticketId })) }; }
+} { return { cards: TRAIN_COLORS.flatMap(color => Array.from({ length: color === 'LOCOMOTIVE' ? 14 : 12 }, () => v.parse(TrainCardSchema, { cardId: id(), color }))), tickets: getTrainMap(mapId).tickets.map(t => v.parse(TrainTicketCardSchema, { cardId: id(), ticketId: t.ticketId })) }; }
 export function trainCard(s: TrainState, id: TrainCardId): TrainCard { const c = s.cards.find(c => c.cardId === id); if (!c)
     throw new Error('Missing train card.'); return c; }
 export function trainTicket(s: TrainState, id: TrainCardId): TrainTicketCard { const c = s.tickets.find(c => c.cardId === id); if (!c)
     throw new Error('Missing train ticket.'); return c; }
-export function trainConnected(claims: TrainState['claims'], playerId: PlayerId, a: string, b: string): boolean { const reached = new Set([a]), queue = [a]; for (let i = 0; i < queue.length; i++) {
+export function trainConnected(claims: TrainState['claims'], playerId: PlayerId, a: string, b: string, mapId: TrainMapId = 'USA'): boolean { const reached = new Set([a]), queue = [a]; for (let i = 0; i < queue.length; i++) {
     const city = queue[i]!;
     for (const claim of claims) {
         if (claim.playerId !== playerId)
             continue;
-        const r = TRAIN_ROUTES.find(r => r.routeId === claim.routeId)!;
+        const r = getTrainMap(mapId).routes.find(r => r.routeId === claim.routeId)!;
         const next = r.a === city ? r.b : r.b === city ? r.a : null;
         if (next && !reached.has(next)) {
             reached.add(next);
@@ -32,8 +32,8 @@ export function trainConnected(claims: TrainState['claims'], playerId: PlayerId,
     }
 } return reached.has(b); }
 /** Weighted edge-simple trail: a city can repeat, an owned route cannot. */
-export function trainLongestPath(claims: TrainState['claims'], playerId: PlayerId): number {
-    const edges = claims.filter(c => c.playerId === playerId).map(c => TRAIN_ROUTES.find(r => r.routeId === c.routeId)!);
+export function trainLongestPath(claims: TrainState['claims'], playerId: PlayerId, mapId: TrainMapId = 'USA'): number {
+    const edges = claims.filter(c => c.playerId === playerId).map(c => getTrainMap(mapId).routes.find(r => r.routeId === c.routeId)!);
     const adj = new Map<string, number[]>();
     edges.forEach((e, i) => { for (const city of [e.a, e.b])
         adj.set(city, [...(adj.get(city) ?? []), i]); });
@@ -48,41 +48,44 @@ export function trainLongestPath(claims: TrainState['claims'], playerId: PlayerI
     } cache.set(key, best); return best; }
     return Math.max(0, ...[...adj.keys()].map(city => visit(city, 0n)));
 }
-function ticketView(s: TrainState, p: TrainState['players'][number]) { return p.tickets.map(id => { const c = trainTicket(s, id), t = TRAIN_TICKETS.find(t => t.ticketId === c.ticketId)!; return { ...c, completed: trainConnected(s.claims, p.playerId, t.a, t.b) }; }); }
-export function scoreTrain(s: TrainState) { const lengths = s.players.map(p => trainLongestPath(s.claims, p.playerId)), longest = Math.max(...lengths); return s.players.map((p, i) => { const tickets = ticketView(s, p), ticketPoints = tickets.reduce((n, c) => n + (c.completed ? 1 : -1) * TRAIN_TICKETS.find(t => t.ticketId === c.ticketId)!.points, 0), longestBonus = lengths[i] === longest && longest > 0 ? 10 : 0; return { playerId: p.playerId, routePoints: p.routePoints, ticketPoints, longestLength: lengths[i]!, longestBonus, completedCount: tickets.filter(t => t.completed).length, total: p.routePoints + ticketPoints + longestBonus, tickets }; }); }
+function ticketView(s: TrainState, p: TrainState['players'][number]) { return p.tickets.map(id => { const c = trainTicket(s, id), t = getTrainMap(s.mapId).tickets.find(t => t.ticketId === c.ticketId)!; return { ...c, completed: trainConnected(s.claims, p.playerId, t.a, t.b, s.mapId) }; }); }
+export function scoreTrain(s: TrainState) { const lengths = s.players.map(p => trainLongestPath(s.claims, p.playerId, s.mapId)), longest = Math.max(...lengths); return s.players.map((p, i) => { const tickets = ticketView(s, p), ticketPoints = tickets.reduce((n, c) => n + (c.completed ? 1 : -1) * getTrainMap(s.mapId).tickets.find(t => t.ticketId === c.ticketId)!.points, 0), longestBonus = lengths[i] === longest && longest > 0 ? getTrainMap(s.mapId).longestBonus : 0; return { playerId: p.playerId, routePoints: p.routePoints, ticketPoints, longestLength: lengths[i]!, longestBonus, completedCount: tickets.filter(t => t.completed).length, total: p.routePoints + ticketPoints + longestBonus, tickets }; }); }
 function winners(scores: ReturnType<typeof scoreTrain>) { const ranked = [...scores].sort((a, b) => b.total - a.total || b.completedCount - a.completedCount || b.longestBonus - a.longestBonus), top = ranked[0]!; return ranked.filter(s => s.total === top.total && s.completedCount === top.completedCount && s.longestBonus === top.longestBonus).map(s => s.playerId); }
-function finish(s: TrainState, reason: 'TRAINS' | 'STALEMATE' | 'CANCELLED', now: TrainState['startedAt']) { s.phase = 'FINISHED'; s.finishedAt = now; const scores = scoreTrain(s); s.result = v.parse(TrainResultSchema, { reason, scores, winnerPlayerIds: reason === 'CANCELLED' ? [] : winners(scores) }); }
+function finish(s: TrainState, reason: 'TRAINS' | 'STALEMATE' | 'CANCELLED', now: TrainState['startedAt']) { s.phase = 'FINISHED'; s.deadlineAt = null; s.finishedAt = now; const scores = scoreTrain(s); s.result = v.parse(TrainResultSchema, { reason, scores, winnerPlayerIds: reason === 'CANCELLED' ? [] : winners(scores) }); }
 export function parseTrainState(input: unknown): TrainState {
-    const s = v.parse(State, input), players = new Set(s.players.map(p => p.playerId)), all = [...s.cards, ...s.tickets], allIds = new Set(all.map(c => c.cardId));
+    const s = v.parse(State, input), map = getTrainMap(s.mapId), players = new Set(s.players.map(p => p.playerId)), all = [...s.cards, ...s.tickets], allIds = new Set(all.map(c => c.cardId));
+    if (s.rulesVersion !== map.rulesVersion) throw new Error('Train map rules version mismatch.');
     if (players.size !== s.players.length || !players.has(s.activePlayerId) || !players.has(s.startingPlayerId) || s.setupIndex > s.players.length)
         throw new Error('Train roster mismatch.');
-    if (TRAIN_COLORS.some(color => s.cards.filter(c => c.color === color).length !== (color === 'LOCOMOTIVE' ? 14 : 12)) || new Set(s.tickets.map(t => t.ticketId)).size !== 30 || s.tickets.some(t => !TRAIN_TICKETS.some(x => x.ticketId === t.ticketId)))
+    if (TRAIN_COLORS.some(color => s.cards.filter(c => c.color === color).length !== (color === 'LOCOMOTIVE' ? 14 : 12)) || new Set(s.tickets.map(t => t.ticketId)).size !== map.tickets.length || s.tickets.some(t => !map.tickets.some(x => x.ticketId === t.ticketId)))
         throw new Error('Train catalog mismatch.');
     const cardZones = [...s.deck, ...s.discard, ...s.market, ...s.players.flatMap(p => p.hand)], ticketZones = [...s.ticketDeck, ...s.players.flatMap(p => [...p.tickets, ...p.pendingTickets])], zones = [...cardZones, ...ticketZones];
-    if (allIds.size !== 140 || zones.length !== 140 || new Set(zones).size !== 140 || cardZones.some(id => !s.cards.some(c => c.cardId === id)) || ticketZones.some(id => !s.tickets.some(c => c.cardId === id)))
+    if (allIds.size !== 110 + map.tickets.length || zones.length !== allIds.size || new Set(zones).size !== allIds.size || cardZones.some(id => !s.cards.some(c => c.cardId === id)) || ticketZones.some(id => !s.tickets.some(c => c.cardId === id)))
         throw new Error('Train card conservation failed.');
-    if (new Set(s.claims.map(c => c.routeId)).size !== s.claims.length || s.claims.some(c => !players.has(c.playerId) || !TRAIN_ROUTES.some(r => r.routeId === c.routeId)))
+    if (new Set(s.claims.map(c => c.routeId)).size !== s.claims.length || s.claims.some(c => !players.has(c.playerId) || !getTrainMap(s.mapId).routes.some(r => r.routeId === c.routeId)))
         throw new Error('Train claim invalid.');
     for (const p of s.players) {
-        const routes = TRAIN_ROUTES.filter(r => s.claims.some(c => c.routeId === r.routeId && c.playerId === p.playerId));
-        if (p.trains !== 45 - routes.reduce((n, r) => n + r.length, 0) || p.routePoints !== routes.reduce((n, r) => n + TRAIN_ROUTE_POINTS[r.length]!, 0))
+        const routes = getTrainMap(s.mapId).routes.filter(r => s.claims.some(c => c.routeId === r.routeId && c.playerId === p.playerId));
+        if (p.trains !== map.trains - routes.reduce((n, r) => n + r.length, 0) || p.routePoints !== routes.reduce((n, r) => n + getTrainMap(s.mapId).routePoints[r.length]!, 0))
             throw new Error('Train pieces/score conservation failed.');
     }
     for (const c of s.claims) {
-        const route = TRAIN_ROUTES.find(r => r.routeId === c.routeId)!;
-        if (s.claims.some(o => o.routeId !== c.routeId && TRAIN_ROUTES.find(r => r.routeId === o.routeId)!.group === route.group && (players.size < 4 || o.playerId === c.playerId)))
+        const route = getTrainMap(s.mapId).routes.find(r => r.routeId === c.routeId)!;
+        if (s.claims.some(o => o.routeId !== c.routeId && getTrainMap(s.mapId).routes.find(r => r.routeId === o.routeId)!.group === route.group && (players.size < 4 || o.playerId === c.playerId)))
             throw new Error('Train double route invalid.');
     }
     if ((s.finalTriggerPlayerId === null) !== (s.finalTurnsRemaining === null) || s.finalTriggerPlayerId !== null && (!players.has(s.finalTriggerPlayerId) || s.finalTurnsRemaining! > players.size || s.players.find(p => p.playerId === s.finalTriggerPlayerId)!.trains > 2) || s.phase === 'PLAYING' && s.finalTurnsRemaining === 0)
         throw new Error('Train final turn mismatch.');
     if (s.step === 'SETUP') {
-        if (s.setupIndex >= s.players.length || s.activePlayerId !== s.players[s.setupIndex]!.playerId || s.players.some((p, i) => i < s.setupIndex ? p.pendingTickets.length !== 0 || p.tickets.length < 2 : p.pendingTickets.length !== 3 || p.tickets.length !== 0))
+        if (s.setupIndex >= s.players.length || s.activePlayerId !== s.players[s.setupIndex]!.playerId || s.players.some((p, i) => i < s.setupIndex ? p.pendingTickets.length !== 0 || p.tickets.length < map.minimumInitialTickets : p.pendingTickets.length !== map.initialTickets || p.tickets.length !== 0))
             throw new Error('Train setup mismatch.');
     }
     else if (s.setupIndex !== s.players.length || s.players.some(p => p.pendingTickets.length > 0 && (s.step !== 'CHOOSE_TICKETS' || p.playerId !== s.activePlayerId)) || s.step === 'CHOOSE_TICKETS' && s.players.find(p => p.playerId === s.activePlayerId)!.pendingTickets.length === 0)
         throw new Error('Train pending tickets mismatch.');
     if (s.phase === 'FINISHED' ? (s.finishedAt === null || s.result === null) : (s.finishedAt !== null || s.result !== null))
         throw new Error('Train phase mismatch.');
+    if (s.phase === 'PLAYING' ? s.deadlineAt === null : s.deadlineAt !== null)
+        throw new Error('Train deadline mismatch.');
     if (s.finishedAt !== null && s.finishedAt < s.startedAt || s.feedback && !players.has(s.feedback.playerId))
         throw new Error('Train metadata mismatch.');
     if (s.result) {
@@ -120,6 +123,7 @@ function normalizeMarket(s: TrainState, random: TrainRandom) {
     }
 }
 export function createTrainGame(input: {
+    mapId?: TrainMapId;
     gameId: TrainState['gameId'];
     playerIds: PlayerId[];
     now: TrainState['startedAt'];
@@ -128,18 +132,21 @@ export function createTrainGame(input: {
     cards: TrainCard[];
     tickets: TrainTicketCard[];
 }, random: TrainRandom): TrainState {
-    const n = input.playerIds.length;
+    const map = getTrainMap(input.mapId), n = input.playerIds.length;
     if (n < 2 || n > 5 || !Number.isInteger(input.starter) || input.starter < 0 || input.starter >= n)
         throw new Error('Train needs 2–5 players.');
-    const deck = input.cards.map(c => c.cardId), ticketDeck = input.tickets.map(c => c.cardId), players = input.playerIds.map(playerId => ({ playerId, trains: 45, routePoints: 0, hand: deck.splice(0, 4), tickets: [], pendingTickets: ticketDeck.splice(0, 3) }));
-    const s = v.parse(State, { gameId: input.gameId, rulesVersion: TRAIN_RULES_VERSION, revision: 0, phase: 'PLAYING', startedAt: input.now, finishedAt: null, transitionId: input.transitionId, activePlayerId: input.playerIds[0], startingPlayerId: input.playerIds[input.starter], step: 'SETUP', setupIndex: 0, round: 1, finalTurnsRemaining: null, finalTriggerPlayerId: null, consecutivePasses: 0, cards: input.cards, tickets: input.tickets, deck, discard: [], market: [], ticketDeck, claims: [], players, result: null, feedback: null });
+    const deck = input.cards.map(c => c.cardId), ticketDeck = input.tickets.map(c => c.cardId), players = input.playerIds.map(playerId => ({ playerId, trains: map.trains, routePoints: 0, hand: deck.splice(0, map.initialHand), tickets: [], pendingTickets: ticketDeck.splice(0, map.initialTickets) }));
+    const s = v.parse(State, { gameId: input.gameId, mapId: map.mapId, rulesVersion: map.rulesVersion, revision: 0, phase: 'PLAYING', startedAt: input.now, finishedAt: null, transitionId: input.transitionId, deadlineAt: input.now + 90_000, activePlayerId: input.playerIds[0], startingPlayerId: input.playerIds[input.starter], step: 'SETUP', setupIndex: 0, round: 1, finalTurnsRemaining: null, finalTriggerPlayerId: null, consecutivePasses: 0, cards: input.cards, tickets: input.tickets, deck, discard: [], market: [], ticketDeck, claims: [], players, result: null, feedback: null });
     normalizeMarket(s, random);
     return parseTrainState(s);
 }
-export function trainRouteAvailable(s: Pick<TrainState, 'claims' | 'players'>, actor: PlayerId, routeId: string): boolean { const route = TRAIN_ROUTES.find(r => r.routeId === routeId); return !!route && !s.claims.some(c => c.routeId === routeId || TRAIN_ROUTES.find(r => r.routeId === c.routeId)?.group === route.group && (s.players.length < 4 || c.playerId === actor)); }
-function hasClaim(s: TrainState, actor: PlayerId) { const p = s.players.find(p => p.playerId === actor)!; return TRAIN_ROUTES.some(r => r.length <= p.trains && trainRouteAvailable(s, actor, r.routeId) && TRAIN_COLORS.filter(c => c !== 'LOCOMOTIVE' && (r.color === 'GRAY' || r.color === c)).some(color => p.hand.filter(id => { const c = trainCard(s, id).color; return c === color || c === 'LOCOMOTIVE'; }).length >= r.length)); }
+export function trainRouteAvailable(s: Pick<TrainState, 'claims' | 'players' | 'mapId'>, actor: PlayerId, routeId: string): boolean { const route = getTrainMap(s.mapId).routes.find(r => r.routeId === routeId); return !!route && !s.claims.some(c => c.routeId === routeId || getTrainMap(s.mapId).routes.find(r => r.routeId === c.routeId)?.group === route.group && (s.players.length < 4 || c.playerId === actor)); }
+function hasClaim(s: TrainState, actor: PlayerId) { const p = s.players.find(p => p.playerId === actor)!; return getTrainMap(s.mapId).routes.some(r => r.length <= p.trains && trainRouteAvailable(s, actor, r.routeId) && TRAIN_COLORS.filter(c => c !== 'LOCOMOTIVE' && (r.color === 'GRAY' || r.color === c)).some(color => p.hand.filter(id => { const c = trainCard(s, id).color; return c === color || c === 'LOCOMOTIVE'; }).length >= r.length)); }
 export function canTrainPass(s: TrainState, actor: PlayerId): boolean { return s.step === 'TURN' && !s.deck.length && !s.discard.length && !s.market.length && !s.ticketDeck.length && !hasClaim(s, actor); }
 function endTurn(s: TrainState, now: TrainState['startedAt']) {
+    // Complete the action phase before final scoring validates pending tickets.
+    s.step = 'TURN';
+    s.deadlineAt = v.parse(ServerTimeSchema, now + 90_000);
     const p = s.players.find(p => p.playerId === s.activePlayerId)!;
     if (s.finalTurnsRemaining !== null) {
         s.finalTurnsRemaining--;
@@ -167,9 +174,9 @@ export type TrainApplied = {
     state: TrainState;
 } | {
     ok: false;
-    reason: 'INVALID_PHASE' | 'NOT_YOUR_TURN' | 'INVALID_ACTION';
+    reason: 'INVALID_PHASE' | 'NOT_YOUR_TURN' | 'INVALID_ACTION' | 'TURN_EXPIRED';
 };
-export function applyTrainAction(current: TrainState, actor: PlayerId, input: unknown, now: TrainState['startedAt'], nextTurn: TrainState['transitionId'], random: TrainRandom): TrainApplied {
+function applyTrainActionInternal(current: TrainState, actor: PlayerId, input: unknown, now: TrainState['startedAt'], nextTurn: TrainState['transitionId'], random: TrainRandom): TrainApplied {
     if (current.phase !== 'PLAYING')
         return { ok: false, reason: 'INVALID_PHASE' };
     if (current.activePlayerId !== actor)
@@ -181,13 +188,14 @@ export function applyTrainAction(current: TrainState, actor: PlayerId, input: un
     if (a.kind === 'KEEP_TICKETS') {
         if (s.step !== 'SETUP' && s.step !== 'CHOOSE_TICKETS')
             return invalid();
-        const all = [...a.keepCardIds, ...a.returnCardIds], min = s.step === 'SETUP' ? 2 : 1;
+        const all = [...a.keepCardIds, ...a.returnCardIds], min = s.step === 'SETUP' ? getTrainMap(s.mapId).minimumInitialTickets : 1;
         if (a.keepCardIds.length < min || all.length !== p.pendingTickets.length || new Set(all).size !== all.length || all.some(id => !p.pendingTickets.includes(id)))
             return invalid();
         p.tickets.push(...a.keepCardIds);
         s.ticketDeck.push(...a.returnCardIds);
         p.pendingTickets = [];
         if (s.step === 'SETUP') {
+            s.deadlineAt = v.parse(ServerTimeSchema, now + 90_000);
             s.setupIndex++;
             if (s.setupIndex === s.players.length) {
                 s.activePlayerId = s.startingPlayerId;
@@ -232,7 +240,7 @@ export function applyTrainAction(current: TrainState, actor: PlayerId, input: un
         if (s.step !== 'TURN')
             return invalid();
         if (a.kind === 'CLAIM_ROUTE') {
-            const r = TRAIN_ROUTES.find(r => r.routeId === a.routeId);
+            const r = getTrainMap(s.mapId).routes.find(r => r.routeId === a.routeId);
             if (!r || !trainRouteAvailable(s, actor, r.routeId) || r.length > p.trains || a.cardIds.length !== r.length || new Set(a.cardIds).size !== a.cardIds.length || a.cardIds.some(id => !p.hand.includes(id)))
                 return invalid();
             const colors = new Set(a.cardIds.map(id => trainCard(s, id).color).filter(c => c !== 'LOCOMOTIVE'));
@@ -241,7 +249,7 @@ export function applyTrainAction(current: TrainState, actor: PlayerId, input: un
             p.hand = p.hand.filter(id => !a.cardIds.includes(id));
             s.discard.push(...a.cardIds);
             p.trains -= r.length;
-            p.routePoints += TRAIN_ROUTE_POINTS[r.length]!;
+            p.routePoints += getTrainMap(s.mapId).routePoints[r.length]!;
             s.claims.push({ routeId: r.routeId, playerId: actor });
             s.consecutivePasses = 0;
             normalizeMarket(s, random);
@@ -250,7 +258,7 @@ export function applyTrainAction(current: TrainState, actor: PlayerId, input: un
         else if (a.kind === 'DRAW_TICKETS') {
             if (!s.ticketDeck.length)
                 return invalid();
-            p.pendingTickets = s.ticketDeck.splice(0, 3);
+            p.pendingTickets = s.ticketDeck.splice(0, getTrainMap(s.mapId).drawTickets);
             s.step = 'CHOOSE_TICKETS';
             s.consecutivePasses = 0;
         }
@@ -269,3 +277,42 @@ export function applyTrainAction(current: TrainState, actor: PlayerId, input: un
 export function cancelTrain(current: TrainState, now: TrainState['startedAt']): TrainState { const s = structuredClone(current); if (s.phase === 'FINISHED')
     return parseTrainState(s); s.revision = v.parse(GameRevisionSchema, s.revision + 1); finish(s, 'CANCELLED', now); return parseTrainState(s); }
 export { ticketView as trainTicketViews };
+
+/** User commands cannot race past the server deadline; timeout is a separate trusted entry point. */
+export function applyTrainAction(current: TrainState, actor: PlayerId, input: unknown, now: TrainState['startedAt'], nextTurn: TrainState['transitionId'], random: TrainRandom): TrainApplied {
+    if (current.phase === 'PLAYING' && current.deadlineAt !== null && now >= current.deadlineAt)
+        return { ok: false, reason: 'TURN_EXPIRED' };
+    return applyTrainActionInternal(current, actor, input, now, nextTurn, random);
+}
+export function timeoutTrain(current: TrainState, now: TrainState['startedAt'], nextTurn: TrainState['transitionId'], random: TrainRandom): TrainApplied {
+    if (current.phase !== 'PLAYING' || current.deadlineAt === null || now < current.deadlineAt)
+        return { ok: false, reason: 'INVALID_PHASE' };
+    const actor = current.activePlayerId;
+    let s = structuredClone(current);
+    if (s.step === 'SETUP' || s.step === 'CHOOSE_TICKETS') {
+        const pending = s.players.find(p => p.playerId === actor)!.pendingTickets;
+        const keep = s.step === 'SETUP' ? getTrainMap(s.mapId).minimumInitialTickets : 1;
+        const result = applyTrainActionInternal(s, actor, {kind:'KEEP_TICKETS',keepCardIds:pending.slice(0,keep),returnCardIds:pending.slice(keep)}, now, nextTurn, random);
+        if (!result.ok) return result;
+        s = result.state;
+    } else {
+        for (let i = 0; i < 2; i++) {
+            const market = s.market.find(id => s.step !== 'DRAW_SECOND' || trainCard(s,id).color !== 'LOCOMOTIVE');
+            const action = s.deck.length + s.discard.length > 0 ? {kind:'DRAW_DECK'} : market ? {kind:'DRAW_MARKET',cardId:market} : null;
+            if (!action) {
+                s.consecutivePasses = canTrainPass(s,actor) ? s.consecutivePasses + 1 : 0;
+                endTurn(s,now);
+                break;
+            }
+            const result = applyTrainActionInternal(s,actor,action,now,nextTurn,random);
+            if (!result.ok) return result;
+            s = result.state;
+            if (s.phase === 'FINISHED' || s.activePlayerId !== actor || s.step === 'TURN') break;
+        }
+    }
+    // All automatic sub-actions form one atomic revision and one notification.
+    s.revision = v.parse(GameRevisionSchema,current.revision + 1);
+    s.transitionId = nextTurn;
+    s.feedback = {playerId:actor,kind:'TIMEOUT',routeId:null,at:now};
+    return {ok:true,state:parseTrainState(s)};
+}

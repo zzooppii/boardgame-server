@@ -567,6 +567,7 @@ export interface SnapshotWireClientToServerEvents {
   "island:rematch": (command: Extract<IslandClientCommand,{kind:"island:rematch"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "splendor:configure": (command: Extract<SplendorClientCommand,{kind:"splendor:configure"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "splendor:act": (command: Extract<SplendorClientCommand,{kind:"splendor:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
+  "train:configure": (command: Extract<TrainClientCommand,{kind:"train:configure"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "train:act": (command: Extract<TrainClientCommand,{kind:"train:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "century:act": (command: Extract<CenturyClientCommand,{kind:"century:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "spirit:act": (command: Extract<SpiritClientCommand,{kind:"spirit:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;

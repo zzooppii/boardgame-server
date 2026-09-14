@@ -1,3 +1,4 @@
+import { TrainSettingsSchema, isTrainMapAvailable } from "../games/train/maps.js";
 import { SpaceCrewPlayingProjectionSchema, SpaceCrewFinishedProjectionSchema, spaceCrewProjectionIsConsistent } from "../games/space-crew/contracts.js";
 import { BurgundySettingsSchema } from "../games/burgundy/actions.js";
 import { BurgundyPlayingProjectionSchema, BurgundyFinishedProjectionSchema, burgundyProjectionIsConsistent } from "../games/burgundy/contracts.js";
@@ -347,15 +348,15 @@ export const SaboteurPlayingPlatformSnapshotV2Schema: v.GenericSchema<unknown, S
 export const SaboteurFinishedPlatformSnapshotV2Schema: v.GenericSchema<unknown, SaboteurFinishedPlatformSnapshotV2> = SaboteurFinishedRaw;
 
 const TrainOuter = { snapshotVersion: PlatformSnapshotVersionSchema, versions: PlatformSnapshotVersionsV2Schema, serverTime: ServerTimeSchema, self: PlatformSelfViewV2Schema };
-const TrainRoom = { roomId: RoomIdSchema, roomCode: RoomCodeSchema, gameType: v.literal("TRAIN") };
+const TrainRoom = { roomId: RoomIdSchema, roomCode: RoomCodeSchema, gameType: v.literal("TRAIN"), settings:v.optional(TrainSettingsSchema) };
 const TrainPlayers = v.pipe(v.array(PlatformPlayerViewV2Schema), v.minLength(2), v.maxLength(5));
 const TrainLobbyRaw = v.pipe(v.strictObject({ ...TrainOuter, room: v.strictObject({ ...TrainRoom, phase: v.literal("LOBBY"),
   players: v.pipe(v.array(PlatformPlayerViewV2Schema), v.maxLength(10)) }), game: v.null() }),
-  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)));
+  v.check(s => isTrainMapAvailable(s.room.settings?.mapId ?? "USA")), v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)));
 const TrainPlayingRaw = v.pipe(v.strictObject({ ...TrainOuter, room: v.strictObject({ ...TrainRoom, phase: v.literal("PLAYING"), players: TrainPlayers }), game: TrainPlayingProjectionSchema }),
-  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)), v.check(s => hasMatchingGamePlayers(s)), v.check(s => s.game.privateState.playerId === s.self.playerId), v.check(s => s.game.privateState.hand.length === s.game.playerStates.find(p => p.playerId === s.self.playerId)?.handCount), v.check(s => trainProjectionIsConsistent(s.game)));
+  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)), v.check(s => hasMatchingGamePlayers(s)), v.check(s => s.game.privateState.playerId === s.self.playerId), v.check(s => s.game.privateState.hand.length === s.game.playerStates.find(p => p.playerId === s.self.playerId)?.handCount), v.check(s => (s.room.settings?.mapId ?? "USA") === s.game.mapId), v.check(s => trainProjectionIsConsistent(s.game)));
 const TrainFinishedRaw = v.pipe(v.strictObject({ ...TrainOuter, room: v.strictObject({ ...TrainRoom, phase: v.literal("FINISHED"), players: TrainPlayers }), game: TrainFinishedProjectionSchema }),
-  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)), v.check(s => hasMatchingGamePlayers(s)), v.check(s => s.game.privateState.playerId === s.self.playerId), v.check(s => s.game.privateState.hand.length === s.game.playerStates.find(p => p.playerId === s.self.playerId)?.handCount), v.check(s => trainProjectionIsConsistent(s.game)));
+  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)), v.check(s => hasMatchingGamePlayers(s)), v.check(s => s.game.privateState.playerId === s.self.playerId), v.check(s => s.game.privateState.hand.length === s.game.playerStates.find(p => p.playerId === s.self.playerId)?.handCount), v.check(s => (s.room.settings?.mapId ?? "USA") === s.game.mapId), v.check(s => trainProjectionIsConsistent(s.game)));
 export type TrainLobbyPlatformSnapshotV2 = v.InferOutput<typeof TrainLobbyRaw>;
 export type TrainPlayingPlatformSnapshotV2 = v.InferOutput<typeof TrainPlayingRaw>;
 export type TrainFinishedPlatformSnapshotV2 = v.InferOutput<typeof TrainFinishedRaw>;

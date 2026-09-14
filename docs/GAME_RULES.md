@@ -2,7 +2,7 @@
 
 2026-09-13 스페이스 크루 P0 규칙 확정: [SPACE_CREW_GAME_RULES.md](./SPACE_CREW_GAME_RULES.md)와 [50미션 감사](./SPACE_CREW_MISSION_AUDIT.md)를 따른다. 제9행성 기본판 3–5인, 협동·제한 교신·강제 턴 시간 없음. 46번의 구조 신호 설정 순서는 공식 명문과 구분한 구현 해석으로 기록한다. 단계별 구현 상태는 [개발 기록](./SPACE_CREW_DELIVERY.md)을 따른다.
 
-2026-09-12 티켓 투 라이드 추가: [TRAIN_GAME_RULES.md](./TRAIN_GAME_RULES.md)와 [TRAIN_ARCHITECTURE.md](./TRAIN_ARCHITECTURE.md)를 따른다. 미국 구판 2–5인, 시간 제한 없음, 서버 권위형 철도 연결과 개인별 카드 projection.
+2026-09-12 티켓 투 라이드 추가: [TRAIN_GAME_RULES.md](./TRAIN_GAME_RULES.md)와 [TRAIN_ARCHITECTURE.md](./TRAIN_ARCHITECTURE.md)를 따른다. 미국 구판 2–5인, 2026-09-14 CONFIRMED 사용자 요청으로 차례당 90초, 서버 권위형 철도 연결과 개인별 카드 projection.
 
 2026-09-12 별도 게임 센추리의 규칙은 [CENTURY_GAME_RULES.md](./CENTURY_GAME_RULES.md)를 따른다. 기존 타일 게임의 규칙과 미확정 항목은 유지한다.
 
@@ -1077,3 +1077,11 @@ Dedicated Tile이 있는 ㅐ, ㅔ, ㅒ, ㅖ는 arbitrary component 합성으로 
 2026-09-12 버건디의 성 20주년판 CONFIRMED: 2–4인 개인전, 방장 선택 확장과 30/60/90초, 시간 초과 시 남은 주사위의 일꾼 획득. [규칙과 자료 검증 범위](./BURGUNDY_GAME_RULES.md)를 따른다. 한글 타일의 미확정 규칙은 변경하지 않는다.
 
 2026-09-13 클루 계단 통행 CONFIRMED: 사용자의 계단 이동 불가 신고에 따라 계단 2×2 영역을 일반 이동 4칸으로 연결한다. 서재 옆 차단벽은 유지한다. 상세 내용은 [CLUE_GAME_RULES.md](./CLUE_GAME_RULES.md)를 따른다.
+
+### TRAIN 한국 창작 지도 — CONFIRMED (2026-09-14)
+
+사용자 선택: ‘한국 창작 지도 + 미국판 기본 규칙’. 공식 한국 확장의 특수 규칙을 사용하지 않는다. 지도 선택은 대기실 방장만 가능하며 시작 시 고정한다. 상세 구성·창작 목적지 점수 기준은 [TRAIN_GAME_RULES.md](TRAIN_GAME_RULES.md)의 한국 창작 지도 항목을 따른다.
+
+### TRAIN 일본 창작 지도 — CONFIRMED (2026-09-14)
+
+사용자가 일본 지도만 추가하도록 요청했다. `JAPAN`은 창작 도시·노선·목적지와 미국판 기본 규칙을 사용한다. 공식 일본 확장의 공용 신칸센 및 기여도 점수는 포함하지 않는다. 상세 구성은 [TRAIN_GAME_RULES.md](TRAIN_GAME_RULES.md)를 따른다.

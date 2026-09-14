@@ -2769,7 +2769,7 @@ function registerSplendorHandlers(socket: RealtimeSocket, runtime: ApplicationRu
 
 import { TrainClientCommandSchema } from "@hangul-rummikub/shared";
 function registerTrainHandlers(socket: RealtimeSocket, runtime: ApplicationRuntime): void {
-  for (const event of ["train:act"] as const) socket.on(event, (raw: unknown, acknowledge: (ack: StateSyncWireAck) => void) => {
+  for (const event of ["train:configure", "train:act"] as const) socket.on(event, (raw: unknown, acknowledge: (ack: StateSyncWireAck) => void) => {
     const receivedAt = runtime.clock.now(), command = parseNumberRematch(TrainClientCommandSchema, raw);
     if (!command.success || command.output.kind !== event) { acknowledgeIfPresent(acknowledge, failureAck(raw, INVALID_PAYLOAD_ERROR, receivedAt)); return; }
     void (async () => {

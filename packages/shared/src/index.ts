@@ -78,6 +78,7 @@ export * from "./games/carcassonne/geometry.js";
 export * from "./games/carcassonne/contracts.js";
 
 export * from "./games/train/catalog.js";
+export * from "./games/train/maps.js";
 
 export * from "./games/burgundy/actions.js";
 export * from "./games/burgundy/catalog.js";

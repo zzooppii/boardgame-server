@@ -76,7 +76,7 @@ async function prepared(h: Harness) { let snapshot = await start(h); while (true
     const member = h.members.find(m => m.playerId === g.activePlayerId)!, own = await h.sync(member.client), pending = train(own).privateState.pendingTickets;
     snapshot = h.success(await h.send(member.client, action(h, own, { kind: 'KEEP_TICKETS', keepCardIds: pending.slice(0, 2).map(t => t.cardId), returnCardIds: pending.slice(2).map(t => t.cardId) })));
 } }
-test('TRAIN socket: 2–5 seats, capacity/switch, initialization and no deadline', async (t) => {
+test('TRAIN socket: 2–5 seats, capacity/switch, initialization and 90-second deadline', async (t) => {
     const one = await harness(t, 1), single = await one.sync();
     assert.equal(one.failure(await one.call(one.host, 'game:start', {}, { expectedRoomRevision: single.versions.roomRevision })), 'NOT_ENOUGH_PLAYERS');
     for (const n of [2, 3, 4, 5]) {
@@ -84,7 +84,7 @@ test('TRAIN socket: 2–5 seats, capacity/switch, initialization and no deadline
         assert.equal(g.playerStates.length, n);
         assert.equal(g.privateState.hand.length, 4);
         assert.equal(g.privateState.pendingTickets.length, 3);
-        assert.equal((await h.server.runtime.persistence.listActiveTurnDeadlines()).some(d => d.roomId === s.room.roomId), false);
+        assert.equal((await h.server.runtime.persistence.listActiveTurnDeadlines()).some(d => d.roomId === s.room.roomId), true);
     }
     const h = await harness(t, 6), s = h.success(await h.send(h.host, h.selection(await h.sync(), 'TRAIN')));
     assert.equal(s.room.players.length, 6);
@@ -207,4 +207,91 @@ test('TRAIN socket: complete a real game, publish scoring to both players and st
     const fresh = train(await start(h));
     assert.notEqual(fresh.gameId,oldId);
     assert.equal(fresh.claims.length,0);
+});
+
+test('TRAIN timer recovery and concurrent expiry advance only once and retain a shared deadline after first draw',async t=>{
+    const h=await harness(t),initial=await prepared(h),g=train(initial);
+    assert.ok(g.phase==='PLAYING');
+    const actor=h.members.find(m=>m.playerId===g.activePlayerId)!;
+    const first=h.success(await h.send(actor.client,action(h,await h.sync(actor.client),{kind:'DRAW_DECK'})));
+    const drawing=train(first);assert.ok(drawing.phase==='PLAYING');
+    assert.equal(drawing.deadlineAt,g.deadlineAt);
+    let now=drawing.deadlineAt;
+    t.mock.method(h.server.runtime.clock,'now',()=>now);
+    const deadline=(await h.server.runtime.persistence.listActiveTurnDeadlines()).find(d=>d.roomId===first.room.roomId)!;
+    assert.ok(deadline);
+    const service=h.server.runtime.trainService!;
+    assert.equal(h.failure(await h.send(actor.client,action(h,first,{kind:'DRAW_DECK'}))),'TURN_EXPIRED');
+    const outcomes=await Promise.all([service.timeout(deadline),service.timeout(deadline)]);
+    assert.equal(outcomes.filter(r=>r.status==='APPLIED').length,1);
+    const next=train(await h.sync(actor.client));assert.ok(next.phase==='PLAYING');
+    assert.equal(next.gameRevision,drawing.gameRevision+1);
+    assert.equal(next.privateState.hand.length,6);
+    assert.equal(next.deadlineAt,now+90_000);
+    assert.equal((await service.timeout(deadline)).status,'NO_OP');
+    now=next.deadlineAt;
+    await h.server.runtime.overdueTurnSweeper.sweepOnce();
+    const recovered=train(await h.sync());assert.ok(recovered.phase==='PLAYING');
+    assert.equal(recovered.gameRevision,next.gameRevision+1);
+    assert.equal(recovered.feedback?.kind,'TIMEOUT');
+});
+
+test('TRAIN map configuration: host/revision/auth guards, replay, start lock and Korea reconnect', async t => {
+    const h = await harness(t, 2), lobby = await h.sync();
+    const command = h.request('train:configure', {mapId:'KOREA'}, {expectedRoomRevision:lobby.versions.roomRevision});
+    assert.equal(h.failure(await h.send(h.members[1]!.client, command)), 'HOST_ONLY');
+    assert.equal(h.failure(await h.call(h.host,'train:configure',{mapId:'MARS'},{expectedRoomRevision:lobby.versions.roomRevision})), 'INVALID_PAYLOAD');
+    assert.equal(h.failure(await h.call(h.host,'train:configure',{mapId:'KOREA'},{expectedRoomRevision:lobby.versions.roomRevision-1})), 'STALE_ROOM_REVISION');
+    const selected = h.success(await h.send(h.host,command));
+    assert.equal(selected.room.gameType,'TRAIN');
+    if(selected.room.gameType !== 'TRAIN') throw new Error('TRAIN room expected');
+    assert.equal(selected.room.settings?.mapId,'KOREA');
+    assert.equal(selected.versions.roomRevision,lobby.versions.roomRevision+1);
+    assert.equal(h.success(await h.send(h.host,command)).versions.roomRevision,selected.versions.roomRevision);
+    const started = await start(h), g = train(started);
+    assert.equal(g.mapId,'KOREA');
+    assert.equal(g.rulesVersion,'train-korea-original-v1');
+    assert.ok(g.privateState.pendingTickets.every(card=>card.ticketId.startsWith('kr-ticket-')));
+    assert.equal(h.failure(await h.call(h.host,'train:configure',{mapId:'USA'},{expectedRoomRevision:started.versions.roomRevision})), 'INVALID_PHASE');
+    assert.ok((await h.server.runtime.persistence.listActiveTurnDeadlines()).some(d=>d.roomId===started.room.roomId));
+    const synced = train(await h.sync(h.members[1]!.client));
+    assert.equal(synced.mapId,'KOREA');
+    assert.equal(synced.phase,'PLAYING');
+    assert.ok(synced.privateState.pendingTickets.every(card=>!g.privateState.pendingTickets.some(own=>own.cardId===card.cardId)));
+    const member = h.members[1]!, replacement = await h.connect();
+    const resumed = train(h.success(await h.call(replacement, 'session:resume', { credential: { ...member.credential, roomCode: started.room.roomCode }, lastSeenVersions: null })));
+    assert.equal(resumed.mapId, 'KOREA');
+    assert.equal(resumed.phase, 'PLAYING');
+    assert.deepEqual(resumed.privateState.pendingTickets, synced.privateState.pendingTickets);
+    assert.equal(resumed.deadlineAt, synced.deadlineAt);
+});
+
+test('TRAIN map configuration: host/revision/auth guards, replay, start lock and Japan reconnect', async t => {
+    const h = await harness(t, 2), lobby = await h.sync();
+    const command = h.request('train:configure', {mapId:'JAPAN'}, {expectedRoomRevision:lobby.versions.roomRevision});
+    assert.equal(h.failure(await h.send(h.members[1]!.client, command)), 'HOST_ONLY');
+    assert.equal(h.failure(await h.call(h.host,'train:configure',{mapId:'MARS'},{expectedRoomRevision:lobby.versions.roomRevision})), 'INVALID_PAYLOAD');
+    assert.equal(h.failure(await h.call(h.host,'train:configure',{mapId:'JAPAN'},{expectedRoomRevision:lobby.versions.roomRevision-1})), 'STALE_ROOM_REVISION');
+    const selected = h.success(await h.send(h.host,command));
+    assert.equal(selected.room.gameType,'TRAIN');
+    if(selected.room.gameType !== 'TRAIN') throw new Error('TRAIN room expected');
+    assert.equal(selected.room.settings?.mapId,'JAPAN');
+    assert.equal(selected.versions.roomRevision,lobby.versions.roomRevision+1);
+    assert.equal(h.success(await h.send(h.host,command)).versions.roomRevision,selected.versions.roomRevision);
+    const started = await start(h), g = train(started);
+    assert.equal(g.mapId,'JAPAN');
+    assert.equal(g.rulesVersion,'train-japan-original-v1');
+    assert.ok(g.privateState.pendingTickets.every(card=>card.ticketId.startsWith('jp-ticket-')));
+    assert.equal(h.failure(await h.call(h.host,'train:configure',{mapId:'USA'},{expectedRoomRevision:started.versions.roomRevision})), 'INVALID_PHASE');
+    assert.ok((await h.server.runtime.persistence.listActiveTurnDeadlines()).some(d=>d.roomId===started.room.roomId));
+    const synced = train(await h.sync(h.members[1]!.client));
+    assert.equal(synced.mapId,'JAPAN');
+    assert.equal(synced.phase,'PLAYING');
+    assert.ok(synced.privateState.pendingTickets.every(card=>!g.privateState.pendingTickets.some(own=>own.cardId===card.cardId)));
+    const member = h.members[1]!, replacement = await h.connect();
+    const resumed = train(h.success(await h.call(replacement, 'session:resume', { credential: { ...member.credential, roomCode: started.room.roomCode }, lastSeenVersions: null })));
+    assert.equal(resumed.mapId, 'JAPAN');
+    assert.equal(resumed.phase, 'PLAYING');
+    assert.deepEqual(resumed.privateState.pendingTickets, synced.privateState.pendingTickets);
+    assert.equal(resumed.deadlineAt, synced.deadlineAt);
 });

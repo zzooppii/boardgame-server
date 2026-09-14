@@ -1,6 +1,7 @@
 import type { SpaceCrewStoredGame } from "../games/space-crew/compatibility/adapter.js";
 import type { LiarPromptHistory } from "../games/liar-game/domain/prompts.js";
 import type { BurgundySettings } from "@hangul-rummikub/shared";
+import type { TrainSettings } from "@hangul-rummikub/shared";
 import type { TrainStoredGame } from "../games/train/compatibility/adapter.js";
 import type { CenturyStoredGame } from "../games/century/compatibility/adapter.js";
 import type { SpiritStoredGame } from "../games/spirit-island/compatibility/adapter.js";
@@ -121,7 +122,7 @@ export type SpyfallRoomRecord = RoomRecordBase & Readonly<{ gameType: "SPYFALL";
 import type { SplendorSettings } from "@hangul-rummikub/shared";
 export type SplendorRoomRecord = RoomRecordBase & Readonly<{ gameType: "SPLENDOR"; settings?: SplendorSettings; game: SplendorStoredGame | null; departedPlayerIds?: readonly PlayerId[] }>;
 export type GuryongtuRoomRecord = RoomRecordBase & Readonly<{ gameType: "GURYONGTU"; game: GuryongtuStoredGame | null; departedPlayerIds?: readonly PlayerId[] }>;
-export type TrainRoomRecord = RoomRecordBase & Readonly<{ gameType: "TRAIN"; game: TrainStoredGame | null; departedPlayerIds?: readonly PlayerId[] }>;
+export type TrainRoomRecord = RoomRecordBase & Readonly<{ gameType: "TRAIN"; settings?: TrainSettings; game: TrainStoredGame | null; departedPlayerIds?: readonly PlayerId[] }>;
 export type CenturyRoomRecord = RoomRecordBase & Readonly<{ gameType: "CENTURY"; game: CenturyStoredGame | null; departedPlayerIds?: readonly PlayerId[] }>;
 export type SpiritRoomRecord = RoomRecordBase & Readonly<{ gameType: "SPIRIT_ISLAND"; game: SpiritStoredGame | null; departedPlayerIds?: readonly PlayerId[] }>;
 export type SpaceCrewRoomRecord = RoomRecordBase & Readonly<{ gameType: "SPACE_CREW"; game: SpaceCrewStoredGame | null; departedPlayerIds?: readonly PlayerId[] }>;

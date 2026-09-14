@@ -1,3 +1,4 @@
+import './train-maps.test.js';
 import "./space-crew-contract.test.js";
 import "./spyfall.test.js";
 import "./liar-game.test.js";
@@ -4631,6 +4632,7 @@ test("runtime Socket.IO map은 Number events를 additive하게 제공하고 lega
     | "saboteur:act"
     | "saboteur:nextRound"
     | "saboteur:say"
+    | "train:configure"
     | "train:act"
     | "century:act"
     | "spirit:act"

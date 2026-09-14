@@ -1,15 +1,15 @@
 import * as v from "valibot";
-import { TrainClientCommandSchema, GameRevisionSchema, RoomRevisionSchema, ServerTimeSchema, type TrainClientCommand, type ErrorDto, type RoomId, type PlayerId, type ServerTime } from "@hangul-rummikub/shared";
+import { isTrainMapAvailable, type TrainMapId, RequestIdSchema, TrainClientCommandSchema, GameRevisionSchema, RoomRevisionSchema, ServerTimeSchema, type TrainClientCommand, type ErrorDto, type RoomId, type PlayerId, type ServerTime } from "@hangul-rummikub/shared";
 import { GameStartSuccessDataSchema, type StartGameInput, type GameStartResult } from "../../../application/game-start-service.js";
 import type { RoomMutationSerialExecutor } from "../../../application/room-session-service.js";
 import type { RoomRepository } from "../../../ports/room-repository.js";
 import type { RoomUnitOfWork } from "../../../ports/room-unit-of-work.js";
 import type { IdempotencyRepository } from "../../../ports/idempotency-repository.js";
 import type { RoomPresencePolicyReader } from "../../../ports/room-presence-policy.js";
-import type { Clock, IdGenerator, RandomSource } from "../../../ports/system.js";
+import type { Clock, IdGenerator, RandomSource, TurnScheduler, ScheduledTurnDeadline } from "../../../ports/system.js";
 import type { TrainRoomRecord } from "../../../model/persistence.js";
 import { makeTrainCards, shuffleTrain } from "../domain/game.js";
-import { createTrainGame, applyTrainAction, type TrainState } from "../domain/game.js";
+import { createTrainGame, applyTrainAction, timeoutTrain, type TrainState } from "../domain/game.js";
 export type TrainDependencies = Readonly<{
     roomRepository: RoomRepository;
     roomUnitOfWork: RoomUnitOfWork;
@@ -19,6 +19,7 @@ export type TrainDependencies = Readonly<{
     clock: Clock;
     ids: IdGenerator;
     random: RandomSource;
+    turnScheduler: TurnScheduler;
 }>;
 const failure = (code: ErrorDto['code']) => ({ ok: false as const, error: { code, message: code === 'RULE_VIOLATION' ? '선택한 카드와 수량을 확인해주세요.' : code === 'NOT_ENOUGH_PLAYERS' ? '티켓 투 라이드는 2–5명이 플레이합니다.' : '현재 차례와 연결 상태를 확인해주세요.', recoverable: true } });
 const Receipt = v.strictObject({ outcome: v.literal('ACCEPTED') });
@@ -33,14 +34,41 @@ export class TrainService {
     constructor(readonly deps: TrainDependencies) { }
     subscribe(listener: (roomId: RoomId) => void | Promise<void>) { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; }
     async notify(roomId: RoomId) { await Promise.allSettled([...this.listeners].map(fn => Promise.resolve().then(() => fn(roomId)))); }
-    private setup() {
-        const cards = makeTrainCards(() => this.deps.ids.generateTileId());
+  async schedule(roomId:RoomId) {
+    try {
+      const room=await this.deps.roomRepository.findById(roomId);
+      if(room?.gameType!=='TRAIN'||room.phase!=='PLAYING'||!room.game||room.game.state.phase!=='PLAYING'||room.game.state.deadlineAt===null)return;
+      await this.deps.turnScheduler.scheduleTimeout({roomId,gameId:room.game.gameId,expectedGameRevision:room.game.gameRevision,turnId:room.game.state.transitionId,deadlineAt:room.game.state.deadlineAt});
+    } catch { console.error('TRAIN scheduling failed; overdue recovery will retry.'); }
+  }
+  private async cancelTimer(turnId:TrainState['transitionId']) {
+    try { await this.deps.turnScheduler.cancelTimeout(turnId); }
+    catch { console.error('TRAIN timer cancellation failed; stale callbacks are guarded.'); }
+  }
+  async timeout(input:ScheduledTurnDeadline):Promise<{status:'NO_OP'|'APPLIED'|'FAILED'}> {
+    const d=this.deps;
+    try {
+      const applied=await d.roomMutationExecutor.run(input.roomId,async()=>{
+        const room=await d.roomRepository.findById(input.roomId),now=d.clock.now();
+        if(room?.gameType!=='TRAIN'||room.phase!=='PLAYING'||!room.game||room.game.gameId!==input.gameId||room.game.gameRevision!==input.expectedGameRevision||room.game.state.transitionId!==input.turnId||room.game.state.deadlineAt!==input.deadlineAt||now<input.deadlineAt)return false;
+        const outcome=timeoutTrain(room.game.state,now,d.ids.generateTurnId(),max=>d.random.nextInt(max));
+        if(!outcome.ok)return false;
+        const committed=await d.roomUnitOfWork.commit({roomMutation:{kind:'REPLACE',candidate:transitionTrain(room,outcome.state,now),expectedRoomRevision:room.roomRevision,expectedStorageRevision:room.storageRevision},sessionMutation:{kind:'NONE'},idempotency:{scopeKey:`train-timer:${room.roomId}:${room.game.gameId}`,requestId:v.parse(RequestIdSchema,`turn:${input.turnId}`),payloadFingerprint:JSON.stringify([input.turnId,input.deadlineAt]),terminalResult:{transitioned:true},createdAt:now}});
+        return committed.status==='COMMITTED';
+      });
+      if(applied){await this.cancelTimer(input.turnId);await this.schedule(input.roomId);await this.notify(input.roomId);}
+      return {status:applied?'APPLIED':'NO_OP'};
+    } catch { return {status:'FAILED'}; }
+  }
+
+    private setup(mapId: TrainMapId = 'USA') {
+        const cards = makeTrainCards(() => this.deps.ids.generateTileId(), mapId);
         return { cards: shuffleTrain(cards.cards, max => this.deps.random.nextInt(max)), tickets: shuffleTrain(cards.tickets, max => this.deps.random.nextInt(max)) };
     }
     async start(input: StartGameInput): Promise<GameStartResult> {
         const d = this.deps;
         try {
-            return await d.roomMutationExecutor.run(input.roomId, async (): Promise<GameStartResult> => {
+            const result = await d.roomMutationExecutor.run(input.roomId, async (): Promise<GameStartResult> => {
                 if (!input.authorization.isCurrent())
                     return failure('UNAUTHENTICATED');
                 const room = await d.roomRepository.findById(input.roomId);
@@ -64,12 +92,14 @@ export class TrainService {
                 if (!lease.isCurrent() || !room.players.every(p => lease.connectionStatusByPlayerId.get(p.playerId) === 'CONNECTED'))
                     return failure('PLAYERS_NOT_CONNECTED');
                 const now = d.clock.now(), gameId = d.ids.generateGameId(), turnId = d.ids.generateTurnId();
-                const state = createTrainGame({ ...this.setup(), gameId, playerIds: room.players.map(p => p.playerId), now, transitionId: turnId, starter: d.random.nextInt(room.players.length) }, max => d.random.nextInt(max));
+                const state = createTrainGame({ ...this.setup(room.settings?.mapId), mapId: room.settings?.mapId ?? "USA", gameId, playerIds: room.players.map(p => p.playerId), now, transitionId: turnId, starter: d.random.nextInt(room.players.length) }, max => d.random.nextInt(max));
                 const roomRevision = v.parse(RoomRevisionSchema, room.roomRevision + 1), gameRevision = v.parse(GameRevisionSchema, 0);
                 const data = v.parse(GameStartSuccessDataSchema, { roomId: room.roomId, roomRevision, gameId, gameRevision, turnId });
                 const committed = await d.roomUnitOfWork.commit({ roomMutation: { kind: 'REPLACE', candidate: { ...room, phase: 'PLAYING', roomRevision, updatedAt: now, game: { gameId, gameRevision, startedAt: now, finishedAt: null, state } }, expectedRoomRevision: room.roomRevision, expectedStorageRevision: room.storageRevision }, sessionMutation: { kind: 'NONE' }, idempotency: { scopeKey, requestId: input.requestId, payloadFingerprint, terminalResult: data, createdAt: now } }, { isSatisfied: () => input.authorization.isCurrent() && lease.isCurrent() });
                 return committed.status === 'COMMITTED' ? { ok: true, data } : failure('STALE_ROOM_REVISION');
             });
+            if (result.ok) await this.schedule(input.roomId);
+            return result;
         }
         catch {
             return failure('INTERNAL_ERROR');
@@ -104,6 +134,17 @@ export class TrainService {
                     v.parse(Receipt, prior.record.terminalResult);
                     return { ok: true as const };
                 }
+                if (c.kind === 'train:configure') {
+                    if (room.phase !== 'LOBBY' || room.game !== null) return failure('INVALID_PHASE');
+                    if (room.hostPlayerId !== input.actorPlayerId) return failure('HOST_ONLY');
+                    if (room.roomRevision !== c.expectedRoomRevision) return failure('STALE_ROOM_REVISION');
+                    if (!isTrainMapAvailable(c.payload.mapId)) return {ok:false as const,error:{code:'RULE_VIOLATION' as const,message:'현재 사용할 수 없는 지도입니다.',recoverable:true}};
+                    const now = d.clock.now();
+                    const committed = await d.roomUnitOfWork.commit({roomMutation:{kind:'REPLACE',candidate:{...room,settings:c.payload,readyPlayerIds:[],roomRevision:v.parse(RoomRevisionSchema,room.roomRevision+1),updatedAt:now},expectedRoomRevision:room.roomRevision,expectedStorageRevision:room.storageRevision},sessionMutation:{kind:'NONE'},idempotency:{scopeKey,requestId:c.requestId,payloadFingerprint,terminalResult:{outcome:'ACCEPTED'},createdAt:now}},{isSatisfied:()=>input.authorization.isCurrent()});
+                    if (committed.status !== 'COMMITTED') return failure('STALE_ROOM_REVISION');
+                    changed = true;
+                    return {ok:true as const};
+                }
                 if (!room.game || room.game.gameId !== c.gameId || room.game.gameRevision !== c.expectedGameRevision)
                     return failure('STALE_GAME_REVISION');
                 if (room.phase !== 'PLAYING')
@@ -120,8 +161,11 @@ export class TrainService {
                 changed = true;
                 return { ok: true as const };
             });
-            if (changed)
+            if (changed) {
+                if (c.kind === 'train:act') await this.cancelTimer(c.turnId);
+                await this.schedule(input.roomId);
                 await this.notify(input.roomId);
+            }
             return result;
         }
         catch {

@@ -7,7 +7,7 @@ export type ScheduledTurnDispatchResult =
   | Readonly<{ status: "FAILED" }>;
 
 type ScheduledTurnCapability<
-  TGameType extends "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "SPLENDOR" | "HALLI_GALLI" | "ISLAND_SETTLERS" | "SABOTEUR" | "LOST_CITIES" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE",
+  TGameType extends "TRAIN" | "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "SPLENDOR" | "HALLI_GALLI" | "ISLAND_SETTLERS" | "SABOTEUR" | "LOST_CITIES" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE",
 > = Readonly<{
   gameType: TGameType;
   handleTurnTimeout(
@@ -32,6 +32,7 @@ export type ScheduledTurnRouterDependencies = Readonly<{
   vegas?: ScheduledTurnCapability<"VEGAS">;
   burgundy?: ScheduledTurnCapability<"BURGUNDY">;
   carcassonne?: ScheduledTurnCapability<"CARCASSONNE">;
+  train?: ScheduledTurnCapability<"TRAIN">;
   lostCities?: ScheduledTurnCapability<"LOST_CITIES">;
   saboteur?: ScheduledTurnCapability<"SABOTEUR">;
   island?: ScheduledTurnCapability<"ISLAND_SETTLERS">;
@@ -49,7 +50,7 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 }
 
 function isCapability<
-  TGameType extends "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "SPLENDOR" | "HALLI_GALLI" | "ISLAND_SETTLERS" | "SABOTEUR" | "LOST_CITIES" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE",
+  TGameType extends "TRAIN" | "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "SPLENDOR" | "HALLI_GALLI" | "ISLAND_SETTLERS" | "SABOTEUR" | "LOST_CITIES" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE",
 >(
   value: unknown,
   gameType: TGameType,
@@ -62,7 +63,7 @@ function isCapability<
 }
 
 function requireCapability<
-  TGameType extends "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "SPLENDOR" | "HALLI_GALLI" | "ISLAND_SETTLERS" | "SABOTEUR" | "LOST_CITIES" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE",
+  TGameType extends "TRAIN" | "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "SPLENDOR" | "HALLI_GALLI" | "ISLAND_SETTLERS" | "SABOTEUR" | "LOST_CITIES" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE",
 >(
   value: unknown,
   gameType: TGameType,
@@ -87,6 +88,7 @@ export class ScheduledTurnRouter {
   readonly #vegas: ScheduledTurnCapability<"VEGAS"> | undefined;
   readonly #burgundy: ScheduledTurnCapability<"BURGUNDY"> | undefined;
   readonly #carcassonne: ScheduledTurnCapability<"CARCASSONNE"> | undefined;
+  readonly #train: ScheduledTurnCapability<"TRAIN"> | undefined;
   readonly #lostCities: ScheduledTurnCapability<"LOST_CITIES"> | undefined;
   readonly #saboteur: ScheduledTurnCapability<"SABOTEUR"> | undefined;
   readonly #island: ScheduledTurnCapability<"ISLAND_SETTLERS"> | undefined;
@@ -104,6 +106,7 @@ export class ScheduledTurnRouter {
     this.#vegas = dependencies.vegas;
     this.#burgundy = dependencies.burgundy;
     this.#carcassonne = dependencies.carcassonne;
+    this.#train = dependencies.train;
     this.#lostCities = dependencies.lostCities;
     this.#saboteur = dependencies.saboteur;
     this.#island = dependencies.island;
@@ -133,7 +136,7 @@ export class ScheduledTurnRouter {
         return { status: "NO_OP" };
       }
       switch (room.gameType) {
-        case "TRAIN": return { status: "NO_OP" };
+        case "TRAIN": return this.#train ? await this.#train.handleTurnTimeout(input) : {status:"FAILED"};
         case "CENTURY": return { status: "NO_OP" };
         case "SPIRIT_ISLAND": return { status: "NO_OP" };
         case "SPACE_CREW": return { status: "NO_OP" };

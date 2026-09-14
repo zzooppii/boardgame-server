@@ -681,7 +681,7 @@ export function createApplicationRuntime(
     if (room?.gameType === "SPLENDOR" && room.phase === "FINISHED" && room.game) await onGameFinished({ roomId, gameId: room.game.gameId });
   });
   const trainService = new TrainService({ roomRepository: persistence, roomUnitOfWork: persistence, idempotencyRepository: persistence,
-    roomMutationExecutor, presence: presenceReader, clock, ids: idGenerator, random: randomSource });
+    roomMutationExecutor, presence: presenceReader, clock, ids: idGenerator, random: randomSource, turnScheduler });
   const trainHostSuccession = new TrainHostSuccession(trainService.deps, roomId => trainService.notify(roomId));
   trainService.subscribe(async roomId => {
     const room = await persistence.findById(roomId);
@@ -1035,6 +1035,7 @@ export function createApplicationRuntime(
     onGameFinished, presenceLeaseReader: presenceReader,
   });
   scheduledTurnRouter = new ScheduledTurnRouter({
+    train: {gameType:"TRAIN", handleTurnTimeout: input => trainService.timeout(input)},
     lostCities: {gameType:"LOST_CITIES", handleTurnTimeout: input => lostCitiesService.timeout(input)},
     azul: {gameType:"AZUL", handleTurnTimeout: input => azulService.timeout(input)},
     vegas: {gameType:"VEGAS", handleTurnTimeout: input => vegasService.timeout(input)},

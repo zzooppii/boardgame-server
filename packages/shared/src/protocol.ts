@@ -1,4 +1,5 @@
 import { SpaceCrewActionSchema, SpaceCrewStartPayloadSchema, SpaceCrewPracticeSelectionPayloadSchema } from "./games/space-crew/actions.js";
+import { TrainSettingsSchema } from "./games/train/maps.js";
 import { TrainActionSchema } from "./games/train/actions.js";
 import { CenturyActionSchema } from "./games/century/actions.js";
 import { SpiritActionSchema } from "./games/spirit-island/actions.js";
@@ -771,7 +772,8 @@ const SpiritIdentity = { protocolVersion: ProtocolVersionSchema, requestId: Requ
 export const TrainActCommandSchema = v.strictObject({ ...TrainIdentity, kind: v.literal('train:act'), turnId: TurnIdSchema, payload: TrainActionSchema });
 export const CenturyActCommandSchema = v.strictObject({ ...CenturyIdentity, kind: v.literal('century:act'), turnId: TurnIdSchema, payload: CenturyActionSchema });
 export const SpiritActCommandSchema = v.strictObject({ ...SpiritIdentity, kind: v.literal('spirit:act'), turnId: TurnIdSchema, payload: SpiritActionSchema });
-export const TrainClientCommandSchema = TrainActCommandSchema;
+export const TrainConfigureCommandSchema = v.strictObject({kind:v.literal('train:configure'),protocolVersion:ProtocolVersionSchema,requestId:RequestIdSchema,expectedRoomRevision:RoomRevisionSchema,payload:TrainSettingsSchema});
+export const TrainClientCommandSchema = v.variant('kind', [TrainConfigureCommandSchema, TrainActCommandSchema]);
 export const CenturyClientCommandSchema = CenturyActCommandSchema;
 export const SpiritClientCommandSchema = SpiritActCommandSchema;
 export type TrainClientCommand = v.InferOutput<typeof TrainClientCommandSchema>;

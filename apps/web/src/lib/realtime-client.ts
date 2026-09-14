@@ -722,6 +722,7 @@ export class RealtimeClient {
     if (!parseRematch(TrainClientCommandSchema, command).success) return Promise.reject(new RealtimeClientError("INVALID_COMMAND"));
     return this.#emitAcknowledged(command.kind, command.requestId, acknowledge => {
       switch (command.kind) {
+        case "train:configure": this.#socket.emit("train:configure", command, acknowledge); break;
         case "train:act": this.#socket.emit("train:act", command, acknowledge); break;
       }
     }, validateStateSyncWireAck, ack => hasConsistentSnapshotAcknowledgement(ack) && this.#acceptAcknowledgementSnapshotVersion(ack));

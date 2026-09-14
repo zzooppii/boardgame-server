@@ -1,15 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { parse } from 'valibot';
-import { GameIdSchema, PlayerIdSchema, ServerTimeSchema, TurnIdSchema, TRAIN_ROUTES, TRAIN_CITIES, TRAIN_TICKETS, TRAIN_COLORS, TRAIN_ROUTE_POINTS, type TrainAction, type TrainColor } from '@hangul-rummikub/shared';
-import { makeTrainCards, shuffleTrain, createTrainGame, applyTrainAction, parseTrainState, trainCard, trainLongestPath, trainConnected, trainRouteAvailable, cancelTrain, type TrainState } from './games/train/domain/game.js';
+import { GameIdSchema, PlayerIdSchema, ServerTimeSchema, TurnIdSchema, TRAIN_ROUTES, TRAIN_CITIES, TRAIN_TICKETS, TRAIN_COLORS, TRAIN_ROUTE_POINTS, getTrainMap, trainProjectionIsConsistent, type TrainMapId, type TrainAction, type TrainColor } from '@hangul-rummikub/shared';
+import { timeoutTrain, makeTrainCards, shuffleTrain, createTrainGame, applyTrainAction, parseTrainState, trainCard, trainLongestPath, trainConnected, trainRouteAvailable, cancelTrain, type TrainState } from './games/train/domain/game.js';
 import { projectTrain } from './games/train/compatibility/projector.js';
 let seq = 0;
 const time = () => parse(ServerTimeSchema, 1000 + seq), turn = () => parse(TurnIdSchema, `turn-${++seq}`);
 function random(seed = 12) { return (n: number) => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed % n; }; }
-function setup(n = 2, starter = 0, seed = 12) { const rng = random(seed), all = makeTrainCards(() => `opaque-${++seq}`); return createTrainGame({ cards: shuffleTrain(all.cards, rng), tickets: shuffleTrain(all.tickets, rng), gameId: parse(GameIdSchema, `game-${++seq}`), playerIds: Array.from({ length: n }, (_, i) => parse(PlayerIdSchema, `player-${i}`)), now: time(), transitionId: turn(), starter }, rng); }
+function setup(n = 2, starter = 0, seed = 12, mapId: TrainMapId = 'USA') { const rng = random(seed), all = makeTrainCards(() => `opaque-${++seq}`, mapId); return createTrainGame({ mapId, cards: shuffleTrain(all.cards, rng), tickets: shuffleTrain(all.tickets, rng), gameId: parse(GameIdSchema, `game-${++seq}`), playerIds: Array.from({ length: n }, (_, i) => parse(PlayerIdSchema, `player-${i}`)), now: time(), transitionId: turn(), starter }, rng); }
 function act(s: TrainState, a: TrainAction) { const out = applyTrainAction(s, s.activePlayerId, a, time(), turn(), random(seq)); assert.ok(out.ok, JSON.stringify(a)); return out.state; }
-function ready(n = 2, starter = 0, seed = 12) { let s = setup(n, starter, seed); while (s.step === 'SETUP') {
+function ready(n = 2, starter = 0, seed = 12, mapId: TrainMapId = 'USA') { let s = setup(n, starter, seed, mapId); while (s.step === 'SETUP') {
     const p = s.players.find(p => p.playerId === s.activePlayerId)!;
     s = act(s, { kind: 'KEEP_TICKETS', keepCardIds: p.pendingTickets.slice(0, 2), returnCardIds: p.pendingTickets.slice(2) });
 } return s; }
@@ -199,9 +199,10 @@ test('TRAIN exhausted deck reshuffles discard and impossible locomotive refresh 
     parseTrainState(s);
 });
 test('TRAIN complete legal 2–5 player games retain conservation through claims, draws and scoring', () => {
+    for (const mapId of ['USA', 'KOREA', 'JAPAN'] as const)
     for (const n of [2, 3, 4, 5])
         for (const seed of [7, 21, 57]) {
-            let s = ready(n, seed % n, seed), steps = 0;
+            let s = ready(n, seed % n, seed, mapId), steps = 0;
             while (s.phase === 'PLAYING' && steps++ < 1200) {
                 const p = s.players.find(p => p.playerId === s.activePlayerId)!;
                 if (s.step === 'DRAW_SECOND') {
@@ -212,7 +213,7 @@ test('TRAIN complete legal 2–5 player games retain conservation through claims
                     routeId: string;
                     cardIds: TrainState['deck'];
                 } | undefined;
-                for (const r of [...TRAIN_ROUTES].sort((a, b) => b.length - a.length)) {
+                for (const r of [...getTrainMap(mapId).routes].sort((a, b) => b.length - a.length)) {
                     if (r.length > p.trains || !trainRouteAvailable(s, p.playerId, r.routeId))
                         continue;
                     for (const color of TRAIN_COLORS.filter(c => c !== 'LOCOMOTIVE' && (r.color === 'GRAY' || r.color === c))) {
@@ -241,7 +242,104 @@ test('TRAIN complete legal 2–5 player games retain conservation through claims
             }
             assert.equal(s.phase, 'FINISHED', `${n} players seed ${seed}, ${steps} commands`);
             assert.ok(s.result!.winnerPlayerIds.length);
+            for (const player of s.players) assert.ok(trainProjectionIsConsistent(projectTrain(stored(s),player.playerId)));
             for (const score of s.result!.scores)
                 assert.equal(score.total, score.routePoints + score.ticketPoints + score.longestBonus);
         }
+});
+
+test('TRAIN final destination selection finishes instead of retaining an empty choice phase', () => {
+    for (const n of [2, 3, 4, 5]) for (const keepCount of [1, 2, 3]) {
+        let s = ready(n), remaining = 43;
+        const actor = s.activePlayerId;
+        for (const r of TRAIN_ROUTES) {
+            if (r.length > remaining || s.claims.some(c => TRAIN_ROUTES.find(x => x.routeId === c.routeId)!.group === r.group)) continue;
+            s.claims.push({ routeId: r.routeId, playerId: actor });
+            remaining -= r.length;
+            if (!remaining) break;
+        }
+        assert.equal(remaining, 0);
+        const player = s.players.find(p => p.playerId === actor)!;
+        player.trains = 2;
+        player.routePoints = s.claims.reduce((sum, c) => sum + TRAIN_ROUTE_POINTS[TRAIN_ROUTES.find(r => r.routeId === c.routeId)!.length]!, 0);
+        s.finalTriggerPlayerId = actor;
+        s.finalTurnsRemaining = 1;
+        parseTrainState(s);
+        s = act(s, { kind: 'DRAW_TICKETS' });
+        const before = structuredClone(s), offer = s.players.find(p => p.playerId === actor)!.pendingTickets;
+        const next = act(s, { kind: 'KEEP_TICKETS', keepCardIds: offer.slice(0, keepCount), returnCardIds: offer.slice(keepCount) });
+        const automatic = timeoutTrain(s, s.deadlineAt!, turn(), random());
+        assert.ok(automatic.ok);
+        assert.equal(automatic.state.phase, 'FINISHED');
+        assert.equal(automatic.state.result?.reason, 'TRAINS');
+        assert.deepEqual(s, before);
+        assert.equal(next.phase, 'FINISHED');
+        assert.equal(next.step, 'TURN');
+        assert.equal(next.result?.reason, 'TRAINS');
+        assert.equal(next.finalTurnsRemaining, 0);
+        assert.equal(next.result?.scores.find(p => p.playerId === actor)?.tickets.length, 2 + keepCount);
+        assert.equal(projectTrain(stored(next), actor).phase, 'FINISHED');
+    }
+});
+
+test('TRAIN 90-second deadline cannot be extended by drawing, ticket offers or rejected actions', () => {
+    let s = ready();
+    const deadline = s.deadlineAt!, actor = s.activePlayerId;
+    s = act(s,{kind:'DRAW_DECK'});
+    assert.equal(s.deadlineAt,deadline);
+    const late = applyTrainAction(s,actor,{kind:'DRAW_DECK'},deadline,turn(),random());
+    assert.deepEqual(late,{ok:false,reason:'TURN_EXPIRED'});
+    const before = structuredClone(s);
+    assert.equal(timeoutTrain(s,parse(ServerTimeSchema,deadline-1),turn(),random()).ok,false);
+    const timed = timeoutTrain(s,deadline,turn(),random());
+    assert.ok(timed.ok);
+    assert.deepEqual(s,before);
+    assert.equal(timed.state.players.find(p=>p.playerId===actor)!.hand.length,6);
+    assert.notEqual(timed.state.activePlayerId,actor);
+    assert.equal(timed.state.deadlineAt,deadline+90_000);
+    assert.equal(timed.state.revision,s.revision+1);
+    assert.equal(timed.state.feedback?.kind,'TIMEOUT');
+    const next = act(timed.state,{kind:'DRAW_TICKETS'});
+    assert.equal(next.deadlineAt,timed.state.deadlineAt);
+    const expired = timeoutTrain(next,next.deadlineAt!,turn(),random());
+    assert.ok(expired.ok);
+    assert.equal(expired.state.players.find(p=>p.playerId===next.activePlayerId)!.tickets.length,3);
+    assert.equal(expired.state.players.find(p=>p.playerId===next.activePlayerId)!.pendingTickets.length,0);
+});
+test('TRAIN timeout automatically completes setup and an untouched turn',()=>{
+    let s = setup();
+    const first = s.activePlayerId;
+    const automatic = timeoutTrain(s,s.deadlineAt!,turn(),random());
+    assert.ok(automatic.ok);
+    assert.equal(automatic.state.players.find(p=>p.playerId===first)!.tickets.length,2);
+    assert.notEqual(automatic.state.activePlayerId,first);
+    s=ready();
+    const actor=s.activePlayerId;
+    const timed=timeoutTrain(s,s.deadlineAt!,turn(),random());
+    assert.ok(timed.ok);
+    assert.equal(timed.state.players.find(p=>p.playerId===actor)!.hand.length,6);
+    assert.equal(timed.state.revision,s.revision+1);
+});
+
+test('TRAIN Korea scores and graph identity remain independent of USA', () => {
+    const map = getTrainMap('KOREA'), actor = parse(PlayerIdSchema,'p');
+    const names = ['kr-paju--seoul-1','kr-seoul--suwon-1','kr-cheonan--suwon-1','kr-cheonan--daejeon-1'];
+    const claims = names.map(routeId=>({routeId,playerId:actor}));
+    assert.equal(trainLongestPath(claims,actor,'KOREA'),9);
+    assert.equal(trainConnected(claims,actor,'kr-paju','kr-daejeon','KOREA'),true);
+    assert.equal(trainConnected(claims,actor,'kr-paju','kr-busan','KOREA'),false);
+    let s=ready(2,0,12,'KOREA');
+    const cardIds=give(s,'RED',2), before=structuredClone(s);
+    assert.equal(applyTrainAction(s,s.activePlayerId,{kind:'CLAIM_ROUTE',routeId:TRAIN_ROUTES[0]!.routeId,cardIds},time(),turn(),random()).ok,false);
+    assert.deepEqual(s,before);
+    s=act(s,{kind:'CLAIM_ROUTE',routeId:'kr-paju--seoul-1',cardIds});
+    assert.equal(s.players[0]!.routePoints,2);
+    assert.equal(s.players[0]!.trains,43);
+    const wrong=structuredClone(s);wrong.mapId='USA';assert.throws(()=>parseTrainState(wrong));
+    const g=projectTrain(stored(s),s.players[0]!.playerId);
+    assert.equal(trainProjectionIsConsistent({...g,mapId:'USA'}),false);
+    assert.equal(map.tickets.length,30);
+    const expire=timeoutTrain(s,s.deadlineAt!,turn(),random());
+    assert.ok(expire.ok);assert.equal(expire.state.mapId,'KOREA');
+    assert.equal(expire.state.activePlayerId,s.players[0]!.playerId);
 });

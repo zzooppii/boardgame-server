@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { TrainProjection } from '@hangul-rummikub/shared';
-export type TrainCue = 'PICK' | 'DRAW_DECK' | 'DRAW_MARKET' | 'CLAIM_ROUTE' | 'DRAW_TICKETS' | 'KEEP_TICKETS' | 'PASS' | 'TURN' | 'FINISH' | 'ERROR' | 'COMPLETE';
+export type TrainCue = 'TIMEOUT' | 'PICK' | 'DRAW_DECK' | 'DRAW_MARKET' | 'CLAIM_ROUTE' | 'DRAW_TICKETS' | 'KEEP_TICKETS' | 'PASS' | 'TURN' | 'FINISH' | 'ERROR' | 'COMPLETE';
 export function trainTransitionCues(previous: TrainProjection | null, next: TrainProjection | null, self: string): TrainCue[] {
     if (!previous || !next || previous.gameId !== next.gameId || next.gameRevision <= previous.gameRevision)
         return [];
@@ -75,7 +75,7 @@ export class TrainAudio {
                 this.tone(783.99, at + .13, .35, .16);
                 at += .5;
             }
-            else if (cue === 'PASS') {
+            else if (cue === 'PASS' || cue === 'TIMEOUT') {
                 [280, 420, 330].forEach((hz, i) => this.tone(hz, at + i * .07, .075, .3));
                 at += .3;
             }

@@ -4,7 +4,7 @@ import { BurgundySettingsSchema, BURGUNDY_DEFAULT_SETTINGS } from "@hangul-rummi
 import { TrainGameStateAdapter, type TrainLifecycle } from "../games/train/compatibility/adapter.js";
 import { CenturyGameStateAdapter, type CenturyLifecycle } from "../games/century/compatibility/adapter.js";
 import { SpiritGameStateAdapter, type SpiritLifecycle } from "../games/spirit-island/compatibility/adapter.js";
-import { LostCitiesSettingsSchema, CityExpansionSettingsSchema } from "@hangul-rummikub/shared";
+import { TrainSettingsSchema, isTrainMapAvailable, LostCitiesSettingsSchema, CityExpansionSettingsSchema } from "@hangul-rummikub/shared";
 import { IslandGameStateAdapter, type IslandLifecycle } from "../games/island/compatibility/adapter.js";
 import { SplendorSettingsSchema } from "@hangul-rummikub/shared";
 import { SplendorGameStateAdapter, type SplendorLifecycle } from "../games/splendor/compatibility/adapter.js";
@@ -299,7 +299,9 @@ function cloneRoomWriteCandidate(
       validateRoomGameCoherence(shell.phase, shell.players, game, () => game === null ? null : adapter.inspectLifecycle(game));
       const departedPlayerIds = Object.freeze([...(candidate.departedPlayerIds ?? [])]);
       if (new Set(departedPlayerIds).size !== departedPlayerIds.length || departedPlayerIds.some(id => !shell.players.some(p => p.playerId === id)) || shell.phase === "LOBBY" && departedPlayerIds.length > 0) throw new Error("Invalid departed TRAIN roster.");
-      return Object.freeze({...shell, gameType:"TRAIN", game, departedPlayerIds});
+      const settings = v.parse(TrainSettingsSchema, candidate.settings ?? {mapId:'USA'});
+      if (!isTrainMapAvailable(settings.mapId) || game && game.state.mapId !== settings.mapId) throw new Error('Train room map mismatch.');
+      return Object.freeze({...shell, gameType:"TRAIN", settings, game, departedPlayerIds});
     }
     case "CENTURY": {
       const adapter = new CenturyGameStateAdapter(), game = candidate.game === null ? null : adapter.cloneAndValidate(candidate.game);
