@@ -1,3 +1,4 @@
+import { ArkNovaService } from "./games/ark-nova/application/service.js";
 import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 import { SpaceCrewService } from "./games/space-crew/application/service.js";
@@ -187,6 +188,7 @@ export type ApplicationRuntime = Readonly<{
   trainService?: TrainService;
   centuryService?: CenturyService;
   spiritService?: SpiritService;
+  arkNovaService?: ArkNovaService;
   jaipurService?: JaipurService;
   spaceCrewService?: SpaceCrewService;
   loveLetterService?: LoveLetterService;
@@ -337,7 +339,8 @@ export function createApplicationRuntime(
       { gameType: "TRAIN" },
       { gameType: "CENTURY" },
       { gameType: "SPIRIT_ISLAND" },
-      { gameType: "JAIPUR" },
+      { gameType: "ARK_NOVA" },
+    { gameType: "JAIPUR" },
       { gameType: "SPACE_CREW" },
       { gameType: "LOVE_LETTER" },
       { gameType: "GURYONGTU" },
@@ -701,6 +704,12 @@ export function createApplicationRuntime(
     const room = await persistence.findById(roomId);
     if (room?.gameType === "SPIRIT_ISLAND" && room.phase === "FINISHED" && room.game) await onGameFinished({ roomId, gameId: room.game.gameId });
   });
+  const arkNovaService = new ArkNovaService({roomRepository:persistence,roomUnitOfWork:persistence,idempotencyRepository:persistence,
+    roomMutationExecutor,presence:presenceReader,clock,ids:idGenerator,random:randomSource});
+  arkNovaService.subscribe(async roomId=>{
+    const room=await persistence.findById(roomId);
+    if(room?.gameType==='ARK_NOVA' && room.phase==='FINISHED' && room.game)await onGameFinished({roomId,gameId:room.game.gameId});
+  });
   const jaipurService = new JaipurService({ roomRepository: persistence, roomUnitOfWork: persistence, idempotencyRepository: persistence,
     roomMutationExecutor, presence: presenceReader, clock, ids: idGenerator, random: randomSource });
   const jaipurHostSuccession = new JaipurHostSuccession(jaipurService.deps, roomId => jaipurService.notify(roomId));
@@ -904,6 +913,7 @@ export function createApplicationRuntime(
     train: { gameType: "TRAIN", start: input => trainService.start(input) },
     century: { gameType: "CENTURY", start: input => centuryService.start(input) },
     spirit: { gameType: "SPIRIT_ISLAND", start: input => spiritService.start(input) },
+    arkNova: {gameType:"ARK_NOVA",start:input=>arkNovaService.start(input)},
     jaipur: { gameType: "JAIPUR", start: input => jaipurService.start(input) },
     spaceCrew: { gameType: "SPACE_CREW", start: input => spaceCrewService.start(input) },
     loveLetter: { gameType: "LOVE_LETTER", start: input => loveLetterService.start(input) },
@@ -1124,6 +1134,7 @@ export function createApplicationRuntime(
     trainService,
     centuryService,
     spiritService,
+    arkNovaService,
     jaipurService,
     spaceCrewService,
     loveLetterService,

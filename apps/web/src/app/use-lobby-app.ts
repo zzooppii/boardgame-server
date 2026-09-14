@@ -1,3 +1,5 @@
+import { ArkNovaCommandRejected } from "../lib/ark-nova-command-error.js";
+import type { ArkNovaActCommand } from "@hangul-rummikub/shared";
 import { SpaceCrewOutbox, SpaceCrewCommandRejected, spaceCrewRejectionIsDefinitive, type SpaceCrewPendingCommand } from "../lib/space-crew-outbox.js";
 import type { SpaceCrewStartPayload, SpaceCrewClientCommand } from "@hangul-rummikub/shared";
 import { type RoomPreparationCommand, type GameType as SelectedGameType, GameIdSchema } from "@hangul-rummikub/shared";
@@ -282,6 +284,7 @@ export type LobbyAppState = Readonly<{
   retrySpaceCrewPending(): Promise<void>;
   spaceCrewPendingRequest: SpaceCrewPendingCommand | null;
   spaceCrewPending: boolean;
+  actArkNova: (command: ArkNovaActCommand) => Promise<void>;
   actJaipur: (command: JaipurClientCommand) => Promise<void>;
   actLoveLetter: (command: LoveLetterClientCommand) => Promise<void>;
   actGuryongtu: (command: GuryongtuClientCommand) => Promise<void>;
@@ -512,7 +515,7 @@ export function useLobbyApp(): LobbyAppState {
   function currentLegacyHangulSnapshot(): StateSnapshot | null {
     const compatible = compatibleSnapshotRef.current;
     return compatible === null || compatible.kind === "PLATFORM_V2_NUMBER_TILE" ||
-      compatible.kind === "PLATFORM_V2_GEM_CARD" || compatible.kind === "PLATFORM_V2_CITY_ROLE" || compatible.kind === "PLATFORM_V2_DRAW_RELAY" || compatible.kind === "PLATFORM_V2_SNEAKY_LUNCH" || compatible.kind === "PLATFORM_V2_WOLF_NIGHT" || compatible.kind === "PLATFORM_V2_LIAR_GAME" || compatible.kind === "PLATFORM_V2_SPYFALL" || compatible.kind === "PLATFORM_V2_WORD_DUET" || compatible.kind === "PLATFORM_V2_TRAIN" || compatible.kind === "PLATFORM_V2_CENTURY" || compatible.kind === "PLATFORM_V2_SPIRIT_ISLAND" || compatible.kind === "PLATFORM_V2_SPACE_CREW" || compatible.kind === "PLATFORM_V2_JAIPUR" || compatible.kind === "PLATFORM_V2_LOVE_LETTER" || compatible.kind === "PLATFORM_V2_GURYONGTU" || compatible.kind === "PLATFORM_V2_AZUL" || compatible.kind === "PLATFORM_V2_VEGAS" || compatible.kind === "PLATFORM_V2_CARCASSONNE" || compatible.kind === "PLATFORM_V2_BURGUNDY" || compatible.kind === "PLATFORM_V2_CLUE" || compatible.kind === "PLATFORM_V2_TERRORSCAPE" || compatible.kind === "PLATFORM_V2_SABOTEUR" || compatible.kind === "PLATFORM_V2_LOST_CITIES" || compatible.kind === "PLATFORM_V2_SPLENDOR" || compatible.kind === "PLATFORM_V2_HALLI_GALLI" || compatible.kind === "PLATFORM_V2_ISLAND_SETTLERS"
+      compatible.kind === "PLATFORM_V2_GEM_CARD" || compatible.kind === "PLATFORM_V2_CITY_ROLE" || compatible.kind === "PLATFORM_V2_DRAW_RELAY" || compatible.kind === "PLATFORM_V2_SNEAKY_LUNCH" || compatible.kind === "PLATFORM_V2_WOLF_NIGHT" || compatible.kind === "PLATFORM_V2_LIAR_GAME" || compatible.kind === "PLATFORM_V2_SPYFALL" || compatible.kind === "PLATFORM_V2_WORD_DUET" || compatible.kind === "PLATFORM_V2_TRAIN" || compatible.kind === "PLATFORM_V2_CENTURY" || compatible.kind === "PLATFORM_V2_SPIRIT_ISLAND" || compatible.kind === "PLATFORM_V2_SPACE_CREW" || compatible.kind === "PLATFORM_V2_ARK_NOVA" || compatible.kind === "PLATFORM_V2_JAIPUR" || compatible.kind === "PLATFORM_V2_LOVE_LETTER" || compatible.kind === "PLATFORM_V2_GURYONGTU" || compatible.kind === "PLATFORM_V2_AZUL" || compatible.kind === "PLATFORM_V2_VEGAS" || compatible.kind === "PLATFORM_V2_CARCASSONNE" || compatible.kind === "PLATFORM_V2_BURGUNDY" || compatible.kind === "PLATFORM_V2_CLUE" || compatible.kind === "PLATFORM_V2_TERRORSCAPE" || compatible.kind === "PLATFORM_V2_SABOTEUR" || compatible.kind === "PLATFORM_V2_LOST_CITIES" || compatible.kind === "PLATFORM_V2_SPLENDOR" || compatible.kind === "PLATFORM_V2_HALLI_GALLI" || compatible.kind === "PLATFORM_V2_ISLAND_SETTLERS"
       ? null
       : compatible.legacySnapshot;
   }
@@ -666,6 +669,19 @@ export function useLobbyApp(): LobbyAppState {
       }
     } catch { setErrorMessage("이 탭의 이전 요청을 확인할 수 없습니다. 저장 공간을 확인해주세요."); }
   }, [compatibleSnapshot, connectionState, sessionReplaced, resumePending, reconnectNeeded]);
+
+  async function actArkNova(command: ArkNovaActCommand): Promise<void> {
+    const client = clientRef.current, session = storedSessionForCurrentRoute();
+    if (!client?.connected || session === null || sessionReplacedRef.current || compatibleSnapshotRef.current?.kind !== "PLATFORM_V2_ARK_NOVA") throw new Error("연결을 확인하고 다시 시도해주세요.");
+    const ack = await client.actArkNova(command);
+    if (clientRef.current !== client || sessionReplacedRef.current || storedSessionForCurrentRoute()?.playerId !== session.playerId ||
+      storedSessionForCurrentRoute()?.credential.roomCode !== session.credential.roomCode) throw new Error("게임 연결이 변경되었습니다.");
+    if (!ack.ok) {
+      void requestLatestSnapshot();
+      throw new ArkNovaCommandRejected(getUserErrorMessage(ack.error.code));
+    }
+    applyWireSnapshot(ack.data.snapshot, session);
+  }
 
   async function actJaipur(command: JaipurClientCommand): Promise<void> {
     const client = clientRef.current, session = storedSessionForCurrentRoute();
@@ -1175,7 +1191,7 @@ export function useLobbyApp(): LobbyAppState {
     const incomingSnapshot = projectRoomSnapshotShell(compatible);
     const incomingLegacySnapshot =
       compatible.kind === "PLATFORM_V2_NUMBER_TILE" ||
-      compatible.kind === "PLATFORM_V2_GEM_CARD" || compatible.kind === "PLATFORM_V2_CITY_ROLE" || compatible.kind === "PLATFORM_V2_DRAW_RELAY" || compatible.kind === "PLATFORM_V2_SNEAKY_LUNCH" || compatible.kind === "PLATFORM_V2_WOLF_NIGHT" || compatible.kind === "PLATFORM_V2_LIAR_GAME" || compatible.kind === "PLATFORM_V2_SPYFALL" || compatible.kind === "PLATFORM_V2_WORD_DUET" || compatible.kind === "PLATFORM_V2_TRAIN" || compatible.kind === "PLATFORM_V2_CENTURY" || compatible.kind === "PLATFORM_V2_SPIRIT_ISLAND" || compatible.kind === "PLATFORM_V2_SPACE_CREW" || compatible.kind === "PLATFORM_V2_JAIPUR" || compatible.kind === "PLATFORM_V2_LOVE_LETTER" || compatible.kind === "PLATFORM_V2_GURYONGTU" || compatible.kind === "PLATFORM_V2_AZUL" || compatible.kind === "PLATFORM_V2_VEGAS" || compatible.kind === "PLATFORM_V2_CARCASSONNE" || compatible.kind === "PLATFORM_V2_BURGUNDY" || compatible.kind === "PLATFORM_V2_CLUE" || compatible.kind === "PLATFORM_V2_TERRORSCAPE" || compatible.kind === "PLATFORM_V2_SABOTEUR" || compatible.kind === "PLATFORM_V2_LOST_CITIES" || compatible.kind === "PLATFORM_V2_SPLENDOR" || compatible.kind === "PLATFORM_V2_HALLI_GALLI" || compatible.kind === "PLATFORM_V2_ISLAND_SETTLERS"
+      compatible.kind === "PLATFORM_V2_GEM_CARD" || compatible.kind === "PLATFORM_V2_CITY_ROLE" || compatible.kind === "PLATFORM_V2_DRAW_RELAY" || compatible.kind === "PLATFORM_V2_SNEAKY_LUNCH" || compatible.kind === "PLATFORM_V2_WOLF_NIGHT" || compatible.kind === "PLATFORM_V2_LIAR_GAME" || compatible.kind === "PLATFORM_V2_SPYFALL" || compatible.kind === "PLATFORM_V2_WORD_DUET" || compatible.kind === "PLATFORM_V2_TRAIN" || compatible.kind === "PLATFORM_V2_CENTURY" || compatible.kind === "PLATFORM_V2_SPIRIT_ISLAND" || compatible.kind === "PLATFORM_V2_SPACE_CREW" || compatible.kind === "PLATFORM_V2_ARK_NOVA" || compatible.kind === "PLATFORM_V2_JAIPUR" || compatible.kind === "PLATFORM_V2_LOVE_LETTER" || compatible.kind === "PLATFORM_V2_GURYONGTU" || compatible.kind === "PLATFORM_V2_AZUL" || compatible.kind === "PLATFORM_V2_VEGAS" || compatible.kind === "PLATFORM_V2_CARCASSONNE" || compatible.kind === "PLATFORM_V2_BURGUNDY" || compatible.kind === "PLATFORM_V2_CLUE" || compatible.kind === "PLATFORM_V2_TERRORSCAPE" || compatible.kind === "PLATFORM_V2_SABOTEUR" || compatible.kind === "PLATFORM_V2_LOST_CITIES" || compatible.kind === "PLATFORM_V2_SPLENDOR" || compatible.kind === "PLATFORM_V2_HALLI_GALLI" || compatible.kind === "PLATFORM_V2_ISLAND_SETTLERS"
         ? null
         : compatible.legacySnapshot;
     const incomingNumberSnapshot =
@@ -3417,6 +3433,7 @@ export function useLobbyApp(): LobbyAppState {
     retrySpaceCrewPending,
     spaceCrewPendingRequest,
     spaceCrewPending,
+    actArkNova,
     actJaipur,
     actLoveLetter,
     actGuryongtu,

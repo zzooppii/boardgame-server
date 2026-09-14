@@ -1,3 +1,4 @@
+import { ArkNovaActCommandSchema,type ArkNovaActCommand } from "@hangul-rummikub/shared";
 import { SpaceCrewStartCommandSchema, SpaceCrewClientCommandSchema, type SpaceCrewStartCommand, type SpaceCrewClientCommand } from "@hangul-rummikub/shared";
 import { TrainClientCommandSchema, type TrainClientCommand } from "@hangul-rummikub/shared";
 import { CenturyClientCommandSchema, type CenturyClientCommand } from "@hangul-rummikub/shared";
@@ -762,6 +763,12 @@ export class RealtimeClient {
         case "spaceCrew:practiceMission": this.#socket.emit("spaceCrew:practiceMission", command, acknowledge); break;
       }
     }, validateStateSyncWireAck, ack => hasConsistentSnapshotAcknowledgement(ack) && this.#acceptAcknowledgementSnapshotVersion(ack));
+  }
+
+  actArkNova(command:ArkNovaActCommand):Promise<StateSyncWireAck> {
+    if(!parseRematch(ArkNovaActCommandSchema,command).success)return Promise.reject(new RealtimeClientError("INVALID_COMMAND"));
+    return this.#emitAcknowledged(command.kind,command.requestId,acknowledge=>this.#socket.emit("arkNova:act",command,acknowledge),validateStateSyncWireAck,
+      ack=>hasConsistentSnapshotAcknowledgement(ack)&&this.#acceptAcknowledgementSnapshotVersion(ack));
   }
 
   actJaipur(command: JaipurClientCommand): Promise<StateSyncWireAck> {

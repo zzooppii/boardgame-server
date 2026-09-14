@@ -9,7 +9,7 @@ import {
   type GameType,
   type RoomCode,
 } from "@hangul-rummikub/shared";
-import { useState, type FormEvent } from "react";
+import { lazy, Suspense, useState, type FormEvent } from "react";
 
 import { limitNicknameInput } from "../../lib/nickname-input.js";
 import { MISSING_RESUME_CREDENTIAL, type SavedGameEntry } from "../../lib/saved-game.js";
@@ -17,6 +17,8 @@ import {
   DEFAULT_SELECTED_GAME_TYPE,
   GAME_CATALOG,
 } from "../game-catalog/game-catalog.js";
+
+const ArkNovaPreview = lazy(() => import("../ark-nova/ArkNovaPreview.js"));
 
 export type HomeScreenProps = Readonly<{
   nickname: string;
@@ -41,6 +43,7 @@ export function HomeScreen(props: HomeScreenProps) {
   const [selectedGameType, setSelectedGameType] = useState<GameType>(
     DEFAULT_SELECTED_GAME_TYPE,
   );
+  const [arkPreview, setArkPreview] = useState(false);
   const isBusy = props.busyLabel !== null;
   const joinRoomCode = props.invitationRoomCode ?? props.roomCodeInput;
 
@@ -52,6 +55,14 @@ export function HomeScreen(props: HomeScreenProps) {
   function submitJoin(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
     props.onJoinRoom();
+  }
+
+  if (arkPreview) {
+    return (
+      <Suspense fallback={<main className="app-shell"><p role="status">아크노바 체험 화면을 여는 중입니다…</p></main>}>
+        <ArkNovaPreview onExit={() => setArkPreview(false)} />
+      </Suspense>
+    );
   }
 
   return (
@@ -192,6 +203,7 @@ export function HomeScreen(props: HomeScreenProps) {
                             {game.gameType === "CENTURY" ? <img src="/images/century/market.jpg" alt="향신료 시장과 상단" loading="lazy" style={{width:"100%",height:"100%",objectFit:"cover"}}/> : null}
                             {game.gameType === "SPIRIT_ISLAND" ? <img src="/images/spirit-island/spirits.png" alt="섬을 지키는 강, 번개, 대지, 그림자 정령" loading="lazy" style={{width:"100%",height:"100%",objectFit:"cover"}}/> : null}
                             {game.gameType === "SPACE_CREW" ? <span aria-hidden="true" style={{ fontSize: 52 }}>🚀</span> : null}
+                            {game.gameType === "ARK_NOVA" ? <img src="/images/ark-nova/zoo-landscape.png" alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/> : null}
                             {game.gameType === "JAIPUR" ? <span aria-hidden="true" style={{ fontSize: 52 }}>🐪</span> : null}
                             {game.gameType === "SPLENDOR" ? <img src="/assets/splendor/gems.jpg" alt="스플렌더의 다채로운 보석" style={{ width: 125, height: 84, objectFit: "cover", borderRadius: 10 }}/> : null}
                             {game.gameType === "HALLI_GALLI" ? <span style={{ display: "block", width: 90 }}><HalliBellArt/></span> : null}
@@ -286,6 +298,12 @@ export function HomeScreen(props: HomeScreenProps) {
             )}
           </>
         )}
+      </section>
+
+      <section className="entry-card" aria-labelledby="ark-preview-heading">
+        <h2 id="ark-preview-heading">아크노바 · 개발 미리보기</h2>
+        <p className="field-help">규칙을 익히기 위한 별도 건설 연습과 카드 도감입니다. 솔로 대국은 게임 목록에서 아크노바를 선택하세요.</p>
+        <button className="secondary-button" type="button" onClick={() => setArkPreview(true)}>동물원 설계 체험하기</button>
       </section>
 
       <p className="live-region" aria-live="polite">

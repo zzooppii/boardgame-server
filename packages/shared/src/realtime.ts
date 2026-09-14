@@ -1,3 +1,4 @@
+import type { ArkNovaActCommand } from "./protocol.js";
 import type { SpaceCrewStartCommand, SpaceCrewClientCommand } from "./protocol.js";
 import type { SplendorClientCommand } from "./protocol.js";
 import type { TrainClientCommand } from "./protocol.js";
@@ -576,6 +577,7 @@ export interface SnapshotWireClientToServerEvents {
   "spaceCrew:retry": (command: Extract<SpaceCrewClientCommand,{kind:"spaceCrew:retry"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "spaceCrew:next": (command: Extract<SpaceCrewClientCommand,{kind:"spaceCrew:next"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "spaceCrew:practiceMission": (command: Extract<SpaceCrewClientCommand,{kind:"spaceCrew:practiceMission"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
+  "arkNova:act": (command: ArkNovaActCommand, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "jaipur:act": (command: Extract<JaipurClientCommand,{kind:"jaipur:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "loveLetter:act": (command: Extract<LoveLetterClientCommand,{kind:"loveLetter:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "guryongtu:act": (command: Extract<GuryongtuClientCommand,{kind:"guryongtu:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;

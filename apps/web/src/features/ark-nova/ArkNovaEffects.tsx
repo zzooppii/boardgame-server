@@ -1,0 +1,55 @@
+import {useState,type ReactNode} from 'react';
+import {ARK_MAP_A,arkCellKey,ARK_UNIQUE_BUILDINGS,ARK_ACTION_LABELS,ARK_BUILDINGS,ARK_CARDS,ARK_CONTINENTS,ARK_SOLO_UNIVERSITIES,ARK_TAG_LABELS,arkCardName,type ArkEffectGuide,type ArkSoloView,type ArkSoloCommand,type ArkCell} from '@hangul-rummikub/shared';
+import {arkReachableDisplayCards} from './action-controls.js';
+import {ArkNovaCardRow} from './ArkNovaCards.js';
+
+type Selection=Extract<ArkSoloCommand,{kind:'EFFECT'}>['selection'];
+type Placement=Extract<ArkSoloCommand,{kind:'BUILD'}>['placement'];
+export const arkEffectLabels:Readonly<Record<string,string>>={WAZA_PLAY:'WAZA · 소형 동물 추가',WAZA_SNAP:'WAZA · 소형 동물 획득',ARCHAEOLOGIST:'고고학자 · 지도 보너스',MULTIPLIER:'배수 토큰',PAID_SPONSOR:'후원자 비용 지불',FREE_PARTNER:'제휴 동물원 획득',FREE_UNIVERSITY:'대학 획득',MOVE_TO_SPECIAL:'특수 우리로 동물 이동',FREE_BUILD:'무료 건설',RESISTANCE:'최종 목표 교체',ASSERTION:'자기주장 · 프로젝트 획득',DOMINANCE:'지배 · 프로젝트 획득',HUNTER:'사냥',SCAVENGING:'청소',PERCEPTION:'통찰',POUCH:'주머니',SUNBATHING:'일광욕',DIGGING:'땅파기',SPONSOR_MAGNET:'후원자 자석',DRAW:'카드 뽑기',GAIN:'보상 받기',CARD_PICK:'카드 획득',SNAP:'카드 낚아채기',MOVE_ACTION:'행동 카드 이동',UPGRADE:'행동 업그레이드',UPGRADE_OR_WORKER:'업그레이드 또는 직원',CONSERVATION_BONUS:'보전 보너스',DISCARD_GOAL:'목표 카드 정리',WAZA_FOCUS:'WAZA · 동물 크기 선택',SPONSOR_TOKENS:'후원 토큰',EXTRA_ACTION:'추가 행동'};
+const resourceLabels={APPEAL:'매력',CONSERVATION:'보전',REPUTATION:'평판',MONEY:'돈',X:'X 토큰',WORKER:'직원'};
+export function arkEffectSummary(kind:string,guide:ArkEffectGuide):string {
+  if(kind==='GAIN'&&guide.resource)return `${resourceLabels[guide.resource]} ${guide.amount===null?'획득 · 효과 처리 시 계산':`+${guide.amount}`}`;
+  return `${arkEffectLabels[kind]??'카드 효과'}${guide.amount===null?'':` · ${guide.amount}`}`;
+}
+const bonusLabels:Readonly<Record<string,string>>={REPUTATION_2:'평판 2',X_3:'X 토큰 3',ENCLOSURE_3:'3칸 우리',CARDS_3:'카드 3장',MONEY_10:'돈 10',MULTIPLIER:'배수 토큰',UNIVERSITY:'대학',PARTNER:'제휴 동물원',PAID_SPONSOR:'후원자 사용'};
+const universities={HAND_LIMIT:'손패 한도 6 · 연구 1',RESEARCH_2:'연구 2',RESEARCH_REPUTATION:'연구 1 · 평판 2'};
+export function ArkNovaEffects({state:s,disabled,onSelect,placement,cell,housingId,onUniqueCard,onBuilding,onRotate,onReflect}:{
+  state:ArkSoloView;disabled:boolean;onSelect(selection:Selection):void;placement:Placement|null;cell:ArkCell|null;housingId:string|null;
+  onUniqueCard(key:string|null):void;onBuilding(kind:string):void;onRotate():void;onReflect():void;
+}) {
+  const [chosen,setChosen]=useState<string[]>([]),[refill,setRefill]=useState(false);
+  const effect=s.activeEffect;if(!effect)return null;
+  const kind=effect.kind,guide=effect.guide,source=[...s.played,...s.hand,...s.playedProjects,...s.baseProjects].find(c=>c.cardId===effect.sourceId);
+  const toggle=(id:string)=>setChosen(xs=>xs.includes(id)?xs.filter(x=>x!==id):[...xs,id]);
+  const button=(label:string,selection:Selection,invalid=false)=><button key={label} disabled={disabled||invalid} onClick={()=>onSelect(selection)}>{label}</button>;
+  const skip=()=>button('이 효과 포기',{kind:'SKIP'});
+  const row=(cards:ArkSoloView['hand'],multiple=false)=><ArkNovaCardRow cards={cards} selected={chosen} disabled={disabled} onSelect={multiple?toggle:id=>{setChosen([id]);const c=cards.find(c=>c.cardId===id);onUniqueCard(kind==='PAID_SPONSOR'&&c&&Object.hasOwn(ARK_UNIQUE_BUILDINGS,c.key)?c.key:null);}}/>;
+  const playedAnimals=s.played.filter(c=>ARK_CARDS.some(d=>d.key===c.key&&d.kind==='ANIMAL'));
+  let controls:ReactNode;
+  if(['GAIN','DRAW','SPONSOR_TOKENS','SPONSOR_MAGNET'].includes(kind))controls=button('효과 적용',{kind:'NONE'});
+  else if(['HUNTER','SCAVENGING','PERCEPTION','RESISTANCE'].includes(kind)) {
+    const reveal=s.revealedCards;
+    controls=reveal?<><p>{reveal.kind==='RESISTANCE'?'남길 목표 1장을 선택하세요.':`가져올 카드 ${reveal.keep}장을 선택하세요.`}</p>{row(reveal.candidates.filter(c=>reveal.kind!=='HUNTER'||ARK_CARDS.some(d=>d.key===c.key&&d.kind==='ANIMAL')),true)}{button('선택 확정',reveal.kind==='RESISTANCE'?{kind:'KEEP_GOAL',choiceId:reveal.choiceId,keep:chosen[0]??''}:{kind:'KEEP',choiceId:reveal.choiceId,keep:chosen},reveal.kind==='RESISTANCE'?chosen.length!==1:chosen.length!==reveal.keep)}</>:button('카드 공개',{kind:'NONE'});
+  } else if(kind==='POUCH'||kind==='SUNBATHING')controls=<><p>손패에서 최대 {guide.amount}장을 선택하세요. 0장도 선택할 수 있습니다.</p>{row(s.hand,true)}{button('선택한 카드 처리',{kind:'CARDS',cards:chosen},chosen.length>(guide.amount??0))}</>;
+  else if(kind==='DIGGING')controls=<><p>교체할 카드 1장을 고르세요.</p>{row([...s.hand,...s.display.filter(c=>c!==null)])}{button('카드 교체',{kind:'DIG',zone:s.hand.some(c=>c.cardId===chosen[0])?'HAND':'DISPLAY',cardId:chosen[0]??''},chosen.length!==1)}{skip()}</>;
+  else if(kind==='CARD_PICK'||kind==='SNAP'||kind==='WAZA_SNAP') {
+    const cards=(kind==='CARD_PICK'?arkReachableDisplayCards(s):s.display.filter(c=>c!==null)).filter(c=>kind!=='WAZA_SNAP'||ARK_CARDS.some(d=>d.key===c.key&&d.kind==='ANIMAL'&&d.size<=2));
+    controls=<>{row(cards)}{guide.mayRefill&&<label><input type="checkbox" checked={refill} onChange={e=>setRefill(e.target.checked)}/> 다음 카드 선택 전에 공개 카드 보충</label>}{button('선택한 카드 가져오기',{kind:'CARD',cardId:chosen[0]??null,refill:guide.mayRefill&&refill},chosen.length!==1)}{kind==='CARD_PICK'&&button('덱에서 뽑기',{kind:'CARD',cardId:null,refill:false},s.deckCount===0)}{(guide.amount===0||kind==='WAZA_SNAP'&&cards.length===0)&&button('대상 없음 · 계속',{kind:'NONE'})}</>;
+  } else if(['MOVE_ACTION','UPGRADE','UPGRADE_OR_WORKER','MULTIPLIER','EXTRA_ACTION'].includes(kind))controls=<>{guide.actions.map(action=>kind==='EXTRA_ACTION'?button(action==='TAKE_X'?'X 토큰 받기':ARK_ACTION_LABELS[action],{kind:'ACTION',action}):action==='TAKE_X'?null:kind==='MOVE_ACTION'?guide.slots.map(slot=>button(`${ARK_ACTION_LABELS[action]} → ${slot}번`,{kind:'MOVE',action,slot})):button(ARK_ACTION_LABELS[action],{kind:kind==='MULTIPLIER'?'MULTIPLIER':'UPGRADE',action}))}{kind==='UPGRADE_OR_WORKER'&&button('직원 받기',{kind:'WORKER'},s.workers>=4)}{(kind==='MOVE_ACTION'||kind==='EXTRA_ACTION')&&skip()}</>;
+  else if(kind==='FREE_PARTNER') {
+    const available=ARK_CONTINENTS.filter(c=>s.partnerSupply.includes(c)&&s.partners.length<(s.actions.some(a=>a.kind==='ASSOCIATION'&&a.upgraded)?4:2));
+    controls=<>{available.map(continent=>button(ARK_TAG_LABELS[continent]??continent,{kind:'PARTNER',continent}))}{!available.length&&button('대상 없음 · 계속',{kind:'NONE'})}</>;
+  } else if(kind==='FREE_UNIVERSITY')controls=<>{ARK_SOLO_UNIVERSITIES.filter(u=>s.universitySupply.includes(u)).map(university=>button(universities[university],{kind:'UNIVERSITY',university}))}{!s.universitySupply.length&&button('대상 없음 · 계속',{kind:'NONE'})}</>;
+  else if(kind==='FREE_BUILD')controls=<><p>건물을 고른 뒤 지도에서 기준 칸을 선택하세요.</p><select aria-label="무료 건물" value={placement?.building??''} onChange={e=>onBuilding(e.target.value)} disabled={disabled}><option value="">시설 선택</option>{guide.buildings.map(b=><option key={b} value={b}>{ARK_BUILDINGS[b]?.name??b}</option>)}</select><button disabled={disabled} onClick={onRotate}>회전 ↻</button><button disabled={disabled} onClick={onReflect}>반전 ↔</button>{button('무료 배치 확정',{kind:'BUILD',placement:placement??{building:'',anchor:{q:0,r:0},rotation:0,reflected:false}},!placement||!guide.buildings.includes(placement.building))}{skip()}</>;
+  else if(kind==='PAID_SPONSOR'||kind==='WAZA_PLAY') {
+    const cards=(kind==='WAZA_PLAY'?s.hand:[...s.hand,...s.display.filter(c=>c!==null)]).filter(c=>ARK_CARDS.some(d=>d.key===c.key&&(kind==='PAID_SPONSOR'?d.kind==='SPONSOR':d.kind==='ANIMAL'&&d.size<=2)));
+    controls=<><p>{kind==='WAZA_PLAY'?'동물과 입주할 우리를 선택하세요.':'후원자를 선택하세요. 고유 건물이 있다면 지도에서 위치도 선택하세요.'}</p>{row(cards)}{kind==='PAID_SPONSOR'&&<button disabled={disabled} onClick={onRotate}>고유 건물 회전 ↻</button>}{button('카드 사용',{kind:kind==='WAZA_PLAY'?'ANIMAL':'SPONSOR',card:{cardId:chosen[0]??'',housingId:kind==='WAZA_PLAY'?housingId:null,...(placement&&kind==='PAID_SPONSOR'&&cards.some(c=>c.cardId===chosen[0]&&Object.hasOwn(ARK_UNIQUE_BUILDINGS,c.key))?{uniquePlacement:{anchor:placement.anchor,rotation:placement.rotation}}:{})}},chosen.length!==1)}{skip()}</>;
+  } else if(kind==='MOVE_TO_SPECIAL')controls=<><p>이동할 동물을 고르고 지도에서 비울 기존 우리를 선택하세요.</p>{row(playedAnimals)}{button('동물 이동',{kind:'MOVE_ANIMAL',cardId:chosen[0]??'',housingId},chosen.length!==1)}{skip()}</>;
+  else if(kind==='ARCHAEOLOGIST')controls=<><p>지도에서 덮이지 않은 보너스 칸을 선택하세요.</p>{button('선택한 지도 보너스 받기',{kind:'MAP_BONUS',cell:cell??{q:0,r:0}},!cell)}{!ARK_MAP_A.some(c=>c.bonus&&!s.buildings.some(b=>b.cells.some(x=>arkCellKey(x)===arkCellKey(c))))&&button('대상 없음 · 계속',{kind:'NONE'})}</>;
+  else if(kind==='ASSERTION'||kind==='DOMINANCE')controls=<>{row(s.reserveChoices)}{button('프로젝트 가져오기',{kind:'PROJECT',cardId:chosen[0]??null},chosen.length!==1)}{s.reserveChoices.length===0&&button('대상 없음 · 계속',{kind:'PROJECT',cardId:null})}</>;
+  else if(kind==='CONSERVATION_BONUS')controls=<>{guide.bonuses.map(tile=>button(bonusLabels[tile]??tile,{kind:'BONUS',tile}))}{button('돈 5 받기',{kind:'BONUS',tile:null})}</>;
+  else if(kind==='DISCARD_GOAL')controls=<>{row(s.goals)}{button('선택한 목표 버리기',{kind:'GOAL',discard:chosen[0]??''},chosen.length!==1)}</>;
+  else if(kind==='WAZA_FOCUS')controls=<>{button('소형 동물',{kind:'FOCUS',focus:'SMALL'})}{button('대형 동물',{kind:'FOCUS',focus:'LARGE'})}</>;
+  else controls=<p role="alert">이 효과의 선택 화면을 불러오지 못했습니다.</p>;
+  return <section className="ark-live-effect" aria-label="현재 카드 효과"><h2>{arkEffectSummary(kind,guide)}</h2>{source&&<p>{arkCardName(source.key)}</p>}{controls}</section>;
+}

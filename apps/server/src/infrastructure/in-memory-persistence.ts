@@ -1,3 +1,4 @@
+import { ArkNovaGameStateAdapter, type ArkNovaLifecycle } from '../games/ark-nova/compatibility/adapter.js';
 import { SpaceCrewGameStateAdapter, type SpaceCrewLifecycle } from "../games/space-crew/compatibility/adapter.js";
 import { LiarPromptHistorySchema } from "../games/liar-game/domain/prompts.js";
 import { BurgundySettingsSchema, BURGUNDY_DEFAULT_SETTINGS } from "@hangul-rummikub/shared";
@@ -138,6 +139,7 @@ type RoomGameLifecycleInspection =
   | Readonly<{gameType:"CENTURY";inspection:CenturyLifecycle}>
   | Readonly<{gameType:"SPIRIT_ISLAND";inspection:SpiritLifecycle}>
   | Readonly<{gameType:"JAIPUR";inspection:JaipurLifecycle}>
+  | Readonly<{gameType:"ARK_NOVA";inspection:ArkNovaLifecycle}>
   | Readonly<{gameType:"SPACE_CREW";inspection:SpaceCrewLifecycle}>
   | Readonly<{gameType:"LOVE_LETTER";inspection:LoveLetterLifecycle}>
   | Readonly<{gameType:"GURYONGTU";inspection:GuryongtuLifecycle}>
@@ -323,6 +325,14 @@ function cloneRoomWriteCandidate(
       const departedPlayerIds = Object.freeze([...(candidate.departedPlayerIds ?? [])]);
       if (new Set(departedPlayerIds).size !== departedPlayerIds.length || departedPlayerIds.some(id => !shell.players.some(p => p.playerId === id)) || shell.phase === "LOBBY" && departedPlayerIds.length > 0) throw new Error("Invalid departed SPACE_CREW roster.");
       return Object.freeze({...shell, gameType:"SPACE_CREW", game, departedPlayerIds});
+    }
+    case "ARK_NOVA": {
+      if(shell.players.length!==1)throw new Error("Ark Nova requires exactly one player.");
+      const adapter = new ArkNovaGameStateAdapter(), game = candidate.game === null ? null : adapter.cloneAndValidate(candidate.game);
+      validateRoomGameCoherence(shell.phase, shell.players, game, () => game === null ? null : adapter.inspectLifecycle(game));
+      const departedPlayerIds = Object.freeze([...(candidate.departedPlayerIds ?? [])]);
+      if (new Set(departedPlayerIds).size !== departedPlayerIds.length || departedPlayerIds.some(id => !shell.players.some(p => p.playerId === id)) || shell.phase === "LOBBY" && departedPlayerIds.length > 0) throw new Error("Invalid departed ARK_NOVA roster.");
+      return Object.freeze({...shell, gameType:"ARK_NOVA", game, departedPlayerIds});
     }
     case "JAIPUR": {
       const adapter = new JaipurGameStateAdapter(), game = candidate.game === null ? null : adapter.cloneAndValidate(candidate.game);
@@ -552,7 +562,7 @@ function validateRoomGameCoherence(
   }
 
   const playerIds = players.map((player) => player.playerId);
-  const participantIds: readonly string[] = "state" in game ? ("seatOrder" in game.state ? game.state.seatOrder : "mission" in game.state ? game.state.mission.trick.players.map(p => p.playerId) : game.state.rulesVersion === "duet-2025-ko-v1" ? game.state.players : game.state.players.map(p => p.playerId)) : game.turnOrder;
+  const participantIds: readonly string[] = "state" in game ? ("playerId" in game.state ? [game.state.playerId] : "seatOrder" in game.state ? game.state.seatOrder : "mission" in game.state ? game.state.mission.trick.players.map(p => p.playerId) : game.state.rulesVersion === "duet-2025-ko-v1" ? game.state.players : game.state.players.map(p => p.playerId)) : game.turnOrder;
   if (
     playerIds.length !== participantIds.length ||
     new Set(playerIds).size !== playerIds.length ||
@@ -582,6 +592,7 @@ function persistRoom(
     case "CENTURY":
     case "SPIRIT_ISLAND":
     case "SPACE_CREW":
+    case "ARK_NOVA":
     case "JAIPUR":
     case "LOVE_LETTER":
     case "GURYONGTU":
@@ -624,6 +635,7 @@ function inspectRoomGame(
     case "CENTURY": return {gameType:"CENTURY",inspection:new CenturyGameStateAdapter().inspectLifecycle(room.game)};
     case "SPIRIT_ISLAND": return {gameType:"SPIRIT_ISLAND",inspection:new SpiritGameStateAdapter().inspectLifecycle(room.game)};
     case "SPACE_CREW": return {gameType:"SPACE_CREW",inspection:new SpaceCrewGameStateAdapter().inspectLifecycle(room.game)};
+    case "ARK_NOVA": return {gameType:"ARK_NOVA",inspection:new ArkNovaGameStateAdapter().inspectLifecycle(room.game)};
     case "JAIPUR": return {gameType:"JAIPUR",inspection:new JaipurGameStateAdapter().inspectLifecycle(room.game)};
     case "LOVE_LETTER": return {gameType:"LOVE_LETTER",inspection:new LoveLetterGameStateAdapter().inspectLifecycle(room.game)};
     case "GURYONGTU": return {gameType:"GURYONGTU",inspection:new GuryongtuGameStateAdapter().inspectLifecycle(room.game)};

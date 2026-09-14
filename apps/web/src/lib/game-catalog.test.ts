@@ -9,9 +9,9 @@ import {
   GAME_CATALOG,
 } from "../features/game-catalog/game-catalog.js";
 
-test("Web game catalog는 구현 완료된 스물여덟 게임을 같은 계층으로 공개한다", () => {
+test("Web game catalog는 등록된 스물아홉 게임을 같은 계층으로 공개한다", () => {
   assert.equal(Object.isFrozen(GAME_CATALOG), true);
-  assert.equal(GAME_CATALOG.length, 28);
+  assert.equal(GAME_CATALOG.length, 29);
   assert.deepEqual(GAME_CATALOG, [
     {
       gameType: "HANGUL_TILE",
@@ -43,6 +43,7 @@ test("Web game catalog는 구현 완료된 스물여덟 게임을 같은 계층�
     { gameType: "CENTURY", displayName: "센추리", description: "향신료를 모으고 교환하며 나만의 상단을 만드는 2~5인 카드 전략 게임입니다." },
     { gameType: "SPIRIT_ISLAND", displayName: "정령섬", description: "여덟 정령의 힘을 모아 침략자를 물리치는 1~4인 협동 전략 게임입니다." },
     { gameType: "SPACE_CREW", displayName: "스페이스 크루", description: "3~5명이 제한된 교신으로 50개 우주 탐사 미션에 함께 도전합니다." },
+    { gameType: "ARK_NOVA", displayName: "아크노바", description: "혼자 동물원을 운영하며 6라운드·27턴 동안 보전 목표에 도전합니다. 전체 기본판 솔로 검증 중입니다." },
     { gameType: "JAIPUR", displayName: "자이푸르", description: "2명이 시장에서 상품을 교환하고 판매하며 인장 2개를 겨루는 카드 게임입니다." },
     { gameType: "LOVE_LETTER", displayName: "러브레터", description: "2~6명이 한 장의 비밀과 궁정의 인물들로 겨루는 추리 카드 게임입니다." },
     { gameType: "GURYONGTU", displayName: "구룡투", description: "흑백 타일에 숨긴 아홉 개의 숫자. 상대의 수를 읽고 2승을 먼저 거두는 2인 심리전입니다." },
@@ -66,13 +67,13 @@ test("Web game catalog는 구현 완료된 스물여덟 게임을 같은 계층�
   assert.doesNotMatch(JSON.stringify(GAME_CATALOG), /준비중|COMING_SOON/u);
 });
 
-test("Home renders exactly twenty-eight playable game choices including the approved CITY title and capacity", () => {
+test("Home renders exactly twenty-nine selectable game choices including the approved CITY title and capacity", () => {
   const html = renderToStaticMarkup(createElement(HomeScreen, {
     nickname: "", roomCodeInput: "", invitationRoomCode: null, routeErrorMessage: null,
     busyLabel: null, connectionLabel: "연결됨", connectionTone: "connected", errorMessage: null,
     onNicknameChange() {}, onRoomCodeChange() {}, onCreateRoom() {}, onJoinRoom() {}, onGoHome() {},
   }));
-  assert.equal((html.match(/class="game-option(?: selected)?"/gu) ?? []).length, 28);
+  assert.equal((html.match(/class="game-option(?: selected)?"/gu) ?? []).length, 29);
   for (const game of GAME_CATALOG) assert.ok(html.includes(game.displayName));
   assert.match(html, /2~6명이 비밀 역할을 고르고/u);
   assert.doesNotMatch(html, /COMING_SOON|준비중/u);

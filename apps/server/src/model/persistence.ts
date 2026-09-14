@@ -1,3 +1,4 @@
+import type { ArkNovaStoredGame } from '../games/ark-nova/compatibility/adapter.js';
 import type { SpaceCrewStoredGame } from "../games/space-crew/compatibility/adapter.js";
 import type { LiarPromptHistory } from "../games/liar-game/domain/prompts.js";
 import type { BurgundySettings } from "@hangul-rummikub/shared";
@@ -139,7 +140,8 @@ export type SaboteurRoomRecord = RoomRecordBase & Readonly<{ gameType: "SABOTEUR
 export type LostCitiesRoomRecord = RoomRecordBase & Readonly<{ gameType: "LOST_CITIES"; settings?: LostCitiesSettings; game: LostCitiesStoredGame | null; departedPlayerIds?: readonly PlayerId[] }>;
 export type HalliRoomRecord = RoomRecordBase & Readonly<{ gameType: "HALLI_GALLI"; game: HalliStoredGame | null; departedPlayerIds?: readonly PlayerId[] }>;
 export type IslandRoomRecord = RoomRecordBase & Readonly<{ gameType: "ISLAND_SETTLERS"; game: IslandStoredGame | null; departedPlayerIds?: readonly PlayerId[] }>;
-export type RoomRecord = SpaceCrewRoomRecord | TrainRoomRecord | CenturyRoomRecord | SpiritRoomRecord | GuryongtuRoomRecord | AzulRoomRecord | VegasRoomRecord | BurgundyRoomRecord | CarcassonneRoomRecord | ClueRoomRecord | TerrorscapeRoomRecord | SaboteurRoomRecord | LostCitiesRoomRecord | DuetRoomRecord | JaipurRoomRecord | LoveLetterRoomRecord | SplendorRoomRecord | IslandRoomRecord | HalliRoomRecord | WolfRoomRecord | LiarRoomRecord | SpyfallRoomRecord | HangulRoomRecord | NumberTileRoomRecord | GemCardRoomRecord | CityRoleRoomRecord | DrawRelayRoomRecord | SneakyLunchRoomRecord;
+export type ArkNovaRoomRecord = RoomRecordBase & Readonly<{gameType:"ARK_NOVA";game:ArkNovaStoredGame|null}>;
+export type RoomRecord = ArkNovaRoomRecord | SpaceCrewRoomRecord | TrainRoomRecord | CenturyRoomRecord | SpiritRoomRecord | GuryongtuRoomRecord | AzulRoomRecord | VegasRoomRecord | BurgundyRoomRecord | CarcassonneRoomRecord | ClueRoomRecord | TerrorscapeRoomRecord | SaboteurRoomRecord | LostCitiesRoomRecord | DuetRoomRecord | JaipurRoomRecord | LoveLetterRoomRecord | SplendorRoomRecord | IslandRoomRecord | HalliRoomRecord | WolfRoomRecord | LiarRoomRecord | SpyfallRoomRecord | HangulRoomRecord | NumberTileRoomRecord | GemCardRoomRecord | CityRoleRoomRecord | DrawRelayRoomRecord | SneakyLunchRoomRecord;
 
 type WithoutStorageRevision<TRoom> = TRoom extends RoomRecord
   ? Omit<TRoom, "storageRevision">

@@ -1,3 +1,4 @@
+import { projectArkNova } from "../games/ark-nova/compatibility/projector.js";
 import { projectSpaceCrew } from "../games/space-crew/compatibility/projector.js";
 import { BURGUNDY_DEFAULT_SETTINGS } from "@hangul-rummikub/shared";
 import { CITY_DEFAULT_SETTINGS } from "@hangul-rummikub/shared";
@@ -145,6 +146,7 @@ export class PlatformSnapshotV2Projector {
     if(input.room.gameType === "CENTURY") return v.parse(PlatformSnapshotV2Schema, {...base,room:{...base.room,phase:input.room.phase},game:projectCentury(input.room.game,input.selfPlayerId)});
     if(input.room.gameType === "SPIRIT_ISLAND") return v.parse(PlatformSnapshotV2Schema, {...base,room:{...base.room,phase:input.room.phase},game:projectSpirit(input.room.game,input.selfPlayerId)});
     if(input.room.gameType === "SPACE_CREW") return v.parse(PlatformSnapshotV2Schema, {...base,room:{...base.room,phase:input.room.phase},game:projectSpaceCrew(input.room.game,input.selfPlayerId)});
+    if(input.room.gameType === "ARK_NOVA") return v.parse(PlatformSnapshotV2Schema, {...base,room:{...base.room,phase:input.room.phase},game:projectArkNova(input.room.game,input.selfPlayerId)});
     if(input.room.gameType === "JAIPUR") return v.parse(PlatformSnapshotV2Schema, {...base,room:{...base.room,phase:input.room.phase},game:projectJaipur(input.room.game,input.selfPlayerId)});
     if(input.room.gameType === "LOVE_LETTER") return v.parse(PlatformSnapshotV2Schema, {...base,room:{...base.room,phase:input.room.phase},game:projectLoveLetter(input.room.game,input.selfPlayerId)});
     if(input.room.gameType === "GURYONGTU") return v.parse(PlatformSnapshotV2Schema, {...base,room:{...base.room,phase:input.room.phase},game:projectGuryongtu(input.room.game,input.selfPlayerId)});

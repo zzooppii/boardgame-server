@@ -1,3 +1,4 @@
+import type { ArkNovaStoredGame } from '../games/ark-nova/compatibility/adapter.js';
 import type { SpaceCrewStoredGame } from "../games/space-crew/compatibility/adapter.js";
 import type { BurgundyStoredGame } from "../games/burgundy/compatibility/adapter.js";
 import type { TrainStoredGame } from "../games/train/compatibility/adapter.js";
@@ -92,7 +93,7 @@ export function createNextTurn(
 
 export function toScheduledTurnDeadline(
   roomId: RoomId,
-  game: SpaceCrewStoredGame | TrainStoredGame | CenturyStoredGame | SpiritStoredGame | PlayingGameState | PlayingNumberTileGameState | PlayingGemGameState | CityRoleStoredGame | DrawRelayStoredGame | SneakyLunchStoredGame | WolfStoredGame | LiarStoredGame | SpyfallStoredGame | DuetStoredGame | JaipurStoredGame | LoveLetterStoredGame | GuryongtuStoredGame | AzulStoredGame | VegasStoredGame | BurgundyStoredGame | CarcassonneStoredGame | ClueStoredGame | TerrorscapeStoredGame | SaboteurStoredGame | LostCitiesStoredGame | SplendorStoredGame | HalliStoredGame | IslandStoredGame,
+  game: ArkNovaStoredGame | SpaceCrewStoredGame | TrainStoredGame | CenturyStoredGame | SpiritStoredGame | PlayingGameState | PlayingNumberTileGameState | PlayingGemGameState | CityRoleStoredGame | DrawRelayStoredGame | SneakyLunchStoredGame | WolfStoredGame | LiarStoredGame | SpyfallStoredGame | DuetStoredGame | JaipurStoredGame | LoveLetterStoredGame | GuryongtuStoredGame | AzulStoredGame | VegasStoredGame | BurgundyStoredGame | CarcassonneStoredGame | ClueStoredGame | TerrorscapeStoredGame | SaboteurStoredGame | LostCitiesStoredGame | SplendorStoredGame | HalliStoredGame | IslandStoredGame,
 ): ScheduledTurnDeadline {
   if ("state" in game && !("windowStartedAt" in game)) {
     if (!("rulesVersion" in game.state)) throw new Error("Space Crew has no turn deadline.");

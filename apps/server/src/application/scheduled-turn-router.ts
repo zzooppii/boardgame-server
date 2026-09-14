@@ -140,6 +140,7 @@ export class ScheduledTurnRouter {
         case "CENTURY": return { status: "NO_OP" };
         case "SPIRIT_ISLAND": return { status: "NO_OP" };
         case "SPACE_CREW": return { status: "NO_OP" };
+        case "ARK_NOVA": return { status: "NO_OP" };
         case "JAIPUR": return { status: "NO_OP" };
         case "LOVE_LETTER": return { status: "NO_OP" };
         case "GURYONGTU": return { status: "NO_OP" };

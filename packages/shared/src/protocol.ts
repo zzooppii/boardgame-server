@@ -1,3 +1,4 @@
+import { ArkSoloCommandSchema } from './games/ark-nova/solo.js';
 import { SpaceCrewActionSchema, SpaceCrewStartPayloadSchema, SpaceCrewPracticeSelectionPayloadSchema } from "./games/space-crew/actions.js";
 import { TrainSettingsSchema } from "./games/train/maps.js";
 import { TrainActionSchema } from "./games/train/actions.js";
@@ -88,6 +89,8 @@ export {
 export const PROTOCOL_VERSION = 1;
 export const ProtocolVersionSchema = v.literal(PROTOCOL_VERSION);
 export type ProtocolVersion = v.InferOutput<typeof ProtocolVersionSchema>;
+
+
 
 export const RevisionSchema = v.pipe(
   v.number(),
@@ -779,3 +782,8 @@ export const SpiritClientCommandSchema = SpiritActCommandSchema;
 export type TrainClientCommand = v.InferOutput<typeof TrainClientCommandSchema>;
 export type CenturyClientCommand = v.InferOutput<typeof CenturyClientCommandSchema>;
 export type SpiritClientCommand = v.InferOutput<typeof SpiritClientCommandSchema>;
+
+/** Ark Nova registration follows once its concrete room service is connected. */
+export const ArkNovaActCommandSchema=v.strictObject({kind:v.literal('arkNova:act'),protocolVersion:ProtocolVersionSchema,
+  requestId:RequestIdSchema,gameId:GameIdSchema,expectedGameRevision:GameRevisionSchema,turnId:TurnIdSchema,payload:ArkSoloCommandSchema});
+export type ArkNovaActCommand=v.InferOutput<typeof ArkNovaActCommandSchema>;

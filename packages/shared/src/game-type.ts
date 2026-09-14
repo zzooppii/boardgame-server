@@ -12,6 +12,7 @@ export const SUPPORTED_GAME_TYPES = Object.freeze([
   "ISLAND_SETTLERS",
   "SPLENDOR",
   "JAIPUR",
+  "ARK_NOVA",
   "SPACE_CREW",
   "TRAIN",
   "CENTURY",
@@ -35,6 +36,7 @@ export const GameTypeSchema = v.picklist(SUPPORTED_GAME_TYPES);
 export type GameType = v.InferOutput<typeof GameTypeSchema>;
 
 export const GAME_PLAYER_LIMITS = Object.freeze({
+  ARK_NOVA: { min: 1, max: 1 },
   SPACE_CREW: { min: 3, max: 5 },
   TRAIN: { min: 2, max: 5 },
   CENTURY: { min: 2, max: 5 },

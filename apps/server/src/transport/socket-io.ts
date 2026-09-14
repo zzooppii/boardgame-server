@@ -2885,6 +2885,29 @@ function registerSpaceCrewHandlers(io: RealtimeServer, socket: RealtimeSocket, r
   }
 }
 
+import { ArkNovaActCommandSchema } from "@hangul-rummikub/shared";
+function registerArkNovaHandlers(socket: RealtimeSocket, runtime: ApplicationRuntime): void {
+  for (const event of ["arkNova:act"] as const) socket.on(event, (raw: unknown, acknowledge: (ack: StateSyncWireAck) => void) => {
+    const receivedAt = runtime.clock.now(), command = parseNumberRematch(ArkNovaActCommandSchema, raw);
+    if (!command.success || command.output.kind !== event) { acknowledgeIfPresent(acknowledge, failureAck(raw, INVALID_PAYLOAD_ERROR, receivedAt)); return; }
+    let committed=false;
+    void (async () => {
+      const binding = runtime.connectionRegistry.getAuthenticatedBinding(createSocketId(socket.id));
+      if (!binding) { acknowledgeIfPresent(acknowledge, failureAck(raw, UNAUTHENTICATED_ERROR, receivedAt)); return; }
+      if (!isRoomAdmissionCompatible("ARK_NOVA", socketAdmissionCapabilities(socket))) {
+        acknowledgeIfPresent(acknowledge, failureAck(raw, {code:"INCOMPATIBLE_GAME_CAPABILITY",message:"ARK_NOVA requires V2 capability.",recoverable:false}, receivedAt)); return;
+      }
+      if (!runtime.arkNovaService) { acknowledgeIfPresent(acknowledge, failureAck(raw, INTERNAL_ERROR, receivedAt)); return; }
+      const result = await runtime.arkNovaService.command({roomId:binding.roomId,actorPlayerId:binding.playerId,command:command.output,
+        authorization:{isCurrent:()=>socket.connected && isCurrentBinding(runtime,binding)}});
+      if (!result.ok) { acknowledgeIfPresent(acknowledge, failureAck(raw,result.error,receivedAt)); return; }
+      committed=true;
+      const loaded = await loadSnapshotForSocket(runtime,socket,binding.roomId,binding.playerId);
+      if (loaded && socket.connected && isCurrentBinding(runtime,binding)) acknowledgeIfPresent(acknowledge,snapshotSuccessAck(command.output.requestId,loaded.metadata,loaded.wireSnapshot));
+    })().catch(()=>{if(committed)reportPostCommitDeliveryFailure();else acknowledgeIfPresent(acknowledge,failureAck(raw,INTERNAL_ERROR,receivedAt));});
+  });
+}
+
 import { JaipurClientCommandSchema } from "@hangul-rummikub/shared";
 function registerJaipurHandlers(socket: RealtimeSocket, runtime: ApplicationRuntime): void {
   for (const event of ["jaipur:act", "jaipur:nextRound"] as const) socket.on(event, (raw: unknown, acknowledge: (ack: StateSyncWireAck) => void) => {
@@ -3629,6 +3652,7 @@ export function registerSocketIoHandlers(
   const unsubscribeCentury = runtime.centuryService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
   const unsubscribeSpirit = runtime.spiritService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
   const unsubscribeSpaceCrew = runtime.spaceCrewService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
+  const unsubscribeArkNova = runtime.arkNovaService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
   const unsubscribeJaipur = runtime.jaipurService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
   const unsubscribeLoveLetter = runtime.loveLetterService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
   const unsubscribeGuryongtu = runtime.guryongtuService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
@@ -3699,6 +3723,7 @@ export function registerSocketIoHandlers(
     registerTrainHandlers(socket, runtime);
     registerCenturyHandlers(socket, runtime);
     registerSpiritHandlers(socket, runtime);
+    registerArkNovaHandlers(socket, runtime);
     registerJaipurHandlers(socket, runtime);
     registerSpaceCrewHandlers(io, socket, runtime);
     registerLoveLetterHandlers(socket, runtime);
@@ -3739,6 +3764,7 @@ export function registerSocketIoHandlers(
     unsubscribeTrain?.();
     unsubscribeCentury?.();
     unsubscribeSpirit?.();
+    unsubscribeArkNova?.();
     unsubscribeJaipur?.();
     unsubscribeSpaceCrew?.();
     unsubscribeLoveLetter?.();

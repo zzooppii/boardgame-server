@@ -68,12 +68,15 @@ async function harness(t: TestContext, count = 3) {
 test("same room: every supported game can be selected and started by its host without ready commands", async t => {
   for (const gameType of SUPPORTED_GAME_TYPES) {
     await t.test(gameType, async t => {
-      const h = await harness(t, gameType === "LIAR_GAME" ? 4 : (gameType === "WORD_DUET" || gameType === "JAIPUR" || gameType === "GURYONGTU" || gameType === "LOST_CITIES") ? 2 : 3), before = await h.sync();
+      const h = await harness(t, gameType === "ARK_NOVA" ? 1 : gameType === "LIAR_GAME" ? 4 : (gameType === "WORD_DUET" || gameType === "JAIPUR" || gameType === "GURYONGTU" || gameType === "LOST_CITIES") ? 2 : 3), before = await h.sync();
       const selected = h.success(await h.send(h.host, h.selection(before, gameType)));
       assert.equal(selected.room.roomId, before.room.roomId); assert.equal(selected.room.roomCode, before.room.roomCode);
       assert.deepEqual(selected.room.players.map(p => [p.playerId, p.nickname, p.isHost]), before.room.players.map(p => [p.playerId, p.nickname, p.isHost]));
       assert.ok(selected.room.players.every(p => p.isReady === false));
-      assert.equal(h.failure(await h.send(h.members[1]!.client, h.startCommand(selected))), "HOST_ONLY");
+      if(gameType==='ARK_NOVA') {
+        const outsider=await h.connect();
+        assert.equal(h.failure(await h.send(outsider,h.startCommand(selected))),'UNAUTHENTICATED');
+      } else assert.equal(h.failure(await h.send(h.members[1]!.client, h.startCommand(selected))), "HOST_ONLY");
       const started = h.success(await h.send(h.host, h.startCommand(selected)));
       assert.equal(started.room.gameType, gameType); assert.equal(started.room.phase, "PLAYING"); assert.ok(started.game);
       const old = await h.server.runtime.persistence.findById(started.room.roomId); assert.ok(old);
@@ -142,7 +145,7 @@ test("six players remain in a four-player game's lobby, start is blocked", async
 
 test("every game's finished roster returns only remaining members to the same room", async t => {
   for (const gameType of SUPPORTED_GAME_TYPES) await t.test(gameType, async t => {
-    const h = await harness(t, gameType === "LIAR_GAME" ? 4 : (gameType === "WORD_DUET" || gameType === "JAIPUR" || gameType === "GURYONGTU" || gameType === "LOST_CITIES") ? 2 : 3);
+    const h = await harness(t, gameType === "ARK_NOVA" ? 1 : gameType === "LIAR_GAME" ? 4 : (gameType === "WORD_DUET" || gameType === "JAIPUR" || gameType === "GURYONGTU" || gameType === "LOST_CITIES") ? 2 : 3);
     h.success(await h.send(h.host, h.selection(await h.sync(), gameType)));
     const prepared = await h.readyAll();
     h.success(await h.send(h.host, h.startCommand(prepared)));
@@ -169,12 +172,30 @@ test("every game's finished roster returns only remaining members to the same ro
         }
       }
     }
+    if(gameType==='ARK_NOVA') {
+      for(let step=0;step<40;step++) {
+        const snapshot=await h.sync(),g=snapshot.game;
+        assert.ok(g?.gameType==='ARK_NOVA');
+        if(g.phase==='FINISHED')break;
+        const state=g.state;
+        const payload=state.progress.stage==='SETUP'?{kind:'INITIAL_HAND',keep:state.hand.slice(0,4).map(c=>c.cardId)}:
+          state.pending?.kind==='BREAK_DISCARD'?{kind:'DISCARD',choiceId:state.pending.choiceId,cards:state.hand.slice(0,state.pending.count).map(c=>c.cardId)}:
+          state.pending?.kind==='FINAL_GOAL'?{kind:'FINAL_GOAL',choiceId:state.pending.choiceId,discard:state.goals[0]!.cardId}:{kind:'FUNDRAISE',x:0};
+        h.success(await h.call(h.host,'arkNova:act',payload,{gameId:g.gameId,expectedGameRevision:g.gameRevision,turnId:state.transitionId}));
+      }
+    }
     const finished = await h.sync(); assert.equal(finished.room.phase, "FINISHED");
     const lobby = h.success(await h.send(h.host, h.selection(finished, "NUMBER_TILE")));
     assert.equal(lobby.room.roomCode, prepared.room.roomCode); assert.equal(lobby.room.players.length, 1);
     assert.equal(lobby.room.players[0]?.playerId, prepared.self.playerId); assert.equal(lobby.room.players[0]?.isReady, false);
+    if(gameType==='ARK_NOVA') {
+      const replacement=await h.connect();
+      const resumed=h.success(await h.call(replacement,'session:resume',{credential:{...h.members[0]!.credential,roomCode:lobby.room.roomCode},lastSeenVersions:null}));
+      assert.equal(resumed.self.playerId,lobby.self.playerId);
+    } else {
     const oldGuest = h.members[1]!, reconnect = await h.connect();
     const rejected = v.parse(StateSyncWireAckSchema, await h.call(reconnect, "session:resume", { credential: { ...oldGuest.credential, roomCode: lobby.room.roomCode }, lastSeenVersions: null })); assert.equal(rejected.ok, false);
+    }
   });
 });
 

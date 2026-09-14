@@ -1,3 +1,4 @@
+import { ArkNovaPlayingProjectionSchema, ArkNovaFinishedProjectionSchema } from "../games/ark-nova/platform-contracts.js";
 import { TrainSettingsSchema, isTrainMapAvailable } from "../games/train/maps.js";
 import { SpaceCrewPlayingProjectionSchema, SpaceCrewFinishedProjectionSchema, spaceCrewProjectionIsConsistent } from "../games/space-crew/contracts.js";
 import { BurgundySettingsSchema } from "../games/burgundy/actions.js";
@@ -411,6 +412,22 @@ export type SpaceCrewFinishedPlatformSnapshotV2 = v.InferOutput<typeof SpaceCrew
 export const SpaceCrewLobbyPlatformSnapshotV2Schema: v.GenericSchema<unknown, SpaceCrewLobbyPlatformSnapshotV2> = SpaceCrewLobbyRaw;
 export const SpaceCrewPlayingPlatformSnapshotV2Schema: v.GenericSchema<unknown, SpaceCrewPlayingPlatformSnapshotV2> = SpaceCrewPlayingRaw;
 export const SpaceCrewFinishedPlatformSnapshotV2Schema: v.GenericSchema<unknown, SpaceCrewFinishedPlatformSnapshotV2> = SpaceCrewFinishedRaw;
+const ArkNovaOuter = { snapshotVersion: PlatformSnapshotVersionSchema, versions: PlatformSnapshotVersionsV2Schema, serverTime: ServerTimeSchema, self: PlatformSelfViewV2Schema };
+const ArkNovaRoom = { roomId: RoomIdSchema, roomCode: RoomCodeSchema, gameType: v.literal("ARK_NOVA") };
+const ArkNovaPlayers = v.pipe(v.array(PlatformPlayerViewV2Schema), v.length(1));
+const ArkNovaLobbyRaw = v.pipe(v.strictObject({ ...ArkNovaOuter, room: v.strictObject({ ...ArkNovaRoom, phase: v.literal("LOBBY"),
+  players: v.pipe(v.array(PlatformPlayerViewV2Schema), v.length(1)) }), game: v.null() }),
+  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)));
+const ArkNovaPlayingRaw = v.pipe(v.strictObject({ ...ArkNovaOuter, room: v.strictObject({ ...ArkNovaRoom, phase: v.literal("PLAYING"), players: ArkNovaPlayers }), game: ArkNovaPlayingProjectionSchema }),
+  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)), v.check(s => s.game.state.playerId === s.self.playerId));
+const ArkNovaFinishedRaw = v.pipe(v.strictObject({ ...ArkNovaOuter, room: v.strictObject({ ...ArkNovaRoom, phase: v.literal("FINISHED"), players: ArkNovaPlayers }), game: ArkNovaFinishedProjectionSchema }),
+  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)), v.check(s => s.game.state.playerId === s.self.playerId));
+export type ArkNovaLobbyPlatformSnapshotV2 = v.InferOutput<typeof ArkNovaLobbyRaw>;
+export type ArkNovaPlayingPlatformSnapshotV2 = v.InferOutput<typeof ArkNovaPlayingRaw>;
+export type ArkNovaFinishedPlatformSnapshotV2 = v.InferOutput<typeof ArkNovaFinishedRaw>;
+export const ArkNovaLobbyPlatformSnapshotV2Schema: v.GenericSchema<unknown, ArkNovaLobbyPlatformSnapshotV2> = ArkNovaLobbyRaw;
+export const ArkNovaPlayingPlatformSnapshotV2Schema: v.GenericSchema<unknown, ArkNovaPlayingPlatformSnapshotV2> = ArkNovaPlayingRaw;
+export const ArkNovaFinishedPlatformSnapshotV2Schema: v.GenericSchema<unknown, ArkNovaFinishedPlatformSnapshotV2> = ArkNovaFinishedRaw;
 const JaipurOuter = { snapshotVersion: PlatformSnapshotVersionSchema, versions: PlatformSnapshotVersionsV2Schema, serverTime: ServerTimeSchema, self: PlatformSelfViewV2Schema };
 const JaipurRoom = { roomId: RoomIdSchema, roomCode: RoomCodeSchema, gameType: v.literal("JAIPUR") };
 const JaipurPlayers = v.pipe(v.array(PlatformPlayerViewV2Schema), v.length(2));
@@ -687,6 +704,7 @@ export const LobbyPlatformSnapshotV2Schema = v.union([
   CenturyLobbyPlatformSnapshotV2Schema,
   SpiritLobbyPlatformSnapshotV2Schema,
   SpaceCrewLobbyPlatformSnapshotV2Schema,
+  ArkNovaLobbyPlatformSnapshotV2Schema,
   JaipurLobbyPlatformSnapshotV2Schema,
   LoveLetterLobbyPlatformSnapshotV2Schema,
   GuryongtuLobbyPlatformSnapshotV2Schema,
@@ -849,6 +867,7 @@ export const PlayingPlatformSnapshotV2Schema = v.union([
   CenturyPlayingPlatformSnapshotV2Schema,
   SpiritPlayingPlatformSnapshotV2Schema,
   SpaceCrewPlayingPlatformSnapshotV2Schema,
+  ArkNovaPlayingPlatformSnapshotV2Schema,
   JaipurPlayingPlatformSnapshotV2Schema,
   LoveLetterPlayingPlatformSnapshotV2Schema,
   GuryongtuPlayingPlatformSnapshotV2Schema,
@@ -1011,6 +1030,7 @@ export const FinishedPlatformSnapshotV2Schema = v.union([
   CenturyFinishedPlatformSnapshotV2Schema,
   SpiritFinishedPlatformSnapshotV2Schema,
   SpaceCrewFinishedPlatformSnapshotV2Schema,
+  ArkNovaFinishedPlatformSnapshotV2Schema,
   JaipurFinishedPlatformSnapshotV2Schema,
   LoveLetterFinishedPlatformSnapshotV2Schema,
   GuryongtuFinishedPlatformSnapshotV2Schema,

@@ -210,7 +210,7 @@ export class RoomLeaveService {
           }
 
           const now = this.#dependencies.clock.now();
-          if (room.phase === "LOBBY") {
+          if (room.phase === "LOBBY" || room.gameType === "ARK_NOVA") {
             const prepared = room.gameType === "SPACE_CREW"
               ? await this.#dependencies.prepareSpaceCrewLobbyLeave?.(room) : undefined;
             let committedLobbyLeave = false;

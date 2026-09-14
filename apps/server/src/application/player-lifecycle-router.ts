@@ -220,6 +220,7 @@ export class PlayerLifecycleRouter implements PlayerLifecycleActionRouting {
       case "SPACE_CREW":
         if (!this.#spaceCrew) throw new Error("SPACE_CREW lifecycle missing.");
         return this.#spaceCrew.applyPlayingLeave(input);
+      case "ARK_NOVA": throw new Error("Solo departure must remove the room through RoomLeaveService.");
       case "JAIPUR":
         if (!this.#jaipur) throw new Error("JAIPUR lifecycle missing.");
         return this.#jaipur.applyPlayingLeave(input);
@@ -293,6 +294,7 @@ export class PlayerLifecycleRouter implements PlayerLifecycleActionRouting {
       case "CENTURY": return {status:"NO_CHANGE"};
       case "SPIRIT_ISLAND": return {status:"NO_CHANGE"};
       case "SPACE_CREW": return {status:"NO_CHANGE"};
+      case "ARK_NOVA": return {status:"NO_CHANGE"};
       case "JAIPUR": return {status:"NO_CHANGE"};
       case "LOVE_LETTER": return {status:"NO_CHANGE"};
       case "GURYONGTU": return {status:"NO_CHANGE"};

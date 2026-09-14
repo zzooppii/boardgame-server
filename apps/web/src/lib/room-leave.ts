@@ -85,6 +85,7 @@ export function roomLeaveConfirmationMessage(phase: RoomPhase, gameType?: GameTy
       if (gameType === "CENTURY") return "나가면 이번 센추리 게임이 취소됩니다. 잠시 자리를 비우려면 창을 닫고 재접속할 수 있습니다. 나가시겠습니까?";
       if (gameType === "SPIRIT_ISLAND") return "나가면 이번 정령섬 게임이 취소됩니다. 잠시 자리를 비우려면 창을 닫고 재접속할 수 있습니다. 나가시겠습니까?";
       if (gameType === "SPACE_CREW") return "나가면 진행 중인 시도가 중단됩니다. 캠페인 진행과 시도·조난 이력은 보존되며, 새 방에서 복구할 수 있습니다. 잠시 자리를 비우려면 창을 닫고 같은 방에 재접속하세요. 나가시겠습니까?";
+      if (gameType === "ARK_NOVA") return "나가면 솔로 동물원이 삭제됩니다. 잠시 멈추려면 창을 닫고 재접속할 수 있습니다. 방에서 나가시겠습니까?";
       if (gameType === "JAIPUR") return "나가면 이번 자이푸르 매치가 취소됩니다. 잠시 자리를 비우려면 창을 닫고 재접속할 수 있습니다. 방에서 나가시겠습니까?";
       if (gameType === "LOVE_LETTER") return "나가면 이번 러브레터 매치가 취소됩니다. 잠시 자리를 비우려면 창을 닫고 재접속할 수 있습니다. 방에서 나가시겠습니까?";
       if (gameType === "GURYONGTU") return "나가면 이번 구룡투 매치가 취소됩니다. 잠시 자리를 비우려면 창을 닫고 재접속할 수 있습니다. 방에서 나가시겠습니까?";

@@ -1,0 +1,293 @@
+.ark-shell{--ark-forest:#183f34;--ark-ink:#253c33;--ark-muted:#66766b;--ark-gold:#b88b45;--ark-line:#d9ded1;--ark-paper:#f7f6ed;max-width:1480px;margin:0 auto;padding:0 42px;color:var(--ark-ink);background:var(--ark-paper);font-family:inherit;min-height:100vh;box-sizing:border-box}
+.ark-shell *{box-sizing:border-box}
+.ark-shell button,.ark-shell input,.ark-shell select{font:inherit}
+.ark-shell button{cursor:pointer}
+.ark-shell button:disabled{opacity:.42;cursor:not-allowed}
+.ark-shell button:focus-visible,.ark-shell input:focus-visible,.ark-shell select:focus-visible,.ark-shell [tabindex]:focus-visible{outline:3px solid #c38c38;outline-offset:4px}
+.ark-shell h1,.ark-shell h2,.ark-shell h3,.ark-shell p{margin:0}
+.ark-topbar{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:22px 0}
+.ark-back,.ark-audio-control button{border:0;background:transparent;color:var(--ark-forest);padding:9px 0;font-size:13px!important}
+.ark-wordmark{display:flex;align-items:center;gap:8px;font-family:Georgia,serif;font-size:22px;letter-spacing:3px}
+.ark-wordmark svg{width:38px}
+.ark-wordmark small{display:block;font:10px/1.6 sans-serif;letter-spacing:2px;text-align:center;color:var(--ark-muted)}
+.ark-audio-control{display:flex;align-items:center;gap:12px}
+.ark-audio-control input{width:74px;accent-color:var(--ark-forest);vertical-align:middle}
+.ark-hero{position:relative;min-height:280px;display:flex;align-items:center;padding:38px 46px;border-radius:8px;background:linear-gradient(90deg,rgba(15,43,32,.87),rgba(15,43,32,.42) 52%,rgba(15,43,32,.02)),url('/images/ark-nova/zoo-landscape.png') center 43%/cover;color:#fffef0;overflow:hidden}
+.ark-hero h1{color:#fffef0;font-family:Georgia,'Noto Serif KR',serif;font-size:clamp(25px,3.2vw,43px);font-weight:500;line-height:1.5;letter-spacing:-1.4px}
+.ark-hero>div>p:last-child{font-size:14px;color:#dbe6ce;margin-top:14px;letter-spacing:.4px}
+.ark-overline{font-size:10px;font-weight:700;letter-spacing:2.6px;line-height:1.7}
+.ark-hero .ark-overline{color:#e5c990;margin-bottom:14px}
+.ark-preview-badge{position:absolute;right:20px;top:20px;border:1px solid #ffffff6b;border-radius:20px;padding:7px 12px;font-size:11px;background:#2448399e}
+.ark-preview-notice{padding:14px 1px!important;color:#646c5e;font-size:12px;line-height:1.9;border-bottom:1px solid var(--ark-line)}
+.ark-resource-strip{display:flex;align-items:center;padding:22px 0;gap:0}
+.ark-resource-strip>div{min-width:150px;padding:0 30px;border-right:1px solid var(--ark-line)}
+.ark-resource-strip>div:first-child{padding-left:0}
+.ark-resource-strip>div>span{display:block;font-size:11px;color:var(--ark-muted)}
+.ark-resource-strip strong{display:block;font-family:Georgia,serif;font-size:28px;margin-top:4px;font-weight:500;font-variant-numeric:tabular-nums}
+.ark-resource-strip strong small{font:12px sans-serif;color:var(--ark-muted)}
+.ark-resource-strip .ark-resource-caption{display:flex;margin-left:auto;align-items:center;gap:12px;border-right:0;padding-right:0}
+.ark-resource-caption svg{width:42px;color:#69866d}
+.ark-resource-caption span{line-height:1.7}
+.ark-action-rack{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;padding:0 0 26px}
+.ark-action-card{position:relative;text-align:left;border:1px solid #d0d6c7;border-radius:6px;padding:17px 18px;background:#eeefe5;color:var(--ark-ink);transition:transform .18s,box-shadow .18s,background .18s;min-height:91px}
+.ark-action-card>span:not(.ark-action-number){display:block;font-size:16px;font-weight:700}
+.ark-action-card small{display:block;margin-top:7px;font-size:10px;color:var(--ark-muted);letter-spacing:.6px}
+.ark-action-number{position:absolute;right:15px;top:16px;font:italic 20px Georgia,serif;color:#abb59d}
+.ark-action-card.is-active{background:var(--ark-forest);color:#fcf8e9;border-color:var(--ark-forest);box-shadow:0 5px 0 #b29c65;transform:translateY(-3px)}
+.ark-action-card.is-active small,.ark-action-card.is-active .ark-action-number{color:#c5d4bc}
+.ark-action-card:hover:not(.is-active){background:#e3e8d9;transform:translateY(-2px)}
+.ark-workspace{border-top:1px solid var(--ark-line);padding:25px 0 0}
+.ark-section-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;gap:16px}
+.ark-section-heading .ark-overline{color:#849075;margin-bottom:6px}
+.ark-section-heading h2{font-size:24px;font-weight:600;letter-spacing:-.8px}
+.ark-section-heading p:last-child{margin-top:8px;font-size:12px;line-height:1.8;color:var(--ark-muted)}
+.ark-edition{padding:8px 12px;border:1px solid var(--ark-line);border-radius:4px;color:var(--ark-muted);font-size:11px;white-space:nowrap}
+.ark-build-layout{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:25px}
+.ark-map-panel{padding:19px 28px 15px;background:radial-gradient(ellipse at 50% 50%,#e4e9d6 15%,#e9eddf 70%,#d3ddc1);border:1px solid #cdd7bd;border-radius:7px;align-self:start;overflow:hidden}
+.ark-map-heading{display:flex;justify-content:space-between;color:#6a7d5c;font-size:10px;letter-spacing:2px}
+.ark-map{display:block;width:100%;max-height:570px;min-height:300px;overflow:visible;margin:3px auto}
+.ark-hex{stroke:#f5f5e5;stroke-width:1.7;transition:fill .1s;cursor:pointer}
+.ark-hex.terrain-land{fill:#cdd9b7}
+.ark-hex.terrain-water{fill:#6aada7}
+.ark-hex.terrain-rock{fill:#c1c3ae}
+.ark-hex:hover,.ark-hex:focus{stroke:#34593c;stroke-width:3;outline:none!important}
+.ark-hex.is-built{fill:#93aa6a;stroke:#486644;stroke-width:2}
+.ark-hex.is-occupied{fill:#718b53}
+.ark-hex.is-kiosk{fill:#e2c18c;stroke:#9e753e}
+.ark-hex.is-pavilion{fill:#cc9e8a;stroke:#805943}
+.ark-hex-label{fill:#4d6345;text-anchor:middle;font:700 12px sans-serif}
+.ark-rock{fill:#858d79;stroke:#a8ad96;stroke-width:2}
+.ark-kiosk-symbol{color:#785635}
+.ark-ghost{fill:#c4e8a380;stroke:#244e2e;stroke-width:3;stroke-dasharray:5 3}
+.ark-ghost.is-invalid{fill:#cf746660;stroke:#9a443c}
+.ark-map-legend{display:flex;justify-content:center;gap:15px;flex-wrap:wrap;border-top:1px solid #c8d4b7;padding-top:15px;font-size:10px;color:#597052}
+.ark-map-legend span{display:flex;align-items:center;gap:5px}
+.ark-map-legend i{width:10px;height:10px;display:inline-block;border-radius:2px}
+.ark-map-legend .land{background:#b3c895}
+.ark-map-legend .water{background:#6aada7}
+.ark-map-legend .rock{background:#858d79}
+.ark-map-legend .occupied{background:#718b53}
+.ark-map-help{text-align:center;font-size:10px;color:#64775c;margin-top:13px!important;line-height:1.9}
+.ark-map-help kbd{font:10px monospace;border:1px solid #b5c4a6;padding:1px 3px;border-radius:2px}
+.ark-build-controls{padding:21px;background:#fffdf5;border:1px solid var(--ark-line);border-radius:7px}
+.ark-control-title{display:flex;gap:9px;align-items:center;margin-bottom:14px}
+.ark-control-title h3{font-size:14px;font-weight:600}
+.ark-step{font:italic 15px Georgia,serif;color:#ab8d52}
+.ark-building-rack{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.ark-building-rack button{display:flex;align-items:center;justify-content:space-between;gap:4px;padding:10px 8px;border:1px solid #dedfcf;border-radius:4px;background:#f6f6ed;color:var(--ark-ink);font-size:11px!important;min-height:39px}
+.ark-building-rack button small{font-size:9px;white-space:nowrap;color:#73796b}
+.ark-building-rack button.is-selected{background:#e1ead8;border-color:#65805b;box-shadow:inset 0 0 0 1px #65805b}
+.ark-upgrade-toggle{display:flex;align-items:center;gap:7px;font-size:11px;color:#677660;margin:14px 0 23px;cursor:pointer}
+.ark-upgrade-toggle input{accent-color:var(--ark-forest);width:16px;height:16px}
+.ark-orientation{display:flex;gap:7px;align-items:center}
+.ark-orientation button{width:38px;height:35px;border:1px solid #d4d9cb;background:#f4f5ec;border-radius:4px;color:var(--ark-forest);font-size:21px!important}
+.ark-orientation span{width:36px;text-align:center;font-size:12px}
+.ark-orientation button.ark-flip{font-size:12px!important;width:72px;margin-left:auto}
+.ark-orientation button[aria-pressed=true]{background:#dce7d1;border-color:#648258}
+.ark-placement-feedback{min-height:65px;padding:17px 0 12px;color:#74806b;font-size:12px;line-height:1.7}
+.ark-placement-feedback.is-error{color:#9b463a}
+.ark-placement-feedback.is-valid{color:#41682f}
+.ark-primary{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;border:1px solid var(--ark-forest);border-radius:4px;background:var(--ark-forest);color:#fff9e9;padding:14px;font-size:12px!important;min-height:44px}
+.ark-primary span{color:#c6d4ad;font-size:10px}
+.ark-primary:hover:not(:disabled){background:#2b5745}
+.ark-secondary-actions{display:flex;gap:10px;margin-top:12px;justify-content:space-between}
+.ark-secondary-actions button{border:0;padding:6px 0;background:transparent;color:#697660;font-size:10px!important;text-decoration:underline;text-underline-offset:3px}
+.ark-note{font-size:11px;line-height:1.9;color:#7a806e;margin-top:18px!important}
+.ark-catalog-toolbar{display:flex;align-items:center;gap:12px;margin-bottom:24px}
+.ark-catalog-toolbar>label:first-child{flex:1;max-width:510px}
+.ark-catalog-toolbar input,.ark-catalog-toolbar select{width:100%;min-height:44px;border:1px solid var(--ark-line);border-radius:4px;background:#fffcf4;padding:12px;color:var(--ark-ink);font-size:12px}
+.ark-catalog-toolbar>span{margin-left:auto;font-size:11px;color:var(--ark-muted)}
+.ark-catalog-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20px}
+.ark-zoo-card{text-align:left;min-width:0;background:#fffdf5;border:1px solid #cdd5c4;border-radius:7px;color:var(--ark-ink);overflow:hidden;padding:0;box-shadow:0 3px 0 #e0dfd0;transition:transform .18s,box-shadow .18s}
+.ark-zoo-card:hover{transform:translateY(-5px);box-shadow:0 8px 16px #23413020}
+.ark-card-topline{display:flex;justify-content:space-between;padding:10px 12px;font-size:8px;letter-spacing:1.4px;color:#7f866f}
+.ark-family-art{position:relative;background-image:url('/images/ark-nova/animal-families.png');background-size:300% 200%;aspect-ratio:1.5;margin:0 8px;overflow:hidden;border-radius:3px}
+.ark-family-art>span{position:absolute;bottom:4px;right:5px;font-size:8px;background:#f9f5dbde;color:#50634b;padding:2px 5px;border-radius:2px;letter-spacing:.4px}
+.ark-sponsor-art{background-image:linear-gradient(#27483120,#29443140),url('/images/ark-nova/zoo-landscape.png');background-size:cover;background-position:center}
+.ark-card-copy{padding:15px 12px 11px}
+.ark-card-copy h3{font-size:15px;letter-spacing:-.4px;line-height:1.5}
+.ark-latin{color:#87917c;font:8px/1.8 Georgia,serif;letter-spacing:1px;min-height:16px;margin-top:3px!important}
+.ark-tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:10px;min-height:39px;align-content:start}
+.ark-tags span{font-size:9px;background:#e9eede;color:#617452;border:1px solid #dce4ce;padding:3px 6px;border-radius:3px;line-height:1.3}
+.ark-card-bottom{border-top:1px solid #e6e7d9;margin-top:10px;padding-top:11px;display:flex;justify-content:space-between;gap:4px;font-size:10px;color:#717962}
+.ark-card-bottom strong{color:#446b3c;font-weight:600}
+.ark-association{display:grid;grid-template-columns:1fr 1.1fr;gap:44px;align-items:center;padding:12px 0 30px}
+.ark-association-illustration{min-height:350px;border-radius:6px;background:linear-gradient(#153d33a8,#153d33d9),url('/images/ark-nova/zoo-landscape.png') center/cover;color:#f9f4df;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ark-association-illustration svg{width:90px;color:#d5c58d}
+.ark-association-illustration p{text-align:center;line-height:1.8;font-size:23px;letter-spacing:-.6px}
+.ark-association-illustration strong{font-weight:500}
+.ark-association h3{font-size:24px;margin:10px 0 20px}
+.ark-association>div>p:not(.ark-overline){font-size:13px;line-height:1.9}
+.ark-partners{display:flex;gap:9px;margin-bottom:25px;flex-wrap:wrap}
+.ark-partners>span{background:#e6ecd9;min-width:60px;padding:12px 8px;border:1px solid #c9d5b9;border-radius:50px 50px 4px 4px;text-align:center;font-size:10px}
+.ark-partners b{display:block;font:italic 20px Georgia,serif;color:#87956d;margin-bottom:10px}
+.ark-association .ark-primary{margin-top:22px;max-width:240px}
+.ark-empty{padding:60px 20px;text-align:center;color:var(--ark-muted);font-size:14px}
+.ark-footer{display:flex;align-items:center;gap:8px;padding:34px 0 26px;color:#7b886d;font-size:11px}
+.ark-footer svg{width:25px}
+.ark-footer span:last-child{margin-left:auto;letter-spacing:2px;font-size:8px}
+.ark-dialog{padding:0;border:1px solid #c8cfb9;border-radius:10px;background:#fcf9ee;color:#253c33;width:min(810px,calc(100vw - 32px));max-height:90dvh;overflow:auto;box-shadow:0 30px 100px #112e3480}
+.ark-dialog::backdrop{background:#142d26bb;backdrop-filter:blur(5px)}
+.ark-detail-body{position:relative;display:grid;grid-template-columns:.9fr 1.1fr;padding:30px;gap:28px}
+.ark-detail-body>.ark-family-art{margin:0;align-self:start;aspect-ratio:1.5;margin-top:20px}
+.ark-close{position:absolute;right:10px;top:7px;background:transparent;border:0;font-size:25px!important;color:#526849;width:35px;height:35px;z-index:1}
+.ark-detail-copy h2{font-size:26px;line-height:1.5;margin:5px 0}
+.ark-detail-copy h3{font-size:13px;margin:18px 0 8px}
+.ark-detail-copy>p{font-size:12px;line-height:1.9}
+.ark-card-facts{display:grid;grid-template-columns:1fr 1fr;gap:18px 10px;padding:17px 0;margin:12px 0;border-top:1px solid #dce1d0;border-bottom:1px solid #dce1d0}
+.ark-card-facts dt{font-size:10px;color:#718266;margin-bottom:5px}
+.ark-card-facts dd{margin:0;font-size:17px}
+.ark-detail-copy>.ark-primary{margin-top:20px}
+.ark-sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+@media(min-width:1400px){.ark-catalog-grid{grid-template-columns:repeat(5,minmax(0,1fr))}
+}
+@media(max-width:1000px){.ark-shell{padding:0 24px}
+.ark-build-layout{grid-template-columns:minmax(0,1fr) 285px;gap:15px}
+.ark-map-panel{padding:18px 12px}
+.ark-build-controls{padding:16px}
+.ark-catalog-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.ark-resource-strip .ark-resource-caption{display:none}
+.ark-resource-strip>div{flex:1;min-width:0}
+.ark-resource-strip>div:nth-child(3){border:0}
+.ark-hero{padding:30px;min-height:245px}
+}
+@media(max-width:720px){.ark-shell{padding:0 16px}
+.ark-topbar{padding:16px 0;gap:8px}
+.ark-wordmark{font-size:16px;letter-spacing:1.7px}
+.ark-wordmark svg{width:27px}
+.ark-wordmark small{font-size:8px;letter-spacing:1px}
+.ark-back{font-size:11px!important}
+.ark-audio-control{gap:5px}
+.ark-audio-control button{font-size:10px!important}
+.ark-audio-control input{width:48px}
+.ark-hero{min-height:225px;padding:50px 24px 28px;background-position:center}
+.ark-hero h1{font-size:27px;max-width:250px}
+.ark-hero>div>p:last-child{font-size:11px}
+.ark-preview-notice{font-size:10px;padding:12px 0!important}
+.ark-resource-strip{padding:19px 0}
+.ark-resource-strip>div{padding:0 15px}
+.ark-resource-strip>div>span{font-size:10px}
+.ark-resource-strip strong{font-size:24px}
+.ark-action-rack{gap:6px;padding-bottom:23px}
+.ark-action-card{padding:29px 5px 10px;text-align:center;min-height:84px}
+.ark-action-card>span:not(.ark-action-number){font-size:12px}
+.ark-action-card small{font-size:8px;letter-spacing:0}
+.ark-action-number{font-size:13px;left:0;right:0;top:8px}
+.ark-section-heading{align-items:flex-start}
+.ark-section-heading h2{font-size:22px}
+.ark-section-heading p:last-child{font-size:11px}
+.ark-edition{font-size:9px;padding:6px}
+.ark-build-layout{grid-template-columns:1fr}
+.ark-map-panel{padding:15px 10px}
+.ark-map{min-height:0;max-height:490px}
+.ark-map-legend{font-size:9px;gap:10px}
+.ark-map-help{font-size:9px}
+.ark-build-controls{padding:20px}
+.ark-building-rack{grid-template-columns:repeat(3,minmax(0,1fr))}
+.ark-building-rack button{flex-direction:column;gap:4px;padding:10px 4px}
+.ark-catalog-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.ark-catalog-toolbar{flex-wrap:wrap;gap:8px}
+.ark-catalog-toolbar>label:first-child{flex-basis:100%;max-width:none}
+.ark-catalog-toolbar input{font-size:16px}
+.ark-catalog-toolbar select{font-size:13px}
+.ark-card-copy{padding:12px 9px 10px}
+.ark-card-copy h3{font-size:13px}
+.ark-card-topline{font-size:7px;padding:8px;letter-spacing:.6px}
+.ark-tags span{font-size:8px;padding:3px 4px}
+.ark-card-bottom{font-size:9px;flex-wrap:wrap}
+.ark-family-art{margin:0 5px}
+.ark-family-art>span{font-size:6px}
+.ark-association{grid-template-columns:1fr;gap:25px}
+.ark-association-illustration{min-height:230px}
+.ark-detail-body{grid-template-columns:1fr;padding:25px;gap:20px}
+.ark-detail-body>.ark-family-art{margin-top:10px;max-height:220px}
+.ark-footer span:last-child{letter-spacing:.8px;font-size:7px}
+.ark-dialog{max-height:92dvh}
+}
+@media(prefers-reduced-motion:reduce){.ark-shell *{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+.ark-zoo-card:hover,.ark-action-card:hover{transform:none}
+}
+
+
+/* Illustrated board: terrain artwork never replaces the selectable map geometry. */
+.ark-map-panel{background:#f1e6c9;border:6px solid #8b714c;box-shadow:inset 0 0 0 1px #f8eac4,0 12px 26px #273d2920;padding:16px 18px 12px}
+.ark-map-heading{align-items:center;color:#655132;font-weight:700}
+.ark-map-heading button{border:1px solid #a38b5d;background:#fff7df;color:#51442d;border-radius:5px;padding:7px 10px;font:inherit;font-size:11px;font-weight:600;letter-spacing:0;cursor:pointer}
+.ark-map-heading button:focus-visible{outline:3px solid #27533e;outline-offset:3px}
+.ark-map{max-height:760px;margin:12px auto;filter:drop-shadow(0 3px 3px #4b422d35)}
+.ark-board-ground{stroke:#60773a;stroke-width:2}
+.ark-hex{stroke:#f5e8b4cc;stroke-width:1.25;transition:stroke .12s,stroke-width .12s}
+.ark-hex.terrain-land{fill:url(#ark-painted-earth)}
+.ark-hex.terrain-water{fill:url(#ark-painted-water)}
+.ark-hex.terrain-rock{fill:url(#ark-painted-rock)}
+.ark-hex.is-built{fill:url(#ark-painted-grass);stroke:#f4db85;stroke-width:3;paint-order:stroke fill}
+.ark-hex.is-occupied{stroke:#344d2a;stroke-width:4}
+.ark-hex.is-kiosk{fill:#eed3a2;stroke:#685338}
+.ark-hex.is-pavilion{fill:#e4b293;stroke:#774f35}
+.ark-hex:hover,.ark-hex:focus,.ark-hex.is-anchor{stroke:#fff;stroke-width:3;outline:none!important;paint-order:fill stroke}
+.ark-board-bonus path{fill:#f6df60;stroke:#524c35;stroke-width:1.5;filter:drop-shadow(0 1px 1px #26362266)}
+.ark-board-bonus text{fill:#242924;text-anchor:middle;font:800 13px system-ui,sans-serif}
+.ark-board-bonus.is-restricted path{fill:#91396d;stroke:#fff1d7}
+.ark-board-bonus.is-restricted text{fill:#fff}
+.ark-ghost{fill:#d9f09d77;stroke:#173e2b;stroke-width:3;paint-order:fill stroke;stroke-dasharray:5 3}
+.ark-ghost.is-invalid{fill:#e54b4877;stroke:#782729;stroke-dasharray:2 2}
+.ark-build-layout.is-expanded{grid-template-columns:minmax(0,1fr)}
+.ark-build-layout.is-expanded .ark-map{max-height:1000px}
+.ark-build-layout.is-expanded .ark-build-controls{max-width:700px;width:100%;justify-self:center}
+@media(max-width:600px){.ark-map-panel{padding:10px 4px;border-width:4px}.ark-map-heading{padding:0 7px}.ark-map-heading button{font-size:10px}.ark-map{margin:9px auto}.ark-map-legend{padding:10px 4px}}
+
+/* The live table uses the same painted board and wildlife atlas as the preview. */
+.ark-live-card-row{display:flex;gap:12px;overflow-x:auto;padding:8px 3px 16px;scroll-snap-type:x proximity}
+.ark-live-card{flex:0 0 188px;background:#fffdf3;border:1px solid #c9c7aa;border-radius:13px;overflow:hidden;scroll-snap-align:start;box-shadow:0 4px 12px #173d2820}
+.ark-live-card.is-selected{outline:3px solid #bc7d2b;outline-offset:1px}
+.ark-live-card-select{display:block;width:100%;padding:0;border:0;background:none;text-align:left;color:#253e30;cursor:pointer}
+.ark-live-card-select:disabled{cursor:default;opacity:1}
+.ark-live-card-select:focus-visible{outline:3px solid #b47420;outline-offset:-3px}
+.ark-live-card .ark-family-art{height:112px;min-height:112px}
+.ark-live-card-copy{padding:11px;display:grid;gap:6px;min-height:105px}
+.ark-live-card-copy small{font-size:10px;color:#68735b;letter-spacing:.04em}
+.ark-live-card-copy strong{font-size:15px;line-height:1.35}
+.ark-live-card-copy>span{font-size:11px;line-height:1.5}
+.ark-selection-mark{color:#8b5617;font-weight:700}
+.ark-live-card details{padding:0 11px 11px;font-size:11px;line-height:1.6;color:#59674f}
+.ark-live-card summary{cursor:pointer;padding:5px 0;color:#365241}
+.ark-live-card-details p{margin:7px 0}
+@media(prefers-reduced-motion:reduce){.ark-live-card-row{scroll-behavior:auto}}
+.ark-live-table{padding:22px;max-width:1480px;margin:auto;color:#263e2f}
+.ark-live-status{display:flex;gap:12px;flex-wrap:wrap;padding:12px 18px;border:1px solid #c9c8a9;border-radius:12px;background:#fffdf1;box-shadow:0 4px 18px #173d2810}
+.ark-live-status span{display:flex;gap:10px;align-items:baseline;min-width:95px;font-size:12px}.ark-live-status b{font-size:25px;font-variant-numeric:tabular-nums}
+.ark-live-progress{display:flex;gap:15px;justify-content:space-between;margin:16px 0;font-size:13px}
+.ark-live-layout{display:grid;grid-template-columns:minmax(320px,1.25fr) minmax(280px,1fr);gap:22px;align-items:start}
+.ark-live-controls{padding:20px;border-radius:15px;background:#fffdf3;border:1px solid #d1cfb6}
+.ark-live-controls h2{font-size:19px;margin:0 0 12px}.ark-live-controls p{font-size:13px;line-height:1.7;color:#66725b}
+.ark-live-controls button{border:1px solid #8d9c78;background:#f1f4e5;border-radius:8px;padding:9px 12px;margin:4px;color:#284332;cursor:pointer}
+.ark-live-controls button:disabled{opacity:.45;cursor:not-allowed}.ark-live-controls button:focus-visible{outline:3px solid #b97c32;outline-offset:2px}
+.ark-live-controls select{font:inherit;padding:7px;border:1px solid #9caa8d;border-radius:7px;background:#fffdf3;margin-left:8px}
+.ark-live-actions{display:grid;gap:10px;margin-top:16px}.ark-live-actions>div{padding:10px;border:1px solid #d4d8bf;border-radius:10px}.ark-live-actions strong{display:block;margin-bottom:5px;font-size:14px}
+.ark-live-table>section>h2{font-size:18px;margin:23px 0 8px}.ark-live-table h2 small{font-size:12px;font-weight:400;margin-left:10px}
+.ark-live-table>details{padding:14px;background:#fffdf3;border:1px solid #d4d8bf;border-radius:10px;margin-top:12px}.ark-live-table>details>summary{cursor:pointer}
+.ark-live-result{padding:24px;text-align:center;background:#ecf1db;border:1px solid #bac69b;border-radius:14px;margin-bottom:20px}.ark-live-result>strong{font-size:42px;color:#285837}
+.ark-live-reward{border-top:1px solid #dddcc4;padding:12px 0}.ark-live-reward h3{font-size:15px}
+@media(max-width:850px){.ark-live-layout{grid-template-columns:1fr}.ark-live-table{padding:12px}.ark-live-progress{flex-wrap:wrap}.ark-live-controls{padding:15px}}
+.ark-live-screen{min-height:100vh;background:#e9ead9;color:#294330;font-family:inherit}
+.ark-live-header{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:22px max(22px,calc((100vw - 1436px)/2));background:#203e31;color:#fcf6dc}
+.ark-live-header h1{font-size:27px;margin:6px 0}.ark-live-header small{font-size:10px;letter-spacing:.2em;color:#bccb9d}.ark-live-header>div:last-child{display:flex;align-items:center;gap:15px;font-size:12px}
+.ark-live-header button,.ark-live-lobby button,.ark-live-rematch{border:1px solid #b8c396;background:#ecf0d5;color:#28412f;padding:11px 20px;border-radius:9px;cursor:pointer;font:inherit}
+.ark-live-screen button:disabled{cursor:not-allowed}.ark-live-header button:disabled,.ark-live-lobby button:disabled{opacity:.5}
+.ark-live-lobby{max-width:850px;margin:32px auto;padding:20px;text-align:center;line-height:1.8}.ark-live-lobby-art{height:320px;background:url('/images/ark-nova/zoo-landscape.png') center/cover;border-radius:20px;box-shadow:0 8px 30px #27482d24}.ark-live-lobby h2{font-size:26px}.ark-live-lobby p{font-size:14px;color:#62715a}
+.ark-live-audio{max-width:1436px;margin:12px auto 0;padding:0 22px;display:flex;gap:12px;justify-content:flex-end;align-items:center;font-size:12px}.ark-live-audio input[type=range]{width:100px;accent-color:#517546}
+.ark-live-error{max-width:1390px;margin:12px auto;padding:13px 20px;border:1px solid #d3a478;border-radius:9px;background:#fff5e7;color:#855327;font-size:13px}.ark-live-rematch{display:block;margin:16px auto 40px}
+.ark-live-association details{margin:12px 0}.ark-live-association label{display:block;margin:12px 0;font-size:12px}.ark-live-association select{max-width:100%}.ark-live-effect label{font-size:12px;display:block;margin:10px 0}
+@media(max-width:600px){.ark-live-header{padding:15px}.ark-live-header h1{font-size:22px}.ark-live-lobby{margin:15px auto}.ark-live-lobby-art{height:220px}.ark-live-lobby h2{font-size:22px}}
+.ark-live-header h1{color:#fcf6dc}
+
+.ark-live-display{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}.ark-live-display h3{font-size:12px;color:#596b4e;margin:6px 0}.ark-live-display .ark-live-card{min-width:0}.ark-live-empty{min-height:230px;border:2px dashed #b9c29e;border-radius:12px;display:grid;place-items:center;padding:15px;color:#6b785b;font-size:12px;text-align:center;background:#e2e7cf}.ark-live-setup-hand{margin-bottom:24px}
+@media(max-width:850px){.ark-live-display{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:480px){.ark-live-display{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.ark-live-action-options{border:0;padding:0;margin:0;min-width:0}.ark-live-action-options:disabled{opacity:.45}
+
+.ark-live-result details{text-align:left;margin-top:18px}.ark-live-result summary{cursor:pointer;font-weight:600}.ark-live-result ul{list-style:none;padding:0}.ark-live-result li{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;padding:10px 0;border-bottom:1px solid #ced5b7;font-size:14px}
+
+.ark-live-effect .ark-live-card-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));overflow:visible;scroll-snap-type:none}.ark-live-effect .ark-live-card{min-width:0}

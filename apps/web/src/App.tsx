@@ -1,3 +1,4 @@
+import { ArkNovaScreen } from "./features/ark-nova/ArkNovaScreen.js";
 import { SpaceCrewScreen } from "./features/space-crew/SpaceCrewScreen.js";
 import { BurgundyScreen } from "./features/burgundy/BurgundyScreen.js";
 import "./features/burgundy/burgundy.css";
@@ -428,6 +429,14 @@ export function App() {
         onStartConfigured={app.startSpaceCrewConfigured} onCommand={app.actSpaceCrew}
         onLeave={app.leaveRoom} onCopy={() => app.copyInvitation(invitationUrl)}
         errorMessage={app.errorMessage} connectionLabel={connectionLabel}/></ReconnectBoundary>;
+    }
+
+    if (roomView.kind === "ARK_NOVA") {
+      return <ReconnectBoundary {...recovery}><ArkNovaScreen snapshot={roomView.snapshot}
+        connected={app.connectionState === "CONNECTED" && !app.sessionReplaced && !app.resumePending && !app.reconnectNeeded} onCommand={app.actArkNova} onRematch={() => app.selectRoomGame("ARK_NOVA")}
+        onStart={app.startGame} onLeave={app.leaveRoom}
+        pending={app.operationLabel !== null || app.roomLeavePending || app.gameStartPending}
+        error={app.errorMessage} connectionLabel={connectionLabel}/></ReconnectBoundary>;
     }
 
     if (roomView.kind === "JAIPUR") {
