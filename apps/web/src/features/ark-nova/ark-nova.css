@@ -335,3 +335,6 @@
 }
 .ark-art-placeholder{display:grid;place-items:center;background-color:#e2e8d6;background-image:none!important}
 .ark-art-status{padding:12px;text-align:center;font-size:11px;line-height:1.5;color:#52664b}
+
+.ark-hex.is-eligible-bonus{stroke:#fff0a0;stroke-width:3.5;filter:drop-shadow(0 0 2px #725513)}
+.ark-hex.is-eligible-bonus.is-anchor{stroke:#fff;stroke-width:4.5}

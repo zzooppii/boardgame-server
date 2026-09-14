@@ -5,7 +5,7 @@ import {ArkAnimalArt} from './animal-art.js';
 import {arkCardName} from '@hangul-rummikub/shared';
 import {useEffect,useRef,useState} from 'react';
 import {ARK_UNIQUE_BUILDINGS,arkUniqueShape,ARK_ACTION_LABELS,ARK_BUILDINGS,ARK_SOLO_ROUND_TURNS,arkCellKey,arkShape,type ArkCell,type ArkSoloView,type ArkSoloCommand} from '@hangul-rummikub/shared';
-import {arkFreeBuildPlacementHint,arkWazaSelectionAdvice,arkSponsorSelectionAdvice,arkAnimalSelectionAdvice,arkActionControls,arkBuildPlacementHint,arkDisplayedStrength,arkZooSelectionHint,arkReachableDisplayCards} from './action-controls.js';
+import {arkMapBonusAdvice,arkFreeBuildPlacementHint,arkWazaSelectionAdvice,arkSponsorSelectionAdvice,arkAnimalSelectionAdvice,arkActionControls,arkBuildPlacementHint,arkDisplayedStrength,arkZooSelectionHint,arkReachableDisplayCards} from './action-controls.js';
 import {ArkNovaResult} from './ArkNovaResult.js';
 import {ArkNovaBoard} from './ArkNovaBoard.js';
 import {ArkNovaCardRow,ArkNovaDisplay} from './ArkNovaCards.js';
@@ -54,7 +54,7 @@ export function ArkNovaTable({state:s,disabled,onCommand:send,onCue}:Props) {
       {feedback.built.length>0&&<p>시설 {feedback.built.length}개 건설 완료</p>}{feedback.animals.map(key=><p key={key}>{arkCardName(key)} 입주</p>)}{feedback.conservation>0&&<p>보전 +{feedback.conservation}</p>}</div>
     </div>}</div>
     {s.progress.stage==='SETUP'&&<section className="ark-live-setup-hand"><h2>시작 손패 선택 · 8장 중 4장</h2><ArkNovaCardRow cards={s.hand} selected={chosen} disabled={disabled} onSelect={select}/></section>}
-    <div className="ark-live-layout"><ArkNovaBoard eligibleHousingIds={(s.activeEffect?.kind==='WAZA_PLAY'?effectAnimalAdvice:animalAdvice)?.housingIds??[]} feedback={feedback} invalid={placementHint!==null} buildings={s.buildings} selected={anchor} ghost={anchor&&uniqueKey?arkUniqueShape(uniqueKey,anchor,rotation):placement&&(buildMode||s.activeBuild||s.activeEffect?.kind==='FREE_BUILD')?arkShape(building,anchor!,rotation,reflected):[]} disabled={disabled||s.phase==='FINISHED'} onSelect={cell=>{setAnchor(cell);onCue('SELECT');}} onRotate={rotate} {...(uniqueKey?{}:{onReflect:reflect})} onCancel={()=>setAnchor(null)}/>
+    <div className="ark-live-layout"><ArkNovaBoard eligibleBonusCells={s.activeEffect?.kind==='ARCHAEOLOGIST'?arkMapBonusAdvice(s,anchor).available:[]} eligibleHousingIds={(s.activeEffect?.kind==='WAZA_PLAY'?effectAnimalAdvice:animalAdvice)?.housingIds??[]} feedback={feedback} invalid={placementHint!==null} buildings={s.buildings} selected={anchor} ghost={anchor&&uniqueKey?arkUniqueShape(uniqueKey,anchor,rotation):placement&&(buildMode||s.activeBuild||s.activeEffect?.kind==='FREE_BUILD')?arkShape(building,anchor!,rotation,reflected):[]} disabled={disabled||s.phase==='FINISHED'} onSelect={cell=>{setAnchor(cell);onCue('SELECT');}} onRotate={rotate} {...(uniqueKey?{}:{onReflect:reflect})} onCancel={()=>setAnchor(null)}/>
       <section className="ark-live-controls" aria-label="현재 행동">
         {s.progress.stage==='SETUP'&&<><h2>동물원의 첫 계획</h2><p>위 카드 8장 중 시작 손패로 남길 4장을 선택하세요.</p><button disabled={disabled||chosen.length!==4} onClick={()=>send({kind:'INITIAL_HAND',keep:chosen})}>선택한 {chosen.length}/4장으로 시작</button></>}
         {(pending?.kind==='BREAK_DISCARD'||pending?.kind==='DRAW_DISCARD')&&<><h2>{pending.kind==='BREAK_DISCARD'?'휴식 · 손패 정리':'카드 버리기'}</h2><p>버릴 카드 {pending.count}장을 선택하세요.</p><button disabled={disabled||chosen.length!==pending.count} onClick={()=>send({kind:'DISCARD',choiceId:pending.choiceId,cards:chosen})}>{chosen.length}/{pending.count}장 버리기</button></>}

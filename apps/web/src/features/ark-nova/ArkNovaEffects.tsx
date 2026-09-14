@@ -1,6 +1,6 @@
 import {useState,type ReactNode} from 'react';
-import {ARK_MAP_A,arkCellKey,ARK_UNIQUE_BUILDINGS,ARK_ACTION_LABELS,ARK_BUILDINGS,ARK_CARDS,ARK_CONTINENTS,ARK_SOLO_UNIVERSITIES,ARK_TAG_LABELS,arkCardName,type ArkEffectGuide,type ArkSoloView,type ArkSoloCommand,type ArkCell} from '@hangul-rummikub/shared';
-import {arkToggleLimitedSelection,arkSpecialMoveAdvice,arkFreeBuildPlacementHint,arkWazaSelectionAdvice,arkSponsorSelectionAdvice,arkReachableDisplayCards} from './action-controls.js';
+import {ARK_UNIQUE_BUILDINGS,ARK_ACTION_LABELS,ARK_BUILDINGS,ARK_CARDS,ARK_CONTINENTS,ARK_SOLO_UNIVERSITIES,ARK_TAG_LABELS,arkCardName,type ArkEffectGuide,type ArkSoloView,type ArkSoloCommand,type ArkCell} from '@hangul-rummikub/shared';
+import {arkMapBonusAdvice,arkToggleLimitedSelection,arkSpecialMoveAdvice,arkFreeBuildPlacementHint,arkWazaSelectionAdvice,arkSponsorSelectionAdvice,arkReachableDisplayCards} from './action-controls.js';
 import {ArkNovaCardRow} from './ArkNovaCards.js';
 
 type Selection=Extract<ArkSoloCommand,{kind:'EFFECT'}>['selection'];
@@ -58,7 +58,10 @@ export function ArkNovaEffects({state:s,disabled,onSelect,placement,cell,housing
     const cards=playedAnimals.filter(c=>!guide.specialMove?.moved.includes(c.cardId));
     controls=<><p>이동할 동물을 고르고 비울 기존 우리를 선택하세요.</p>{advice.destination&&<p>이동 목적지: {ARK_BUILDINGS[advice.destination.kind]?.name??'특수 우리'} · 사용 용량 {advice.destination.used}/{ARK_BUILDINGS[advice.destination.kind]?.capacity}</p>}{row(cards)}{chosen.length===1&&onChooseHousing&&<label>비울 기존 우리 <select aria-label="비울 기존 우리" disabled={disabled} value={housingId??''} onChange={e=>onChooseHousing(e.target.value||null)}><option value="">{advice.housingIds.length?'우리를 선택하세요':'비울 우리 없음'}</option>{s.buildings.filter(b=>advice.housingIds.includes(b.id)).map(b=><option key={b.id} value={b.id}>{ARK_BUILDINGS[b.kind]?.name??b.kind} · {b.cells[0]!.q+1}열 {b.cells[0]!.r+Math.ceil(b.cells[0]!.q/2)+1}칸</option>)}</select></label>}{advice.issues.map(text=><p role="status" key={text}>{text}</p>)}{button('동물 이동',{kind:'MOVE_ANIMAL',cardId:chosen[0]??'',housingId},chosen.length!==1||advice.issues.length>0)}{skip()}</>;
   }
-  else if(kind==='ARCHAEOLOGIST')controls=<><p>지도에서 덮이지 않은 보너스 칸을 선택하세요.</p>{button('선택한 지도 보너스 받기',{kind:'MAP_BONUS',cell:cell??{q:0,r:0}},!cell)}{!ARK_MAP_A.some(c=>c.bonus&&!s.buildings.some(b=>b.cells.some(x=>arkCellKey(x)===arkCellKey(c))))&&button('대상 없음 · 계속',{kind:'NONE'})}</>;
+  else if(kind==='ARCHAEOLOGIST') {
+    const advice=arkMapBonusAdvice(s,cell);
+    controls=<><p>선택 가능한 지도 보너스 {advice.available.length}개</p><p role="status">{advice.available.length===0?'남아 있는 지도 보너스가 없습니다. 계속을 눌러주세요.':advice.reason??`선택한 보상: ${advice.label}`}</p>{button('선택한 지도 보너스 받기',{kind:'MAP_BONUS',cell:cell??{q:0,r:0}},advice.reason!==null)}{advice.available.length===0&&button('대상 없음 · 계속',{kind:'NONE'})}</>;
+  }
   else if(kind==='ASSERTION'||kind==='DOMINANCE')controls=<>{row(s.reserveChoices)}{button('프로젝트 가져오기',{kind:'PROJECT',cardId:chosen[0]??null},chosen.length!==1)}{s.reserveChoices.length===0&&button('대상 없음 · 계속',{kind:'PROJECT',cardId:null})}</>;
   else if(kind==='CONSERVATION_BONUS')controls=<>{guide.bonuses.map(tile=>button(bonusLabels[tile]??tile,{kind:'BONUS',tile}))}{button('돈 5 받기',{kind:'BONUS',tile:null})}</>;
   else if(kind==='DISCARD_GOAL')controls=<>{row(s.goals)}{button('선택한 목표 버리기',{kind:'GOAL',discard:chosen[0]??''},chosen.length!==1)}</>;

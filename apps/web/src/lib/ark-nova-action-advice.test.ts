@@ -5,7 +5,8 @@ import {renderToStaticMarkup} from 'react-dom/server';
 import {type ArkAssociationTask,ARK_MAP_A,validateArkUniqueConstruction,ARK_CARDS} from '@hangul-rummikub/shared';
 import {arkSoloSetupFixture} from '../features/ark-nova/test-fixture.js';
 import {arkAssociationAdvice,arkDonationAdvice} from '../features/ark-nova/association-advice.js';
-import {arkToggleLimitedSelection,arkSpecialMoveAdvice,arkFreeBuildPlacementHint,arkWazaSelectionAdvice,arkSponsorSelectionAdvice} from '../features/ark-nova/action-controls.js';
+import {arkMapBonusAdvice,arkToggleLimitedSelection,arkSpecialMoveAdvice,arkFreeBuildPlacementHint,arkWazaSelectionAdvice,arkSponsorSelectionAdvice} from '../features/ark-nova/action-controls.js';
+import {ArkNovaBoard} from '../features/ark-nova/ArkNovaBoard.js';
 import {ArkNovaCardRow} from '../features/ark-nova/ArkNovaCards.js';
 import {ArkNovaEffects} from '../features/ark-nova/ArkNovaEffects.js';
 import {ArkNovaAssociation} from '../features/ark-nova/ArkNovaAssociation.js';
@@ -212,4 +213,27 @@ test('Pouch and reveal panels show the selection count before confirmation',()=>
   const pouch=render();assert.match(pouch,/선택 0\/2장/);assert.match(pouch,/0장도 선택/);assert.match(pouch,/<button>선택한 카드 처리/);
   s.activeEffect.kind='PERCEPTION';s.revealedCards={kind:'PERCEPTION',choiceId:'reveal',candidates:s.hand,keep:1};
   const reveal=render();assert.match(reveal,/선택 0\/1장/);assert.match(reveal,/<button disabled="">선택 확정/);
+});
+
+test('Archaeologist advice excludes covered bonuses and explains invalid map choices',()=>{
+  const s=state(),before=structuredClone(s),advice=arkMapBonusAdvice(s,null);assert.ok(advice.available.length);
+  const bonus=advice.available[0]!;assert.equal(arkMapBonusAdvice(s,bonus).reason,null);assert.ok(arkMapBonusAdvice(s,bonus).label);
+  assert.match(arkMapBonusAdvice(s,{q:-20,r:0}).reason!,/지도 안/);
+  assert.match(arkMapBonusAdvice(s,ARK_MAP_A.find(c=>!c.bonus&&!s.buildings.some(b=>b.cells.some(x=>x.q===c.q&&x.r===c.r)))!).reason!,/보너스가 없는/);
+  assert.deepEqual(s,before);s.buildings.push({id:'covered',kind:'ENCLOSURE_1',cells:[{q:bonus.q,r:bonus.r}],occupied:false,used:0});
+  assert.match(arkMapBonusAdvice(s,bonus).reason!,/이미 건물/);assert.equal(arkMapBonusAdvice(s,null).available.length,advice.available.length-1);
+});
+test('Archaeologist panel reports selected reward and offers continuation only when bonuses are exhausted',()=>{
+  const s=state();s.activeEffect={id:1,kind:'ARCHAEOLOGIST',sourceId:'bonus',guide:{resource:null,amount:null,actions:[],buildings:[],slots:[],mayRefill:false,bonuses:[]}};
+  const bonus=arkMapBonusAdvice(s,null).available[0]!;
+  const render=(cell:{q:number;r:number}|null)=>renderToStaticMarkup(createElement(ArkNovaEffects,{state:s,disabled:false,onSelect:()=>{},placement:null,cell,housingId:null,onUniqueCard:()=>{},onBuilding:()=>{},onRotate:()=>{},onReflect:()=>{}}));
+  assert.match(render(null),/<button disabled="">선택한 지도 보너스 받기/);
+  assert.match(render(bonus),/선택한 보상/);assert.match(render(bonus),/<button>선택한 지도 보너스 받기/);assert.doesNotMatch(render(bonus),/대상 없음/);
+  s.buildings=[{id:'covered-map',kind:'ENCLOSURE_1',cells:ARK_MAP_A.map(c=>({q:c.q,r:c.r})),occupied:false,used:0}];
+  assert.match(render(null),/남아 있는 지도 보너스가 없습니다/);assert.match(render(null),/<button>대상 없음 · 계속/);
+});
+test('Available archaeologist cells receive visual and accessible highlights',()=>{
+  const s=state(),available=arkMapBonusAdvice(s,null).available;
+  const html=renderToStaticMarkup(createElement(ArkNovaBoard,{buildings:s.buildings,selected:null,eligibleBonusCells:available,onSelect:()=>{}}));
+  assert.equal((html.match(/지도 보너스 선택 가능/g)??[]).length,available.length);assert.equal((html.match(/is-eligible-bonus/g)??[]).length,available.length);
 });

@@ -1,5 +1,5 @@
 import {arkEnclosuresToEmpty,ARK_UNIQUE_BUILDINGS,validateArkUniqueConstruction,arkAnimalPrice,arkMissingCardConditions,arkAnimalHousingChoices,arkCanShareFlockEnclosure,arkCardDefinition,ARK_TAG_LABELS} from '@hangul-rummikub/shared';
-import {ARK_CARDS,arkReputationRange,arkActionStrength,arkPlacementReason,arkShape,type ArkActionKind,type ArkSoloCommand,type ArkSoloView} from '@hangul-rummikub/shared';
+import {ARK_MAP_A,arkCellKey,type ArkCell,ARK_CARDS,arkReputationRange,arkActionStrength,arkPlacementReason,arkShape,type ArkActionKind,type ArkSoloCommand,type ArkSoloView} from '@hangul-rummikub/shared';
 
 /** Display the server's continuation constraint; commands are still validated by the server. */
 export function arkActionControls(state:Pick<ArkSoloView,'extraAction'|'repeatedAction'>,action:ArkActionKind) {
@@ -111,4 +111,13 @@ export function arkSpecialMoveAdvice(state:ArkSoloView,cardId:string|null,housin
 export function arkToggleLimitedSelection(selected:readonly string[],id:string,limit:number):string[] {
   if(selected.includes(id))return selected.filter(value=>value!==id);
   return selected.length<limit?[...selected,id]:[...selected];
+}
+
+const mapBonusLabels:Readonly<Record<string,string>>={REPUTATION_2:'평판 2',X_1:'X 토큰 1',CARD_1:'카드 1장',MONEY_5:'돈 5',MONEY_10:'돈 10',WORKER:'직원 1'};
+export function arkMapBonusAdvice(state:Pick<ArkSoloView,'buildings'>,cell:ArkCell|null) {
+  const covered=new Set(state.buildings.flatMap(b=>b.cells.map(arkCellKey)));
+  const available=ARK_MAP_A.filter(c=>c.bonus!==null&&!covered.has(arkCellKey(c)));
+  const selected=cell?ARK_MAP_A.find(c=>arkCellKey(c)===arkCellKey(cell)):undefined;
+  const reason=!cell?'강조된 지도 보너스 칸을 선택하세요.':!selected?'동물원 지도 안의 보너스 칸을 선택하세요.':covered.has(arkCellKey(selected))?'이미 건물로 덮인 칸의 보너스는 선택할 수 없습니다.':!selected.bonus?'보너스가 없는 칸입니다.':null;
+  return {available,reason,label:reason===null&&selected?.bonus?mapBonusLabels[selected.bonus]??selected.bonus:null};
 }
