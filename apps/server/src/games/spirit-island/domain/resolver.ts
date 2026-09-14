@@ -1,5 +1,5 @@
 import { legacyActor, waveOptions } from './wave-scenario.js';
-import { scenarioGate, flameOptions, flameAutomatic } from './flame-scenario.js';
+import { scenarioDamageAllowed, scenarioGate, flameOptions, flameAutomatic } from './flame-scenario.js';
 import { hasRelic, relicOptions, relicInvaders, searchRelics, relicReclaim } from './forgotten-scenario.js';
 import { wardOptions } from './scenarios.js';
 import { currentInvaderStage } from './branch-claw-stage-events.js';
@@ -131,7 +131,13 @@ export function choiceOptions(s: SpiritState, shuffle: <T>(values:T[])=>T[] = va
         const areas = e.tags.includes('ADJACENT_ONLY') ? l.adjacent.map(id=>land(s,id)) : e.tags.includes('ADJACENT') ? [l, ...l.adjacent.map(id => land(s, id))] : [l];
         for (const area of areas)
             for (const piece of area.pieces.filter(p => (e.tags.includes('DAHAN_ONLY') ? p.kind === 'DAHAN' : p.kind !== 'DAHAN') && (!e.tags.some(t=>t.startsWith('ONLY:'))||e.tags.includes(`ONLY:${p.id}`)) && (!e.tags.includes('BUILDINGS_ONLY') || p.kind === 'TOWN' || p.kind === 'CITY') && (!e.tags.includes('DISTINCT') || !e.used.includes(p.id)) && !e.tags.includes(`EXCLUDE:${p.id}`))) {
-                add(`${area.id} ${labels[piece.kind]}${piece.strife?' · 분쟁 '+piece.strife:''} · 체력 ${health(area, piece) - piece.damage} → 피해 1`, () => { const killed = damagePiece(s, area, piece, 1, e.actor); extraFear(s, e, piece, killed); event(s, 'DAMAGE', `${area.id} ${labels[piece.kind]} ${killed ? '파괴' : '피해 1'}`, e.actor, area.id); if (e.n > 1)
+                add(`${area.id} ${labels[piece.kind]}${piece.strife?' · 분쟁 '+piece.strife:''} · 체력 ${health(area, piece) - piece.damage} → 피해 1`, () => {
+                    if(piece.kind!=='DAHAN'&&!scenarioDamageAllowed(s,area)){
+                        // Keep the original reward and resolve payment before the next allocation.
+                        const hit={...e,land:area.id,n:1,tags:[...e.tags.filter(t=>t!=='ADJACENT'&&t!=='ADJACENT_ONLY'),`ONLY:${piece.id}`]};
+                        prepend(s,hit,...(e.n>1?[{...e,n:e.n-1,used:e.tags.includes('DISTINCT')?[...e.used,piece.id]:e.used}]:[]));return;
+                    }
+                    const killed = damagePiece(s, area, piece, 1, e.actor); extraFear(s, e, piece, killed); event(s, 'DAMAGE', `${area.id} ${labels[piece.kind]} ${killed ? '파괴' : '피해 1'}`, e.actor, area.id); if (e.n > 1)
                     prepend(s, { ...e, n: e.n - 1, used: e.tags.includes('DISTINCT') ? [...e.used, piece.id] : e.used }); }, area.id, piece.id);
             }
     }

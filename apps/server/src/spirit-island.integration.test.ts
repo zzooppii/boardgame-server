@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test, { type TestContext } from "node:test";
 import { io, type Socket } from "socket.io-client";
 import * as v from "valibot";
-import { SUPPORTED_GAME_TYPES, PlatformSnapshotV2Schema, SessionBootstrapAckSchema, StateSyncWireAckSchema, RoomLeaveAckSchema, type GameType, type PlatformSnapshotV2, } from "@hangul-rummikub/shared";
+import { spiritDefinition, SPIRIT_POWERS, SUPPORTED_GAME_TYPES, PlatformSnapshotV2Schema, SessionBootstrapAckSchema, StateSyncWireAckSchema, RoomLeaveAckSchema, type GameType, type PlatformSnapshotV2, } from "@hangul-rummikub/shared";
 import { createHttpServer } from "./server.js";
 type Client = Socket<Record<string, (value: unknown) => void>, Record<string, (value: unknown, ack: (value: unknown) => void) => void>>;
 type Command = {
@@ -119,4 +119,72 @@ test('SPIRIT_ISLAND socket: explicit leave cancels, retained host starts fresh i
     assert.equal(reset.room.roomCode, s.room.roomCode);
     assert.equal(reset.room.players.length, 1);
     assert.equal((await start(h)).room.phase, 'PLAYING');
+});
+
+// Real independent Socket.IO clients; every state transition uses authenticated commands.
+for (const scenario of ['NONE', 'WARD', 'FLAME', 'FORGOTTEN', 'SECOND_WAVE'] as const)
+test(`SPIRIT_ISLAND multiplayer play: ${scenario}, powers, pending ownership and reconnect`, async t => {
+    const h = await harness(t, scenario === 'FORGOTTEN' ? 4 : 2);
+    let s = await start(h), reconnected = false, powers = 0, commands = 0;
+    const roster = scenario === 'NONE' ? ['OCEAN', 'BRINGER'] as const : ['FANGS', 'KEEPER', 'THUNDER', 'GREEN'] as const;
+    const act = async (index: number, payload: unknown) => {
+        const member = h.members[index]!;
+        const own = await h.sync(member.client);
+        s = h.success(await h.send(member.client, action(h, own, payload)));
+        assert.ok(++commands < 1800, `Game stuck: ${scenario} ${spirit(s).stage}`);
+    };
+    await act(0, { kind: 'CONFIGURE', settings: { expansion: scenario === 'NONE' ? 'CORE' : 'BRANCH_CLAW', progression: false, blightCard: true, adversary: scenario === 'NONE' ? 'NONE' : 'FRANCE', level: scenario === 'NONE' ? 0 : 3, scenario } });
+    while (spirit(s).phase === 'PLAYING') {
+        const g = spirit(s);
+        if (g.pending) {
+            const index = h.members.findIndex(m => m.playerId === g.pending!.playerId);
+            const q = spirit(await h.sync(h.members[index]!.client)).pending!;
+            assert.ok(index >= 0);const member = h.members[index]!;
+            if (!reconnected) {
+                const outsider = h.members[(index + 1) % h.members.length]!;
+                const before = spirit(await h.sync(member.client));
+                h.failure(await h.send(outsider.client, action(h, await h.sync(outsider.client), { kind: 'CHOOSE', choiceId: q.choiceId, optionId: q.options[0]!.id })));
+                assert.deepEqual(spirit(await h.sync(member.client)), before);
+                member.client.disconnect();member.client = await h.connect();
+                const resumed = h.success(await h.call(member.client, 'session:resume', { credential: { ...member.credential, roomCode: s.room.roomCode }, lastSeenVersions: null }));
+                assert.equal(resumed.self.playerId, member.playerId);assert.deepEqual(spirit(resumed), before);
+                reconnected = true;
+            }
+            const option = q.options.find(o => /승리로 게임 마치기|지불하지 않음|이 선택 마치기|효과 없이 버리기/.test(o.label)) ?? q.options[0];
+            assert.ok(option, `Empty choice: ${q.title}`);
+            await act(index, { kind: 'CHOOSE', choiceId: q.choiceId, optionId: option.id });continue;
+        }
+        if (g.stage === 'SELECT') {
+            const index = g.playerStates.findIndex(p => !p.spirit);
+            assert.ok(index >= 0);await act(index, { kind: 'SELECT_SPIRIT', spirit: roster[index] });continue;
+        }
+        if (g.stage === 'PREPARE') {
+            const index = g.playerStates.findIndex(p => !p.ready), p = g.playerStates[index];assert.ok(p);
+            if (!p.grown) {assert.ok(p.spirit);const option=spiritDefinition(p.spirit).growth.findIndex((o,i)=>!p.growthSelections.includes(i)&&(o.cost??0)<=p.energy);assert.ok(option>=0);await act(index, { kind: 'GROW', option });continue; }
+            if (!p.played.length) {
+                const card = p.hand.find(c => {const meta = SPIRIT_POWERS.find(m => m.key === c.key);return meta && meta.cost <= p.energy;});
+                if (card) {await act(index, { kind: 'PLAY_CARDS', cardIds: [card.cardId] });}
+            }
+            await act(index, { kind: 'READY', ready: true });continue;
+        }
+        if (g.stage === 'FAST' || g.stage === 'SLOW') {
+            const index = g.playerStates.findIndex(p => !p.ready);assert.ok(index >= 0);
+            const own = spirit(await h.sync(h.members[index]!.client));
+            const option = own.privateState.powerOptions.find(o => o.targets.length && !o.repeat);
+            if (option) {
+                await act(index, { kind: 'USE_POWER', cardId: option.cardId, target: option.targets[0], threshold: option.thresholdMax, fast: g.stage === 'FAST', repeat: false, shadowReach: false });powers++;continue;
+            }
+            await act(index, { kind: 'READY', ready: true });continue;
+        }
+        await act(0, { kind: 'ADVANCE' });
+        // All clients must receive the same public board; personal options belong to self.
+        for (const member of h.members) {
+            const own = spirit(await h.sync(member.client));
+            assert.equal(own.gameRevision, spirit(s).gameRevision);assert.deepEqual(own.lands, spirit(s).lands);
+            assert.equal(own.privateState.playerId, member.playerId);
+            assert.ok(own.relics.every(r => r.side !== 'HIDDEN' || r.number === null));
+        }
+    }
+    assert.ok(reconnected);assert.ok(powers > 0);const ended=spirit(s);assert.equal(ended.phase,'FINISHED');if(ended.phase==='FINISHED')assert.notEqual(ended.result.reason,'CANCELLED');
+    t.diagnostic(`${scenario}: ${commands} accepted commands, ${powers} powers, ${spirit(s).round} rounds`);
 });

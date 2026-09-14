@@ -1353,3 +1353,28 @@ test('Second Wave: two successive continuations replace the legacy and preserve 
 for(const pay of [true,false])test(`Flame + France: rebellion payment preserves the Dahan reward (${pay})`,()=>{
  let s=scenarioGame('FLAME',1,'FRANCE');const p=s.players[0]!;p.energy=2;const l=land(s,'A4');l.pieces=[];makePiece(s,l,'DAHAN');const town=makePiece(s,l,'TOWN');town.strife=1;town.damage=1;s.queue=[step('SPECIAL',p.playerId,null,0,'FR_REBELLION_DAHAN')];settle(s);assert.equal(s.queue[0]?.key,'SC_GATE');s=eventChoose(s,pay?'면역 해제':'지불하지');s=drain(s);assert.equal(countPieces(land(s,l.id),['DAHAN']),pay?2:1);assert.equal(countPieces(land(s,l.id),['TOWN']),pay?0:1);assert.equal(s.players[0]!.energy,pay?0:2);assert.ok(!s.flags.some(f=>f.startsWith('sc-paid:')));parseSpiritState(s);
 });
+for(const scenario of ['WARD','FLAME','FORGOTTEN','SECOND_WAVE'] as const)for(const adversary of ['FRANCE','ENGLAND','SWEDEN','PRUSSIA'] as const)test(`Scenario play validation: ${scenario} + ${adversary} 6 with actual powers`,()=>{
+ let s=setup(2),commands=0,used=0;s=apply(s,{kind:'CONFIGURE',settings:{expansion:'BRANCH_CLAW',progression:false,blightCard:true,scenario,adversary,level:6}});
+ s=drain(s);const roster:readonly SpiritId[]=adversary==='FRANCE'?['FANGS','KEEPER']:adversary==='ENGLAND'?['OCEAN','BRINGER']:adversary==='SWEDEN'?['THUNDER','GREEN']:['RIVER','LIGHTNING'];
+ for(const [i,p] of [...s.players].entries())s=drain(apply(s,{kind:'SELECT_SPIRIT',spirit:roster[i]!},p.playerId));
+ while(s.phase==='PLAYING'&&++commands<1500){
+  s=drain(s);if(s.phase==='FINISHED')break;
+  if(s.stage==='PREPARE'){
+   const p=s.players.find(p=>!p.ready)!;
+   if(!p.grown){assert.ok(p.spirit);const option=spiritDefinition(p.spirit).growth.findIndex((o,i)=>!p.growthSelections.includes(i)&&(o.cost??0)<=p.energy);assert.ok(option===0||option===1||option===2||option===3);s=drain(apply(s,{kind:'GROW',option},p.playerId));continue;}
+   const id=p.hand.find(id=>cardPower(s,id).cost<=p.energy);s=apply(s,{kind:'PLAY_CARDS',cardIds:id?[id]:[]},p.playerId);s=drain(apply(s,{kind:'READY',ready:true},p.playerId));
+  }else if(s.stage==='FAST'||s.stage==='SLOW'){
+   const p=s.players.find(p=>!p.ready)!;const o=powerOptions(s,p.playerId).find(o=>o.targets.length&&!o.repeat);
+   if(o){s=drain(apply(s,{kind:'USE_POWER',cardId:o.cardId,target:o.targets[0]!,threshold:o.thresholdMax,fast:s.stage==='FAST',repeat:false,shadowReach:false},p.playerId));used++;}
+   else s=drain(apply(s,{kind:'READY',ready:true},p.playerId));
+  }else s=drain(apply(s,{kind:'ADVANCE'}));
+  parseSpiritState(s);for(let i=0;i<s.players.length;i++)assert.ok(spiritProjectionIsConsistent(view(s,i)));
+ }
+ assert.ok(commands<1500);assert.ok(used>0);assert.equal(s.phase,'FINISHED');assert.notEqual(s.result?.reason,'CANCELLED');
+});
+test('Flame: adjacent damage payment retains the original destruction reward',()=>{
+ let s=scenarioGame('FLAME');const p=s.players[0]!;p.energy=2;s.flames=['A2'];land(s,'A6').pieces=[];const town=makePiece(s,land(s,'A6'),'TOWN');town.damage=1;
+ s.flags.push(`power:${p.playerId}`);s.queue=[step('DAMAGE',p.playerId,'A1',1,'',null,['ADJACENT','BONUS_FEAR']),step('CHECK',p.playerId)];settle(s);
+ const option=choiceOptions(s).find(o=>o.pieceId===town.id)!;assert.ok(option);s=apply(s,{kind:'CHOOSE',choiceId:`${s.transitionId}:${s.revision}`,optionId:option.id});s=drain(s);
+ assert.equal(countPieces(land(s,'A6'),['TOWN']),0);assert.equal(s.players[0]!.energy,0);assert.equal(s.fear,2);parseSpiritState(s);
+});
