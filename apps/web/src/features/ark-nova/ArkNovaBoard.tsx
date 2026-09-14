@@ -1,3 +1,4 @@
+import type {ArkFeedback} from './feedback.js';
 import {useState, type KeyboardEvent} from 'react';
 import {ARK_BUILDINGS, ARK_MAP_A, arkCellKey, type ArkBuilding, type ArkCell} from '@hangul-rummikub/shared';
 import {BoardIllustrationDefs, BoardBonus} from './BoardIllustration.js';
@@ -6,11 +7,11 @@ import {arkHexPoints, arkScreenPoint} from './presentation.js';
 const bonuses:Readonly<Record<string,string>>={REPUTATION_2:'↑2',X_1:'X',CARD_1:'▤',MONEY_5:'5',MONEY_10:'10',WORKER:'♟'};
 export const arkBoardCellInput=(cell:ArkCell):ArkCell=>({q:cell.q,r:cell.r});
 export type ArkNovaBoardProps=Readonly<{
-  buildings:readonly ArkBuilding[];selected:ArkCell|null;ghost?:readonly ArkCell[];invalid?:boolean;
+  feedback?:ArkFeedback|null;buildings:readonly ArkBuilding[];selected:ArkCell|null;ghost?:readonly ArkCell[];invalid?:boolean;
   disabled?:boolean;onSelect(cell:ArkCell):void;onRotate?():void;onReflect?():void;onCancel?():void;
 }>;
 /** Server buildings are immutable here; the translucent placement is only an input draft. */
-export function ArkNovaBoard({buildings,selected,ghost=[],invalid=false,disabled=false,onSelect,onRotate,onReflect,onCancel}:ArkNovaBoardProps) {
+export function ArkNovaBoard({feedback,buildings,selected,ghost=[],invalid=false,disabled=false,onSelect,onRotate,onReflect,onCancel}:ArkNovaBoardProps) {
   const [focused,setFocused]=useState(0);
   const occupied=new Map(buildings.flatMap(b=>b.cells.map(c=>[arkCellKey(c),b] as const)));
   function key(e:KeyboardEvent<SVGPolygonElement>,index:number) {
@@ -41,6 +42,7 @@ export function ArkNovaBoard({buildings,selected,ghost=[],invalid=false,disabled
           {b&&(b.kind==='KIOSK'||b.kind==='PAVILION'||b.occupied)&&<text className="ark-hex-label" x={p.x} y={p.y+5} pointerEvents="none">{b.kind==='KIOSK'?'⌂':b.kind==='PAVILION'?'✦':'●'}</text>}
         </g>;
       })}
+      {feedback&&buildings.filter(b=>feedback.built.includes(b.id)||feedback.arrivals.includes(b.id)).flatMap(b=>b.cells.map(c=><polygon key={`${feedback.revision}-${arkCellKey(c)}`} points={arkHexPoints(c,27)} className={`ark-board-celebration ${feedback.arrivals.includes(b.id)?'is-arrival':'is-construction'}`} pointerEvents="none"/>))}
       {ghost.map(c=><polygon key={arkCellKey(c)} points={arkHexPoints(c,27)} className={`ark-ghost ${invalid?'is-invalid':''}`} pointerEvents="none"/>)}
       {selected&&<circle cx={arkScreenPoint(selected).x} cy={arkScreenPoint(selected).y} r="5" fill="#fffef4" stroke="#23483a" strokeWidth="2" pointerEvents="none"/>}
     </svg><p className="ark-map-help">칸 선택 · <kbd>R</kbd> 회전 · <kbd>F</kbd> 반전 · <kbd>Esc</kbd> 선택 해제</p>

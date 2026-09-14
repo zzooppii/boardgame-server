@@ -29,8 +29,6 @@ export const arkHexPoints = (c: ArkCell, radius = 28.5): string => {
   const center = arkScreenPoint(c);
   return Array.from({length: 6}, (_, i) => `${center.x + radius * Math.cos(i * Math.PI / 3)},${center.y + radius * Math.sin(i * Math.PI / 3)}`).join(' ');
 };
-const families = ['Predator', 'Herbivore', 'Primate', 'Bird', 'Reptile', 'Pet'] as const;
-export function arkArtFamily(card: ArkCardDefinition): number { return Math.max(0, families.findIndex(tag => card.tags.includes(tag))); }
 export function searchArkCards(cards: readonly ArkCardDefinition[], query: string, kind: string): readonly ArkCardDefinition[] {
   const needle = query.trim().normalize('NFKC').toLocaleLowerCase();
   return cards.filter(c => (kind === 'ALL' || c.kind === kind) && (!needle || `${c.name} ${c.english} ${c.key}`.normalize('NFKC').toLocaleLowerCase().includes(needle)));

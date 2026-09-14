@@ -2,15 +2,15 @@ import {ARK_SOLO_ABILITIES,arkSoloCardAbilities,ARK_CARDS, ARK_GOALS, ARK_PROJEC
 import {arkProjectCopy,arkProjectSlotCopy} from './project-copy.js';
 import {arkGoalCopy} from './goal-copy.js';
 import {arkSponsorCopy} from './sponsor-copy.js';
-import {arkArtFamily} from './presentation.js';
+import {ArkAnimalArt} from './animal-art.js';
 import {arkAbilityCopy} from './card-copy.js';
 
 export function ArkNovaCard({card,selected=false,disabled=false,onSelect}:{card:ArkCard;selected?:boolean;disabled?:boolean;onSelect?():void}) {
-  const definition=ARK_CARDS.find(c=>c.key===card.key),family=definition?arkArtFamily(definition):0;
+  const definition=ARK_CARDS.find(c=>c.key===card.key);
   const goal=ARK_GOALS.find(c=>c.key===card.key),project=ARK_PROJECTS.find(c=>c.key===card.key);
   return <article className={`ark-live-card ${selected?'is-selected':''}`}>
     <button type="button" className="ark-live-card-select" aria-pressed={selected} disabled={disabled||!onSelect} onClick={onSelect} aria-label={`${arkCardName(card.key)}${selected?' 선택됨':''}`}>
-      <div aria-hidden="true" className={`ark-family-art ${definition?.kind!=='ANIMAL'?'ark-sponsor-art':''}`} style={definition?.kind==='ANIMAL'?{backgroundPosition:`${family%3*50}% ${Math.floor(family/3)*100}%`}:undefined}><span>{definition?.kind==='ANIMAL'?'WILDLIFE':definition?.kind==='SPONSOR'?'ZOO PARTNERS':'CONSERVATION'}</span></div>
+      <ArkAnimalArt cardKey={card.key}/>
       <div className="ark-live-card-copy"><small>{card.key} · {definition?.kind==='ANIMAL'?'동물':definition?.kind==='SPONSOR'?'후원자':ARK_GOALS.some(c=>c.key===card.key)?'최종 목표':'보전 프로젝트'}</small><strong>{arkCardName(card.key)}</strong>
       {definition&&<span>{definition.kind==='ANIMAL'?`비용 ${definition.cost} · 우리 ${definition.size}`:`후원 등급 ${definition.cost}`} · 매력 {definition.appeal}</span>}
       {selected&&<span className="ark-selection-mark">✓ 선택됨</span>}</div>

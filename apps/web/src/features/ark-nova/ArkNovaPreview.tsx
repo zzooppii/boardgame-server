@@ -1,7 +1,8 @@
+import {ArkAnimalArt} from './animal-art.js';
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { ARK_ACTIONS, ARK_ACTION_LABELS, ARK_BUILDINGS, ARK_CARDS, ARK_MAP_A, ARK_TAG_LABELS, arkCellKey, arkShape, type ArkActionKind, type ArkCardDefinition, type ArkCell } from '@hangul-rummikub/shared';
 import { ArkAudio, readArkSoundPreferences, saveArkSoundPreferences, type ArkCue } from './sound.js';
-import { arkArtFamily, arkHexPoints, arkLandCount, arkPreviewCovered, arkScreenPoint, initialArkPreview, placeArkPreview, previewPlacementReason, searchArkCards, undoArkPreview } from './presentation.js';
+import { arkHexPoints, arkLandCount, arkPreviewCovered, arkScreenPoint, initialArkPreview, placeArkPreview, previewPlacementReason, searchArkCards, undoArkPreview } from './presentation.js';
 import './ark-nova.css';
 import { BoardIllustrationDefs, BoardBonus } from './BoardIllustration.js';
 import { arkAbilityCopy } from './card-copy.js';
@@ -20,8 +21,7 @@ function LeafMark({className = ''}: {className?: string}) {
   return <svg className={className} viewBox="0 0 40 40" fill="none" aria-hidden="true"><path d="M31 7C9 4 5 18 12 26c10 8 22-1 19-19Z" fill="currentColor" opacity=".24"/><path d="M9 33 28 12M15 25l-1-10m7 4 9-1" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>;
 }
 function FamilyArt({card}: {card: ArkCardDefinition}) {
-  const family = arkArtFamily(card);
-  return <div aria-hidden="true" className={`ark-family-art ${card.kind === 'SPONSOR' ? 'ark-sponsor-art' : ''}`} style={card.kind === 'ANIMAL' ? {backgroundPosition: `${family % 3 * 50}% ${Math.floor(family / 3) * 100}%`} : undefined}><span>{card.kind === 'ANIMAL' ? '생태군 일러스트' : 'ZOO PARTNERS'}</span></div>;
+  return <ArkAnimalArt cardKey={card.key}/>;
 }
 function Tags({card}: {card: ArkCardDefinition}) {
   return <div className="ark-tags">{card.tags.map((tag, i) => <span key={`${tag}-${i}`}>{ARK_TAG_LABELS[tag] ?? tag}</span>)}</div>;

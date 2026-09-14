@@ -291,3 +291,18 @@
 .ark-live-result details{text-align:left;margin-top:18px}.ark-live-result summary{cursor:pointer;font-weight:600}.ark-live-result ul{list-style:none;padding:0}.ark-live-result li{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;padding:10px 0;border-bottom:1px solid #ced5b7;font-size:14px}
 
 .ark-live-effect .ark-live-card-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));overflow:visible;scroll-snap-type:none}.ark-live-effect .ark-live-card{min-width:0}
+
+/* Species portraits and authoritative move feedback. */
+.ark-species-art{background-color:#e4ead9;background-repeat:no-repeat}
+.ark-feedback-host{position:fixed;z-index:40;right:24px;bottom:24px;pointer-events:none;max-width:min(400px,calc(100vw - 32px))}
+.ark-feedback{display:flex;align-items:center;gap:16px;padding:18px 22px;border:1px solid #c6d2ac;border-radius:18px;background:#fffdf2;box-shadow:0 12px 42px #203c3b35;color:#244c3a;animation:ark-feedback-in .38s ease-out}
+.ark-feedback strong{font-family:Georgia,serif;font-size:19px}.ark-feedback p{margin:5px 0 0;font-size:14px}.ark-feedback .ark-family-art{width:110px;flex:0 0 110px;margin:0;border-radius:10px}.ark-feedback .ark-family-art span{display:none}
+.ark-feedback.is-conservation{border-color:#d4ad58;background:linear-gradient(115deg,#fff4c9,#fffdf2)}
+.ark-board-celebration{fill:#f9df7c55;stroke:#ffefad;stroke-width:3;transform-box:fill-box;transform-origin:center;animation:ark-build-settle .65s ease-out,ark-board-glow 1s .65s ease-in-out 2}
+.ark-board-celebration.is-arrival{fill:#b2ed9b55;stroke:#efffd3;animation:ark-arrival-ripple 1s ease-out 3}
+@keyframes ark-feedback-in{from{opacity:0;transform:translateY(18px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes ark-build-settle{from{opacity:0;transform:scale(1.18) translateY(-6px)}to{opacity:1;transform:none}}
+@keyframes ark-board-glow{50%{opacity:.25}100%{opacity:1}}
+@keyframes ark-arrival-ripple{from{opacity:1;transform:scale(.82)}to{opacity:0;transform:scale(1.08)}}
+@media(max-width:600px){.ark-feedback-host{right:16px;bottom:16px}.ark-feedback{padding:14px;gap:12px}.ark-feedback .ark-family-art{width:84px;flex-basis:84px}.ark-feedback strong{font-size:16px}}
+@media(prefers-reduced-motion:reduce){.ark-feedback,.ark-board-celebration,.ark-board-celebration.is-arrival{animation:none}}

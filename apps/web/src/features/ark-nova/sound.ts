@@ -1,4 +1,4 @@
-export type ArkCue = 'SELECT' | 'ROTATE' | 'PLACE' | 'UNDO' | 'CARD' | 'ERROR';
+export type ArkCue = 'SELECT' | 'ROTATE' | 'PLACE' | 'UNDO' | 'CARD' | 'ERROR' | 'ARRIVAL' | 'CONSERVATION';
 export type ArkSoundPreferences = Readonly<{enabled: boolean; volume: number}>;
 const preferenceKey = 'ark-nova.sound.v1';
 export function readArkSoundPreferences(storage?: Pick<Storage, 'getItem'>): ArkSoundPreferences {
@@ -46,14 +46,15 @@ export class ArkAudio {
     const c = this.context, master = this.master;
     if (!c || !master || c.state !== 'running' || c.currentTime - this.lastCueAt < .035) return;
     this.lastCueAt = c.currentTime;
-    const notes: readonly (readonly [number, number, number])[] = cue === 'PLACE' ? [[180, 0, .1], [440, .045, .14], [660, .085, .18]] :
+    const notes: readonly (readonly [number, number, number])[] = cue === 'CONSERVATION' ? [[523,0,.24],[659,.10,.25],[784,.20,.28],[1047,.32,.4]] :
+      cue === 'ARRIVAL' ? [[392,0,.14],[587,.12,.18],[784,.24,.26]] : cue === 'PLACE' ? [[180, 0, .1], [440, .045, .14], [660, .085, .18]] :
       cue === 'CARD' ? [[900, 0, .025], [610, .035, .04]] : cue === 'ROTATE' ? [[360, 0, .06]] :
       cue === 'UNDO' ? [[420, 0, .07], [300, .06, .1]] : cue === 'ERROR' ? [[160, 0, .09], [130, .09, .09]] : [[520, 0, .045]];
     for (const [hz, delay, duration] of notes) {
       const oscillator = c.createOscillator(), gain = c.createGain(), at = c.currentTime + delay;
-      oscillator.type = cue === 'ERROR' ? 'sine' : 'triangle';
+      oscillator.type = cue === 'ERROR'||cue==='CONSERVATION'||cue==='ARRIVAL' ? 'sine' : 'triangle';
       oscillator.frequency.setValueAtTime(hz, at);
-      oscillator.frequency.exponentialRampToValueAtTime(hz * .65, at + duration);
+      oscillator.frequency.exponentialRampToValueAtTime(hz * (cue==='CONSERVATION'||cue==='ARRIVAL'?1:.65), at + duration);
       gain.gain.setValueAtTime(0, at);
       gain.gain.linearRampToValueAtTime(.32, at + .005);
       gain.gain.exponentialRampToValueAtTime(.0001, at + duration);

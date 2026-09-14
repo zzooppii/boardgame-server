@@ -28,7 +28,7 @@ function LiveGame({game, ...props}:ArkNovaScreenProps&{game:NonNullable<ArkNovaS
   async function execute(command:ArkNovaActCommand) {
     if(busy.current||!props.connected)return;
     busy.current=true;setFlight(true);setMessage(null);
-    try {await props.onCommand(command);if(mounted.current){setRetry(null);cue(command.payload.kind==='BUILD'||command.payload.kind==='BUILD_MORE'?'PLACE':'CARD');}}
+    try {await props.onCommand(command);if(mounted.current){setRetry(null);}}
     catch(error:unknown){if(mounted.current){const invalid=error instanceof RealtimeClientError&&error.code==='INVALID_COMMAND';setRetry(error instanceof ArkNovaCommandRejected||invalid?null:command);setMessage(invalid?'선택한 입력을 확인하고 다시 시도해주세요.':error instanceof Error?error.message:'요청 결과를 확인하지 못했습니다.');cue('ERROR');}}
     finally{busy.current=false;if(mounted.current)setFlight(false);}
   }
