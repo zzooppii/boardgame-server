@@ -333,3 +333,5 @@
   .ark-live-status{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:12px}
   .ark-live-status span{min-width:0;gap:6px}
 }
+.ark-art-placeholder{display:grid;place-items:center;background-color:#e2e8d6;background-image:none!important}
+.ark-art-status{padding:12px;text-align:center;font-size:11px;line-height:1.5;color:#52664b}

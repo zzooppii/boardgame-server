@@ -47,7 +47,7 @@ export function ArkNovaTable({state:s,disabled,onCommand:send,onCue}:Props) {
     <ArkNovaResult state={s}/>
     <ArkNovaHistory entries={s.history}/>
     <div className="ark-feedback-host" role="status" aria-live="polite" aria-atomic="true">{feedback&&<div key={feedback.revision} className={`ark-feedback ${feedback.conservation?'is-conservation':feedback.animals.length?'is-arrival':'is-construction'}`}>
-      {feedback.animals[0]&&<ArkAnimalArt cardKey={feedback.animals[0]}/>}
+      {feedback.animals[0]&&<ArkAnimalArt cardKey={feedback.animals[0]} eager/>}
       <div><strong>{feedback.conservation?'보전 성과 달성':feedback.animals.length?'새로운 동물이 도착했어요':'동물원이 자라납니다'}</strong>
       {feedback.built.length>0&&<p>시설 {feedback.built.length}개 건설 완료</p>}{feedback.animals.map(key=><p key={key}>{arkCardName(key)} 입주</p>)}{feedback.conservation>0&&<p>보전 +{feedback.conservation}</p>}</div>
     </div>}</div>

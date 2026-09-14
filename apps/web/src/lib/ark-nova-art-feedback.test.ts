@@ -15,7 +15,7 @@ test('All 128 base animals have distinct species cells and existing local atlase
   for(const card of animals){
     const art=arkAnimalArt(card.key);assert.ok(art,card.key);
     cells.add(`${art.backgroundImage}:${art.backgroundPosition}`);
-    const file=String(art.backgroundImage).match(/species-\d\.png/)?.[0];assert.ok(file);
+    const file=String(art.backgroundImage).match(/species-\d\.webp/)?.[0];assert.ok(file);
     assert.ok(existsSync(new URL(`../../public/images/ark-nova/animals/${file}`,import.meta.url)));
     const html=renderToStaticMarkup(createElement(ArkAnimalArt,{cardKey:card.key}));
     assert.ok(html.includes(`${card.name} 일러스트`));assert.ok(!html.includes('animal-families'));
