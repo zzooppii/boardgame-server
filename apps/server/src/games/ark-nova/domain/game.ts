@@ -1,3 +1,5 @@
+import {recordArkHistory} from './history.js';
+import {ArkHistorySchema} from '@hangul-rummikub/shared';
 import { projectArkEffectGuide } from './effect-guide.js';
 import type { RandomSource } from '../../../ports/system.js';
 import { ArkCardRevealSchema } from './card-effect-choices.js';
@@ -41,6 +43,7 @@ const ExtraActionFrame=v.pipe(v.strictObject({
     (f.zooWork.action!=='SPONSORS'||f.zooWork.upgraded||f.zooWork.playedCount<=1):f.legacyAfterFinishing!==null)));
 
 const State = v.strictObject({
+  history:v.optional(ArkHistorySchema,()=>[]),
   ...ArkSoloSetupStateSchema.entries,
   extraActions:v.array(ExtraActionFrame),
   repeatedAction:v.nullable(v.strictObject({...ArkRepeatedActionSchema.entries,deferred:ArkEffectQueueSchema})),
@@ -74,6 +77,7 @@ export type ArkSoloState = v.InferOutput<typeof State>;
  */
 export function parseArkSoloState(input: unknown): ArkSoloState {
   const s = v.parse(State, input);
+  if(s.history.some(entry=>entry.revision>s.revision))throw new Error('History exceeds game revision.');
   parseArkSoloProgress(s.progress);
   if(s.activeAssociation!==(s.associationWork!==null)||s.associationWork?.upgraded&&!s.actions.some(c=>c.kind==='ASSOCIATION'&&c.upgraded))throw new Error('Invalid Ark association continuation.');
   const repeated=s.repeatedAction;
@@ -426,7 +430,7 @@ export function applyArkSoloCommand(current: ArkSoloState, actor: PlayerId, expe
     const index=s.rewards.findIndex(r=>r.id===a.rewardId),reward=s.rewards[index];if (!reward) return invalid();
     if (reward.kind==='CARD') {
       if (a.selection.kind!=='CARD'||!pickCard(s,a.selection.cardId)) return invalid();
-      if (reward.amount>1) {reward.amount--;resumeReward(s,nextTransition);s.revision=v.parse(GameRevisionSchema,s.revision+1);s.transitionId=nextTransition;return {ok:true,state:parseArkSoloState(s)};}
+      if (reward.amount>1) {reward.amount--;resumeReward(s,nextTransition);s.revision=v.parse(GameRevisionSchema,s.revision+1);s.transitionId=nextTransition;s.history=recordArkHistory(current,s,a);return {ok:true,state:parseArkSoloState(s)};}
     } else if (reward.kind==='UPGRADE'||reward.kind==='UPGRADE_OR_WORKER') {
       if (a.selection.kind==='UPGRADE') {
         const kind=a.selection.action,card=s.actions.find(c=>c.kind===kind)!;
@@ -529,13 +533,14 @@ export function applyArkSoloCommand(current: ArkSoloState, actor: PlayerId, expe
   }
   if(s.progress.stage==='FINAL_SCORING'&&s.pending===null&&s.goalDiscarded)finalize(s,now);
   s.revision = v.parse(GameRevisionSchema,s.revision+1); s.transitionId = nextTransition;
+  s.history=recordArkHistory(current,s,a);
   return {ok:true,state:parseArkSoloState(s)};
 }
 
 /** Whitelist shared public state and the one owner's private cards. No reserves, deck order or discarded faces. */
 export function projectArkSoloGame(s: ArkSoloState, viewer: PlayerId): ArkSoloView {
   if (viewer !== s.playerId) throw new Error('Unauthorized Ark solo viewer.');
-  return v.parse(ArkSoloViewSchema,{gameId:s.gameId,playerId:s.playerId,revision:s.revision,transitionId:s.transitionId,phase:s.phase,
+  return v.parse(ArkSoloViewSchema,{history:s.history,gameId:s.gameId,playerId:s.playerId,revision:s.revision,transitionId:s.transitionId,phase:s.phase,
     activatedProjectBonuses:s.activatedProjectBonuses,projectSupports:s.projectSupports,playedProjects:s.playedProjects,
     associationWork:s.associationWork,activeAssociation:s.activeAssociation,rewards:s.rewards,partners:s.partners,partnerSupply:s.partnerSupply,universities:s.universities,universitySupply:s.universitySupply,taskWorkers:s.taskWorkers,
     activeBuild:s.activeBuild,buildBonuses:s.buildBonuses,

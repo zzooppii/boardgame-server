@@ -610,7 +610,7 @@ for(const completed of [6,26])for(const moneyFirst of [false,true])test(`Predato
     assert.equal(s.progress.stage,'BREAK');assert.equal(s.breakStep,'CARD_INCOME');
     const incomes=s.effects.frames.flat().filter(j=>j.effect.kind==='GAIN'&&j.effect.resource==='MONEY');
     assert.equal(incomes.length,1);assert.deepEqual(incomes[0]!.effect,{kind:'GAIN',resource:'MONEY',amount:6});
-    const beforeIncome=s.money;s=resolve(s);assert.equal(s.money,beforeIncome+6);assert.equal(s.progress.round,2);assert.deepEqual(s.donations,[0]);
+    const beforeIncome=s.money;s=resolve(s);assert.equal(s.money,beforeIncome+6);assert.equal(s.history.at(-1)!.turn,7);assert.equal(s.progress.round,2);assert.deepEqual(s.donations,[0]);
   }else{
     assert.equal(s.pending?.kind,'FINAL_GOAL');assert.equal(s.money,8);assert.deepEqual(s.donations,donations);
     s=act(s,{kind:'FINAL_GOAL',choiceId:s.pending!.choiceId,discard:s.goals[0]!.cardId});
@@ -637,4 +637,14 @@ for(const completed of [6,26])test(`Determination's repeated X action stays insi
   assert.equal(s.progress.turnsCompleted,completed+1);assert.equal(s.extraActions.length,0);assert.equal(s.repeatedAction,null);assert.equal(s.actions[0]!.kind,'BUILD');
   if(completed===6){if(s.pending?.kind==='BREAK_DISCARD')s=act(s,{kind:'DISCARD',choiceId:s.pending.choiceId,cards:s.hand.slice(0,s.pending.count).map(c=>c.cardId)});assert.equal(s.progress.round,2);assert.deepEqual(s.donations,[0]);}
   else{assert.equal(s.pending?.kind,'FINAL_GOAL');s=act(s,{kind:'FINAL_GOAL',choiceId:s.pending!.choiceId,discard:s.goals[0]!.cardId});assert.equal(s.phase,'FINISHED');assert.equal(s.money,money);}
+});
+test('History attributes card payment and resolved effects to the printed card without logging effect selection twice',()=>{
+  let s=setup(['404','201','208','223']);s=act(s,{kind:'TAKE_X',action:'CARDS'});
+  s=act(s,{kind:'BEGIN_ZOO',action:'ANIMALS',x:0,gainReputation:false});
+  s=act(s,{kind:'PLAY_ZOO',card:{cardId:s.hand.find(c=>c.key==='404')!.cardId,housingId:'initial-enclosure'}});
+  assert.equal(s.history.at(-1)!.label,'카라칼 사용');assert.deepEqual(s.history.at(-1)!.changes.find(c=>c.resource==='돈'),{resource:'돈',before:25,after:16});
+  const gain=s.effects.frames.at(-1)!.find(j=>j.effect.kind==='GAIN'&&j.effect.resource==='APPEAL')!,count=s.history.length;
+  s=act(s,{kind:'SELECT_EFFECT',choiceId:s.pending!.choiceId,effectId:gain.id});assert.equal(s.history.length,count);
+  s=act(s,{kind:'EFFECT',choiceId:s.pending!.choiceId,effectId:gain.id,selection:{kind:'NONE'}});
+  assert.equal(s.history.at(-1)!.label,'카라칼 · 카드 효과');assert.deepEqual(s.history.at(-1)!.changes.find(c=>c.resource==='매력'),{resource:'매력',before:20,after:24});
 });

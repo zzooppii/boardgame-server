@@ -1,0 +1,4 @@
+import type {ArkHistoryEntry} from '@hangul-rummikub/shared';
+export function ArkNovaHistory({entries}:{entries:readonly ArkHistoryEntry[]}) {
+  return <details className="ark-history"><summary>행동 기록 · 최근 {entries.length}개</summary><p>서버에서 확정된 최근 100개 기록입니다. 자원은 해당 처리 전후의 순변화를 표시합니다.</p>{entries.length===0?<p>첫 행동을 진행하면 기록이 표시됩니다.</p>:<ol aria-label="최근 행동 기록">{[...entries].reverse().map(entry=><li key={entry.revision}><span>{entry.round}라운드 · {entry.turn}번째 턴</span><strong>{entry.label}</strong>{entry.changes.length>0&&<ul>{entry.changes.map(change=><li key={change.resource}>{change.resource} <b>{change.after-change.before>0?'+':''}{change.after-change.before}</b> <small>({change.before} → {change.after})</small></li>)}</ul>}{entry.notes.map((note,index)=><p key={index}>{note}</p>)}</li>)}</ol>}</details>;
+}

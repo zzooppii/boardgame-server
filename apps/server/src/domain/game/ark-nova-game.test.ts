@@ -152,3 +152,24 @@ test('Owner admission projection preserves WAZA specialization and rejects unkno
   const view=projectArkSoloGame(create(),playerId);
   assert.equal(v.safeParse(ArkSoloViewSchema,{...view,wazaFocus:'MEDIUM'}).success,false);
 });
+test('Confirmed history survives persistence and owner projection; invalid commands cannot append entries',()=>{
+  let s=started();const previous=structuredClone(s),money=s.money;s=act(s,{kind:'FUNDRAISE',x:0});
+  const entry=s.history.at(-1)!;assert.equal(entry.label,'모금');assert.equal(entry.revision,s.revision);
+  assert.deepEqual(entry.changes.find(c=>c.resource==='돈'),{resource:'돈',before:money,after:s.money});
+  assert.deepEqual(previous.history.length,s.history.length-1);
+  assert.deepEqual(projectArkSoloGame(parseArkSoloState(JSON.parse(JSON.stringify(s))),playerId).history,s.history);
+  const before=structuredClone(s);assert.equal(applyArkSoloCommand(s,playerId,s.revision-1,{kind:'FUNDRAISE',x:0},now,nextTurn()).ok,false);assert.deepEqual(s,before);
+  const legacy:Record<string,unknown>={...s};delete legacy.history;assert.deepEqual(parseArkSoloState(legacy).history,[]);
+});
+test('History retains a bounded ordered tail without exposing private zones or mutating prior entries',async()=>{
+  const {recordArkHistory}=await import('../../games/ark-nova/domain/history.js');
+  let s=started();const original=structuredClone(s);
+  for(let i=0;i<105;i++){
+    const next={...s,revision:v.parse(GameRevisionSchema,s.revision+1),money:s.money+1};
+    next.history=recordArkHistory(s,next,{kind:'FUNDRAISE',x:0});s=next;
+  }
+  assert.equal(s.history.length,100);assert.equal(s.history[0]!.revision,s.revision-99);
+  assert.deepEqual(original.history.length,1);
+  const wire=JSON.stringify(s.history);
+  for(const card of [...s.zooDeck,...s.goalDeck,...s.baseProjectReserve])assert.ok(!wire.includes(card.cardId));
+});

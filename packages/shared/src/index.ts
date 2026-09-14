@@ -145,3 +145,4 @@ export * from './games/ark-nova/university-research.js';
 export * from './games/ark-nova/project-requirements.js';
 export * from './games/ark-nova/unique-construction.js';
 export * from './games/ark-nova/donations.js';
+export * from './games/ark-nova/history.js';

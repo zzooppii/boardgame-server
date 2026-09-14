@@ -1,3 +1,4 @@
+import {ArkNovaHistory} from './ArkNovaHistory.js';
 import {arkDonationAdvice} from './association-advice.js';
 import {arkFeedback,type ArkFeedback} from './feedback.js';
 import {ArkAnimalArt} from './animal-art.js';
@@ -44,6 +45,7 @@ export function ArkNovaTable({state:s,disabled,onCommand:send,onCue}:Props) {
     <div className="ark-live-status" aria-label="내 동물원 자원"><span>돈 <b>{s.money}</b></span><span>매력 <b>{s.appeal}</b></span><span>보전 <b>{s.conservation}</b></span><span>평판 <b>{s.reputation}</b></span><span>X <b>{s.x}</b></span><span>직원 <b>{s.workers-s.busyWorkers}/{s.workers}</b></span></div>
     <div className="ark-live-progress"><strong>{s.phase==='FINISHED'?'최종 정산':`${s.progress.round}라운드`}</strong><span>{s.progress.turnsCompleted}/27턴 완료 · 이번 라운드 {s.progress.turnInRound}/{ARK_SOLO_ROUND_TURNS[s.progress.round-1]}</span></div>
     <ArkNovaResult state={s}/>
+    <ArkNovaHistory entries={s.history}/>
     <div className="ark-feedback-host" role="status" aria-live="polite" aria-atomic="true">{feedback&&<div key={feedback.revision} className={`ark-feedback ${feedback.conservation?'is-conservation':feedback.animals.length?'is-arrival':'is-construction'}`}>
       {feedback.animals[0]&&<ArkAnimalArt cardKey={feedback.animals[0]}/>}
       <div><strong>{feedback.conservation?'보전 성과 달성':feedback.animals.length?'새로운 동물이 도착했어요':'동물원이 자라납니다'}</strong>

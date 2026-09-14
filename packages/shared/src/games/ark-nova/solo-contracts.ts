@@ -1,3 +1,4 @@
+import {ArkHistorySchema} from './history.js';
 import { arkProjectSupportsAreConsistent, ArkActivatedProjectBonusesSchema, ArkProjectSupportRecordSchema } from './project-contracts.js';
 import { ArkEffectGuideSchema, ArkRepeatedActionSchema, ArkExtraActionKindSchema, ArkZooWorkSchema } from './effect-contracts.js';
 import * as v from 'valibot';
@@ -26,6 +27,7 @@ export const ArkSoloResultSchema = v.strictObject({
 const cards = v.pipe(v.array(ArkCardSchema),v.maxLength(250));
 /** Solo command-loop projection. The platform registration uses this contract once all actions are connected. */
 export const ArkSoloViewSchema = v.pipe(v.strictObject({
+  history:v.optional(ArkHistorySchema,()=>[]),
   gameId:GameIdSchema, playerId:PlayerIdSchema, revision:GameRevisionSchema, transitionId:TurnIdSchema,
   phase:v.picklist(['PLAYING','FINISHED']), startedAt:ServerTimeSchema, finishedAt:v.nullable(ServerTimeSchema),
   difficulty:ArkSoloDifficultySchema, progress:ArkSoloProgressSchema,
@@ -53,7 +55,7 @@ export const ArkSoloViewSchema = v.pipe(v.strictObject({
 }),v.check(s=> {
   const finished = s.phase === 'FINISHED';
   const visible = [...s.hand,...s.goals,...s.played,...s.playedProjects,...(s.revealedCards?.candidates??[]),...s.baseProjects,...s.display.filter(c=>c!==null)];
-  return s.projectSupports.length<=s.activatedProjectBonuses.length&&arkProjectSupportsAreConsistent(s)&&s.activeAssociation===(s.associationWork!==null) && (s.repeatedAction===null||s.progress.stage==='ACTION') && (s.extraAction===null||s.progress.stage==='ACTION'&&(s.extraAction.started||s.pending===null&&s.zooWork===null&&s.activeBuild===null&&!s.activeAssociation)) && arkSoloProgressIsConsistent(s.progress) &&
+  return s.history.every(entry=>entry.revision<=s.revision)&&s.projectSupports.length<=s.activatedProjectBonuses.length&&arkProjectSupportsAreConsistent(s)&&s.activeAssociation===(s.associationWork!==null) && (s.repeatedAction===null||s.progress.stage==='ACTION') && (s.extraAction===null||s.progress.stage==='ACTION'&&(s.extraAction.started||s.pending===null&&s.zooWork===null&&s.activeBuild===null&&!s.activeAssociation)) && arkSoloProgressIsConsistent(s.progress) &&
     finished === (s.progress.stage === 'FINISHED') && finished === (s.result !== null) && finished === (s.finishedAt !== null) &&
     (s.finishedAt === null || s.finishedAt >= s.startedAt) &&
     (!finished || s.pending === null && s.activeBuild === null && s.buildBonuses.length === 0 && !s.activeAssociation && s.rewards.length === 0) && s.busyWorkers <= s.workers &&
