@@ -106,3 +106,9 @@ export function arkSpecialMoveAdvice(state:ArkSoloView,cardId:string|null,housin
   if(animal&&(housingId===null?housingIds.length>0:!housingIds.includes(housingId)))issues.push('비울 수 있는 기존 우리를 선택하세요.');
   return {destination,housingIds,issues};
 }
+
+/** Keep deselection available at the limit, including rapid queued clicks. */
+export function arkToggleLimitedSelection(selected:readonly string[],id:string,limit:number):string[] {
+  if(selected.includes(id))return selected.filter(value=>value!==id);
+  return selected.length<limit?[...selected,id]:[...selected];
+}

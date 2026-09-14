@@ -22,8 +22,9 @@ export function ArkNovaCard({card,selected=false,disabled=false,onSelect}:{card:
     </div>:<div>{goal&&arkGoalCopy(goal).map((text,i)=><p key={i}>{text}</p>)}{project&&<><p>{arkProjectCopy(project)}</p>{project.slots.map((_,i)=><p key={i}>{arkProjectSlotCopy(project,i)}</p>)}</>}</div>}</details>
   </article>;
 }
-export function ArkNovaCardRow({cards,selected=[],disabled=false,onSelect}:{cards:readonly ArkCard[];selected?:readonly string[];disabled?:boolean;onSelect?(id:string):void}) {
-  return <div className="ark-live-card-row">{cards.map(card=><ArkNovaCard key={card.cardId} card={card} selected={selected.includes(card.cardId)} disabled={disabled} {...(onSelect?{onSelect:()=>onSelect(card.cardId)}:{})}/>)}</div>;
+export function ArkNovaCardRow({cards,selected=[],disabled=false,onSelect,maxSelected}:{cards:readonly ArkCard[];selected?:readonly string[];disabled?:boolean;maxSelected?:number;onSelect?(id:string):void}) {
+  const atLimit=maxSelected!==undefined&&cards.filter(c=>selected.includes(c.cardId)).length>=maxSelected;
+  return <div className="ark-live-card-row">{cards.map(card=><ArkNovaCard key={card.cardId} card={card} selected={selected.includes(card.cardId)} disabled={disabled||atLimit&&!selected.includes(card.cardId)} {...(onSelect?{onSelect:()=>onSelect(card.cardId)}:{})}/>)}</div>;
 }
 
 /** Keep empty slots visible: a card's display position must not shift before server refill. */

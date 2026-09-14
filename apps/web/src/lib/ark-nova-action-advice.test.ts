@@ -5,7 +5,8 @@ import {renderToStaticMarkup} from 'react-dom/server';
 import {type ArkAssociationTask,ARK_MAP_A,validateArkUniqueConstruction,ARK_CARDS} from '@hangul-rummikub/shared';
 import {arkSoloSetupFixture} from '../features/ark-nova/test-fixture.js';
 import {arkAssociationAdvice,arkDonationAdvice} from '../features/ark-nova/association-advice.js';
-import {arkSpecialMoveAdvice,arkFreeBuildPlacementHint,arkWazaSelectionAdvice,arkSponsorSelectionAdvice} from '../features/ark-nova/action-controls.js';
+import {arkToggleLimitedSelection,arkSpecialMoveAdvice,arkFreeBuildPlacementHint,arkWazaSelectionAdvice,arkSponsorSelectionAdvice} from '../features/ark-nova/action-controls.js';
+import {ArkNovaCardRow} from '../features/ark-nova/ArkNovaCards.js';
 import {ArkNovaEffects} from '../features/ark-nova/ArkNovaEffects.js';
 import {ArkNovaAssociation} from '../features/ark-nova/ArkNovaAssociation.js';
 function state(){const s=structuredClone(arkSoloSetupFixture);s.actions=s.actions.filter(a=>a.kind!=='ASSOCIATION').concat({kind:'ASSOCIATION',upgraded:false,venom:false,constriction:false,multiplier:0});s.workers=4;s.busyWorkers=0;s.taskWorkers={};s.x=5;return s;}
@@ -186,4 +187,29 @@ test('Special move controls identify the destination and exclude animals already
   const s=moveState();s.activeEffect!.guide.specialMove!.moved=['bird'];
   const html=renderToStaticMarkup(createElement(ArkNovaEffects,{state:s,disabled:false,onSelect:()=>{},placement:null,cell:null,housingId:null,onUniqueCard:()=>{},onBuilding:()=>{},onRotate:()=>{},onReflect:()=>{}}));
   assert.match(html,/이동 목적지/);assert.match(html,/사용 용량/);assert.doesNotMatch(html,/496/);assert.match(html,/<button disabled="">동물 이동/);assert.match(html,/<button>이 효과 포기/);
+});
+
+test('Limited effect selection caps additions and permits deselection without mutating previous choices',()=>{
+  const selected=['first'];assert.deepEqual(arkToggleLimitedSelection(selected,'second',1),['first']);assert.deepEqual(selected,['first']);
+  assert.deepEqual(arkToggleLimitedSelection(selected,'first',1),[]);
+  assert.deepEqual(arkToggleLimitedSelection(selected,'second',2),['first','second']);
+  assert.deepEqual(arkToggleLimitedSelection([],'first',0),[]);
+  let queued:string[]=[];for(const id of ['first','second','third'])queued=arkToggleLimitedSelection(queued,id,2);
+  assert.deepEqual(queued,['first','second']);
+});
+test('Card row locks only unselected cards at the cap and keeps descriptions readable',()=>{
+  const cards=[{key:'401',cardId:'first'},{key:'404',cardId:'second'}];
+  const render=(selected:string[],disabled=false,maxSelected=1)=>renderToStaticMarkup(createElement(ArkNovaCardRow,{cards,selected,disabled,maxSelected,onSelect:()=>{}}));
+  const html=render(['first']);assert.match(html,/aria-pressed="true" aria-label=/);assert.match(html,/aria-pressed="false" disabled=""/);assert.equal((html.match(/<summary>카드 내용/g)??[]).length,2);
+  assert.doesNotMatch(render(['outside']),/disabled=""/);
+  assert.equal((render(['first'],true).match(/disabled=""/g)??[]).length,2);
+  assert.equal((render([],false,0).match(/disabled=""/g)??[]).length,2);
+});
+test('Pouch and reveal panels show the selection count before confirmation',()=>{
+  const s=state();s.hand=[{key:'401',cardId:'first'}];
+  const render=()=>renderToStaticMarkup(createElement(ArkNovaEffects,{state:s,disabled:false,onSelect:()=>{},placement:null,cell:null,housingId:null,onUniqueCard:()=>{},onBuilding:()=>{},onRotate:()=>{},onReflect:()=>{}}));
+  s.activeEffect={id:1,kind:'POUCH',sourceId:'bonus',guide:{resource:null,amount:2,actions:[],buildings:[],slots:[],mayRefill:false,bonuses:[]}};
+  const pouch=render();assert.match(pouch,/선택 0\/2장/);assert.match(pouch,/0장도 선택/);assert.match(pouch,/<button>선택한 카드 처리/);
+  s.activeEffect.kind='PERCEPTION';s.revealedCards={kind:'PERCEPTION',choiceId:'reveal',candidates:s.hand,keep:1};
+  const reveal=render();assert.match(reveal,/선택 0\/1장/);assert.match(reveal,/<button disabled="">선택 확정/);
 });

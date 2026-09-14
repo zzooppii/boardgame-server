@@ -1,6 +1,6 @@
 import {useState,type ReactNode} from 'react';
 import {ARK_MAP_A,arkCellKey,ARK_UNIQUE_BUILDINGS,ARK_ACTION_LABELS,ARK_BUILDINGS,ARK_CARDS,ARK_CONTINENTS,ARK_SOLO_UNIVERSITIES,ARK_TAG_LABELS,arkCardName,type ArkEffectGuide,type ArkSoloView,type ArkSoloCommand,type ArkCell} from '@hangul-rummikub/shared';
-import {arkSpecialMoveAdvice,arkFreeBuildPlacementHint,arkWazaSelectionAdvice,arkSponsorSelectionAdvice,arkReachableDisplayCards} from './action-controls.js';
+import {arkToggleLimitedSelection,arkSpecialMoveAdvice,arkFreeBuildPlacementHint,arkWazaSelectionAdvice,arkSponsorSelectionAdvice,arkReachableDisplayCards} from './action-controls.js';
 import {ArkNovaCardRow} from './ArkNovaCards.js';
 
 type Selection=Extract<ArkSoloCommand,{kind:'EFFECT'}>['selection'];
@@ -23,17 +23,18 @@ export function ArkNovaEffects({state:s,disabled,onSelect,placement,cell,housing
   const [chosen,setChosen]=useState<string[]>([]),[refill,setRefill]=useState(false);
   const effect=s.activeEffect;if(!effect)return null;
   const kind=effect.kind,guide=effect.guide,source=[...s.played,...s.hand,...s.playedProjects,...s.baseProjects].find(c=>c.cardId===effect.sourceId);
-  const toggle=(id:string)=>setChosen(xs=>xs.includes(id)?xs.filter(x=>x!==id):[...xs,id]);
+  const selectionLimit=['POUCH','SUNBATHING'].includes(kind)?guide.amount??0:s.revealedCards?.kind==='RESISTANCE'?1:s.revealedCards?.keep??0;
+  const toggle=(id:string)=>setChosen(xs=>arkToggleLimitedSelection(xs,id,selectionLimit));
   const button=(label:string,selection:Selection,invalid=false)=><button key={label} disabled={disabled||invalid} onClick={()=>onSelect(selection)}>{label}</button>;
   const skip=()=>button('이 효과 포기',{kind:'SKIP'});
-  const row=(cards:ArkSoloView['hand'],multiple=false)=><ArkNovaCardRow cards={cards} selected={chosen} disabled={disabled} onSelect={multiple?toggle:id=>{setChosen([id]);if(kind==='WAZA_PLAY')onAnimalCard?.(id);if(kind==='MOVE_TO_SPECIAL')onClearHousing?.();const c=cards.find(c=>c.cardId===id);onUniqueCard(kind==='PAID_SPONSOR'&&c&&Object.hasOwn(ARK_UNIQUE_BUILDINGS,c.key)?c.key:null);}}/>;
+  const row=(cards:ArkSoloView['hand'],multiple=false)=><ArkNovaCardRow cards={cards} selected={chosen} disabled={disabled} {...(multiple?{maxSelected:selectionLimit}:{})} onSelect={multiple?toggle:id=>{setChosen([id]);if(kind==='WAZA_PLAY')onAnimalCard?.(id);if(kind==='MOVE_TO_SPECIAL')onClearHousing?.();const c=cards.find(c=>c.cardId===id);onUniqueCard(kind==='PAID_SPONSOR'&&c&&Object.hasOwn(ARK_UNIQUE_BUILDINGS,c.key)?c.key:null);}}/>;
   const playedAnimals=s.played.filter(c=>ARK_CARDS.some(d=>d.key===c.key&&d.kind==='ANIMAL'));
   let controls:ReactNode;
   if(['GAIN','DRAW','SPONSOR_TOKENS','SPONSOR_MAGNET'].includes(kind))controls=button('효과 적용',{kind:'NONE'});
   else if(['HUNTER','SCAVENGING','PERCEPTION','RESISTANCE'].includes(kind)) {
     const reveal=s.revealedCards;
-    controls=reveal?<><p>{reveal.kind==='RESISTANCE'?'남길 목표 1장을 선택하세요.':`가져올 카드 ${reveal.keep}장을 선택하세요.`}</p>{row(reveal.candidates.filter(c=>reveal.kind!=='HUNTER'||ARK_CARDS.some(d=>d.key===c.key&&d.kind==='ANIMAL')),true)}{button('선택 확정',reveal.kind==='RESISTANCE'?{kind:'KEEP_GOAL',choiceId:reveal.choiceId,keep:chosen[0]??''}:{kind:'KEEP',choiceId:reveal.choiceId,keep:chosen},reveal.kind==='RESISTANCE'?chosen.length!==1:chosen.length!==reveal.keep)}</>:button('카드 공개',{kind:'NONE'});
-  } else if(kind==='POUCH'||kind==='SUNBATHING')controls=<><p>손패에서 최대 {guide.amount}장을 선택하세요. 0장도 선택할 수 있습니다.</p>{row(s.hand,true)}{button('선택한 카드 처리',{kind:'CARDS',cards:chosen},chosen.length>(guide.amount??0))}</>;
+    controls=reveal?<><p role="status">선택 {chosen.length}/{selectionLimit}장 · 다른 카드로 바꾸려면 선택한 카드를 다시 누르세요.</p><p>{reveal.kind==='RESISTANCE'?'남길 목표 1장을 선택하세요.':`가져올 카드 ${reveal.keep}장을 선택하세요.`}</p>{row(reveal.candidates.filter(c=>reveal.kind!=='HUNTER'||ARK_CARDS.some(d=>d.key===c.key&&d.kind==='ANIMAL')),true)}{button('선택 확정',reveal.kind==='RESISTANCE'?{kind:'KEEP_GOAL',choiceId:reveal.choiceId,keep:chosen[0]??''}:{kind:'KEEP',choiceId:reveal.choiceId,keep:chosen},reveal.kind==='RESISTANCE'?chosen.length!==1:chosen.length!==reveal.keep)}</>:button('카드 공개',{kind:'NONE'});
+  } else if(kind==='POUCH'||kind==='SUNBATHING')controls=<><p role="status">선택 {chosen.length}/{selectionLimit}장 · 최대 수만큼 선택하면 추가 선택이 잠깁니다.</p><p>손패에서 최대 {guide.amount}장을 선택하세요. 0장도 선택할 수 있습니다.</p>{row(s.hand,true)}{button('선택한 카드 처리',{kind:'CARDS',cards:chosen},chosen.length>(guide.amount??0))}</>;
   else if(kind==='DIGGING')controls=<><p>교체할 카드 1장을 고르세요.</p>{row([...s.hand,...s.display.filter(c=>c!==null)])}{button('카드 교체',{kind:'DIG',zone:s.hand.some(c=>c.cardId===chosen[0])?'HAND':'DISPLAY',cardId:chosen[0]??''},chosen.length!==1)}{skip()}</>;
   else if(kind==='CARD_PICK'||kind==='SNAP'||kind==='WAZA_SNAP') {
     const cards=(kind==='CARD_PICK'?arkReachableDisplayCards(s):s.display.filter(c=>c!==null)).filter(c=>kind!=='WAZA_SNAP'||ARK_CARDS.some(d=>d.key===c.key&&d.kind==='ANIMAL'&&d.size<=2));
