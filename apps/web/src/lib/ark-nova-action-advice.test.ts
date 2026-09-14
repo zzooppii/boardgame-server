@@ -6,6 +6,7 @@ import {type ArkAssociationTask,ARK_MAP_A,validateArkUniqueConstruction,ARK_CARD
 import {arkSoloSetupFixture} from '../features/ark-nova/test-fixture.js';
 import {arkAssociationAdvice,arkDonationAdvice} from '../features/ark-nova/association-advice.js';
 import {arkSponsorSelectionAdvice} from '../features/ark-nova/action-controls.js';
+import {ArkNovaEffects} from '../features/ark-nova/ArkNovaEffects.js';
 import {ArkNovaAssociation} from '../features/ark-nova/ArkNovaAssociation.js';
 function state(){const s=structuredClone(arkSoloSetupFixture);s.actions=s.actions.filter(a=>a.kind!=='ASSOCIATION').concat({kind:'ASSOCIATION',upgraded:false,venom:false,constriction:false,multiplier:0});s.workers=4;s.busyWorkers=0;s.taskWorkers={};s.x=5;return s;}
 const project=(cardId:string,slot:0|1|2=0):Extract<ArkAssociationTask,{kind:'PROJECT'}>=>({kind:'PROJECT',cardId,slot,bonus:'SNAP_1',animalId:null,housingId:null,sponsorTokenIds:[]});
@@ -66,4 +67,30 @@ test('Association markup shows disabled reasons and available choices together',
   const s=state();s.workers=1;s.busyWorkers=1;s.taskWorkers.REPUTATION=1;
   const html=renderToStaticMarkup(createElement(ArkNovaAssociation,{state:s,disabled:false,onTask:()=>{}}));
   assert.match(html,/직원 2명 필요/);assert.match(html,/<button disabled="">평판 올리기/);
+});
+
+test('Paid sponsor effect advice charges printed level and rejects display even with upgraded action',()=>{
+  const s=state();s.hand=[{key:'223',cardId:'research'}];s.money=2;
+  assert.deepEqual(arkSponsorSelectionAdvice(s,'research',null,'PAID_EFFECT'),{price:3,issues:['돈 1 부족 (필요 3 · 보유 2)']});
+  s.money=3;const before=structuredClone(s);
+  assert.deepEqual(arkSponsorSelectionAdvice(s,'research',null,'PAID_EFFECT'),{price:3,issues:[]});assert.deepEqual(s,before);
+  s.hand=[];s.display=[{key:'223',cardId:'research'},null,null,null,null,null];s.reputation=15;
+  s.actions=s.actions.map(a=>({...a,upgraded:true}));
+  assert.match(arkSponsorSelectionAdvice(s,'research',null,'PAID_EFFECT')!.issues.join(' '),/손패의 후원자만/);
+});
+test('Paid sponsor effect still checks prerequisites and unique building placement',()=>{
+  const s=state();s.hand=[{key:'201',cardId:'lab'},{key:'255',cardId:'playground'}];s.money=100;
+  assert.match(arkSponsorSelectionAdvice(s,'lab',null,'PAID_EFFECT')!.issues.join(' '),/후원자 행동 II/);
+  assert.match(arkSponsorSelectionAdvice(s,'playground',null,'PAID_EFFECT')!.issues.join(' '),/고유 건물/);
+  const card=ARK_CARDS.find(c=>c.key==='255')!;
+  const placement=ARK_MAP_A.flatMap(anchor=>[0,1,2,3,4,5].map(rotation=>({anchor:{q:anchor.q,r:anchor.r},rotation}))).find(p=>validateArkUniqueConstruction(s.buildings,card,false,false,p).ok);
+  assert.ok(placement);assert.deepEqual(arkSponsorSelectionAdvice(s,'playground',placement,'PAID_EFFECT'),{price:card.cost,issues:[]});
+});
+
+test('Paid sponsor effect renders hand-only choices and an empty-hand exit',()=>{
+  const s=state();s.activeEffect={id:1,kind:'PAID_SPONSOR',sourceId:'bonus',guide:{resource:null,amount:null,actions:[],buildings:[],slots:[],mayRefill:false,bonuses:[]}};
+  s.hand=[{key:'223',cardId:'hand-sponsor'},{key:'401',cardId:'animal'}];s.display=[{key:'213',cardId:'market-sponsor'},null,null,null,null,null];
+  const render=()=>renderToStaticMarkup(createElement(ArkNovaEffects,{state:s,disabled:false,onSelect:()=>{},placement:null,cell:null,housingId:null,onUniqueCard:()=>{},onBuilding:()=>{},onRotate:()=>{},onReflect:()=>{}}));
+  const html=render();assert.match(html,/과학 연구 기관/);assert.doesNotMatch(html,/아프리카 전문가|치타/);assert.match(html,/후원 등급만큼 돈/);assert.match(html,/<button disabled="">카드 사용/);
+  s.hand=[];const empty=render();assert.match(empty,/손패에 후원자가 없습니다/);assert.match(empty,/<button>이 효과 포기/);
 });

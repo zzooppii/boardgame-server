@@ -61,12 +61,14 @@ export function arkAnimalSelectionAdvice(state:ArkSoloView,cardId:string|null) {
   return {price,housingIds,flock,issues};
 }
 
-export function arkSponsorSelectionAdvice(state:ArkSoloView,cardId:string|null,placement:unknown) {
+export function arkSponsorSelectionAdvice(state:ArkSoloView,cardId:string|null,placement:unknown,mode:'ACTION'|'PAID_EFFECT'='ACTION') {
   const card=state.hand.find(c=>c.cardId===cardId)??state.display.find(c=>c?.cardId===cardId);
   const definition=card&&ARK_CARDS.find(c=>c.key===card.key&&c.kind==='SPONSOR');
   if(!definition)return null;
-  const price=state.hand.some(c=>c.cardId===cardId)?0:state.display.findIndex(c=>c?.cardId===cardId)+1;
+  const held=state.hand.some(c=>c.cardId===cardId);
+  const price=mode==='PAID_EFFECT'?definition.cost:held?0:state.display.findIndex(c=>c?.cardId===cardId)+1;
   const missing=arkMissingCardConditions(definition,state),issues:string[]=[];
+  if(mode==='PAID_EFFECT'&&!held)issues.push('이 효과는 손패의 후원자만 사용할 수 있습니다.');
   if(missing.length)issues.push(`부족한 조건: ${missing.map(key=>key==='Partner_Zoo'?'제휴 동물원':key==='SponsorsII'?'후원자 행동 II':key==='Appeal'?'매력 25 이하':key==='Reputation'?'평판 3 이상':`${ARK_TAG_LABELS[key]??key} 아이콘`).join(', ')}`);
   if(state.money<price)issues.push(`돈 ${price-state.money} 부족 (필요 ${price} · 보유 ${state.money})`);
   if(Object.hasOwn(ARK_UNIQUE_BUILDINGS,definition.key)&&!validateArkUniqueConstruction(state.buildings,definition,state.actions.some(a=>a.kind==='BUILD'&&a.upgraded),state.played.some(c=>c.key==='219'),placement).ok)issues.push('고유 건물을 배치할 수 없습니다. 지도에서 위치·회전·연결·지형·가장자리 조건을 확인하세요.');

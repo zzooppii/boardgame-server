@@ -52,3 +52,13 @@ test('Release requires the exact animal size and removes only printed appeal and
   const result=releaseArkProjectAnimal(s,'116',2,'card-404',housingId);assert.ok(result.ok);
   assert.equal(result.appeal,16);assert.equal(result.played.length,0);assert.equal(result.buildings.find(b=>b.id===housingId)!.occupied,false);assert.deepEqual(s,before);
 });
+
+test('Paid sponsor bonus accepts exact money from hand but rejects market and insufficient money atomically',()=>{
+  const s=board();s.hand=[card('223')];s.money=3;s.reputation=15;
+  const scope={kind:'SPONSOR',upgraded:true,remaining:10000,paySponsorLevel:true} as const;
+  const choice={cardId:'card-223',housingId:null};const before=structuredClone(s);
+  const result=playArkZooCard(s,scope,choice);assert.ok(result.ok);assert.equal(result.state.money,0);assert.equal(result.paid,3);assert.deepEqual(s,before);
+  s.money=2;const poor=structuredClone(s);assert.equal(playArkZooCard(s,scope,choice).ok,false);assert.deepEqual(s,poor);
+  s.money=100;s.hand=[];s.display[0]=card('223');const market=structuredClone(s);
+  assert.equal(playArkZooCard(s,scope,choice).ok,false);assert.deepEqual(s,market);
+});
