@@ -12,7 +12,7 @@ export type ArkNovaBoardProps=Readonly<{
 }>;
 /** Server buildings are immutable here; the translucent placement is only an input draft. */
 export function ArkNovaBoard({eligibleHousingIds=[],feedback,buildings,selected,ghost=[],invalid=false,disabled=false,onSelect,onRotate,onReflect,onCancel}:ArkNovaBoardProps) {
-  const [focused,setFocused]=useState(0);
+  const [focused,setFocused]=useState(0),[zoomed,setZoomed]=useState(false);
   const occupied=new Map(buildings.flatMap(b=>b.cells.map(c=>[arkCellKey(c),b] as const)));
   function key(e:KeyboardEvent<SVGPolygonElement>,index:number) {
     if(disabled)return;
@@ -29,7 +29,7 @@ export function ArkNovaBoard({eligibleHousingIds=[],feedback,buildings,selected,
     if(next)e.currentTarget.ownerSVGElement?.querySelector<SVGPolygonElement>(`[data-cell-index="${next.i}"]`)?.focus();
   }
   return <div className="ark-map-panel"><div className="ark-map-heading"><span>MY ZOO · 지도 A</span><span>{buildings.length}개 시설</span></div>
-    <svg className="ark-map" viewBox="0 0 450 410" role="group" aria-label="내 동물원 지도. 방향키로 이동, Enter로 칸 선택, R 회전, F 반전.">
+    <div className={`ark-map-viewport ${zoomed?'is-zoomed':''}`}><svg className="ark-map" viewBox="0 0 450 410" role="group" aria-label="내 동물원 지도. 방향키로 이동, Enter로 칸 선택, R 회전, F 반전.">
       <BoardIllustrationDefs/><rect x="4" y="4" width="442" height="402" rx="14" fill="url(#ark-painted-grass)" pointerEvents="none"/>
       {ARK_MAP_A.map((cell,i)=>{
         const id=arkCellKey(cell),b=occupied.get(id),p=arkScreenPoint(cell),isSelected=selected!==null&&id===arkCellKey(selected);
@@ -45,6 +45,6 @@ export function ArkNovaBoard({eligibleHousingIds=[],feedback,buildings,selected,
       {feedback&&buildings.filter(b=>feedback.built.includes(b.id)||feedback.arrivals.includes(b.id)).flatMap(b=>b.cells.map(c=><polygon key={`${feedback.revision}-${arkCellKey(c)}`} points={arkHexPoints(c,27)} className={`ark-board-celebration ${feedback.arrivals.includes(b.id)?'is-arrival':'is-construction'}`} pointerEvents="none"/>))}
       {ghost.map(c=><polygon key={arkCellKey(c)} points={arkHexPoints(c,27)} className={`ark-ghost ${invalid?'is-invalid':''}`} pointerEvents="none"/>)}
       {selected&&<circle cx={arkScreenPoint(selected).x} cy={arkScreenPoint(selected).y} r="5" fill="#fffef4" stroke="#23483a" strokeWidth="2" pointerEvents="none"/>}
-    </svg><p className="ark-map-help">칸 선택 · <kbd>R</kbd> 회전 · <kbd>F</kbd> 반전 · <kbd>Esc</kbd> 선택 해제</p>
+    </svg></div><div className="ark-map-touch-tools" aria-label="지도 조작"><button type="button" aria-pressed={zoomed} onClick={()=>setZoomed(value=>!value)}>{zoomed?'지도 전체 보기':'지도 확대'}</button>{ghost.length>0&&onRotate&&<button type="button" disabled={disabled} onClick={onRotate}>배치 회전 ↻</button>}{ghost.length>0&&onReflect&&<button type="button" disabled={disabled} onClick={onReflect}>배치 반전 ↔</button>}{onCancel&&<button type="button" disabled={disabled||selected===null} onClick={onCancel}>선택 해제</button>}</div>{zoomed&&<p className="ark-map-help">확대된 지도는 가로·세로로 스크롤할 수 있습니다.</p>}<p className="ark-map-selection" role="status">{selected?`선택: ${selected.q+1}열 ${selected.r+Math.ceil(selected.q/2)+1}칸`:'지도에서 칸을 선택하세요.'}</p><p className="ark-map-help">칸 선택 · <kbd>R</kbd> 회전 · <kbd>F</kbd> 반전 · <kbd>Esc</kbd> 선택 해제</p>
   </div>;
 }

@@ -251,3 +251,13 @@ test('Eligible enclosure is exposed accessibly and receives its visual highlight
   const html=renderToStaticMarkup(createElement(ArkNovaBoard,{buildings:arkSoloSetupFixture.buildings,selected:null,eligibleHousingIds:['initial-enclosure'],onSelect:()=>{}}));
   assert.match(html,/3칸 우리, 입주 가능/);assert.match(html,/is-eligible-housing/);
 });
+test('Board exposes touch rotation and reflection only for an active preview and disables edits while waiting',()=>{
+  const base={buildings:arkSoloSetupFixture.buildings,selected:{q:0,r:1},ghost:[{q:0,r:1}],onSelect:()=>{},onRotate:()=>{},onReflect:()=>{},onCancel:()=>{}};
+  const html=renderToStaticMarkup(createElement(ArkNovaBoard,base));
+  assert.match(html,/지도 확대/);assert.match(html,/배치 회전/);assert.match(html,/배치 반전/);assert.match(html,/선택: 1열 2칸/);
+  const waiting=renderToStaticMarkup(createElement(ArkNovaBoard,{...base,disabled:true}));
+  assert.match(waiting,/<button type="button" disabled="">배치 회전/);assert.match(waiting,/<button type="button" disabled="">선택 해제/);
+  const idle=renderToStaticMarkup(createElement(ArkNovaBoard,{...base,ghost:[],selected:null}));
+  assert.doesNotMatch(idle,/배치 회전/);assert.doesNotMatch(idle,/배치 반전/);assert.match(idle,/<button type="button" disabled="">선택 해제/);
+  const unique=renderToStaticMarkup(createElement(ArkNovaBoard,{buildings:base.buildings,selected:base.selected,ghost:base.ghost,onSelect:base.onSelect,onRotate:base.onRotate}));assert.doesNotMatch(unique,/배치 반전/);
+});

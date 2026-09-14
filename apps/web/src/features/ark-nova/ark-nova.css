@@ -312,3 +312,24 @@
 .ark-admission-guide p{font-size:13px;margin:6px 0}.ark-admission-guide .ark-admission-missing{color:#8f3825;font-weight:600}
 .ark-task-choice{margin:8px 0}.ark-task-choice .ark-task-reason{font-size:12px;line-height:1.5;color:#854531;margin:4px 0 8px}.ark-live-association details{margin:10px 0}.ark-live-association select{max-width:100%}
 .ark-history{margin:12px 0;padding:12px 16px;background:#fbfaf0;border:1px solid #c9c9ad;border-radius:12px}.ark-history summary{cursor:pointer;font-weight:700}.ark-history>p{font-size:12px;color:#63705a}.ark-history>ol{max-height:320px;overflow:auto;list-style:none;padding:0}.ark-history>ol>li{padding:12px;border-top:1px solid #dcdcc7}.ark-history strong{display:block;margin:4px 0}.ark-history span,.ark-history small{font-size:12px;color:#63705a}.ark-history ul{display:flex;flex-wrap:wrap;gap:12px;list-style:none;padding:0}.ark-history li p{font-size:13px;margin:4px 0}
+/* Keep enlarged map panning local to the board, with touch controls beside the preview. */
+.ark-map-viewport{overflow:auto;max-height:570px;overscroll-behavior:contain;border-radius:8px}
+.ark-map-viewport.is-zoomed .ark-map{width:200%;max-width:none;max-height:none;min-height:0}
+.ark-map-touch-tools{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.ark-map-touch-tools button{min-height:44px;padding:8px 12px;border:1px solid #9aa984;border-radius:8px;background:#fffdf1;color:#294330;font:inherit;font-size:14px;cursor:pointer;touch-action:manipulation}
+.ark-map-touch-tools button[aria-pressed=true]{background:#294f37;color:#fffdf1}
+.ark-map-touch-tools button:disabled{opacity:.45;cursor:not-allowed}
+.ark-map-touch-tools button:focus-visible{outline:3px solid #b97c32;outline-offset:2px}
+.ark-map-selection{font-size:13px;line-height:1.5;margin:10px 0 0;color:#365241}
+@media(max-width:600px){
+  .ark-live-table .ark-map-panel{padding:12px}
+  .ark-map-viewport{max-height:440px}
+  .ark-live-controls button,.ark-live-card summary{min-height:44px}
+  .ark-live-controls select{min-height:44px;font-size:16px;max-width:100%;margin-left:0}
+  .ark-live-card-copy>span,.ark-live-card details{font-size:13px}
+  .ark-live-card-copy small{font-size:11px}
+  .ark-live-display{gap:10px}
+  .ark-live-effect .ark-live-card-row{grid-template-columns:1fr}
+  .ark-live-status{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:12px}
+  .ark-live-status span{min-width:0;gap:6px}
+}
