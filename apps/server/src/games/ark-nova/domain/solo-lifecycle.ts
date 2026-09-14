@@ -7,7 +7,7 @@ import {
 export type SoloTransition = Readonly<{ok: true; progress: ArkSoloProgress}> |
   Readonly<{ok: false; reason: 'INVALID_PHASE' | 'UNRESOLVED_ACTION'}>;
 /** Board spaces in ascending cost order; equal-cost spaces are distinct. */
-export const ARK_DONATION_COSTS = [2, 5, 5, 7, 7, 10, 10, 12] as const;
+export {ARK_DONATION_COSTS,occupyArkSoloDonation} from '@hangul-rummikub/shared';
 export function parseArkSoloProgress(input: unknown): ArkSoloProgress {
   return v.parse(v.pipe(ArkSoloProgressSchema, v.check(arkSoloProgressIsConsistent, 'Invalid solo timeline.')), input);
 }
@@ -36,13 +36,6 @@ export function finishArkSoloBreak(progress: ArkSoloProgress, unresolvedEffects:
   return {ok: true, progress: parseArkSoloProgress({...p, round: p.round + 1, turnInRound: 0, stage: 'ACTION'})};
 }
 /** Occupied values are zero-based space IDs, not costs. Space 7 (12 money) is repeatable. */
-export function occupyArkSoloDonation(occupied: readonly number[]): Readonly<{occupied: number[]; blocked: number | null}> {
-  if (occupied.some(space => !Number.isSafeInteger(space) || space < 0 || space > 6) || new Set(occupied).size !== occupied.length) {
-    throw new Error('Invalid occupied donation spaces.');
-  }
-  const blocked = ARK_DONATION_COSTS.findIndex((cost, space) => cost !== 12 && !occupied.includes(space));
-  return {occupied: blocked < 0 ? [...occupied] : [...occupied, blocked], blocked: blocked < 0 ? null : blocked};
-}
 export function completeArkSoloScoring(progress: ArkSoloProgress, victoryPoints: number): Readonly<{ok: true; progress: ArkSoloProgress; won: boolean; victoryPoints: number}> | Readonly<{ok: false; reason: 'INVALID_PHASE' | 'INVALID_SCORE'}> {
   const p = parseArkSoloProgress(progress);
   if (p.stage !== 'FINAL_SCORING') return {ok: false, reason: 'INVALID_PHASE'};

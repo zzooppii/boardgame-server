@@ -142,3 +142,6 @@ export * from './games/ark-nova/card-requirements.js';
 export * from './games/ark-nova/animal-housing.js';
 export * from './games/ark-nova/zoo-icons.js';
 export * from './games/ark-nova/university-research.js';
+export * from './games/ark-nova/project-requirements.js';
+export * from './games/ark-nova/unique-construction.js';
+export * from './games/ark-nova/donations.js';

@@ -1,4 +1,4 @@
-import {arkAnimalPrice,arkMissingCardConditions,arkAnimalHousingChoices,arkCanShareFlockEnclosure,arkCardDefinition,ARK_TAG_LABELS} from '@hangul-rummikub/shared';
+import {ARK_UNIQUE_BUILDINGS,validateArkUniqueConstruction,arkAnimalPrice,arkMissingCardConditions,arkAnimalHousingChoices,arkCanShareFlockEnclosure,arkCardDefinition,ARK_TAG_LABELS} from '@hangul-rummikub/shared';
 import {ARK_CARDS,arkReputationRange,arkActionStrength,arkPlacementReason,arkShape,type ArkActionKind,type ArkSoloCommand,type ArkSoloView} from '@hangul-rummikub/shared';
 
 /** Display the server's continuation constraint; commands are still validated by the server. */
@@ -59,4 +59,16 @@ export function arkAnimalSelectionAdvice(state:ArkSoloView,cardId:string|null) {
   const flock=arkCanShareFlockEnclosure(animal,state.played.map(arkCardDefinition));
   if(!housingIds.length&&!flock)issues.push(`입주 가능한 우리가 없습니다. ${animal.standard?`${animal.size}칸 이상의 빈 우리 또는 허용된 특수 우리`:'허용된 특수 우리'}${animal.water?` · 물 ${animal.water}칸 인접`:''}${animal.rock?` · 바위 ${animal.rock}칸 인접`:''} 조건과 남은 용량을 확인하세요.`);
   return {price,housingIds,flock,issues};
+}
+
+export function arkSponsorSelectionAdvice(state:ArkSoloView,cardId:string|null,placement:unknown) {
+  const card=state.hand.find(c=>c.cardId===cardId)??state.display.find(c=>c?.cardId===cardId);
+  const definition=card&&ARK_CARDS.find(c=>c.key===card.key&&c.kind==='SPONSOR');
+  if(!definition)return null;
+  const price=state.hand.some(c=>c.cardId===cardId)?0:state.display.findIndex(c=>c?.cardId===cardId)+1;
+  const missing=arkMissingCardConditions(definition,state),issues:string[]=[];
+  if(missing.length)issues.push(`부족한 조건: ${missing.map(key=>key==='Partner_Zoo'?'제휴 동물원':key==='SponsorsII'?'후원자 행동 II':key==='Appeal'?'매력 25 이하':key==='Reputation'?'평판 3 이상':`${ARK_TAG_LABELS[key]??key} 아이콘`).join(', ')}`);
+  if(state.money<price)issues.push(`돈 ${price-state.money} 부족 (필요 ${price} · 보유 ${state.money})`);
+  if(Object.hasOwn(ARK_UNIQUE_BUILDINGS,definition.key)&&!validateArkUniqueConstruction(state.buildings,definition,state.actions.some(a=>a.kind==='BUILD'&&a.upgraded),state.played.some(c=>c.key==='219'),placement).ok)issues.push('고유 건물을 배치할 수 없습니다. 지도에서 위치·회전·연결·지형·가장자리 조건을 확인하세요.');
+  return {price,issues};
 }
