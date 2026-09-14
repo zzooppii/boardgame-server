@@ -1,6 +1,6 @@
 import {useState,type ReactNode} from 'react';
 import {ARK_MAP_A,arkCellKey,ARK_UNIQUE_BUILDINGS,ARK_ACTION_LABELS,ARK_BUILDINGS,ARK_CARDS,ARK_CONTINENTS,ARK_SOLO_UNIVERSITIES,ARK_TAG_LABELS,arkCardName,type ArkEffectGuide,type ArkSoloView,type ArkSoloCommand,type ArkCell} from '@hangul-rummikub/shared';
-import {arkFreeBuildPlacementHint,arkWazaSelectionAdvice,arkSponsorSelectionAdvice,arkReachableDisplayCards} from './action-controls.js';
+import {arkSpecialMoveAdvice,arkFreeBuildPlacementHint,arkWazaSelectionAdvice,arkSponsorSelectionAdvice,arkReachableDisplayCards} from './action-controls.js';
 import {ArkNovaCardRow} from './ArkNovaCards.js';
 
 type Selection=Extract<ArkSoloCommand,{kind:'EFFECT'}>['selection'];
@@ -13,8 +13,9 @@ export function arkEffectSummary(kind:string,guide:ArkEffectGuide):string {
 }
 const bonusLabels:Readonly<Record<string,string>>={REPUTATION_2:'평판 2',X_3:'X 토큰 3',ENCLOSURE_3:'3칸 우리',CARDS_3:'카드 3장',MONEY_10:'돈 10',MULTIPLIER:'배수 토큰',UNIVERSITY:'대학',PARTNER:'제휴 동물원',PAID_SPONSOR:'후원자 사용'};
 const universities={HAND_LIMIT:'손패 한도 6 · 연구 1',RESEARCH_2:'연구 2',RESEARCH_REPUTATION:'연구 1 · 평판 2'};
-export function ArkNovaEffects({state:s,disabled,onSelect,placement,cell,housingId,onUniqueCard,onBuilding,onRotate,onReflect,onAnimalCard,onClearHousing,selectedBuildingKind}:{
+export function ArkNovaEffects({state:s,disabled,onSelect,placement,cell,housingId,onUniqueCard,onBuilding,onRotate,onReflect,onAnimalCard,onClearHousing,selectedBuildingKind,onChooseHousing}:{
   state:ArkSoloView;disabled:boolean;onSelect(selection:Selection):void;placement:Placement|null;cell:ArkCell|null;housingId:string|null;
+  onChooseHousing?(housingId:string|null):void;
   selectedBuildingKind?:string;
   onAnimalCard?(cardId:string):void;onClearHousing?():void;
   onUniqueCard(key:string|null):void;onBuilding(kind:string):void;onRotate():void;onReflect():void;
@@ -25,7 +26,7 @@ export function ArkNovaEffects({state:s,disabled,onSelect,placement,cell,housing
   const toggle=(id:string)=>setChosen(xs=>xs.includes(id)?xs.filter(x=>x!==id):[...xs,id]);
   const button=(label:string,selection:Selection,invalid=false)=><button key={label} disabled={disabled||invalid} onClick={()=>onSelect(selection)}>{label}</button>;
   const skip=()=>button('이 효과 포기',{kind:'SKIP'});
-  const row=(cards:ArkSoloView['hand'],multiple=false)=><ArkNovaCardRow cards={cards} selected={chosen} disabled={disabled} onSelect={multiple?toggle:id=>{setChosen([id]);if(kind==='WAZA_PLAY')onAnimalCard?.(id);const c=cards.find(c=>c.cardId===id);onUniqueCard(kind==='PAID_SPONSOR'&&c&&Object.hasOwn(ARK_UNIQUE_BUILDINGS,c.key)?c.key:null);}}/>;
+  const row=(cards:ArkSoloView['hand'],multiple=false)=><ArkNovaCardRow cards={cards} selected={chosen} disabled={disabled} onSelect={multiple?toggle:id=>{setChosen([id]);if(kind==='WAZA_PLAY')onAnimalCard?.(id);if(kind==='MOVE_TO_SPECIAL')onClearHousing?.();const c=cards.find(c=>c.cardId===id);onUniqueCard(kind==='PAID_SPONSOR'&&c&&Object.hasOwn(ARK_UNIQUE_BUILDINGS,c.key)?c.key:null);}}/>;
   const playedAnimals=s.played.filter(c=>ARK_CARDS.some(d=>d.key===c.key&&d.kind==='ANIMAL'));
   let controls:ReactNode;
   if(['GAIN','DRAW','SPONSOR_TOKENS','SPONSOR_MAGNET'].includes(kind))controls=button('효과 적용',{kind:'NONE'});
@@ -51,7 +52,11 @@ export function ArkNovaEffects({state:s,disabled,onSelect,placement,cell,housing
     const animalAdvice=kind==='WAZA_PLAY'?arkWazaSelectionAdvice(s,chosen[0]??null,housingId):null;
     const sponsorAdvice=kind==='PAID_SPONSOR'?arkSponsorSelectionAdvice(s,chosen[0]??null,placement?{anchor:placement.anchor,rotation:placement.rotation}:null,'PAID_EFFECT'):null;
     controls=<><p>{kind==='WAZA_PLAY'?'손패의 크기 1–2 동물을 선택하세요. 할인을 반영한 비용을 지불하고 입주 조건을 충족해야 합니다.':'손패의 후원자를 선택하고 후원 등급만큼 돈을 냅니다. 고유 건물이 있다면 지도에서 위치도 선택하세요.'}</p>{row(cards)}{kind==='WAZA_PLAY'&&cards.length===0&&<p>손패에 소형 동물이 없습니다. 이 효과를 포기하면 소형 동물 획득으로 이어집니다.</p>}{animalAdvice&&<div className="ark-admission-guide" aria-label="추가 동물 입주 조건"><strong>실제 비용 {animalAdvice.price} · 보유 {s.money}</strong>{animalAdvice.issues.map(text=><p className="ark-admission-missing" key={text}>{text}</p>)}<p>입주 가능한 우리 {animalAdvice.housingIds.length}개</p>{animalAdvice.housingHint&&<p role="status">{animalAdvice.housingHint}</p>}{animalAdvice.flock&&onClearHousing&&<button disabled={disabled} onClick={onClearHousing}>무리 생활 · 새 우리 없이 입주{housingId===null?' ✓':''}</button>}</div>}{kind==='PAID_SPONSOR'&&cards.length===0&&<p>손패에 후원자가 없습니다. 이 효과를 포기할 수 있습니다.</p>}{sponsorAdvice&&<div className="ark-admission-guide" aria-label="효과 후원자 사용 조건"><strong>지불할 돈 {sponsorAdvice.price} · 보유 {s.money}</strong>{sponsorAdvice.issues.map(text=><p className="ark-admission-missing" key={text}>{text}</p>)}</div>}{kind==='PAID_SPONSOR'&&<button disabled={disabled} onClick={onRotate}>고유 건물 회전 ↻</button>}{button('카드 사용',{kind:kind==='WAZA_PLAY'?'ANIMAL':'SPONSOR',card:{cardId:chosen[0]??'',housingId:kind==='WAZA_PLAY'?housingId:null,...(placement&&kind==='PAID_SPONSOR'&&cards.some(c=>c.cardId===chosen[0]&&Object.hasOwn(ARK_UNIQUE_BUILDINGS,c.key))?{uniquePlacement:{anchor:placement.anchor,rotation:placement.rotation}}:{})}},chosen.length!==1||!!sponsorAdvice?.issues.length||kind==='WAZA_PLAY'&&(!animalAdvice||animalAdvice.issues.length>0||animalAdvice.housingHint!==null))}{skip()}</>;
-  } else if(kind==='MOVE_TO_SPECIAL')controls=<><p>이동할 동물을 고르고 지도에서 비울 기존 우리를 선택하세요.</p>{row(playedAnimals)}{button('동물 이동',{kind:'MOVE_ANIMAL',cardId:chosen[0]??'',housingId},chosen.length!==1)}{skip()}</>;
+  } else if(kind==='MOVE_TO_SPECIAL') {
+    const advice=arkSpecialMoveAdvice(s,chosen[0]??null,housingId);
+    const cards=playedAnimals.filter(c=>!guide.specialMove?.moved.includes(c.cardId));
+    controls=<><p>이동할 동물을 고르고 비울 기존 우리를 선택하세요.</p>{advice.destination&&<p>이동 목적지: {ARK_BUILDINGS[advice.destination.kind]?.name??'특수 우리'} · 사용 용량 {advice.destination.used}/{ARK_BUILDINGS[advice.destination.kind]?.capacity}</p>}{row(cards)}{chosen.length===1&&onChooseHousing&&<label>비울 기존 우리 <select aria-label="비울 기존 우리" disabled={disabled} value={housingId??''} onChange={e=>onChooseHousing(e.target.value||null)}><option value="">{advice.housingIds.length?'우리를 선택하세요':'비울 우리 없음'}</option>{s.buildings.filter(b=>advice.housingIds.includes(b.id)).map(b=><option key={b.id} value={b.id}>{ARK_BUILDINGS[b.kind]?.name??b.kind} · {b.cells[0]!.q+1}열 {b.cells[0]!.r+Math.ceil(b.cells[0]!.q/2)+1}칸</option>)}</select></label>}{advice.issues.map(text=><p role="status" key={text}>{text}</p>)}{button('동물 이동',{kind:'MOVE_ANIMAL',cardId:chosen[0]??'',housingId},chosen.length!==1||advice.issues.length>0)}{skip()}</>;
+  }
   else if(kind==='ARCHAEOLOGIST')controls=<><p>지도에서 덮이지 않은 보너스 칸을 선택하세요.</p>{button('선택한 지도 보너스 받기',{kind:'MAP_BONUS',cell:cell??{q:0,r:0}},!cell)}{!ARK_MAP_A.some(c=>c.bonus&&!s.buildings.some(b=>b.cells.some(x=>arkCellKey(x)===arkCellKey(c))))&&button('대상 없음 · 계속',{kind:'NONE'})}</>;
   else if(kind==='ASSERTION'||kind==='DOMINANCE')controls=<>{row(s.reserveChoices)}{button('프로젝트 가져오기',{kind:'PROJECT',cardId:chosen[0]??null},chosen.length!==1)}{s.reserveChoices.length===0&&button('대상 없음 · 계속',{kind:'PROJECT',cardId:null})}</>;
   else if(kind==='CONSERVATION_BONUS')controls=<>{guide.bonuses.map(tile=>button(bonusLabels[tile]??tile,{kind:'BONUS',tile}))}{button('돈 5 받기',{kind:'BONUS',tile:null})}</>;

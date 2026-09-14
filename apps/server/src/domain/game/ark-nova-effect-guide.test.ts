@@ -37,3 +37,11 @@ test('Free building guide respects upgrade exceptions without upgrading the acti
   assert.deepEqual(projectArkEffectGuide({...effect,buildings:[...effect.buildings],ignoreBuildUpgrade:true},basic,[]).buildings,effect.buildings);
   assert.ok(basic.every(a=>!a.upgraded));
 });
+
+test('Special move guide exposes only destination and a copied moved-card list',()=>{
+  const moved=['public-animal'];const guide=projectArkEffectGuide({kind:'MOVE_TO_SPECIAL',buildingId:'public-aviary',moved},actions,[]);
+  assert.deepEqual(guide.specialMove,{buildingId:'public-aviary',moved:['public-animal']});assert.ok(safeParse(ArkEffectGuideSchema,guide).success);
+  moved.push('later');assert.deepEqual(guide.specialMove!.moved,['public-animal']);
+  assert.equal(projectArkEffectGuide({kind:'UPGRADE'},actions,[]).specialMove,undefined);
+  assert.equal(safeParse(ArkEffectGuideSchema,{...guide,specialMove:{buildingId:'public-aviary',moved:['public-animal'],privateQueue:[]}}).success,false);
+});

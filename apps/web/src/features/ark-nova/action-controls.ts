@@ -1,4 +1,4 @@
-import {ARK_UNIQUE_BUILDINGS,validateArkUniqueConstruction,arkAnimalPrice,arkMissingCardConditions,arkAnimalHousingChoices,arkCanShareFlockEnclosure,arkCardDefinition,ARK_TAG_LABELS} from '@hangul-rummikub/shared';
+import {arkEnclosuresToEmpty,ARK_UNIQUE_BUILDINGS,validateArkUniqueConstruction,arkAnimalPrice,arkMissingCardConditions,arkAnimalHousingChoices,arkCanShareFlockEnclosure,arkCardDefinition,ARK_TAG_LABELS} from '@hangul-rummikub/shared';
 import {ARK_CARDS,arkReputationRange,arkActionStrength,arkPlacementReason,arkShape,type ArkActionKind,type ArkSoloCommand,type ArkSoloView} from '@hangul-rummikub/shared';
 
 /** Display the server's continuation constraint; commands are still validated by the server. */
@@ -90,4 +90,19 @@ export function arkFreeBuildPlacementHint(state:ArkSoloView,placement:Extract<Ar
   if(!placement)return '시설과 지도 기준 칸을 선택하세요.';
   if(state.activeEffect?.kind!=='FREE_BUILD'||!state.activeEffect.guide.buildings.includes(placement.building))return '이 효과에서 허용된 시설을 선택하세요.';
   return arkPlacementReason(state.buildings,placement.building,arkShape(placement.building,placement.anchor,placement.rotation,placement.reflected),state.actions.some(a=>a.kind==='BUILD'&&a.upgraded),state.played.some(c=>c.key==='219'));
+}
+
+export function arkSpecialMoveAdvice(state:ArkSoloView,cardId:string|null,housingId:string|null) {
+  const move=state.activeEffect?.kind==='MOVE_TO_SPECIAL'?state.activeEffect.guide.specialMove:undefined;
+  const destination=move&&state.buildings.find(b=>b.id===move.buildingId);
+  const card=state.played.find(c=>c.cardId===cardId),animal=card&&ARK_CARDS.find(d=>d.key===card.key&&d.kind==='ANIMAL');
+  const issues:string[]=[];
+  if(!move||!destination||!['ReptileHouse','LargeBirdAviary'].includes(destination.kind))issues.push('이동할 특수 우리 정보를 확인할 수 없습니다.');
+  if(!animal)issues.push('이동할 동물을 선택하세요.');
+  if(move&&cardId&&move.moved.includes(cardId))issues.push('이번 효과에서 이미 이동한 동물입니다.');
+  const ignoreTerrain=state.played.some(c=>c.key==='219');
+  if(animal&&destination&&!arkAnimalHousingChoices([destination],animal,ignoreTerrain).length)issues.push('이 특수 우리에 들어갈 수 없습니다. 동물 종류·남은 용량·지형 조건을 확인하세요.');
+  const housingIds=animal?arkEnclosuresToEmpty(state.buildings,animal,ignoreTerrain):[];
+  if(animal&&(housingId===null?housingIds.length>0:!housingIds.includes(housingId)))issues.push('비울 수 있는 기존 우리를 선택하세요.');
+  return {destination,housingIds,issues};
 }

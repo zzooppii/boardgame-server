@@ -7,7 +7,7 @@ export function projectArkEffectGuide(effect:ArkZooEffect,actions:readonly ArkAc
     (actions.filter(a=>a.upgraded).length>=4?[]:actions.filter(a=>!a.upgraded).map(a=>a.kind)):
     effect.kind==='EXTRA_ACTION'||effect.kind==='MULTIPLIER'||effect.kind==='MOVE_ACTION'?
       (effect.action?[effect.action]:effect.kind==='EXTRA_ACTION'?[...ARK_ACTIONS,'TAKE_X']:[...ARK_ACTIONS]):[];
-  return {resource:effect.kind==='GAIN'?effect.resource:null,amount:'amount' in effect&&typeof effect.amount==='number'?effect.amount:null,actions:choices,
+  return {...(effect.kind==='MOVE_TO_SPECIAL'?{specialMove:{buildingId:effect.buildingId,moved:[...effect.moved]}}:{}),resource:effect.kind==='GAIN'?effect.resource:null,amount:'amount' in effect&&typeof effect.amount==='number'?effect.amount:null,actions:choices,
     buildings:effect.kind==='FREE_BUILD'?effect.buildings.filter(kind=>effect.ignoreBuildUpgrade||actions.some(a=>a.kind==='BUILD'&&a.upgraded)||!['ReptileHouse','LargeBirdAviary'].includes(kind)):[],slots:effect.kind==='MOVE_ACTION'?[...effect.slots]:[],
     mayRefill:effect.kind==='SNAP'&&effect.mayRefillBetween&&effect.amount>1,
     bonuses:effect.kind==='CONSERVATION_BONUS'?pool.filter(b=>b.track===effect.track).map(b=>b.tile):[]};

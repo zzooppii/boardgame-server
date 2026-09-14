@@ -5,7 +5,7 @@ import {renderToStaticMarkup} from 'react-dom/server';
 import {type ArkAssociationTask,ARK_MAP_A,validateArkUniqueConstruction,ARK_CARDS} from '@hangul-rummikub/shared';
 import {arkSoloSetupFixture} from '../features/ark-nova/test-fixture.js';
 import {arkAssociationAdvice,arkDonationAdvice} from '../features/ark-nova/association-advice.js';
-import {arkFreeBuildPlacementHint,arkWazaSelectionAdvice,arkSponsorSelectionAdvice} from '../features/ark-nova/action-controls.js';
+import {arkSpecialMoveAdvice,arkFreeBuildPlacementHint,arkWazaSelectionAdvice,arkSponsorSelectionAdvice} from '../features/ark-nova/action-controls.js';
 import {ArkNovaEffects} from '../features/ark-nova/ArkNovaEffects.js';
 import {ArkNovaAssociation} from '../features/ark-nova/ArkNovaAssociation.js';
 function state(){const s=structuredClone(arkSoloSetupFixture);s.actions=s.actions.filter(a=>a.kind!=='ASSOCIATION').concat({kind:'ASSOCIATION',upgraded:false,venom:false,constriction:false,multiplier:0});s.workers=4;s.busyWorkers=0;s.taskWorkers={};s.x=5;return s;}
@@ -158,4 +158,32 @@ test('Free building controls retain facility before selecting a cell and block i
   assert.match(html,/<option value="ENCLOSURE_1" selected="">/);assert.match(html,/<button disabled="">무료 배치 확정/);assert.match(html,/시설과 지도 기준 칸/);
   const placement={building:'ENCLOSURE_1',anchor:s.buildings[0]!.cells[0]!,rotation:0 as const,reflected:false};
   const occupied=renderToStaticMarkup(createElement(ArkNovaEffects,{...props,placement}));assert.match(occupied,/이미 건물이 있는 칸/);assert.match(occupied,/<button disabled="">무료 배치 확정/);
+});
+
+function moveState(){
+  const s=state();s.activeEffect={id:1,kind:'MOVE_TO_SPECIAL',sourceId:'bonus',guide:{resource:null,amount:null,actions:[],buildings:[],slots:[],mayRefill:false,bonuses:[],specialMove:{buildingId:'aviary',moved:[]}}};
+  s.played=[{key:'496',cardId:'bird'}];s.buildings[1]!.occupied=true;
+  s.buildings.push({id:'aviary',kind:'LargeBirdAviary',cells:[{q:3,r:3}],occupied:false,used:0});return s;
+}
+test('Special move advice requires the smallest eligible occupied enclosure and leaves state unchanged',()=>{
+  const s=moveState(),before=structuredClone(s);
+  const advice=arkSpecialMoveAdvice(s,'bird',null);assert.ok(advice.issues.length);assert.deepEqual(advice.housingIds,['initial-enclosure']);
+  assert.deepEqual(arkSpecialMoveAdvice(s,'bird','initial-enclosure').issues,[]);
+  assert.match(arkSpecialMoveAdvice(s,'bird','aviary').issues.join(' '),/비울 수 있는/);assert.deepEqual(s,before);
+  s.buildings[1]!.occupied=false;assert.deepEqual(arkSpecialMoveAdvice(s,'bird',null).issues,[]);
+});
+test('Special move advice rejects wrong animals, full destinations and repeated moves',()=>{
+  const s=moveState();s.played.push({key:'404',cardId:'cat'});
+  assert.match(arkSpecialMoveAdvice(s,'cat','initial-enclosure').issues.join(' '),/들어갈 수 없습니다/);
+  s.buildings.find(b=>b.id==='aviary')!.used=5;
+  assert.match(arkSpecialMoveAdvice(s,'bird','initial-enclosure').issues.join(' '),/남은 용량/);
+  s.activeEffect!.guide.specialMove!.moved=['bird'];
+  assert.match(arkSpecialMoveAdvice(s,'bird','initial-enclosure').issues.join(' '),/이미 이동/);
+  delete s.activeEffect!.guide.specialMove;
+  assert.match(arkSpecialMoveAdvice(s,'bird',null).issues.join(' '),/정보를 확인할 수 없습니다/);
+});
+test('Special move controls identify the destination and exclude animals already moved',()=>{
+  const s=moveState();s.activeEffect!.guide.specialMove!.moved=['bird'];
+  const html=renderToStaticMarkup(createElement(ArkNovaEffects,{state:s,disabled:false,onSelect:()=>{},placement:null,cell:null,housingId:null,onUniqueCard:()=>{},onBuilding:()=>{},onRotate:()=>{},onReflect:()=>{}}));
+  assert.match(html,/이동 목적지/);assert.match(html,/사용 용량/);assert.doesNotMatch(html,/496/);assert.match(html,/<button disabled="">동물 이동/);assert.match(html,/<button>이 효과 포기/);
 });

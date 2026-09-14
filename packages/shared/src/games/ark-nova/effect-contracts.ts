@@ -41,5 +41,6 @@ export const ArkEffectGuideSchema=v.strictObject({
   amount:v.nullable(ArkCountSchema),actions:v.array(ArkExtraActionKindSchema),
   buildings:v.array(ArkRefSchema),slots:v.array(v.picklist([1,5])),
   mayRefill:v.boolean(),bonuses:v.array(ArkBonusTileSchema),
+  specialMove:v.optional(v.strictObject({buildingId:ArkRefSchema,moved:v.array(ArkRefSchema)})),
 });
 export type ArkEffectGuide=v.InferOutput<typeof ArkEffectGuideSchema>;
