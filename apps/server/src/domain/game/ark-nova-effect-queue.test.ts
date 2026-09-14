@@ -146,3 +146,18 @@ test('Multiplier effects place repeatable tokens on the named card; the bonus ti
   s=resolve(start(s,{kind:'MULTIPLIER',action:null}),{kind:'MULTIPLIER',action:'ANIMALS'});
   assert.equal(s.actions.find(c=>c.kind==='ANIMALS')!.multiplier,1);
 });
+
+test('Conservation choice receipts record successful selections, preserve money alternatives and reject atomically',()=>{
+  let s=start(board(),{kind:'CONSERVATION_BONUS',track:5});
+  const original=structuredClone(s);
+  assert.equal(resolveArkEffect(s,s.effects.active!.id,{kind:'BONUS',tile:'X_3'},'choice',{nextInt:()=>0}).ok,false);
+  assert.deepEqual(s,original);assert.equal(s.conservationChoices,undefined);
+  s=resolve(s,{kind:'BONUS',tile:null});
+  assert.deepEqual(s.conservationChoices,[{track:5,choice:'MONEY_5'}]);
+  const restored:unknown=JSON.parse(JSON.stringify(s));
+  assert.deepEqual(restored,s);
+  s=start(board(),{kind:'UPGRADE_OR_WORKER'});s=resolve(s,{kind:'WORKER'});
+  assert.deepEqual(s.conservationChoices,[{track:2,choice:'WORKER'}]);
+  s=start(board(),{kind:'DISCARD_GOAL'});s=resolve(s,{kind:'GOAL',discard:'card-001'});
+  assert.deepEqual(s.conservationChoices,[{track:10,choice:'DISCARD_GOAL'}]);
+});

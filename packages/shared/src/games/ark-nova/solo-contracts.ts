@@ -28,6 +28,15 @@ const cards = v.pipe(v.array(ArkCardSchema),v.maxLength(250));
 /** Solo command-loop projection. The platform registration uses this contract once all actions are connected. */
 export const ArkSoloViewSchema = v.pipe(v.strictObject({
   history:v.optional(ArkHistorySchema,()=>[]),
+  /** Public board information only; effect jobs and private decks remain server-side. */
+  scoreBoard:v.optional(v.strictObject({
+    targetAppeal:v.pipe(v.number(),v.safeInteger(),v.minValue(1),v.maxValue(114)),
+    gap:v.pipe(v.number(),v.safeInteger()),
+    bonuses:v.array(v.strictObject({track:v.picklist([5,8]),tile:ArkRefSchema})),
+    pendingMilestones:v.array(v.picklist([2,5,8,10])),
+    choices:v.optional(v.array(v.strictObject({track:v.picklist([2,5,8,10]),choice:ArkRefSchema})),()=>[]),
+    appealIncome:v.pipe(v.array(ArkCountSchema),v.length(114)),
+  })),
   gameId:GameIdSchema, playerId:PlayerIdSchema, revision:GameRevisionSchema, transitionId:TurnIdSchema,
   phase:v.picklist(['PLAYING','FINISHED']), startedAt:ServerTimeSchema, finishedAt:v.nullable(ServerTimeSchema),
   difficulty:ArkSoloDifficultySchema, progress:ArkSoloProgressSchema,

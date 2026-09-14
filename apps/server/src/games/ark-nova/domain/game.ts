@@ -1,3 +1,4 @@
+import {projectArkScoreBoard} from './score-board.js';
 import {recordArkHistory} from './history.js';
 import {ArkHistorySchema} from '@hangul-rummikub/shared';
 import { projectArkEffectGuide } from './effect-guide.js';
@@ -50,6 +51,7 @@ const State = v.strictObject({
   activatedProjectBonuses:ArkActivatedProjectBonusesSchema,projectSupports:v.pipe(v.array(ArkProjectSupportRecordSchema),v.maxLength(7)),
   played:cards,playedProjects:cards,pouched:v.record(ArkRefSchema,cards),sponsorTokens:v.record(ArkRefSchema,ArkCountSchema),
   legacyAfterFinishing:v.nullable(ArkActionKindSchema),effects:ArkEffectQueueSchema,zooWork:v.nullable(ArkZooWorkSchema),cardReveal:v.nullable(ArkCardRevealSchema),goalReveal:v.nullable(ArkGoalRevealSchema),
+  conservationChoices:v.optional(v.array(v.strictObject({track:v.picklist([2,5,8,10]),choice:ArkRefSchema}))),
   conservationBonuses:ArkConservationBonusPoolSchema,wazaFocus:v.nullable(v.picklist(['SMALL','LARGE'])),supportedProjects:ArkCountSchema,
   resistanceGained:ArkCountSchema,goalDiscarded:v.boolean(),
   money:ArkCountSchema, appeal:v.pipe(ArkCountSchema,v.maxValue(113)),
@@ -540,7 +542,7 @@ export function applyArkSoloCommand(current: ArkSoloState, actor: PlayerId, expe
 /** Whitelist shared public state and the one owner's private cards. No reserves, deck order or discarded faces. */
 export function projectArkSoloGame(s: ArkSoloState, viewer: PlayerId): ArkSoloView {
   if (viewer !== s.playerId) throw new Error('Unauthorized Ark solo viewer.');
-  return v.parse(ArkSoloViewSchema,{history:s.history,gameId:s.gameId,playerId:s.playerId,revision:s.revision,transitionId:s.transitionId,phase:s.phase,
+  return v.parse(ArkSoloViewSchema,{scoreBoard:projectArkScoreBoard(s),history:s.history,gameId:s.gameId,playerId:s.playerId,revision:s.revision,transitionId:s.transitionId,phase:s.phase,
     activatedProjectBonuses:s.activatedProjectBonuses,projectSupports:s.projectSupports,playedProjects:s.playedProjects,
     associationWork:s.associationWork,activeAssociation:s.activeAssociation,rewards:s.rewards,partners:s.partners,partnerSupply:s.partnerSupply,universities:s.universities,universitySupply:s.universitySupply,taskWorkers:s.taskWorkers,
     activeBuild:s.activeBuild,buildBonuses:s.buildBonuses,

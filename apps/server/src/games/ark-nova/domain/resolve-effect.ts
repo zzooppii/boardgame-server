@@ -17,6 +17,7 @@ import { arkEnclosuresToEmpty, occupyArkAnimalHousing } from './animal-housing.j
 import { arkNewBuildingEffects, arkPlacementBonusEffect, arkUncoveredPlacementBonuses } from './construction-effects.js';
 import { arkReputationRange } from './build-turn.js';
 export type ArkEffectState=ArkCardEffectZones & ArkGoalZones & {
+  conservationChoices?:{track:2|5|8|10;choice:string}[]|undefined;
   supportedProjects:number;buildings:ArkBuilding[];baseProjectReserve:ArkCard[];
   effects:ArkEffectQueue;played:ArkCard[];pouched:Record<string,ArkCard[]>;sponsorTokens:Record<string,number>;
   actions:ArkActionCard[];partners:string[];universities:string[];partnerSupply:string[];universitySupply:string[];goals:ArkCard[];discardedGoals:ArkCard[];
@@ -226,17 +227,18 @@ export function resolveArkEffect<T extends ArkEffectState>(current:T,effectId:nu
         if(!action||action.upgraded||s.actions.filter(c=>c.upgraded).length>=4)return invalid();action.upgraded=true;
       } else if(a.kind==='WORKER'&&effect.kind==='UPGRADE_OR_WORKER'&&s.workers<4)s.workers++;
       else return invalid();
+      if(effect.kind==='UPGRADE_OR_WORKER')(s.conservationChoices??=[]).push({track:2,choice:a.kind==='UPGRADE'?`UPGRADE_${a.action}`:'WORKER'});
       break;
     }
     case 'CONSERVATION_BONUS': {
       if(a.kind!=='BONUS')return invalid();
       const chosen=chooseArkConservationBonus(s.conservationBonuses,effect.track,a.tile);if(!chosen.ok)return invalid();
-      s.conservationBonuses=chosen.pool;enqueue(chosen.effect);break;
+      s.conservationBonuses=chosen.pool;(s.conservationChoices??=[]).push({track:effect.track,choice:a.tile??'MONEY_5'});enqueue(chosen.effect);break;
     }
     case 'DISCARD_GOAL': {
       if(a.kind!=='GOAL'||s.goals.length<2)return invalid();
       const index=s.goals.findIndex(c=>c.cardId===a.discard);if(index<0)return invalid();
-      s.discardedGoals.push(...s.goals.splice(index,1));break;
+      s.discardedGoals.push(...s.goals.splice(index,1));(s.conservationChoices??=[]).push({track:10,choice:'DISCARD_GOAL'});break;
     }
     case 'WAZA_FOCUS':
       if(a.kind!=='FOCUS'||s.wazaFocus!==null)return invalid();s.wazaFocus=a.focus;break;

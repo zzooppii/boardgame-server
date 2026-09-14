@@ -1,3 +1,4 @@
+import {ArkTagBadge} from './ArkTagBadge.js';
 import {arkReputationRange,ARK_SOLO_ABILITIES,arkSoloCardAbilities,ARK_CARDS, ARK_GOALS, ARK_PROJECTS, ARK_TAG_LABELS, arkCardName, type ArkCard} from '@hangul-rummikub/shared';
 import {arkProjectCopy,arkProjectSlotCopy} from './project-copy.js';
 import {arkGoalCopy} from './goal-copy.js';
@@ -9,14 +10,18 @@ const requirementLabel=(key:string)=>key==='Partner_Zoo'?'같은 대륙 제휴':
 
 export function ArkNovaCard({card,selected=false,disabled=false,onSelect}:{card:ArkCard;selected?:boolean;disabled?:boolean;onSelect?():void}) {
   const definition=ARK_CARDS.find(c=>c.key===card.key);
+  const abilities=definition?(definition.kind==='SPONSOR'?(arkSponsorCopy[definition.key]??[]):arkSoloCardAbilities(definition).map(a=>arkAbilityCopy(a,true))):[];
+  const habitats:Readonly<Record<string,string>>={ReptileHouse:'파충류관',LargeBirdAviary:'대형 조류관',PettingZoo:'체험 동물원'};
   const goal=ARK_GOALS.find(c=>c.key===card.key),project=ARK_PROJECTS.find(c=>c.key===card.key);
   return <article className={`ark-live-card ${definition?.kind==='ANIMAL'?'is-animal':definition?.kind==='SPONSOR'?'is-sponsor':''} ${selected?'is-selected':''}`}>
     <button type="button" className="ark-live-card-select" aria-pressed={selected} disabled={disabled||!onSelect} onClick={onSelect} aria-label={`${arkCardName(card.key)}${selected?' 선택됨':''}`}>
       <div className="ark-card-picture"><ArkAnimalArt cardKey={card.key}/>{definition&&<div className="ark-card-corners"><span className="ark-card-cost">{definition.kind==='ANIMAL'?`비용 ${definition.cost}`:`후원 등급 ${definition.cost}`}</span>{definition.kind==='ANIMAL'&&<span className="ark-card-size">우리 {definition.size}{!definition.standard?' · 특수':''}</span>}</div>}</div>
       <div className="ark-live-card-copy"><small>{card.key} · {definition?.kind==='ANIMAL'?'동물':definition?.kind==='SPONSOR'?'후원자':ARK_GOALS.some(c=>c.key===card.key)?'최종 목표':'보전 프로젝트'}</small><strong>{arkCardName(card.key)}</strong>
       {definition&&<>
-        <span className="ark-card-tags" aria-label="카드 아이콘">{definition.tags.map((tag,i)=><span key={`${tag}-${i}`}>{ARK_TAG_LABELS[tag]??tag}</span>)}</span>
+        <span className="ark-card-tags" aria-label="카드 아이콘">{definition.tags.map((tag,i)=><ArkTagBadge key={`${tag}-${i}`} tag={tag}/>)}</span>
         <span className="ark-card-requirements">조건: {definition.requirements.length?definition.requirements.map(requirementLabel).join(' · '):'없음'}{definition.water?` · 물 ${definition.water}`:''}{definition.rock?` · 바위 ${definition.rock}`:''}</span>
+        {definition.kind==='ANIMAL'&&<span className="ark-card-habitats">서식지: {definition.standard?`일반 우리 ${definition.size}칸`: '특수 우리 전용'}{definition.special.map((h,i)=><span key={i}> · {habitats[h.kind]??h.kind} {h.size}칸</span>)}</span>}
+        <span className="ark-card-abilities" aria-label="특수능력">{ARK_SOLO_ABILITIES[definition.key]&&<b>솔로 전용 효과</b>}{abilities.length?abilities.map((text,i)=><span key={i}>{text}</span>):<span>추가 특수능력 없음</span>}</span>
         <span className="ark-card-scores" aria-label="인쇄된 기본 보상"><span>매력 {definition.appeal}</span><span>보전 {definition.conservation}</span><span>평판 {definition.reputation}</span></span>
       </>}
       {selected&&<span className="ark-selection-mark">✓ 선택됨</span>}</div>
