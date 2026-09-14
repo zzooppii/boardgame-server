@@ -18,6 +18,7 @@ import { BurgundyGameStateAdapter, type BurgundyLifecycle } from "../games/burgu
 import { CarcassonneGameStateAdapter, type CarcassonneLifecycle } from "../games/carcassonne/compatibility/adapter.js";
 import { ClueGameStateAdapter, type ClueLifecycle } from "../games/clue/compatibility/adapter.js";
 import { TerrorscapeGameStateAdapter, type TerrorscapeLifecycle } from "../games/terrorscape/compatibility/adapter.js";
+import { PandemicGameStateAdapter, type PandemicLifecycle } from "../games/pandemic/compatibility/adapter.js";
 import { DuetGameStateAdapter, type DuetLifecycle } from "../games/word-duet/compatibility/adapter.js";
 import { SaboteurGameStateAdapter, type SaboteurLifecycle } from "../games/saboteur/compatibility/adapter.js";
 import { LostCitiesGameStateAdapter, type LostCitiesLifecycle } from "../games/lost-cities/compatibility/adapter.js";
@@ -149,6 +150,7 @@ type RoomGameLifecycleInspection =
   | Readonly<{gameType:"CARCASSONNE";inspection:CarcassonneLifecycle}>
   | Readonly<{gameType:"CLUE";inspection:ClueLifecycle}>
   | Readonly<{gameType:"TERRORSCAPE";inspection:TerrorscapeLifecycle}>
+  | Readonly<{gameType:"PANDEMIC";inspection:PandemicLifecycle}>
   | Readonly<{gameType:"WORD_DUET";inspection:DuetLifecycle}>
   | Readonly<{gameType:"SABOTEUR";inspection:SaboteurLifecycle}>
   | Readonly<{gameType:"LOST_CITIES";inspection:LostCitiesLifecycle}>
@@ -398,6 +400,13 @@ function cloneRoomWriteCandidate(
       if (new Set(departedPlayerIds).size !== departedPlayerIds.length || departedPlayerIds.some(id => !shell.players.some(p => p.playerId === id)) || shell.phase === "LOBBY" && departedPlayerIds.length > 0) throw new Error("Invalid departed TERRORSCAPE roster.");
       return Object.freeze({...shell, gameType:"TERRORSCAPE", game, departedPlayerIds});
     }
+    case "PANDEMIC": {
+      const adapter = new PandemicGameStateAdapter(), game = candidate.game === null ? null : adapter.cloneAndValidate(candidate.game);
+      validateRoomGameCoherence(shell.phase, shell.players, game, () => game === null ? null : adapter.inspectLifecycle(game));
+      const departedPlayerIds = Object.freeze([...(candidate.departedPlayerIds ?? [])]);
+      if (new Set(departedPlayerIds).size !== departedPlayerIds.length || departedPlayerIds.some(id => !shell.players.some(p => p.playerId === id)) || shell.phase === "LOBBY" && departedPlayerIds.length > 0) throw new Error("Invalid departed PANDEMIC roster.");
+      return Object.freeze({...shell, gameType:"PANDEMIC", game, departedPlayerIds});
+    }
     case "WORD_DUET": {
       const adapter = new DuetGameStateAdapter(), game = candidate.game === null ? null : adapter.cloneAndValidate(candidate.game);
       validateRoomGameCoherence(shell.phase, shell.players, game, () => game === null ? null : adapter.inspectLifecycle(game));
@@ -602,6 +611,7 @@ function persistRoom(
     case "CARCASSONNE":
     case "CLUE":
     case "TERRORSCAPE":
+    case "PANDEMIC":
     case "WORD_DUET":
     case "SABOTEUR":
     case "LOST_CITIES":
@@ -645,6 +655,7 @@ function inspectRoomGame(
     case "CARCASSONNE": return {gameType:"CARCASSONNE",inspection:new CarcassonneGameStateAdapter().inspectLifecycle(room.game)};
     case "CLUE": return {gameType:"CLUE",inspection:new ClueGameStateAdapter().inspectLifecycle(room.game)};
     case "TERRORSCAPE": return {gameType:"TERRORSCAPE",inspection:new TerrorscapeGameStateAdapter().inspectLifecycle(room.game)};
+    case "PANDEMIC": return {gameType:"PANDEMIC",inspection:new PandemicGameStateAdapter().inspectLifecycle(room.game)};
     case "WORD_DUET": return {gameType:"WORD_DUET",inspection:new DuetGameStateAdapter().inspectLifecycle(room.game)};
     case "SABOTEUR": return {gameType:"SABOTEUR",inspection:new SaboteurGameStateAdapter().inspectLifecycle(room.game)};
     case "LOST_CITIES": return {gameType:"LOST_CITIES",inspection:new LostCitiesGameStateAdapter().inspectLifecycle(room.game)};

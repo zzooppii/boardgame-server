@@ -1,0 +1,4 @@
+import {PANDEMIC_CITY_INFO,PANDEMIC_EVENT_INFO,type PandemicCard} from '@hangul-rummikub/shared';
+import {cardName,DISEASE_COLORS,DISEASE_NAMES} from './presentation.js';
+export function PandemicArt({index,className=''}:{index:number;className?:string}){return <span className={`pd-art ${className}`} aria-hidden="true" style={{backgroundPosition:`${index%4*100/3}% ${Math.floor(index/4)*50}%`}}/>;}
+export function PandemicCardFace({card}:{card:PandemicCard}){const color=card.kind==='CITY'?PANDEMIC_CITY_INFO[card.city].color:null;return <><PandemicArt index={card.kind==='EVENT'?PANDEMIC_EVENT_INFO[card.event].art:7}/><span className="pd-card-type" style={{color:color?DISEASE_COLORS[color]:'#7de7cf'}}>{color?`${DISEASE_NAMES[color]} · 도시 카드`:card.kind==='EVENT'?'이벤트 · 행동 소모 없음':'전염병'}</span><strong>{cardName(card)}</strong></>;}

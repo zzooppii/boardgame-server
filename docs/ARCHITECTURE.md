@@ -1,5 +1,7 @@
 # 시스템 아키텍처
 
+2026-09-14 팬데믹 추가: [PANDEMIC_ARCHITECTURE.md](./PANDEMIC_ARCHITECTURE.md)의 기본판 2–4인 협동, 서버 감염/이벤트 판정 및 지도·소리 경계를 따른다.
+
 2026-09-13 스페이스 크루 설계: [SPACE_CREW_ARCHITECTURE.md](./SPACE_CREW_ARCHITECTURE.md)의 순수 트릭 도메인·비공개 projection·캠페인 영구 저장 경계를 따른다. P0 이후 단계별로 구현하며 플랫폼 연결은 P6, 화면·일러스트·효과음은 P7이다.
 
 2026-09-12 티켓 투 라이드 추가: [TRAIN_GAME_RULES.md](./TRAIN_GAME_RULES.md)와 [TRAIN_ARCHITECTURE.md](./TRAIN_ARCHITECTURE.md)를 따른다. 미국 구판 2–5인, 차례당 서버 기준 90초, 서버 권위형 철도 연결과 개인별 카드 projection.

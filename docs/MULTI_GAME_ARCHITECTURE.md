@@ -1,5 +1,7 @@
 # Multi-game Platform Architecture
 
+2026-09-14 팬데믹 추가: [PANDEMIC_ARCHITECTURE.md](./PANDEMIC_ARCHITECTURE.md)의 기본판 2–4인 협동, 서버 감염/이벤트 판정 및 지도·소리 경계를 따른다.
+
 2026-09-12 티켓 투 라이드 추가: [TRAIN_GAME_RULES.md](./TRAIN_GAME_RULES.md)와 [TRAIN_ARCHITECTURE.md](./TRAIN_ARCHITECTURE.md)를 따른다. 미국 구판 2–5인, 차례당 서버 기준 90초, 서버 권위형 철도 연결과 개인별 카드 projection.
 
 2026-09-11 라스베이거스 추가: [VEGAS_ARCHITECTURE.md](./VEGAS_ARCHITECTURE.md)의 2–5인 주사위·카지노 정산·개인별 금액·자체 일러스트/소리 경계를 따른다.

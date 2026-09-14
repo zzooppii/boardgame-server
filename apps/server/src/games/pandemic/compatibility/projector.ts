@@ -1,0 +1,8 @@
+import { PandemicPlayingProjectionSchema, PandemicFinishedProjectionSchema, type PlayerId, type PandemicProjection } from '@hangul-rummikub/shared';
+import { parse } from 'valibot';
+import type { PandemicStoredGame } from './adapter.js';
+export function projectPandemic(game:PandemicStoredGame|null,viewer:PlayerId):PandemicProjection|null {
+ if(!game)return null;const s=game.state;if(!s.players.some(p=>p.playerId===viewer))throw new Error('Pandemic viewer missing.');
+ const base={gameType:'PANDEMIC' as const,gameId:s.gameId,gameRevision:s.revision,rulesVersion:s.rulesVersion,settings:s.settings,playerStates:s.players.map(p=>({playerId:p.playerId,role:p.role,city:p.city,handCount:p.hand.length,hand:s.settings.openHands||p.playerId===viewer?p.hand:null,stored:p.stored})),activePlayerId:s.players[s.activeIndex]!.playerId,actionsLeft:s.actionsLeft,round:s.round,board:s.board,stations:s.stations,supply:s.supply,cures:s.cures,outbreaks:s.outbreaks,rateIndex:s.rateIndex,playerDeckCount:s.playerDeck.length,infectionDeckCount:s.infectionDeck.length,discard:s.discard,infectionDiscard:s.infectionDiscard,infectionRemoved:s.infectionRemoved,lastInfected:s.lastInfected,infectionRemaining:s.infectionRemaining,epidemicsRemaining:s.epidemicsRemaining,quietNight:s.quietNight,operationsUsed:s.operationsUsed,pending:s.pending,continueReady:s.continueReady,history:s.history,pings:s.pings,privateState:{playerId:viewer,forecast:s.pending?.kind==='FORECAST'&&s.pending.playerId===viewer?s.infectionDeck.slice(0,6):null}};
+ return s.phase==='FINISHED'?parse(PandemicFinishedProjectionSchema,{...base,phase:'FINISHED',result:s.result}):parse(PandemicPlayingProjectionSchema,{...base,phase:s.phase,turnId:s.transitionId});
+}

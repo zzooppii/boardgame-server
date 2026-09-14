@@ -14,6 +14,7 @@ import type { BurgundyWebSnapshot } from "./snapshot-wire-decoder.js";
 import type { CarcassonneWebSnapshot } from "./snapshot-wire-decoder.js";
 import type { ClueWebSnapshot } from "./snapshot-wire-decoder.js";
 import type { TerrorscapeWebSnapshot } from "./snapshot-wire-decoder.js";
+import type { PandemicWebSnapshot } from "./snapshot-wire-decoder.js";
 import type { DuetWebSnapshot } from "./snapshot-wire-decoder.js";
 import type { SaboteurWebSnapshot } from "./snapshot-wire-decoder.js";
 import type { LostCitiesWebSnapshot } from "./snapshot-wire-decoder.js";
@@ -80,6 +81,7 @@ export type RoomSnapshotView =
   | Readonly<{ kind: "CARCASSONNE"; snapshot: CarcassonneWebSnapshot }>
   | Readonly<{ kind: "CLUE"; snapshot: ClueWebSnapshot }>
   | Readonly<{ kind: "TERRORSCAPE"; snapshot: TerrorscapeWebSnapshot }>
+  | Readonly<{ kind: "PANDEMIC"; snapshot: PandemicWebSnapshot }>
   | Readonly<{ kind: "WORD_DUET"; snapshot: DuetWebSnapshot }>
   | Readonly<{ kind: "SABOTEUR"; snapshot: SaboteurWebSnapshot }>
   | Readonly<{ kind: "LOST_CITIES"; snapshot: LostCitiesWebSnapshot }>
@@ -144,6 +146,7 @@ export function resolveRoomSnapshotView(
   if (decoded.kind === "PLATFORM_V2_CARCASSONNE") return { kind: "CARCASSONNE", snapshot: decoded.platformSnapshot };
   if (decoded.kind === "PLATFORM_V2_CLUE") return { kind: "CLUE", snapshot: decoded.platformSnapshot };
   if (decoded.kind === "PLATFORM_V2_TERRORSCAPE") return { kind: "TERRORSCAPE", snapshot: decoded.platformSnapshot };
+  if (decoded.kind === "PLATFORM_V2_PANDEMIC") return { kind: "PANDEMIC", snapshot: decoded.platformSnapshot };
   if (decoded.kind === "PLATFORM_V2_WORD_DUET") return { kind: "WORD_DUET", snapshot: decoded.platformSnapshot };
   if (decoded.kind === "PLATFORM_V2_SABOTEUR") return { kind: "SABOTEUR", snapshot: decoded.platformSnapshot };
   if (decoded.kind === "PLATFORM_V2_LOST_CITIES") return { kind: "LOST_CITIES", snapshot: decoded.platformSnapshot };

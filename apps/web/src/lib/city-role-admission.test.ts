@@ -8,9 +8,9 @@ import { cityActionFixture, cityFinishedFixture, cityLobbyFixture, citySelection
 import { resolveRoomSnapshotView } from "./room-snapshot-view.js";
 import { projectRoomSnapshotShell } from "./room-snapshot-shell.js";
 
-test("P21D preserves CITY admission and activates exactly twenty-six-game capability and Home", () => {
-  assert.deepEqual([...WEB_SUPPORTED_GAME_TYPES], ["HANGUL_TILE", "NUMBER_TILE", "GEM_CARD", "CITY_ROLE", "DRAW_RELAY", "SNEAKY_LUNCH", "WOLF_NIGHT", "HALLI_GALLI", "ISLAND_SETTLERS", "SPLENDOR", "TRAIN", "CENTURY", "SPIRIT_ISLAND", "SPACE_CREW", "ARK_NOVA", "JAIPUR", "LOVE_LETTER", "GURYONGTU", "WORD_DUET", "LOST_CITIES", "SABOTEUR", "LIAR_GAME", "SPYFALL", "AZUL", "VEGAS", "BURGUNDY", "CARCASSONNE", "CLUE", "TERRORSCAPE"]);
-  assert.deepEqual(GAME_CATALOG.map(item => item.gameType), [...WEB_SUPPORTED_GAME_TYPES]);
+test("P21D preserves CITY admission and activates exactly thirty-game capability and Home", () => {
+  assert.deepEqual([...WEB_SUPPORTED_GAME_TYPES], ["HANGUL_TILE", "NUMBER_TILE", "GEM_CARD", "CITY_ROLE", "DRAW_RELAY", "SNEAKY_LUNCH", "WOLF_NIGHT", "HALLI_GALLI", "ISLAND_SETTLERS", "SPLENDOR", "TRAIN", "CENTURY", "SPIRIT_ISLAND", "SPACE_CREW", "ARK_NOVA", "JAIPUR", "LOVE_LETTER", "GURYONGTU", "WORD_DUET", "LOST_CITIES", "SABOTEUR", "LIAR_GAME", "SPYFALL", "AZUL", "VEGAS", "BURGUNDY", "CARCASSONNE", "CLUE", "TERRORSCAPE", "PANDEMIC"]);
+  assert.deepEqual(GAME_CATALOG.map(item => item.gameType).sort(), [...WEB_SUPPORTED_GAME_TYPES].sort());
 });
 
 test("CITY V2 selection/action/pending/finished decode into concrete room routes without a legacy Rack adaptation", () => {

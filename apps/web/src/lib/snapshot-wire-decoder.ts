@@ -14,6 +14,7 @@ import type { BurgundyLobbyPlatformSnapshotV2, BurgundyPlayingPlatformSnapshotV2
 import type { CarcassonneLobbyPlatformSnapshotV2, CarcassonnePlayingPlatformSnapshotV2, CarcassonneFinishedPlatformSnapshotV2 } from "@hangul-rummikub/shared";
 import type { ClueLobbyPlatformSnapshotV2, CluePlayingPlatformSnapshotV2, ClueFinishedPlatformSnapshotV2 } from "@hangul-rummikub/shared";
 import type { TerrorscapeLobbyPlatformSnapshotV2, TerrorscapePlayingPlatformSnapshotV2, TerrorscapeFinishedPlatformSnapshotV2 } from "@hangul-rummikub/shared";
+import type { PandemicLobbyPlatformSnapshotV2, PandemicPlayingPlatformSnapshotV2, PandemicFinishedPlatformSnapshotV2 } from "@hangul-rummikub/shared";
 import type { DuetLobbyPlatformSnapshotV2, DuetPlayingPlatformSnapshotV2, DuetFinishedPlatformSnapshotV2 } from "@hangul-rummikub/shared";
 import type { SaboteurLobbyPlatformSnapshotV2, SaboteurPlayingPlatformSnapshotV2, SaboteurFinishedPlatformSnapshotV2 } from "@hangul-rummikub/shared";
 import type { LostCitiesLobbyPlatformSnapshotV2, LostCitiesPlayingPlatformSnapshotV2, LostCitiesFinishedPlatformSnapshotV2 } from "@hangul-rummikub/shared";
@@ -73,6 +74,7 @@ export const WEB_SUPPORTED_GAME_TYPES = Object.freeze([
   "CARCASSONNE",
   "CLUE",
   "TERRORSCAPE",
+  "PANDEMIC",
 ] as const);
 
 export type CityRolePlatformSnapshotV2 =
@@ -107,6 +109,7 @@ export type BurgundyWebSnapshot = BurgundyLobbyPlatformSnapshotV2 | BurgundyPlay
 export type CarcassonneWebSnapshot = CarcassonneLobbyPlatformSnapshotV2 | CarcassonnePlayingPlatformSnapshotV2 | CarcassonneFinishedPlatformSnapshotV2;
 export type ClueWebSnapshot = ClueLobbyPlatformSnapshotV2 | CluePlayingPlatformSnapshotV2 | ClueFinishedPlatformSnapshotV2;
 export type TerrorscapeWebSnapshot = TerrorscapeLobbyPlatformSnapshotV2 | TerrorscapePlayingPlatformSnapshotV2 | TerrorscapeFinishedPlatformSnapshotV2;
+export type PandemicWebSnapshot = PandemicLobbyPlatformSnapshotV2 | PandemicPlayingPlatformSnapshotV2 | PandemicFinishedPlatformSnapshotV2;
 export type DuetWebSnapshot = DuetLobbyPlatformSnapshotV2 | DuetPlayingPlatformSnapshotV2 | DuetFinishedPlatformSnapshotV2;
 export type SaboteurWebSnapshot = SaboteurLobbyPlatformSnapshotV2 | SaboteurPlayingPlatformSnapshotV2 | SaboteurFinishedPlatformSnapshotV2;
 export type LostCitiesWebSnapshot = LostCitiesLobbyPlatformSnapshotV2 | LostCitiesPlayingPlatformSnapshotV2 | LostCitiesFinishedPlatformSnapshotV2;
@@ -132,6 +135,7 @@ export type CompatibleWebSnapshot =
   | Readonly<{kind: "PLATFORM_V2_CARCASSONNE"; snapshotVersion: 2; gameType: "CARCASSONNE"; platformSnapshot: CarcassonneWebSnapshot }>
   | Readonly<{kind: "PLATFORM_V2_CLUE"; snapshotVersion: 2; gameType: "CLUE"; platformSnapshot: ClueWebSnapshot }>
   | Readonly<{kind: "PLATFORM_V2_TERRORSCAPE"; snapshotVersion: 2; gameType: "TERRORSCAPE"; platformSnapshot: TerrorscapeWebSnapshot }>
+  | Readonly<{kind: "PLATFORM_V2_PANDEMIC"; snapshotVersion: 2; gameType: "PANDEMIC"; platformSnapshot: PandemicWebSnapshot }>
   | Readonly<{kind: "PLATFORM_V2_WORD_DUET"; snapshotVersion: 2; gameType: "WORD_DUET"; platformSnapshot: DuetWebSnapshot }>
   | Readonly<{kind: "PLATFORM_V2_SABOTEUR"; snapshotVersion: 2; gameType: "SABOTEUR"; platformSnapshot: SaboteurWebSnapshot }>
   | Readonly<{kind: "PLATFORM_V2_LOST_CITIES"; snapshotVersion: 2; gameType: "LOST_CITIES"; platformSnapshot: LostCitiesWebSnapshot }>
@@ -241,7 +245,7 @@ function decodePlatformSnapshotV2(
     input.room.gameType !== "HANGUL_TILE" &&
     input.room.gameType !== "NUMBER_TILE" &&
     input.room.gameType !== "GEM_CARD" &&
-    input.room.gameType !== "CITY_ROLE" && input.room.gameType !== "DRAW_RELAY" && input.room.gameType !== "SNEAKY_LUNCH" && input.room.gameType !== "WOLF_NIGHT" && input.room.gameType !== "LIAR_GAME" && input.room.gameType !== "SPYFALL" && input.room.gameType !== "WORD_DUET" && input.room.gameType !== "TRAIN" && input.room.gameType !== "CENTURY" && input.room.gameType !== "SPIRIT_ISLAND" && input.room.gameType !== "SPACE_CREW" && input.room.gameType !== "ARK_NOVA" && input.room.gameType !== "JAIPUR" && input.room.gameType !== "LOVE_LETTER" && input.room.gameType !== "GURYONGTU" && input.room.gameType !== "AZUL" && input.room.gameType !== "VEGAS" && input.room.gameType !== "BURGUNDY" && input.room.gameType !== "CARCASSONNE" && input.room.gameType !== "CLUE" && input.room.gameType !== "TERRORSCAPE" && input.room.gameType !== "SABOTEUR" && input.room.gameType !== "LOST_CITIES" && input.room.gameType !== "SPLENDOR" && input.room.gameType !== "HALLI_GALLI" && input.room.gameType !== "ISLAND_SETTLERS"
+    input.room.gameType !== "CITY_ROLE" && input.room.gameType !== "DRAW_RELAY" && input.room.gameType !== "SNEAKY_LUNCH" && input.room.gameType !== "WOLF_NIGHT" && input.room.gameType !== "LIAR_GAME" && input.room.gameType !== "SPYFALL" && input.room.gameType !== "WORD_DUET" && input.room.gameType !== "TRAIN" && input.room.gameType !== "CENTURY" && input.room.gameType !== "SPIRIT_ISLAND" && input.room.gameType !== "SPACE_CREW" && input.room.gameType !== "ARK_NOVA" && input.room.gameType !== "JAIPUR" && input.room.gameType !== "LOVE_LETTER" && input.room.gameType !== "GURYONGTU" && input.room.gameType !== "AZUL" && input.room.gameType !== "VEGAS" && input.room.gameType !== "BURGUNDY" && input.room.gameType !== "CARCASSONNE" && input.room.gameType !== "CLUE" && input.room.gameType !== "TERRORSCAPE" && input.room.gameType !== "PANDEMIC" && input.room.gameType !== "SABOTEUR" && input.room.gameType !== "LOST_CITIES" && input.room.gameType !== "SPLENDOR" && input.room.gameType !== "HALLI_GALLI" && input.room.gameType !== "ISLAND_SETTLERS"
   ) {
     return typeof input.room.gameType === "string"
       ? { kind: "INCOMPATIBLE", reason: "UNSUPPORTED_GAME_TYPE" }
@@ -336,6 +340,11 @@ function decodePlatformSnapshotV2(
     const snapshot = validation.value;
     if (!isTerrorscapeSnapshot(snapshot)) return { kind: "INCOMPATIBLE", reason: "INVALID_V2_PROJECTION" };
     return { kind: "COMPATIBLE", value: { kind: "PLATFORM_V2_TERRORSCAPE", snapshotVersion: 2, gameType: "TERRORSCAPE", platformSnapshot: snapshot } };
+  }
+  if (input.room.gameType === "PANDEMIC") {
+    const snapshot = validation.value;
+    if (!isPandemicSnapshot(snapshot)) return { kind: "INCOMPATIBLE", reason: "INVALID_V2_PROJECTION" };
+    return { kind: "COMPATIBLE", value: { kind: "PLATFORM_V2_PANDEMIC", snapshotVersion: 2, gameType: "PANDEMIC", platformSnapshot: snapshot } };
   }
   if (input.room.gameType === "WORD_DUET") {
     const snapshot = validation.value;
@@ -484,6 +493,7 @@ function isBurgundySnapshot(s: PlatformSnapshotV2): s is BurgundyWebSnapshot { r
 function isCarcassonneSnapshot(s: PlatformSnapshotV2): s is CarcassonneWebSnapshot { return s.room.gameType === "CARCASSONNE" && (s.game === null || s.game.gameType === "CARCASSONNE"); }
 function isClueSnapshot(s: PlatformSnapshotV2): s is ClueWebSnapshot { return s.room.gameType === "CLUE" && (s.game === null || s.game.gameType === "CLUE"); }
 function isTerrorscapeSnapshot(s: PlatformSnapshotV2): s is TerrorscapeWebSnapshot { return s.room.gameType === "TERRORSCAPE" && (s.game === null || s.game.gameType === "TERRORSCAPE"); }
+function isPandemicSnapshot(s: PlatformSnapshotV2): s is PandemicWebSnapshot { return s.room.gameType === "PANDEMIC" && (s.game === null || s.game.gameType === "PANDEMIC"); }
 function isDuetSnapshot(s: PlatformSnapshotV2): s is DuetWebSnapshot { return s.room.gameType === "WORD_DUET" && (s.game === null || s.game.gameType === "WORD_DUET"); }
 function isSaboteurSnapshot(s: PlatformSnapshotV2): s is SaboteurWebSnapshot { return s.room.gameType === "SABOTEUR" && (s.game === null || s.game.gameType === "SABOTEUR"); }
 function isLostCitiesSnapshot(s: PlatformSnapshotV2): s is LostCitiesWebSnapshot { return s.room.gameType === "LOST_CITIES" && (s.game === null || s.game.gameType === "LOST_CITIES"); }

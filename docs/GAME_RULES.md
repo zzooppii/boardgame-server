@@ -1,5 +1,7 @@
 # 한글 루미큐브 게임 규칙
 
+별도 게임 팬데믹의 확정 범위와 온라인 진행은 [PANDEMIC_GAME_RULES.md](./PANDEMIC_GAME_RULES.md)를 따른다. 이 문서의 한글 게임 미확정 항목은 변경하지 않는다.
+
 2026-09-13 스페이스 크루 P0 규칙 확정: [SPACE_CREW_GAME_RULES.md](./SPACE_CREW_GAME_RULES.md)와 [50미션 감사](./SPACE_CREW_MISSION_AUDIT.md)를 따른다. 제9행성 기본판 3–5인, 협동·제한 교신·강제 턴 시간 없음. 46번의 구조 신호 설정 순서는 공식 명문과 구분한 구현 해석으로 기록한다. 단계별 구현 상태는 [개발 기록](./SPACE_CREW_DELIVERY.md)을 따른다.
 
 2026-09-12 티켓 투 라이드 추가: [TRAIN_GAME_RULES.md](./TRAIN_GAME_RULES.md)와 [TRAIN_ARCHITECTURE.md](./TRAIN_ARCHITECTURE.md)를 따른다. 미국 구판 2–5인, 2026-09-14 CONFIRMED 사용자 요청으로 차례당 90초, 서버 권위형 철도 연결과 개인별 카드 projection.

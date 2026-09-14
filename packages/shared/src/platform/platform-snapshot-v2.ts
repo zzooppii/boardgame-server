@@ -17,6 +17,7 @@ import { VegasPlayingProjectionSchema, VegasFinishedProjectionSchema, vegasProje
 import { CarcassonnePlayingProjectionSchema, CarcassonneFinishedProjectionSchema, carcassonneProjectionIsConsistent } from "../games/carcassonne/contracts.js";
 import { CluePlayingProjectionSchema, ClueFinishedProjectionSchema, clueProjectionIsConsistent } from "../games/clue/contracts.js";
 import { TerrorscapePlayingProjectionSchema, TerrorscapeFinishedProjectionSchema, terrorscapeProjectionIsConsistent } from "../games/terrorscape/contracts.js";
+import { PandemicPlayingProjectionSchema, PandemicFinishedProjectionSchema, pandemicProjectionIsConsistent } from "../games/pandemic/contracts.js";
 import { DuetPlayingProjectionSchema, DuetFinishedProjectionSchema, duetProjectionIsConsistent } from "../games/word-duet/contracts.js";
 import { LostCitiesSettingsSchema } from "../games/lost-cities/actions.js";
 import { LostCitiesPlayingProjectionSchema, LostCitiesFinishedProjectionSchema, lostCitiesProjectionIsConsistent } from "../games/lost-cities/contracts.js";
@@ -578,6 +579,23 @@ export const TerrorscapeLobbyPlatformSnapshotV2Schema: v.GenericSchema<unknown, 
 export const TerrorscapePlayingPlatformSnapshotV2Schema: v.GenericSchema<unknown, TerrorscapePlayingPlatformSnapshotV2> = TerrorscapePlayingRaw;
 export const TerrorscapeFinishedPlatformSnapshotV2Schema: v.GenericSchema<unknown, TerrorscapeFinishedPlatformSnapshotV2> = TerrorscapeFinishedRaw;
 
+const PandemicOuter = { snapshotVersion: PlatformSnapshotVersionSchema, versions: PlatformSnapshotVersionsV2Schema, serverTime: ServerTimeSchema, self: PlatformSelfViewV2Schema };
+const PandemicRoom = { roomId: RoomIdSchema, roomCode: RoomCodeSchema, gameType: v.literal("PANDEMIC") };
+const PandemicPlayers = v.pipe(v.array(PlatformPlayerViewV2Schema), v.minLength(2), v.maxLength(4));
+const PandemicLobbyRaw = v.pipe(v.strictObject({ ...PandemicOuter, room: v.strictObject({ ...PandemicRoom, phase: v.literal("LOBBY"),
+  players: v.pipe(v.array(PlatformPlayerViewV2Schema), v.maxLength(10)) }), game: v.null() }),
+  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)));
+const PandemicPlayingRaw = v.pipe(v.strictObject({ ...PandemicOuter, room: v.strictObject({ ...PandemicRoom, phase: v.literal("PLAYING"), players: PandemicPlayers }), game: PandemicPlayingProjectionSchema }),
+  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)), v.check(s => hasMatchingGamePlayers(s)), v.check(s => pandemicProjectionIsConsistent(s.game)), v.check(s => s.game.privateState.playerId === s.self.playerId));
+const PandemicFinishedRaw = v.pipe(v.strictObject({ ...PandemicOuter, room: v.strictObject({ ...PandemicRoom, phase: v.literal("FINISHED"), players: PandemicPlayers }), game: PandemicFinishedProjectionSchema }),
+  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)), v.check(s => hasMatchingGamePlayers(s)), v.check(s => pandemicProjectionIsConsistent(s.game)), v.check(s => s.game.privateState.playerId === s.self.playerId));
+export type PandemicLobbyPlatformSnapshotV2 = v.InferOutput<typeof PandemicLobbyRaw>;
+export type PandemicPlayingPlatformSnapshotV2 = v.InferOutput<typeof PandemicPlayingRaw>;
+export type PandemicFinishedPlatformSnapshotV2 = v.InferOutput<typeof PandemicFinishedRaw>;
+export const PandemicLobbyPlatformSnapshotV2Schema: v.GenericSchema<unknown, PandemicLobbyPlatformSnapshotV2> = PandemicLobbyRaw;
+export const PandemicPlayingPlatformSnapshotV2Schema: v.GenericSchema<unknown, PandemicPlayingPlatformSnapshotV2> = PandemicPlayingRaw;
+export const PandemicFinishedPlatformSnapshotV2Schema: v.GenericSchema<unknown, PandemicFinishedPlatformSnapshotV2> = PandemicFinishedRaw;
+
 const DuetOuter = { snapshotVersion: PlatformSnapshotVersionSchema, versions: PlatformSnapshotVersionsV2Schema, serverTime: ServerTimeSchema, self: PlatformSelfViewV2Schema };
 const DuetRoom = { roomId: RoomIdSchema, roomCode: RoomCodeSchema, gameType: v.literal("WORD_DUET") };
 const DuetPlayers = v.pipe(v.array(PlatformPlayerViewV2Schema), v.length(2));
@@ -714,6 +732,7 @@ export const LobbyPlatformSnapshotV2Schema = v.union([
   CarcassonneLobbyPlatformSnapshotV2Schema,
   ClueLobbyPlatformSnapshotV2Schema,
   TerrorscapeLobbyPlatformSnapshotV2Schema,
+  PandemicLobbyPlatformSnapshotV2Schema,
   DuetLobbyPlatformSnapshotV2Schema,
   SaboteurLobbyPlatformSnapshotV2Schema,
   LostCitiesLobbyPlatformSnapshotV2Schema,
@@ -877,6 +896,7 @@ export const PlayingPlatformSnapshotV2Schema = v.union([
   CarcassonnePlayingPlatformSnapshotV2Schema,
   CluePlayingPlatformSnapshotV2Schema,
   TerrorscapePlayingPlatformSnapshotV2Schema,
+  PandemicPlayingPlatformSnapshotV2Schema,
   DuetPlayingPlatformSnapshotV2Schema,
   SaboteurPlayingPlatformSnapshotV2Schema,
   LostCitiesPlayingPlatformSnapshotV2Schema,
@@ -1040,6 +1060,7 @@ export const FinishedPlatformSnapshotV2Schema = v.union([
   CarcassonneFinishedPlatformSnapshotV2Schema,
   ClueFinishedPlatformSnapshotV2Schema,
   TerrorscapeFinishedPlatformSnapshotV2Schema,
+  PandemicFinishedPlatformSnapshotV2Schema,
   DuetFinishedPlatformSnapshotV2Schema,
   SaboteurFinishedPlatformSnapshotV2Schema,
   LostCitiesFinishedPlatformSnapshotV2Schema,
