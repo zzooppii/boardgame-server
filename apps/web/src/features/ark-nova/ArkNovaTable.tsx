@@ -72,7 +72,7 @@ export function ArkNovaTable({state:s,disabled,onCommand:send,onCue}:Props) {
         {s.repeatedAction&&actionAvailable&&<button onClick={()=>send({kind:'END_REPEAT'})}>반복 행동 마치기</button>}
         {s.extraAction&&!s.extraAction.started&&actionAvailable&&<button onClick={()=>send({kind:'CANCEL_EXTRA'})}>추가 행동 포기</button>}
       </section></div>
-    <section><h2>공개 카드 <small>덱 {s.deckCount}장</small></h2><ArkNovaDisplay cards={s.display} selected={market} disabled={disabled||s.phase==='FINISHED'||s.progress.stage==='SETUP'||pending?.kind==='FINAL_GOAL'} onSelect={id=>{setChosen([]);setMarket(m=>m===id?null:id);onCue('CARD');}}/></section>
+    <section><h2>공개 카드 <small>덱 {s.deckCount}장</small></h2><ArkNovaDisplay reputation={s.reputation} cardsUpgraded={s.actions.some(a=>a.kind==='CARDS'&&a.upgraded)} cards={s.display} selected={market} disabled={disabled||s.phase==='FINISHED'||s.progress.stage==='SETUP'||pending?.kind==='FINAL_GOAL'} onSelect={id=>{setChosen([]);setMarket(m=>m===id?null:id);onCue('CARD');}}/></section>
     {s.progress.stage!=='SETUP'&&<section><h2>내 손패 · {s.hand.length}장</h2><ArkNovaCardRow cards={s.hand} selected={chosen} disabled={disabled||s.phase==='FINISHED'||pending?.kind==='FINAL_GOAL'} onSelect={select}/></section>}
     <details><summary>내 동물과 후원자 · {s.played.length}장</summary><ArkNovaCardRow cards={s.played}/></details>
     <details><summary>최종 목표와 보전 프로젝트</summary><ArkNovaCardRow cards={[...s.goals,...s.baseProjects,...s.playedProjects]}/></details>
