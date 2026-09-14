@@ -18,6 +18,7 @@ import { CarcassonnePlayingProjectionSchema, CarcassonneFinishedProjectionSchema
 import { CluePlayingProjectionSchema, ClueFinishedProjectionSchema, clueProjectionIsConsistent } from "../games/clue/contracts.js";
 import { TerrorscapePlayingProjectionSchema, TerrorscapeFinishedProjectionSchema, terrorscapeProjectionIsConsistent } from "../games/terrorscape/contracts.js";
 import { PandemicPlayingProjectionSchema, PandemicFinishedProjectionSchema, pandemicProjectionIsConsistent } from "../games/pandemic/contracts.js";
+import { PerchPlayingProjectionSchema, PerchFinishedProjectionSchema, perchProjectionIsConsistent } from "../games/perch/contracts.js";
 import { DuetPlayingProjectionSchema, DuetFinishedProjectionSchema, duetProjectionIsConsistent } from "../games/word-duet/contracts.js";
 import { LostCitiesSettingsSchema } from "../games/lost-cities/actions.js";
 import { LostCitiesPlayingProjectionSchema, LostCitiesFinishedProjectionSchema, lostCitiesProjectionIsConsistent } from "../games/lost-cities/contracts.js";
@@ -596,6 +597,23 @@ export const PandemicLobbyPlatformSnapshotV2Schema: v.GenericSchema<unknown, Pan
 export const PandemicPlayingPlatformSnapshotV2Schema: v.GenericSchema<unknown, PandemicPlayingPlatformSnapshotV2> = PandemicPlayingRaw;
 export const PandemicFinishedPlatformSnapshotV2Schema: v.GenericSchema<unknown, PandemicFinishedPlatformSnapshotV2> = PandemicFinishedRaw;
 
+const PerchOuter = { snapshotVersion: PlatformSnapshotVersionSchema, versions: PlatformSnapshotVersionsV2Schema, serverTime: ServerTimeSchema, self: PlatformSelfViewV2Schema };
+const PerchRoom = { roomId: RoomIdSchema, roomCode: RoomCodeSchema, gameType: v.literal("PERCH") };
+const PerchPlayers = v.pipe(v.array(PlatformPlayerViewV2Schema), v.minLength(2), v.maxLength(5));
+const PerchLobbyRaw = v.pipe(v.strictObject({ ...PerchOuter, room: v.strictObject({ ...PerchRoom, phase: v.literal("LOBBY"),
+  players: v.pipe(v.array(PlatformPlayerViewV2Schema), v.maxLength(10)) }), game: v.null() }),
+  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)));
+const PerchPlayingRaw = v.pipe(v.strictObject({ ...PerchOuter, room: v.strictObject({ ...PerchRoom, phase: v.literal("PLAYING"), players: PerchPlayers }), game: PerchPlayingProjectionSchema }),
+  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)), v.check(s => hasMatchingGamePlayers(s)), v.check(s => perchProjectionIsConsistent(s.game)), v.check(s => s.game.privateState.playerId === s.self.playerId));
+const PerchFinishedRaw = v.pipe(v.strictObject({ ...PerchOuter, room: v.strictObject({ ...PerchRoom, phase: v.literal("FINISHED"), players: PerchPlayers }), game: PerchFinishedProjectionSchema }),
+  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)), v.check(s => hasMatchingGamePlayers(s)), v.check(s => perchProjectionIsConsistent(s.game)), v.check(s => s.game.privateState.playerId === s.self.playerId));
+export type PerchLobbyPlatformSnapshotV2 = v.InferOutput<typeof PerchLobbyRaw>;
+export type PerchPlayingPlatformSnapshotV2 = v.InferOutput<typeof PerchPlayingRaw>;
+export type PerchFinishedPlatformSnapshotV2 = v.InferOutput<typeof PerchFinishedRaw>;
+export const PerchLobbyPlatformSnapshotV2Schema: v.GenericSchema<unknown, PerchLobbyPlatformSnapshotV2> = PerchLobbyRaw;
+export const PerchPlayingPlatformSnapshotV2Schema: v.GenericSchema<unknown, PerchPlayingPlatformSnapshotV2> = PerchPlayingRaw;
+export const PerchFinishedPlatformSnapshotV2Schema: v.GenericSchema<unknown, PerchFinishedPlatformSnapshotV2> = PerchFinishedRaw;
+
 const DuetOuter = { snapshotVersion: PlatformSnapshotVersionSchema, versions: PlatformSnapshotVersionsV2Schema, serverTime: ServerTimeSchema, self: PlatformSelfViewV2Schema };
 const DuetRoom = { roomId: RoomIdSchema, roomCode: RoomCodeSchema, gameType: v.literal("WORD_DUET") };
 const DuetPlayers = v.pipe(v.array(PlatformPlayerViewV2Schema), v.length(2));
@@ -733,6 +751,7 @@ export const LobbyPlatformSnapshotV2Schema = v.union([
   ClueLobbyPlatformSnapshotV2Schema,
   TerrorscapeLobbyPlatformSnapshotV2Schema,
   PandemicLobbyPlatformSnapshotV2Schema,
+  PerchLobbyPlatformSnapshotV2Schema,
   DuetLobbyPlatformSnapshotV2Schema,
   SaboteurLobbyPlatformSnapshotV2Schema,
   LostCitiesLobbyPlatformSnapshotV2Schema,
@@ -897,6 +916,7 @@ export const PlayingPlatformSnapshotV2Schema = v.union([
   CluePlayingPlatformSnapshotV2Schema,
   TerrorscapePlayingPlatformSnapshotV2Schema,
   PandemicPlayingPlatformSnapshotV2Schema,
+  PerchPlayingPlatformSnapshotV2Schema,
   DuetPlayingPlatformSnapshotV2Schema,
   SaboteurPlayingPlatformSnapshotV2Schema,
   LostCitiesPlayingPlatformSnapshotV2Schema,
@@ -1061,6 +1081,7 @@ export const FinishedPlatformSnapshotV2Schema = v.union([
   ClueFinishedPlatformSnapshotV2Schema,
   TerrorscapeFinishedPlatformSnapshotV2Schema,
   PandemicFinishedPlatformSnapshotV2Schema,
+  PerchFinishedPlatformSnapshotV2Schema,
   DuetFinishedPlatformSnapshotV2Schema,
   SaboteurFinishedPlatformSnapshotV2Schema,
   LostCitiesFinishedPlatformSnapshotV2Schema,

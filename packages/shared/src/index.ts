@@ -132,5 +132,8 @@ export * from './games/ark-nova/action-values.js';
 export * from './games/ark-nova/solo-abilities.js';
 
 export * from './games/pandemic/catalog.js';
+export * from './games/perch/catalog.js';
 export * from './games/pandemic/actions.js';
+export * from './games/perch/actions.js';
 export * from './games/pandemic/contracts.js';
+export * from './games/perch/contracts.js';

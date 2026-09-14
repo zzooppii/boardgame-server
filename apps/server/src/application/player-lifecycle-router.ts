@@ -14,6 +14,7 @@ import type { createCarcassonneLifecycle } from "../games/carcassonne/applicatio
 import type { createClueLifecycle } from "../games/clue/application/lifecycle.js";
 import type { createTerrorscapeLifecycle } from "../games/terrorscape/application/lifecycle.js";
 import type { createPandemicLifecycle } from "../games/pandemic/application/lifecycle.js";
+import type { createPerchLifecycle } from "../games/perch/application/lifecycle.js";
 import type { createDuetLifecycle } from "../games/word-duet/application/lifecycle.js";
 import type { createSaboteurLifecycle } from "../games/saboteur/application/lifecycle.js";
 import type { createLostCitiesLifecycle } from "../games/lost-cities/application/lifecycle.js";
@@ -97,6 +98,7 @@ export type PlayerLifecycleRouterDependencies = Readonly<{
   clue?: ReturnType<typeof createClueLifecycle>;
   terrorscape?: ReturnType<typeof createTerrorscapeLifecycle>;
   pandemic?: ReturnType<typeof createPandemicLifecycle>;
+  perch?: ReturnType<typeof createPerchLifecycle>;
   duet?: ReturnType<typeof createDuetLifecycle>;
   saboteur?: ReturnType<typeof createSaboteurLifecycle>;
   lostCities?: ReturnType<typeof createLostCitiesLifecycle>;
@@ -142,6 +144,7 @@ export class PlayerLifecycleRouter implements PlayerLifecycleActionRouting {
   readonly #clue: ReturnType<typeof createClueLifecycle> | undefined;
   readonly #terrorscape: ReturnType<typeof createTerrorscapeLifecycle> | undefined;
   readonly #pandemic: ReturnType<typeof createPandemicLifecycle> | undefined;
+  readonly #perch: ReturnType<typeof createPerchLifecycle> | undefined;
   readonly #duet: ReturnType<typeof createDuetLifecycle> | undefined;
   readonly #saboteur: ReturnType<typeof createSaboteurLifecycle> | undefined;
   readonly #lostCities: ReturnType<typeof createLostCitiesLifecycle> | undefined;
@@ -179,6 +182,7 @@ export class PlayerLifecycleRouter implements PlayerLifecycleActionRouting {
     this.#clue = dependencies.clue;
     this.#terrorscape = dependencies.terrorscape;
     this.#pandemic = dependencies.pandemic;
+    this.#perch = dependencies.perch;
     this.#duet = dependencies.duet;
     this.#saboteur = dependencies.saboteur;
     this.#lostCities = dependencies.lostCities;
@@ -255,6 +259,9 @@ export class PlayerLifecycleRouter implements PlayerLifecycleActionRouting {
       case "PANDEMIC":
         if (!this.#pandemic) throw new Error("PANDEMIC lifecycle missing.");
         return this.#pandemic.applyPlayingLeave(input);
+      case "PERCH":
+        if (!this.#perch) throw new Error("PERCH lifecycle missing.");
+        return this.#perch.applyPlayingLeave(input);
       case "WORD_DUET":
         if (!this.#duet) throw new Error("WORD_DUET lifecycle missing.");
         return this.#duet.applyPlayingLeave(input);
@@ -312,6 +319,7 @@ export class PlayerLifecycleRouter implements PlayerLifecycleActionRouting {
       case "CLUE": return {status:"NO_CHANGE"};
       case "TERRORSCAPE": return {status:"NO_CHANGE"};
       case "PANDEMIC": return {status:"NO_CHANGE"};
+      case "PERCH": return {status:"NO_CHANGE"};
       case "WORD_DUET": return {status:"NO_CHANGE"};
       case "SABOTEUR": return {status:"NO_CHANGE"};
       case "LOST_CITIES": return {status:"NO_CHANGE"};

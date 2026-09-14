@@ -22,6 +22,7 @@ import { CarcassonneHostSuccession } from "./games/carcassonne/application/host-
 import { ClueHostSuccession } from "./games/clue/application/host-succession.js";
 import { TerrorscapeHostSuccession } from "./games/terrorscape/application/host-succession.js";
 import { PandemicHostSuccession } from "./games/pandemic/application/host-succession.js";
+import { PerchHostSuccession } from "./games/perch/application/host-succession.js";
 import { DuetHostSuccession } from "./games/word-duet/application/host-succession.js";
 import { SaboteurHostSuccession } from "./games/saboteur/application/host-succession.js";
 import { LostCitiesHostSuccession } from "./games/lost-cities/application/host-succession.js";
@@ -44,6 +45,7 @@ import { CarcassonneService } from "./games/carcassonne/application/service.js";
 import { ClueService } from "./games/clue/application/service.js";
 import { TerrorscapeService } from "./games/terrorscape/application/service.js";
 import { PandemicService } from "./games/pandemic/application/service.js";
+import { PerchService } from "./games/perch/application/service.js";
 import { DuetService } from "./games/word-duet/application/service.js";
 import { SaboteurService } from "./games/saboteur/application/service.js";
 import { LostCitiesService } from "./games/lost-cities/application/service.js";
@@ -66,6 +68,7 @@ import { createCarcassonneLifecycle } from "./games/carcassonne/application/life
 import { createClueLifecycle } from "./games/clue/application/lifecycle.js";
 import { createTerrorscapeLifecycle } from "./games/terrorscape/application/lifecycle.js";
 import { createPandemicLifecycle } from "./games/pandemic/application/lifecycle.js";
+import { createPerchLifecycle } from "./games/perch/application/lifecycle.js";
 import { createDuetLifecycle } from "./games/word-duet/application/lifecycle.js";
 import { createSaboteurLifecycle } from "./games/saboteur/application/lifecycle.js";
 import { createLostCitiesLifecycle } from "./games/lost-cities/application/lifecycle.js";
@@ -203,6 +206,7 @@ export type ApplicationRuntime = Readonly<{
   clueService?: ClueService;
   terrorscapeService?: TerrorscapeService;
   pandemicService?: PandemicService;
+  perchService?: PerchService;
   duetService?: DuetService;
   saboteurService?: SaboteurService;
   lostCitiesService?: LostCitiesService;
@@ -226,6 +230,7 @@ export type ApplicationRuntime = Readonly<{
   clueHostSuccession?: ClueHostSuccession;
   terrorscapeHostSuccession?: TerrorscapeHostSuccession;
   pandemicHostSuccession?: PandemicHostSuccession;
+  perchHostSuccession?: PerchHostSuccession;
   duetHostSuccession?: DuetHostSuccession;
   saboteurHostSuccession?: SaboteurHostSuccession;
   lostCitiesHostSuccession?: LostCitiesHostSuccession;
@@ -356,6 +361,7 @@ export function createApplicationRuntime(
       { gameType: "CLUE" },
       { gameType: "TERRORSCAPE" },
       { gameType: "PANDEMIC" },
+      { gameType: "PERCH" },
       { gameType: "WORD_DUET" },
       { gameType: "SABOTEUR" },
       { gameType: "LOST_CITIES" },
@@ -407,6 +413,7 @@ export function createApplicationRuntime(
     clue: createClueLifecycle(),
     terrorscape: createTerrorscapeLifecycle(),
     pandemic: createPandemicLifecycle(),
+    perch: createPerchLifecycle(),
     duet: createDuetLifecycle(),
     saboteur: createSaboteurLifecycle(),
     lostCities: createLostCitiesLifecycle(),
@@ -804,6 +811,13 @@ export function createApplicationRuntime(
     const room = await persistence.findById(roomId);
     if (room?.gameType === "PANDEMIC" && room.phase === "FINISHED" && room.game) await onGameFinished({ roomId, gameId: room.game.gameId });
   });
+  const perchService = new PerchService({ roomRepository: persistence, roomUnitOfWork: persistence, idempotencyRepository: persistence,
+    roomMutationExecutor, presence: presenceReader, clock, ids: idGenerator, random: randomSource });
+  const perchHostSuccession = new PerchHostSuccession(perchService.deps, roomId => perchService.notify(roomId));
+  perchService.subscribe(async roomId => {
+    const room = await persistence.findById(roomId);
+    if (room?.gameType === "PERCH" && room.phase === "FINISHED" && room.game) await onGameFinished({ roomId, gameId: room.game.gameId });
+  });
   const duetService = new DuetService({ roomRepository: persistence, roomUnitOfWork: persistence, idempotencyRepository: persistence,
     roomMutationExecutor, presence: presenceReader, clock, ids: idGenerator, random: randomSource });
   const duetHostSuccession = new DuetHostSuccession(duetService.deps, roomId => duetService.notify(roomId));
@@ -939,6 +953,7 @@ export function createApplicationRuntime(
     clue: { gameType: "CLUE", start: input => clueService.start(input) },
     terrorscape: { gameType: "TERRORSCAPE", start: input => terrorscapeService.start(input) },
     pandemic: { gameType: "PANDEMIC", start: input => pandemicService.start(input) },
+    perch: { gameType: "PERCH", start: input => perchService.start(input) },
     duet: { gameType: "WORD_DUET", start: input => duetService.start(input) },
     saboteur: { gameType: "SABOTEUR", start: input => saboteurService.start(input) },
     lostCities: { gameType: "LOST_CITIES", start: input => lostCitiesService.start(input) },
@@ -1161,6 +1176,7 @@ export function createApplicationRuntime(
     clueService,
     terrorscapeService,
     pandemicService,
+    perchService,
     duetService,
     saboteurService,
     lostCitiesService,
@@ -1184,6 +1200,7 @@ export function createApplicationRuntime(
     clueHostSuccession,
     terrorscapeHostSuccession,
     pandemicHostSuccession,
+    perchHostSuccession,
     duetHostSuccession,
     saboteurHostSuccession,
     lostCitiesHostSuccession,
@@ -1257,6 +1274,7 @@ export function createApplicationRuntime(
       clueHostSuccession.start();
       terrorscapeHostSuccession.start();
       pandemicHostSuccession.start();
+      perchHostSuccession.start();
       duetHostSuccession.start();
       saboteurHostSuccession.start();
       lostCitiesHostSuccession.start();
@@ -1298,6 +1316,7 @@ export function createApplicationRuntime(
       clueHostSuccession.stop();
       terrorscapeHostSuccession.stop();
       pandemicHostSuccession.stop();
+      perchHostSuccession.stop();
       duetHostSuccession.stop();
       saboteurHostSuccession.stop();
       lostCitiesHostSuccession.stop();

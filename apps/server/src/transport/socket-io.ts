@@ -1367,6 +1367,7 @@ function registerResumeHandler(
         runtime.clueHostSuccession?.resumed(result.data.roomId, result.data.playerId);
         runtime.terrorscapeHostSuccession?.resumed(result.data.roomId, result.data.playerId);
         runtime.pandemicHostSuccession?.resumed(result.data.roomId, result.data.playerId);
+        runtime.perchHostSuccession?.resumed(result.data.roomId, result.data.playerId);
         runtime.duetHostSuccession?.resumed(result.data.roomId, result.data.playerId);
         runtime.saboteurHostSuccession?.resumed(result.data.roomId, result.data.playerId);
         runtime.lostCitiesHostSuccession?.resumed(result.data.roomId, result.data.playerId);
@@ -3124,6 +3125,27 @@ function registerPandemicHandlers(socket: RealtimeSocket, runtime: ApplicationRu
   });
 }
 
+import { PerchClientCommandSchema } from "@hangul-rummikub/shared";
+function registerPerchHandlers(socket: RealtimeSocket, runtime: ApplicationRuntime): void {
+  for (const event of ["perch:act"] as const) socket.on(event, (raw: unknown, acknowledge: (ack: StateSyncWireAck) => void) => {
+    const receivedAt = runtime.clock.now(), command = parseNumberRematch(PerchClientCommandSchema, raw);
+    if (!command.success || command.output.kind !== event) { acknowledgeIfPresent(acknowledge, failureAck(raw, INVALID_PAYLOAD_ERROR, receivedAt)); return; }
+    void (async () => {
+      const binding = runtime.connectionRegistry.getAuthenticatedBinding(createSocketId(socket.id));
+      if (!binding) { acknowledgeIfPresent(acknowledge, failureAck(raw, UNAUTHENTICATED_ERROR, receivedAt)); return; }
+      if (!isRoomAdmissionCompatible("PERCH", socketAdmissionCapabilities(socket))) {
+        acknowledgeIfPresent(acknowledge, failureAck(raw, {code:"INCOMPATIBLE_GAME_CAPABILITY",message:"PERCH requires V2 capability.",recoverable:false}, receivedAt)); return;
+      }
+      if (!runtime.perchService) { acknowledgeIfPresent(acknowledge, failureAck(raw, INTERNAL_ERROR, receivedAt)); return; }
+      const result = await runtime.perchService.command({roomId:binding.roomId,actorPlayerId:binding.playerId,command:command.output,receivedAt,
+        authorization:{isCurrent:()=>socket.connected && isCurrentBinding(runtime,binding)}});
+      if (!result.ok) { acknowledgeIfPresent(acknowledge, failureAck(raw,result.error,receivedAt)); return; }
+      const loaded = await loadSnapshotForSocket(runtime,socket,binding.roomId,binding.playerId);
+      if (loaded && socket.connected && isCurrentBinding(runtime,binding)) acknowledgeIfPresent(acknowledge,snapshotSuccessAck(command.output.requestId,loaded.metadata,loaded.wireSnapshot));
+    })().catch(()=>acknowledgeIfPresent(acknowledge,failureAck(raw,INTERNAL_ERROR,receivedAt)));
+  });
+}
+
 import { DuetClientCommandSchema } from "@hangul-rummikub/shared";
 function registerDuetHandlers(socket: RealtimeSocket, runtime: ApplicationRuntime): void {
   for (const event of ["duet:act"] as const) socket.on(event, (raw: unknown, acknowledge: (ack: StateSyncWireAck) => void) => {
@@ -3584,6 +3606,7 @@ function registerDisconnectHandler(
     runtime.clueHostSuccession?.disconnected(binding.roomId, binding.playerId, disconnectedAt);
     runtime.terrorscapeHostSuccession?.disconnected(binding.roomId, binding.playerId, disconnectedAt);
     runtime.pandemicHostSuccession?.disconnected(binding.roomId, binding.playerId, disconnectedAt);
+    runtime.perchHostSuccession?.disconnected(binding.roomId, binding.playerId, disconnectedAt);
     runtime.duetHostSuccession?.disconnected(binding.roomId, binding.playerId, disconnectedAt);
     runtime.saboteurHostSuccession?.disconnected(binding.roomId, binding.playerId, disconnectedAt);
     runtime.lostCitiesHostSuccession?.disconnected(binding.roomId, binding.playerId, disconnectedAt);
@@ -3686,6 +3709,7 @@ export function registerSocketIoHandlers(
   const unsubscribeClue = runtime.clueService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
   const unsubscribeTerrorscape = runtime.terrorscapeService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
   const unsubscribePandemic = runtime.pandemicService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
+  const unsubscribePerch = runtime.perchService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
   const unsubscribeDuet = runtime.duetService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
   const unsubscribeSaboteur = runtime.saboteurService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
   const unsubscribeLostCities = runtime.lostCitiesService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
@@ -3759,6 +3783,7 @@ export function registerSocketIoHandlers(
     registerClueHandlers(socket, runtime);
     registerTerrorscapeHandlers(socket, runtime);
     registerPandemicHandlers(socket, runtime);
+    registerPerchHandlers(socket, runtime);
     registerDuetHandlers(socket, runtime);
     registerSaboteurHandlers(socket, runtime);
     registerLostCitiesHandlers(socket, runtime);
@@ -3801,6 +3826,7 @@ export function registerSocketIoHandlers(
     unsubscribeClue?.();
     unsubscribeTerrorscape?.();
     unsubscribePandemic?.();
+    unsubscribePerch?.();
     unsubscribeDuet?.();
     unsubscribeSaboteur?.();
     unsubscribeLostCities?.();

@@ -31,6 +31,7 @@ export const SUPPORTED_GAME_TYPES = Object.freeze([
   "CLUE",
   "TERRORSCAPE",
   "PANDEMIC",
+  "PERCH",
 ] as const);
 
 export const GameTypeSchema = v.picklist(SUPPORTED_GAME_TYPES);
@@ -50,6 +51,7 @@ export const GAME_PLAYER_LIMITS = Object.freeze({
   CLUE: { min: 3, max: 6 },
   TERRORSCAPE: { min: 2, max: 4 },
   PANDEMIC: { min: 2, max: 4 },
+  PERCH: { min: 2, max: 5 },
   HANGUL_TILE: { min: 2, max: 4 }, NUMBER_TILE: { min: 2, max: 4 }, GEM_CARD: { min: 2, max: 4 },
   CITY_ROLE: { min: 2, max: 6 }, DRAW_RELAY: { min: 3, max: 8 }, SNEAKY_LUNCH: { min: 2, max: 8 },
   WOLF_NIGHT: { min: 3, max: 10 }, HALLI_GALLI: { min: 2, max: 6 }, ISLAND_SETTLERS: { min: 3, max: 4 },

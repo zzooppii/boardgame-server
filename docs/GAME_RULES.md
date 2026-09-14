@@ -1,5 +1,7 @@
 # 한글 루미큐브 게임 규칙
 
+별도 게임 퍼치의 CONFIRMED 기본판 규칙과 온라인 정책은 [PERCH_GAME_RULES.md](./PERCH_GAME_RULES.md)를 따른다. 기존 한글 게임의 미확정 항목은 변경하지 않는다.
+
 별도 게임 팬데믹의 확정 범위와 온라인 진행은 [PANDEMIC_GAME_RULES.md](./PANDEMIC_GAME_RULES.md)를 따른다. 이 문서의 한글 게임 미확정 항목은 변경하지 않는다.
 
 2026-09-13 스페이스 크루 P0 규칙 확정: [SPACE_CREW_GAME_RULES.md](./SPACE_CREW_GAME_RULES.md)와 [50미션 감사](./SPACE_CREW_MISSION_AUDIT.md)를 따른다. 제9행성 기본판 3–5인, 협동·제한 교신·강제 턴 시간 없음. 46번의 구조 신호 설정 순서는 공식 명문과 구분한 구현 해석으로 기록한다. 단계별 구현 상태는 [개발 기록](./SPACE_CREW_DELIVERY.md)을 따른다.

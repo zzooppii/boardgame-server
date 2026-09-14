@@ -52,6 +52,7 @@ export const GAME_CATALOG = Object.freeze([
   Object.freeze({ gameType: "CARCASSONNE", displayName: "카르카손", description: "도시와 길을 잇고 미플로 땅을 차지하는 2~5인 타일 전략 게임입니다." }),
   Object.freeze({ gameType: "CLUE", displayName: "클루", description: "저택을 탐색하고 비밀 단서를 모아 사건을 해결하는 3~6인 추리 보드게임입니다." }),
   Object.freeze({ gameType: "PANDEMIC", displayName: "팬데믹", description: "세계를 구하는 2~4인 협동 게임. 7가지 역할과 함께 네 가지 치료제를 발견하세요." }),
+  Object.freeze({ gameType: "PERCH", displayName: "퍼치", description: "귀여운 새들의 치열한 자리 다툼. 2~5명이 새를 쌓고 숲속 동물을 조종하세요." }),
   Object.freeze({ gameType: "TERRORSCAPE", displayName: "테러스케이프", description: "소리를 좇는 살인마와 탈출을 준비하는 생존자. 2~4인 비대칭 공포 게임 · 기본판 + Feral Instincts." }),
 ] as const satisfies readonly GameCatalogItem[]);
 
