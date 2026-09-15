@@ -37,6 +37,7 @@ test('Ark reward controls show worker alternative and only non-upgraded actions'
   state.actions=state.actions.map(a=>({...a,upgraded:a.kind==='CARDS'}));
   const html=renderToStaticMarkup(createElement(ArkNovaRewards,{state,disabled:false,onCommand:()=>{}}));
   assert.match(html,/직원 받기/);assert.match(html,/건설 II/);assert.doesNotMatch(html,/>카드 II</);
+  assert.match(html,/동물 II 조건이 있는 동물/);assert.match(html,/행동력의 2배/);assert.match(html,/제휴 동물원 보유 한도/);assert.match(html,/파충류관·대형 조류관/);assert.doesNotMatch(html,/평판 상한 9/);
 });
 
 test('Ark effect panel renders only published conservation rewards and offers the money alternative',async()=>{
