@@ -21,6 +21,7 @@ import { projectPerch } from "../games/perch/compatibility/projector.js";
 import { projectHarmonies } from "../games/harmonies/compatibility/projector.js";
 import { projectPatchwork } from "../games/patchwork/compatibility/projector.js";
 import { projectArnak } from "../games/arnak/compatibility/projector.js";
+import { projectMars } from "../games/mars/compatibility/projector.js";
 import { projectDuel } from "../games/seven-wonders-duel/compatibility/projector.js";
 import { projectDuet } from "../games/word-duet/compatibility/projector.js";
 import { projectSaboteur } from "../games/saboteur/compatibility/projector.js";
@@ -168,6 +169,7 @@ export class PlatformSnapshotV2Projector {
     if(input.room.gameType === "HARMONIES") return v.parse(PlatformSnapshotV2Schema, {...base,room:{...base.room,phase:input.room.phase},game:projectHarmonies(input.room.game,input.selfPlayerId)});
     if(input.room.gameType === "PATCHWORK") return v.parse(PlatformSnapshotV2Schema, {...base,room:{...base.room,phase:input.room.phase},game:projectPatchwork(input.room.game,input.selfPlayerId)});
     if(input.room.gameType === "ARNAK") return v.parse(PlatformSnapshotV2Schema, {...base,room:{...base.room,phase:input.room.phase},game:projectArnak(input.room.game,input.selfPlayerId)});
+    if(input.room.gameType === "TERRAFORMING_MARS") return v.parse(PlatformSnapshotV2Schema, {...base,room:{...base.room,phase:input.room.phase},game:projectMars(input.room.game,input.selfPlayerId)});
     if(input.room.gameType === "SEVEN_WONDERS_DUEL") return v.parse(PlatformSnapshotV2Schema, {...base,room:{...base.room,phase:input.room.phase},game:projectDuel(input.room.game,input.selfPlayerId)});
     if(input.room.gameType === "WORD_DUET") return v.parse(PlatformSnapshotV2Schema, {...base,room:{...base.room,phase:input.room.phase},game:projectDuet(input.room.game,input.selfPlayerId)});
     if(input.room.gameType === "SABOTEUR") return v.parse(PlatformSnapshotV2Schema, {...base,room:{...base.room,phase:input.room.phase},game:projectSaboteur(input.room.game,input.selfPlayerId)});

@@ -18,6 +18,7 @@ import type { createPerchLifecycle } from "../games/perch/application/lifecycle.
 import type { createHarmoniesLifecycle } from "../games/harmonies/application/lifecycle.js";
 import type { createPatchworkLifecycle } from "../games/patchwork/application/lifecycle.js";
 import type { createArnakLifecycle } from "../games/arnak/application/lifecycle.js";
+import type { createMarsLifecycle } from "../games/mars/application/lifecycle.js";
 import type { createDuelLifecycle } from "../games/seven-wonders-duel/application/lifecycle.js";
 import type { createDuetLifecycle } from "../games/word-duet/application/lifecycle.js";
 import type { createSaboteurLifecycle } from "../games/saboteur/application/lifecycle.js";
@@ -107,6 +108,7 @@ export type PlayerLifecycleRouterDependencies = Readonly<{
   harmonies?: ReturnType<typeof createHarmoniesLifecycle>;
   patchwork?: ReturnType<typeof createPatchworkLifecycle>;
   arnak?: ReturnType<typeof createArnakLifecycle>;
+  mars?: ReturnType<typeof createMarsLifecycle>;
   duel?: ReturnType<typeof createDuelLifecycle>;
   duet?: ReturnType<typeof createDuetLifecycle>;
   saboteur?: ReturnType<typeof createSaboteurLifecycle>;
@@ -158,6 +160,7 @@ export class PlayerLifecycleRouter implements PlayerLifecycleActionRouting {
   readonly #harmonies: ReturnType<typeof createHarmoniesLifecycle> | undefined;
   readonly #patchwork: ReturnType<typeof createPatchworkLifecycle> | undefined;
   readonly #arnak: ReturnType<typeof createArnakLifecycle> | undefined;
+  readonly #mars: ReturnType<typeof createMarsLifecycle> | undefined;
   readonly #duel: ReturnType<typeof createDuelLifecycle> | undefined;
   readonly #duet: ReturnType<typeof createDuetLifecycle> | undefined;
   readonly #saboteur: ReturnType<typeof createSaboteurLifecycle> | undefined;
@@ -201,6 +204,7 @@ export class PlayerLifecycleRouter implements PlayerLifecycleActionRouting {
     this.#harmonies = dependencies.harmonies;
     this.#patchwork = dependencies.patchwork;
     this.#arnak = dependencies.arnak;
+    this.#mars = dependencies.mars;
     this.#duel = dependencies.duel;
     this.#duet = dependencies.duet;
     this.#saboteur = dependencies.saboteur;
@@ -291,6 +295,9 @@ export class PlayerLifecycleRouter implements PlayerLifecycleActionRouting {
       case "ARNAK":
         if (!this.#arnak) throw new Error("ARNAK lifecycle missing.");
         return this.#arnak.applyPlayingLeave(input);
+      case "TERRAFORMING_MARS":
+        if (!this.#mars) throw new Error("TERRAFORMING_MARS lifecycle missing.");
+        return this.#mars.applyPlayingLeave(input);
       case "SEVEN_WONDERS_DUEL":
         if (!this.#duel) throw new Error("SEVEN_WONDERS_DUEL lifecycle missing.");
         return this.#duel.applyPlayingLeave(input);
@@ -358,6 +365,7 @@ export class PlayerLifecycleRouter implements PlayerLifecycleActionRouting {
       case "HARMONIES": return {status:"NO_CHANGE"};
       case "PATCHWORK": return {status:"NO_CHANGE"};
       case "ARNAK": return {status:"NO_CHANGE"};
+      case "TERRAFORMING_MARS": return {status:"NO_CHANGE"};
       case "SEVEN_WONDERS_DUEL": return {status:"NO_CHANGE"};
       case "WORD_DUET": return {status:"NO_CHANGE"};
       case "SABOTEUR": return {status:"NO_CHANGE"};

@@ -29,6 +29,7 @@ import { PerchScreen } from "./features/perch/PerchScreen.js";
 import { HarmoniesScreen } from "./features/harmonies/HarmoniesScreen.js";
 import { PatchworkScreen } from "./features/patchwork/PatchworkScreen.js";
 import { ArnakScreen } from "./features/arnak/ArnakScreen.js";
+const MarsScreen = lazy(() => import("./features/mars/MarsScreen.js").then(module => ({default: module.MarsScreen})));
 import { DuetScreen } from "./features/word-duet/DuetScreen.js";
 import { SaboteurScreen } from "./features/saboteur/SaboteurScreen.js";
 import { LostCitiesScreen } from "./features/lost-cities/LostCitiesScreen.js";
@@ -557,6 +558,13 @@ export function App() {
         onStart={app.startGame} onLeave={app.leaveRoom} onCopy={() => app.copyInvitation(invitationUrl)}
         pending={app.operationLabel !== null || app.roomLeavePending || app.gameStartPending}
         error={app.errorMessage} connectionLabel={connectionLabel}/></ReconnectBoundary>;
+    }
+    if (roomView.kind === "TERRAFORMING_MARS") {
+      return <ReconnectBoundary {...recovery}><Suspense fallback={<p role="status">화성 지도를 준비하고 있습니다…</p>}><MarsScreen snapshot={roomView.snapshot}
+        connected={app.connectionState === "CONNECTED" && !app.sessionReplaced && !app.resumePending && !app.reconnectNeeded} onCommand={app.actMars} onRematch={() => app.selectRoomGame("TERRAFORMING_MARS")}
+        onStart={app.startGame} onLeave={app.leaveRoom} onCopy={() => app.copyInvitation(invitationUrl)}
+        pending={app.operationLabel !== null || app.roomLeavePending || app.gameStartPending}
+        error={app.errorMessage} connectionLabel={connectionLabel}/></Suspense></ReconnectBoundary>;
     }
     if (roomView.kind === "SEVEN_WONDERS_DUEL") {
       return <ReconnectBoundary {...recovery}><Suspense fallback={<p role="status">고대 도시를 준비하고 있습니다…</p>}><DuelScreen snapshot={roomView.snapshot}

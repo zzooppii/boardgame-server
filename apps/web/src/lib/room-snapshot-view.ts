@@ -19,6 +19,7 @@ import type { PerchWebSnapshot } from "./snapshot-wire-decoder.js";
 import type { HarmoniesWebSnapshot } from "./snapshot-wire-decoder.js";
 import type { PatchworkWebSnapshot } from "./snapshot-wire-decoder.js";
 import type { ArnakWebSnapshot } from "./snapshot-wire-decoder.js";
+import type { MarsWebSnapshot } from "./snapshot-wire-decoder.js";
 import type { DuelWebSnapshot } from "./snapshot-wire-decoder.js";
 import type { DuetWebSnapshot } from "./snapshot-wire-decoder.js";
 import type { SaboteurWebSnapshot } from "./snapshot-wire-decoder.js";
@@ -92,6 +93,7 @@ export type RoomSnapshotView =
   | Readonly<{ kind: "HARMONIES"; snapshot: HarmoniesWebSnapshot }>
   | Readonly<{ kind: "PATCHWORK"; snapshot: PatchworkWebSnapshot }>
   | Readonly<{ kind: "ARNAK"; snapshot: ArnakWebSnapshot }>
+  | Readonly<{ kind: "TERRAFORMING_MARS"; snapshot: MarsWebSnapshot }>
   | Readonly<{ kind: "SEVEN_WONDERS_DUEL"; snapshot: DuelWebSnapshot }>
   | Readonly<{ kind: "WORD_DUET"; snapshot: DuetWebSnapshot }>
   | Readonly<{ kind: "SABOTEUR"; snapshot: SaboteurWebSnapshot }>
@@ -163,6 +165,7 @@ export function resolveRoomSnapshotView(
   if (decoded.kind === "PLATFORM_V2_HARMONIES") return { kind: "HARMONIES", snapshot: decoded.platformSnapshot };
   if (decoded.kind === "PLATFORM_V2_PATCHWORK") return { kind: "PATCHWORK", snapshot: decoded.platformSnapshot };
   if (decoded.kind === "PLATFORM_V2_ARNAK") return { kind: "ARNAK", snapshot: decoded.platformSnapshot };
+  if (decoded.kind === "PLATFORM_V2_TERRAFORMING_MARS") return { kind: "TERRAFORMING_MARS", snapshot: decoded.platformSnapshot };
   if (decoded.kind === "PLATFORM_V2_SEVEN_WONDERS_DUEL") return { kind: "SEVEN_WONDERS_DUEL", snapshot: decoded.platformSnapshot };
   if (decoded.kind === "PLATFORM_V2_WORD_DUET") return { kind: "WORD_DUET", snapshot: decoded.platformSnapshot };
   if (decoded.kind === "PLATFORM_V2_SABOTEUR") return { kind: "SABOTEUR", snapshot: decoded.platformSnapshot };

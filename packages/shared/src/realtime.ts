@@ -18,6 +18,7 @@ import type { PerchClientCommand } from "./protocol.js";
 import type { HarmoniesClientCommand } from "./protocol.js";
 import type { PatchworkClientCommand } from "./protocol.js";
 import type { ArnakClientCommand } from "./protocol.js";
+import type { MarsClientCommand } from "./protocol.js";
 import type { DuelClientCommand } from "./protocol.js";
 import type { DuetClientCommand } from "./protocol.js";
 import type { SaboteurClientCommand } from "./protocol.js";
@@ -599,6 +600,7 @@ export interface SnapshotWireClientToServerEvents {
   "harmonies:act": (command: Extract<HarmoniesClientCommand,{kind:"harmonies:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "patchwork:act": (command: Extract<PatchworkClientCommand,{kind:"patchwork:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "arnak:act": (command: Extract<ArnakClientCommand,{kind:"arnak:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
+  "mars:act": (command: Extract<MarsClientCommand,{kind:"mars:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "duel:configure": (command: Extract<DuelClientCommand,{kind:"duel:configure"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "duel:act": (command: Extract<DuelClientCommand,{kind:"duel:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "duet:act": (command: Extract<DuetClientCommand,{kind:"duet:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;

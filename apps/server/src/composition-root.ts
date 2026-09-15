@@ -26,6 +26,7 @@ import { PerchHostSuccession } from "./games/perch/application/host-succession.j
 import { HarmoniesHostSuccession } from "./games/harmonies/application/host-succession.js";
 import { PatchworkHostSuccession } from "./games/patchwork/application/host-succession.js";
 import { ArnakHostSuccession } from "./games/arnak/application/host-succession.js";
+import { MarsHostSuccession } from "./games/mars/application/host-succession.js";
 import { DuelHostSuccession } from "./games/seven-wonders-duel/application/host-succession.js";
 import { DuetHostSuccession } from "./games/word-duet/application/host-succession.js";
 import { SaboteurHostSuccession } from "./games/saboteur/application/host-succession.js";
@@ -54,6 +55,7 @@ import { PerchService } from "./games/perch/application/service.js";
 import { HarmoniesService } from "./games/harmonies/application/service.js";
 import { PatchworkService } from "./games/patchwork/application/service.js";
 import { ArnakService } from "./games/arnak/application/service.js";
+import { MarsService } from "./games/mars/application/service.js";
 import { DuelService } from "./games/seven-wonders-duel/application/service.js";
 import { DuetService } from "./games/word-duet/application/service.js";
 import { SaboteurService } from "./games/saboteur/application/service.js";
@@ -82,6 +84,7 @@ import { createPerchLifecycle } from "./games/perch/application/lifecycle.js";
 import { createHarmoniesLifecycle } from "./games/harmonies/application/lifecycle.js";
 import { createPatchworkLifecycle } from "./games/patchwork/application/lifecycle.js";
 import { createArnakLifecycle } from "./games/arnak/application/lifecycle.js";
+import { createMarsLifecycle } from "./games/mars/application/lifecycle.js";
 import { createDuelLifecycle } from "./games/seven-wonders-duel/application/lifecycle.js";
 import { createDuetLifecycle } from "./games/word-duet/application/lifecycle.js";
 import { createSaboteurLifecycle } from "./games/saboteur/application/lifecycle.js";
@@ -225,6 +228,7 @@ export type ApplicationRuntime = Readonly<{
   harmoniesService?: HarmoniesService;
   patchworkService?: PatchworkService;
   arnakService?: ArnakService;
+  marsService?: MarsService;
   duelService?: DuelService;
   duetService?: DuetService;
   saboteurService?: SaboteurService;
@@ -254,6 +258,7 @@ export type ApplicationRuntime = Readonly<{
   harmoniesHostSuccession?: HarmoniesHostSuccession;
   patchworkHostSuccession?: PatchworkHostSuccession;
   arnakHostSuccession?: ArnakHostSuccession;
+  marsHostSuccession?: MarsHostSuccession;
   duelHostSuccession?: DuelHostSuccession;
   duetHostSuccession?: DuetHostSuccession;
   saboteurHostSuccession?: SaboteurHostSuccession;
@@ -390,6 +395,7 @@ export function createApplicationRuntime(
       { gameType: "HARMONIES" },
       { gameType: "PATCHWORK" },
       { gameType: "ARNAK" },
+      { gameType: "TERRAFORMING_MARS" },
       { gameType: "SEVEN_WONDERS_DUEL" },
       { gameType: "WORD_DUET" },
       { gameType: "SABOTEUR" },
@@ -447,6 +453,7 @@ export function createApplicationRuntime(
     harmonies: createHarmoniesLifecycle(),
     patchwork: createPatchworkLifecycle(),
     arnak: createArnakLifecycle(),
+    mars: createMarsLifecycle(),
     duel: createDuelLifecycle(),
     duet: createDuetLifecycle(),
     saboteur: createSaboteurLifecycle(),
@@ -875,6 +882,13 @@ export function createApplicationRuntime(
     const room = await persistence.findById(roomId);
     if (room?.gameType === "ARNAK" && room.phase === "FINISHED" && room.game) await onGameFinished({ roomId, gameId: room.game.gameId });
   });
+  const marsService = new MarsService({ roomRepository: persistence, roomUnitOfWork: persistence, idempotencyRepository: persistence,
+    roomMutationExecutor, presence: presenceReader, clock, ids: idGenerator, random: randomSource });
+  const marsHostSuccession = new MarsHostSuccession(marsService.deps, roomId => marsService.notify(roomId));
+  marsService.subscribe(async roomId => {
+    const room = await persistence.findById(roomId);
+    if (room?.gameType === "TERRAFORMING_MARS" && room.phase === "FINISHED" && room.game) await onGameFinished({ roomId, gameId: room.game.gameId });
+  });
   const duelService = new DuelService({ roomRepository: persistence, roomUnitOfWork: persistence, idempotencyRepository: persistence,
     roomMutationExecutor, presence: presenceReader, clock, ids: idGenerator, random: randomSource });
   const duelHostSuccession = new DuelHostSuccession(duelService.deps, roomId => duelService.notify(roomId));
@@ -1028,6 +1042,7 @@ export function createApplicationRuntime(
     harmonies: { gameType: "HARMONIES", start: input => harmoniesService.start(input) },
     patchwork: { gameType: "PATCHWORK", start: input => patchworkService.start(input) },
     arnak: { gameType: "ARNAK", start: input => arnakService.start(input) },
+    mars: { gameType: "TERRAFORMING_MARS", start: input => marsService.start(input) },
     duel: { gameType: "SEVEN_WONDERS_DUEL", start: input => duelService.start(input) },
     duet: { gameType: "WORD_DUET", start: input => duetService.start(input) },
     saboteur: { gameType: "SABOTEUR", start: input => saboteurService.start(input) },
@@ -1256,6 +1271,7 @@ export function createApplicationRuntime(
     harmoniesService,
     patchworkService,
     arnakService,
+    marsService,
     duelService,
     duetService,
     saboteurService,
@@ -1285,6 +1301,7 @@ export function createApplicationRuntime(
     harmoniesHostSuccession,
     patchworkHostSuccession,
     arnakHostSuccession,
+    marsHostSuccession,
     duelHostSuccession,
     duetHostSuccession,
     saboteurHostSuccession,
@@ -1364,6 +1381,7 @@ export function createApplicationRuntime(
       harmoniesHostSuccession.start();
       patchworkHostSuccession.start();
       arnakHostSuccession.start();
+      marsHostSuccession.start();
       duelHostSuccession.start();
       duetHostSuccession.start();
       saboteurHostSuccession.start();
@@ -1411,6 +1429,7 @@ export function createApplicationRuntime(
       harmoniesHostSuccession.stop();
       patchworkHostSuccession.stop();
       arnakHostSuccession.stop();
+      marsHostSuccession.stop();
       duelHostSuccession.stop();
       duetHostSuccession.stop();
       saboteurHostSuccession.stop();

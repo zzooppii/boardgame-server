@@ -18,6 +18,7 @@ import type { PerchStoredGame } from "../games/perch/compatibility/adapter.js";
 import type { HarmoniesStoredGame } from "../games/harmonies/compatibility/adapter.js";
 import type { PatchworkStoredGame } from "../games/patchwork/compatibility/adapter.js";
 import type { ArnakStoredGame } from "../games/arnak/compatibility/adapter.js";
+import type { MarsStoredGame } from "../games/mars/compatibility/adapter.js";
 import type { DuelStoredGame } from "../games/seven-wonders-duel/compatibility/adapter.js";
 import type { DuetStoredGame } from "../games/word-duet/compatibility/adapter.js";
 import type { SaboteurStoredGame } from "../games/saboteur/compatibility/adapter.js";
@@ -100,7 +101,7 @@ export function createNextTurn(
 
 export function toScheduledTurnDeadline(
   roomId: RoomId,
-  game: ArkNovaStoredGame | SpaceCrewStoredGame | TrainStoredGame | CenturyStoredGame | SpiritStoredGame | PlayingGameState | PlayingNumberTileGameState | PlayingGemGameState | CityRoleStoredGame | DrawRelayStoredGame | SneakyLunchStoredGame | WolfStoredGame | LiarStoredGame | SpyfallStoredGame | AvalonStoredGame | DuetStoredGame | JaipurStoredGame | LoveLetterStoredGame | GuryongtuStoredGame | AzulStoredGame | VegasStoredGame | BurgundyStoredGame | CarcassonneStoredGame | ClueStoredGame | TerrorscapeStoredGame | PandemicStoredGame | PerchStoredGame | HarmoniesStoredGame | PatchworkStoredGame | ArnakStoredGame | DuelStoredGame | SaboteurStoredGame | LostCitiesStoredGame | SplendorStoredGame | HalliStoredGame | IslandStoredGame,
+  game: ArkNovaStoredGame | SpaceCrewStoredGame | TrainStoredGame | CenturyStoredGame | SpiritStoredGame | PlayingGameState | PlayingNumberTileGameState | PlayingGemGameState | CityRoleStoredGame | DrawRelayStoredGame | SneakyLunchStoredGame | WolfStoredGame | LiarStoredGame | SpyfallStoredGame | AvalonStoredGame | DuetStoredGame | JaipurStoredGame | LoveLetterStoredGame | GuryongtuStoredGame | AzulStoredGame | VegasStoredGame | BurgundyStoredGame | CarcassonneStoredGame | ClueStoredGame | TerrorscapeStoredGame | PandemicStoredGame | PerchStoredGame | HarmoniesStoredGame | PatchworkStoredGame | ArnakStoredGame | MarsStoredGame | DuelStoredGame | SaboteurStoredGame | LostCitiesStoredGame | SplendorStoredGame | HalliStoredGame | IslandStoredGame,
 ): ScheduledTurnDeadline {
   if ("state" in game && !("windowStartedAt" in game)) {
     if (!("rulesVersion" in game.state)) throw new Error("Space Crew has no turn deadline.");
@@ -137,6 +138,7 @@ export function toScheduledTurnDeadline(
     if (game.state.rulesVersion === "harmonies-base-a-v1") throw new Error("Harmonies has no turn deadline.");
     if (game.state.rulesVersion === "patchwork-base-v1") throw new Error("Patchwork has no turn deadline.");
     if (game.state.rulesVersion === "arnak-bird-v1") throw new Error("Arnak has no turn deadline.");
+    if (game.state.rulesVersion === "mars-base-v1") throw new Error("Mars has no turn deadline.");
     if (game.state.rulesVersion === "seven-wonders-duel-v1") throw new Error("Duel has no turn deadline.");
     if ("killerRevision" in game.state) throw new Error("Terrorscape has no turn deadline.");
     if (game.state.rulesVersion === "saboteur-base-2025-v1") {
@@ -236,6 +238,7 @@ export async function scheduleCurrentTurnBestEffort(
       if (game.state.rulesVersion === "harmonies-base-a-v1") throw new Error("Harmonies has no turn deadline.");
       if (game.state.rulesVersion === "patchwork-base-v1") throw new Error("Patchwork has no turn deadline.");
       if (game.state.rulesVersion === "arnak-bird-v1") throw new Error("Arnak has no turn deadline.");
+      if (game.state.rulesVersion === "mars-base-v1") throw new Error("Mars has no turn deadline.");
       if (game.state.rulesVersion === "seven-wonders-duel-v1") throw new Error("Duel has no turn deadline.");
     if ("killerRevision" in game.state) return false;
       if ((game.state.rulesVersion === "train-usa-classic-v1" || game.state.rulesVersion === "train-korea-original-v1" || game.state.rulesVersion === "train-japan-original-v1") || game.state.rulesVersion === "saboteur-base-2025-v1" || game.state.rulesVersion === "azul-base-v1" || game.state.rulesVersion === "vegas-base-v1" || game.state.rulesVersion === "carcassonne-base72-v1" || game.state.rulesVersion === "burgundy-anniversary-2019-v1") {
