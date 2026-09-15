@@ -1,5 +1,9 @@
 # 한글 루미큐브 게임 규칙
 
+## CONFIRMED — 7 원더스 듀얼
+
+사용자의 기본판 및 Pantheon·Agora 개발 요청에 따라 [SEVEN_WONDERS_DUEL_GAME_RULES.md](./SEVEN_WONDERS_DUEL_GAME_RULES.md)의 공식 규칙과 온라인 친선전 정책을 적용한다. 기존 게임의 TO_BE_CONFIRMED 항목은 변경하지 않는다.
+
 2026-09-15 아발론 추가: [AVALON_GAME_RULES.md](./AVALON_GAME_RULES.md), [AVALON_ARCHITECTURE.md](./AVALON_ARCHITECTURE.md)의 5–10인 비밀 역할·동시 투표·원정·암살·개인별 정보 경계를 따른다. 기존 미확정 규칙은 유지한다.
 
 별도 게임 퍼치의 CONFIRMED 기본판 규칙과 온라인 정책은 [PERCH_GAME_RULES.md](./PERCH_GAME_RULES.md)를 따른다. 기존 한글 게임의 미확정 항목은 변경하지 않는다.

@@ -1,3 +1,4 @@
+import { DuelSettingsSchema, DUEL_DEFAULT_SETTINGS } from "@hangul-rummikub/shared";
 import { ArkNovaGameStateAdapter, type ArkNovaLifecycle } from '../games/ark-nova/compatibility/adapter.js';
 import { SpaceCrewGameStateAdapter, type SpaceCrewLifecycle } from "../games/space-crew/compatibility/adapter.js";
 import { LiarPromptHistorySchema } from "../games/liar-game/domain/prompts.js";
@@ -22,6 +23,7 @@ import { PandemicGameStateAdapter, type PandemicLifecycle } from "../games/pande
 import { PerchGameStateAdapter, type PerchLifecycle } from "../games/perch/compatibility/adapter.js";
 import { HarmoniesGameStateAdapter, type HarmoniesLifecycle } from "../games/harmonies/compatibility/adapter.js";
 import { PatchworkGameStateAdapter, type PatchworkLifecycle } from "../games/patchwork/compatibility/adapter.js";
+import { DuelGameStateAdapter, type DuelLifecycle } from "../games/seven-wonders-duel/compatibility/adapter.js";
 import { DuetGameStateAdapter, type DuetLifecycle } from "../games/word-duet/compatibility/adapter.js";
 import { SaboteurGameStateAdapter, type SaboteurLifecycle } from "../games/saboteur/compatibility/adapter.js";
 import { LostCitiesGameStateAdapter, type LostCitiesLifecycle } from "../games/lost-cities/compatibility/adapter.js";
@@ -159,6 +161,7 @@ type RoomGameLifecycleInspection =
   | Readonly<{gameType:"PERCH";inspection:PerchLifecycle}>
   | Readonly<{gameType:"HARMONIES";inspection:HarmoniesLifecycle}>
   | Readonly<{gameType:"PATCHWORK";inspection:PatchworkLifecycle}>
+  | Readonly<{gameType:"SEVEN_WONDERS_DUEL";inspection:DuelLifecycle}>
   | Readonly<{gameType:"WORD_DUET";inspection:DuetLifecycle}>
   | Readonly<{gameType:"SABOTEUR";inspection:SaboteurLifecycle}>
   | Readonly<{gameType:"LOST_CITIES";inspection:LostCitiesLifecycle}>
@@ -437,6 +440,15 @@ function cloneRoomWriteCandidate(
       if (new Set(departedPlayerIds).size !== departedPlayerIds.length || departedPlayerIds.some(id => !shell.players.some(p => p.playerId === id)) || shell.phase === "LOBBY" && departedPlayerIds.length > 0) throw new Error("Invalid departed PATCHWORK roster.");
       return Object.freeze({...shell, gameType:"PATCHWORK", game, departedPlayerIds});
     }
+    case "SEVEN_WONDERS_DUEL": {
+      const adapter = new DuelGameStateAdapter(), game = candidate.game === null ? null : adapter.cloneAndValidate(candidate.game);
+      validateRoomGameCoherence(shell.phase, shell.players, game, () => game === null ? null : adapter.inspectLifecycle(game));
+      const departedPlayerIds = Object.freeze([...(candidate.departedPlayerIds ?? [])]);
+      if (new Set(departedPlayerIds).size !== departedPlayerIds.length || departedPlayerIds.some(id => !shell.players.some(p => p.playerId === id)) || shell.phase === "LOBBY" && departedPlayerIds.length > 0) throw new Error("Invalid departed SEVEN_WONDERS_DUEL roster.");
+      const settings=v.parse(DuelSettingsSchema,candidate.settings??DUEL_DEFAULT_SETTINGS);
+      if(game&&(game.state.settings.pantheon!==settings.pantheon||game.state.settings.agora!==settings.agora))throw new Error("Duel settings mismatch.");
+      return Object.freeze({...shell, gameType:"SEVEN_WONDERS_DUEL", game, settings, departedPlayerIds});
+    }
     case "WORD_DUET": {
       const adapter = new DuetGameStateAdapter(), game = candidate.game === null ? null : adapter.cloneAndValidate(candidate.game);
       validateRoomGameCoherence(shell.phase, shell.players, game, () => game === null ? null : adapter.inspectLifecycle(game));
@@ -655,6 +667,7 @@ function persistRoom(
     case "PERCH":
     case "HARMONIES":
     case "PATCHWORK":
+    case "SEVEN_WONDERS_DUEL":
     case "WORD_DUET":
     case "SABOTEUR":
     case "LOST_CITIES":
@@ -703,6 +716,7 @@ function inspectRoomGame(
     case "PERCH": return {gameType:"PERCH",inspection:new PerchGameStateAdapter().inspectLifecycle(room.game)};
     case "HARMONIES": return {gameType:"HARMONIES",inspection:new HarmoniesGameStateAdapter().inspectLifecycle(room.game)};
     case "PATCHWORK": return {gameType:"PATCHWORK",inspection:new PatchworkGameStateAdapter().inspectLifecycle(room.game)};
+    case "SEVEN_WONDERS_DUEL": return {gameType:"SEVEN_WONDERS_DUEL",inspection:new DuelGameStateAdapter().inspectLifecycle(room.game)};
     case "WORD_DUET": return {gameType:"WORD_DUET",inspection:new DuetGameStateAdapter().inspectLifecycle(room.game)};
     case "SABOTEUR": return {gameType:"SABOTEUR",inspection:new SaboteurGameStateAdapter().inspectLifecycle(room.game)};
     case "LOST_CITIES": return {gameType:"LOST_CITIES",inspection:new LostCitiesGameStateAdapter().inspectLifecycle(room.game)};

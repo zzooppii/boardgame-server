@@ -23,6 +23,7 @@ import type { PandemicStoredGame } from "../games/pandemic/compatibility/adapter
 import type { PerchStoredGame } from "../games/perch/compatibility/adapter.js";
 import type { HarmoniesStoredGame } from "../games/harmonies/compatibility/adapter.js";
 import type { PatchworkStoredGame } from "../games/patchwork/compatibility/adapter.js";
+import type { DuelStoredGame } from "../games/seven-wonders-duel/compatibility/adapter.js";
 import type { DuetStoredGame } from "../games/word-duet/compatibility/adapter.js";
 import type { LostCitiesStoredGame } from "../games/lost-cities/compatibility/adapter.js";
 import type { HalliStoredGame } from "../games/halli-galli/compatibility/adapter.js";
@@ -146,13 +147,14 @@ export type PandemicRoomRecord = RoomRecordBase & Readonly<{ gameType: "PANDEMIC
 export type PerchRoomRecord = RoomRecordBase & Readonly<{ gameType: "PERCH"; game: PerchStoredGame | null; departedPlayerIds?: readonly PlayerId[] }>;
 export type HarmoniesRoomRecord = RoomRecordBase & Readonly<{ gameType: "HARMONIES"; game: HarmoniesStoredGame | null; departedPlayerIds?: readonly PlayerId[] }>;
 export type PatchworkRoomRecord = RoomRecordBase & Readonly<{ gameType: "PATCHWORK"; game: PatchworkStoredGame | null; departedPlayerIds?: readonly PlayerId[] }>;
+export type DuelRoomRecord = RoomRecordBase & Readonly<{ gameType: "SEVEN_WONDERS_DUEL"; game: DuelStoredGame | null; settings?: import("@hangul-rummikub/shared").DuelSettings; departedPlayerIds?: readonly PlayerId[] }>;
 export type DuetRoomRecord = RoomRecordBase & Readonly<{ gameType: "WORD_DUET"; game: DuetStoredGame | null; departedPlayerIds?: readonly PlayerId[] }>;
 export type SaboteurRoomRecord = RoomRecordBase & Readonly<{ gameType: "SABOTEUR"; game: SaboteurStoredGame | null; departedPlayerIds?: readonly PlayerId[] }>;
 export type LostCitiesRoomRecord = RoomRecordBase & Readonly<{ gameType: "LOST_CITIES"; settings?: LostCitiesSettings; game: LostCitiesStoredGame | null; departedPlayerIds?: readonly PlayerId[] }>;
 export type HalliRoomRecord = RoomRecordBase & Readonly<{ gameType: "HALLI_GALLI"; game: HalliStoredGame | null; departedPlayerIds?: readonly PlayerId[] }>;
 export type IslandRoomRecord = RoomRecordBase & Readonly<{ gameType: "ISLAND_SETTLERS"; game: IslandStoredGame | null; departedPlayerIds?: readonly PlayerId[] }>;
 export type ArkNovaRoomRecord = RoomRecordBase & Readonly<{gameType:"ARK_NOVA";game:ArkNovaStoredGame|null}>;
-export type RoomRecord = ArkNovaRoomRecord | SpaceCrewRoomRecord | TrainRoomRecord | CenturyRoomRecord | SpiritRoomRecord | GuryongtuRoomRecord | AzulRoomRecord | VegasRoomRecord | BurgundyRoomRecord | CarcassonneRoomRecord | ClueRoomRecord | TerrorscapeRoomRecord | PandemicRoomRecord | PerchRoomRecord | HarmoniesRoomRecord | PatchworkRoomRecord | SaboteurRoomRecord | LostCitiesRoomRecord | DuetRoomRecord | JaipurRoomRecord | LoveLetterRoomRecord | SplendorRoomRecord | IslandRoomRecord | HalliRoomRecord | WolfRoomRecord | LiarRoomRecord | SpyfallRoomRecord | AvalonRoomRecord | HangulRoomRecord | NumberTileRoomRecord | GemCardRoomRecord | CityRoleRoomRecord | DrawRelayRoomRecord | SneakyLunchRoomRecord;
+export type RoomRecord = ArkNovaRoomRecord | SpaceCrewRoomRecord | TrainRoomRecord | CenturyRoomRecord | SpiritRoomRecord | GuryongtuRoomRecord | AzulRoomRecord | VegasRoomRecord | BurgundyRoomRecord | CarcassonneRoomRecord | ClueRoomRecord | TerrorscapeRoomRecord | PandemicRoomRecord | PerchRoomRecord | HarmoniesRoomRecord | PatchworkRoomRecord | DuelRoomRecord | SaboteurRoomRecord | LostCitiesRoomRecord | DuetRoomRecord | JaipurRoomRecord | LoveLetterRoomRecord | SplendorRoomRecord | IslandRoomRecord | HalliRoomRecord | WolfRoomRecord | LiarRoomRecord | SpyfallRoomRecord | AvalonRoomRecord | HangulRoomRecord | NumberTileRoomRecord | GemCardRoomRecord | CityRoleRoomRecord | DrawRelayRoomRecord | SneakyLunchRoomRecord;
 
 type WithoutStorageRevision<TRoom> = TRoom extends RoomRecord
   ? Omit<TRoom, "storageRevision">

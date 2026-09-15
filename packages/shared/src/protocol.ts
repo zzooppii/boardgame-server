@@ -18,6 +18,7 @@ import { PandemicActionSchema } from "./games/pandemic/actions.js";
 import { PerchActionSchema } from "./games/perch/actions.js";
 import { HarmoniesActionSchema } from "./games/harmonies/actions.js";
 import { PatchworkActionSchema } from "./games/patchwork/actions.js";
+import { DuelActionSchema, DuelSettingsSchema } from "./games/seven-wonders-duel/actions.js";
 import { DuetActionSchema } from "./games/word-duet/actions.js";
 import { LostCitiesSettingsSchema, LostCitiesActionSchema } from "./games/lost-cities/actions.js";
 import { SplendorActionSchema, SplendorSettingsSchema } from "./games/splendor/actions.js";
@@ -377,6 +378,7 @@ const PandemicIdentity = { protocolVersion: ProtocolVersionSchema, requestId: Re
 const PerchIdentity = { protocolVersion: ProtocolVersionSchema, requestId: RequestIdSchema, gameId: GameIdSchema, expectedGameRevision: GameRevisionSchema };
 const HarmoniesIdentity = { protocolVersion: ProtocolVersionSchema, requestId: RequestIdSchema, gameId: GameIdSchema, expectedGameRevision: GameRevisionSchema };
 const PatchworkIdentity = { protocolVersion: ProtocolVersionSchema, requestId: RequestIdSchema, gameId: GameIdSchema, expectedGameRevision: GameRevisionSchema };
+const DuelIdentity = { protocolVersion: ProtocolVersionSchema, requestId: RequestIdSchema, gameId: GameIdSchema, expectedGameRevision: GameRevisionSchema };
 const DuetIdentity = { protocolVersion: ProtocolVersionSchema, requestId: RequestIdSchema, gameId: GameIdSchema, expectedGameRevision: GameRevisionSchema };
 const LostCitiesIdentity = { protocolVersion: ProtocolVersionSchema, requestId: RequestIdSchema, gameId: GameIdSchema, expectedGameRevision: GameRevisionSchema };
 export const JaipurActCommandSchema = v.strictObject({ ...JaipurIdentity, kind: v.literal("jaipur:act"), turnId: TurnIdSchema, payload: JaipurActionSchema });
@@ -392,6 +394,7 @@ export const PandemicActCommandSchema = v.strictObject({ ...PandemicIdentity, ki
 export const PerchActCommandSchema = v.strictObject({ ...PerchIdentity, kind: v.literal("perch:act"), turnId: TurnIdSchema, payload: PerchActionSchema });
 export const HarmoniesActCommandSchema = v.strictObject({ ...HarmoniesIdentity, kind: v.literal("harmonies:act"), turnId: TurnIdSchema, payload: HarmoniesActionSchema });
 export const PatchworkActCommandSchema = v.strictObject({ ...PatchworkIdentity, kind: v.literal("patchwork:act"), turnId: TurnIdSchema, payload: PatchworkActionSchema });
+export const DuelActCommandSchema = v.strictObject({ ...DuelIdentity, kind: v.literal("duel:act"), turnId: TurnIdSchema, payload: DuelActionSchema });
 export const DuetActCommandSchema = v.strictObject({ ...DuetIdentity, kind: v.literal("duet:act"), turnId: TurnIdSchema, payload: DuetActionSchema });
 export const LostCitiesActCommandSchema = v.strictObject({ ...LostCitiesIdentity, kind: v.literal("lostCities:act"), turnId: TurnIdSchema, payload: LostCitiesActionSchema });
 export const JaipurNextRoundCommandSchema = v.strictObject({ ...JaipurIdentity, kind: v.literal("jaipur:nextRound"), roundId: TurnIdSchema, payload: v.strictObject({}) });
@@ -417,6 +420,8 @@ export const PandemicClientCommandSchema = PandemicActCommandSchema;
 export const PerchClientCommandSchema = PerchActCommandSchema;
 export const HarmoniesClientCommandSchema = HarmoniesActCommandSchema;
 export const PatchworkClientCommandSchema = PatchworkActCommandSchema;
+export const DuelConfigureCommandSchema = v.strictObject({ protocolVersion: ProtocolVersionSchema, requestId: RequestIdSchema, expectedRoomRevision: RoomRevisionSchema, kind: v.literal("duel:configure"), payload: DuelSettingsSchema });
+export const DuelClientCommandSchema = v.variant("kind", [DuelActCommandSchema, DuelConfigureCommandSchema]);
 export type AzulClientCommand = v.InferOutput<typeof AzulClientCommandSchema>;
 export type VegasClientCommand = v.InferOutput<typeof VegasClientCommandSchema>;
 export type BurgundyClientCommand = v.InferOutput<typeof BurgundyClientCommandSchema>;
@@ -427,6 +432,7 @@ export type PandemicClientCommand = v.InferOutput<typeof PandemicClientCommandSc
 export type PerchClientCommand = v.InferOutput<typeof PerchClientCommandSchema>;
 export type HarmoniesClientCommand = v.InferOutput<typeof HarmoniesClientCommandSchema>;
 export type PatchworkClientCommand = v.InferOutput<typeof PatchworkClientCommandSchema>;
+export type DuelClientCommand = v.InferOutput<typeof DuelClientCommandSchema>;
 export type LostCitiesClientCommand = v.InferOutput<typeof LostCitiesClientCommandSchema>;
 
 const SplendorIdentity = { protocolVersion: ProtocolVersionSchema, requestId: RequestIdSchema, gameId: GameIdSchema, expectedGameRevision: GameRevisionSchema };

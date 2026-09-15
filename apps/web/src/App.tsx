@@ -1,3 +1,5 @@
+import {lazy, Suspense} from "react";
+const DuelScreen = lazy(() => import("./features/seven-wonders-duel/DuelScreen.js"));
 import { ArkNovaScreen } from "./features/ark-nova/ArkNovaScreen.js";
 import { SpaceCrewScreen } from "./features/space-crew/SpaceCrewScreen.js";
 import { BurgundyScreen } from "./features/burgundy/BurgundyScreen.js";
@@ -545,6 +547,13 @@ export function App() {
         onStart={app.startGame} onLeave={app.leaveRoom} onCopy={() => app.copyInvitation(invitationUrl)}
         pending={app.operationLabel !== null || app.roomLeavePending || app.gameStartPending}
         error={app.errorMessage} connectionLabel={connectionLabel}/></ReconnectBoundary>;
+    }
+    if (roomView.kind === "SEVEN_WONDERS_DUEL") {
+      return <ReconnectBoundary {...recovery}><Suspense fallback={<p role="status">고대 도시를 준비하고 있습니다…</p>}><DuelScreen snapshot={roomView.snapshot}
+        connected={app.connectionState === "CONNECTED" && !app.sessionReplaced && !app.resumePending && !app.reconnectNeeded} onCommand={app.actDuel} onRematch={() => app.selectRoomGame("SEVEN_WONDERS_DUEL")}
+        onStart={app.startGame} onLeave={app.leaveRoom} onCopy={() => app.copyInvitation(invitationUrl)}
+        pending={app.operationLabel !== null || app.roomLeavePending || app.gameStartPending}
+        error={app.errorMessage} connectionLabel={connectionLabel}/></Suspense></ReconnectBoundary>;
     }
 
     if (roomView.kind === "WORD_DUET") {

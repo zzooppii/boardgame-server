@@ -1,3 +1,4 @@
+import { DuelSettingsSchema } from "../games/seven-wonders-duel/actions.js";
 import { ArkNovaPlayingProjectionSchema, ArkNovaFinishedProjectionSchema } from "../games/ark-nova/platform-contracts.js";
 import { TrainSettingsSchema, isTrainMapAvailable } from "../games/train/maps.js";
 import { SpaceCrewPlayingProjectionSchema, SpaceCrewFinishedProjectionSchema, spaceCrewProjectionIsConsistent } from "../games/space-crew/contracts.js";
@@ -21,6 +22,7 @@ import { PandemicPlayingProjectionSchema, PandemicFinishedProjectionSchema, pand
 import { PerchPlayingProjectionSchema, PerchFinishedProjectionSchema, perchProjectionIsConsistent } from "../games/perch/contracts.js";
 import { HarmoniesPlayingProjectionSchema, HarmoniesFinishedProjectionSchema, harmoniesProjectionIsConsistent } from "../games/harmonies/contracts.js";
 import { PatchworkPlayingProjectionSchema, PatchworkFinishedProjectionSchema, patchworkProjectionIsConsistent } from "../games/patchwork/contracts.js";
+import { DuelPlayingProjectionSchema, DuelFinishedProjectionSchema, duelProjectionIsConsistent } from "../games/seven-wonders-duel/contracts.js";
 import { DuetPlayingProjectionSchema, DuetFinishedProjectionSchema, duetProjectionIsConsistent } from "../games/word-duet/contracts.js";
 import { LostCitiesSettingsSchema } from "../games/lost-cities/actions.js";
 import { LostCitiesPlayingProjectionSchema, LostCitiesFinishedProjectionSchema, lostCitiesProjectionIsConsistent } from "../games/lost-cities/contracts.js";
@@ -649,6 +651,22 @@ export type PatchworkFinishedPlatformSnapshotV2 = v.InferOutput<typeof Patchwork
 export const PatchworkLobbyPlatformSnapshotV2Schema: v.GenericSchema<unknown, PatchworkLobbyPlatformSnapshotV2> = PatchworkLobbyRaw;
 export const PatchworkPlayingPlatformSnapshotV2Schema: v.GenericSchema<unknown, PatchworkPlayingPlatformSnapshotV2> = PatchworkPlayingRaw;
 export const PatchworkFinishedPlatformSnapshotV2Schema: v.GenericSchema<unknown, PatchworkFinishedPlatformSnapshotV2> = PatchworkFinishedRaw;
+const DuelOuter = { snapshotVersion: PlatformSnapshotVersionSchema, versions: PlatformSnapshotVersionsV2Schema, serverTime: ServerTimeSchema, self: PlatformSelfViewV2Schema };
+const DuelRoom = { roomId: RoomIdSchema, roomCode: RoomCodeSchema, gameType: v.literal("SEVEN_WONDERS_DUEL") };
+const DuelPlayers = v.pipe(v.array(PlatformPlayerViewV2Schema), v.length(2));
+const DuelLobbyRaw = v.pipe(v.strictObject({ ...DuelOuter, room: v.strictObject({ ...DuelRoom, phase: v.literal("LOBBY"), settings: DuelSettingsSchema,
+  players: v.pipe(v.array(PlatformPlayerViewV2Schema), v.maxLength(10)) }), game: v.null() }),
+  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)));
+const DuelPlayingRaw = v.pipe(v.strictObject({ ...DuelOuter, room: v.strictObject({ ...DuelRoom, phase: v.literal("PLAYING"), players: DuelPlayers }), game: DuelPlayingProjectionSchema }),
+  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)), v.check(s => hasMatchingGamePlayers(s)), v.check(s => duelProjectionIsConsistent(s.game)), v.check(s => s.game.privateState.playerId === s.self.playerId));
+const DuelFinishedRaw = v.pipe(v.strictObject({ ...DuelOuter, room: v.strictObject({ ...DuelRoom, phase: v.literal("FINISHED"), players: DuelPlayers }), game: DuelFinishedProjectionSchema }),
+  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)), v.check(s => hasMatchingGamePlayers(s)), v.check(s => duelProjectionIsConsistent(s.game)), v.check(s => s.game.privateState.playerId === s.self.playerId));
+export type DuelLobbyPlatformSnapshotV2 = v.InferOutput<typeof DuelLobbyRaw>;
+export type DuelPlayingPlatformSnapshotV2 = v.InferOutput<typeof DuelPlayingRaw>;
+export type DuelFinishedPlatformSnapshotV2 = v.InferOutput<typeof DuelFinishedRaw>;
+export const DuelLobbyPlatformSnapshotV2Schema: v.GenericSchema<unknown, DuelLobbyPlatformSnapshotV2> = DuelLobbyRaw;
+export const DuelPlayingPlatformSnapshotV2Schema: v.GenericSchema<unknown, DuelPlayingPlatformSnapshotV2> = DuelPlayingRaw;
+export const DuelFinishedPlatformSnapshotV2Schema: v.GenericSchema<unknown, DuelFinishedPlatformSnapshotV2> = DuelFinishedRaw;
 
 const DuetOuter = { snapshotVersion: PlatformSnapshotVersionSchema, versions: PlatformSnapshotVersionsV2Schema, serverTime: ServerTimeSchema, self: PlatformSelfViewV2Schema };
 const DuetRoom = { roomId: RoomIdSchema, roomCode: RoomCodeSchema, gameType: v.literal("WORD_DUET") };
@@ -807,6 +825,7 @@ export const LobbyPlatformSnapshotV2Schema = v.union([
   PerchLobbyPlatformSnapshotV2Schema,
   HarmoniesLobbyPlatformSnapshotV2Schema,
   PatchworkLobbyPlatformSnapshotV2Schema,
+  DuelLobbyPlatformSnapshotV2Schema,
   DuetLobbyPlatformSnapshotV2Schema,
   SaboteurLobbyPlatformSnapshotV2Schema,
   LostCitiesLobbyPlatformSnapshotV2Schema,
@@ -975,6 +994,7 @@ export const PlayingPlatformSnapshotV2Schema = v.union([
   PerchPlayingPlatformSnapshotV2Schema,
   HarmoniesPlayingPlatformSnapshotV2Schema,
   PatchworkPlayingPlatformSnapshotV2Schema,
+  DuelPlayingPlatformSnapshotV2Schema,
   DuetPlayingPlatformSnapshotV2Schema,
   SaboteurPlayingPlatformSnapshotV2Schema,
   LostCitiesPlayingPlatformSnapshotV2Schema,
@@ -1143,6 +1163,7 @@ export const FinishedPlatformSnapshotV2Schema = v.union([
   PerchFinishedPlatformSnapshotV2Schema,
   HarmoniesFinishedPlatformSnapshotV2Schema,
   PatchworkFinishedPlatformSnapshotV2Schema,
+  DuelFinishedPlatformSnapshotV2Schema,
   DuetFinishedPlatformSnapshotV2Schema,
   SaboteurFinishedPlatformSnapshotV2Schema,
   LostCitiesFinishedPlatformSnapshotV2Schema,

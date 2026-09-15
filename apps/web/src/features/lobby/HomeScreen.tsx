@@ -199,6 +199,7 @@ export function HomeScreen(props: HomeScreenProps) {
                             {game.gameType === "PANDEMIC" ? <img src="/images/pandemic/world.webp" alt="" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:12}} /> : null}
                             {game.gameType === "PERCH" ? <img src="/images/perch/fountain.png" alt="" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:12}} /> : null}
                             {game.gameType === "HARMONIES" ? <img src="/images/harmonies/landscape.webp" alt="" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:12}} /> : null}
+                            {game.gameType === "SEVEN_WONDERS_DUEL" ? <div style={{width:"100%",height:"100%",backgroundImage:"url(/images/seven-wonders-duel/wonders.png)",backgroundSize:"400% 400%",backgroundPosition:"0% 66.666%",borderRadius:12}}/> : null}
                             {game.gameType === "PATCHWORK" ? <img src="/images/patchwork/cover.svg" alt="" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:12}} /> : null}
                             {game.gameType === "TERRORSCAPE" ? <img src="/images/terrorscape/manor.webp" alt="" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:12}} /> : null}
                             {game.gameType === "GURYONGTU" ? <span aria-hidden="true" style={{ fontSize: 52, letterSpacing: -8 }}>◐◑</span> : null}

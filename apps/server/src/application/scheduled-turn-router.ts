@@ -155,6 +155,7 @@ export class ScheduledTurnRouter {
         case "PERCH": return { status: "NO_OP" };
         case "HARMONIES": return { status: "NO_OP" };
         case "PATCHWORK": return { status: "NO_OP" };
+        case "SEVEN_WONDERS_DUEL": return { status: "NO_OP" };
         case "WORD_DUET": return { status: "NO_OP" };
         case "SABOTEUR": return this.#saboteur ? await this.#saboteur.handleTurnTimeout(input) : {status:"FAILED"};
         case "LOST_CITIES": return this.#lostCities ? await this.#lostCities.handleTurnTimeout(input) : {status:"FAILED"};
