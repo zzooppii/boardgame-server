@@ -1,13 +1,14 @@
+import {arkMapCells,arkMapFeatureActive,arkOffset,type ArkMapId} from '@hangul-rummikub/shared';
 import { ARK_CONTINENTS, ARK_MAP_A, arkBorder, arkCellKey, arkNeighbours, type ArkCard, type ArkBuilding } from '@hangul-rummikub/shared';
 import { arkCardDefinition, arkZooIcons, ARK_ZOO_ANIMAL_CATEGORIES, type ArkZooIcons } from './zoo-icons.js';
 import type { ArkZooEffect } from './animal-effects.js';
-export type ArkSponsorContext=Readonly<{multiplayer?:unknown;played:readonly ArkCard[];partners:readonly string[];universities:readonly string[];buildings:readonly ArkBuilding[];supportedProjects:number}>;
+export type ArkSponsorContext=Readonly<{mapId?:ArkMapId|undefined;multiplayer?:unknown;played:readonly ArkCard[];partners:readonly string[];universities:readonly string[];buildings:readonly ArkBuilding[];supportedProjects:number}>;
 const categories=['Primate','Reptile','Bird','Predator','Herbivore'] as const;
 function icons(s:Pick<ArkSponsorContext,'played'|'partners'|'universities'>) {return arkZooIcons(s.played,s.partners,s.universities);}
 function animals(s:ArkSponsorContext) {return s.played.map(arkCardDefinition).filter(c=>c.kind==='ANIMAL');}
 function connected(s:ArkSponsorContext,predicate:(c:typeof ARK_MAP_A[number])=>boolean):number {
   const covered=new Set(s.buildings.flatMap(b=>b.cells.map(arkCellKey)));
-  return ARK_MAP_A.filter(c=>predicate(c)&&!covered.has(arkCellKey(c))&&arkNeighbours(c).some(n=>covered.has(arkCellKey(n)))).length;
+  return arkMapCells(s.mapId).filter(c=>predicate(c)&&!covered.has(arkCellKey(c))&&arkNeighbours(c).some(n=>covered.has(arkCellKey(n)))).length;
 }
 /** Invoke at effect resolution, after the sponsor and its printed icons entered the zoo. */
 export function arkSponsorImmediate(key:string,s:ArkSponsorContext):ArkZooEffect[] {
@@ -87,6 +88,9 @@ export function arkSponsorIconTriggers(s:Pick<ArkSponsorContext,'played'|'partne
 }
 export function arkSponsorIncome(s:ArkSponsorContext):ArkTriggeredEffect[] {
   const result:ArkTriggeredEffect[]=[],count=icons(s);
+  const covered=new Set(s.buildings.flatMap(b=>b.cells.map(arkCellKey)));
+  const mapIncome=s.mapId==='5'?arkNeighbours(arkOffset(4,2)).filter(c=>covered.has(arkCellKey(c))).length:s.mapId==='7'&&arkMapFeatureActive(s.mapId,s.buildings)?s.buildings.filter(b=>b.kind==='KIOSK').length:0;
+  if(mapIncome)result.push({sourceId:`map:${s.mapId}`,effect:{kind:'GAIN',resource:'MONEY',amount:mapIncome},timing:'IMMEDIATE'});
   for (const card of s.played) {
     const emit=(effect:ArkZooEffect)=>result.push({sourceId:card.cardId,effect,timing:'IMMEDIATE'});
     const n=Number(card.key);

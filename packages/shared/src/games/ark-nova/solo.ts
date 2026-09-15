@@ -1,3 +1,4 @@
+import {ArkMapIdSchema} from './maps.js';
 import { ArkEffectSelectionSchema, ArkZooCardChoiceSchema } from './effect-contracts.js';
 import * as v from 'valibot';
 import { ArkAssociationTaskSchema, ArkRewardSelectionSchema } from './association.js';
@@ -25,6 +26,7 @@ const ids = v.pipe(v.array(ArkRefSchema), v.maxLength(250));
 const x = v.pipe(v.number(), v.safeInteger(), v.minValue(0), v.maxValue(5));
 /** Commands currently wired into the server domain; platform transport registration is separate. */
 export const ArkSoloCommandSchema = v.variant('kind', [
+ v.strictObject({kind:v.literal('HARBOR'),cardId:ArkRefSchema}),
   v.strictObject({kind:v.literal('INTERACTION_PAYMENT'),choiceId:ArkRefSchema,payment:v.picklist(['MONEY','CARD'])}),
   v.strictObject({kind:v.literal('CANCEL_EXTRA')}),
   v.strictObject({kind:v.literal('END_REPEAT')}),
@@ -34,7 +36,7 @@ export const ArkSoloCommandSchema = v.variant('kind', [
   v.strictObject({kind:v.literal('END_ZOO')}),
   v.strictObject({kind:v.literal('CANCEL_ZOO')}),
   v.strictObject({kind:v.literal('EFFECT'),choiceId:ArkRefSchema,effectId:v.pipe(v.number(),v.safeInteger(),v.minValue(1)),selection:ArkEffectSelectionSchema}),
-  v.strictObject({kind: v.literal('INITIAL_HAND'), keep: v.pipe(ids, v.length(4))}),
+  v.strictObject({kind: v.literal('INITIAL_HAND'), mapId:v.optional(ArkMapIdSchema), keep: v.pipe(ids, v.length(4))}),
   v.strictObject({kind:v.literal('ASSOCIATION'),x,task:ArkAssociationTaskSchema}),
   v.strictObject({kind:v.literal('ASSOCIATION_MORE'),task:ArkAssociationTaskSchema}),
   v.strictObject({kind:v.literal('DONATE')}),

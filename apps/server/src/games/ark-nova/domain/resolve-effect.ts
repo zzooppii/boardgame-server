@@ -1,3 +1,4 @@
+import {type ArkMapId} from '@hangul-rummikub/shared';
 import * as v from 'valibot';
 import { ArkEffectSelectionSchema, ARK_BUILDINGS, arkShape, arkPlacementReason, ARK_CARDS, type ArkBuilding, type ArkActionCard, type ArkCard } from '@hangul-rummikub/shared';
 import type { RandomSource } from '../../../ports/system.js';
@@ -19,7 +20,7 @@ import { arkReputationRange } from './build-turn.js';
 export type ArkEffectState=ArkCardEffectZones & ArkGoalZones & {
   multiplayer?:{breakAdvance:number;otherZoo:ArkCard[];otherPartners?:string[];otherUniversities?:string[]}|undefined;
   conservationChoices?:{track:2|5|8|10;choice:string}[]|undefined;
-  supportedProjects:number;buildings:ArkBuilding[];baseProjectReserve:ArkCard[];
+mapId?:ArkMapId|undefined;  supportedProjects:number;buildings:ArkBuilding[];baseProjectReserve:ArkCard[];
   effects:ArkEffectQueue;played:ArkCard[];pouched:Record<string,ArkCard[]>;sponsorTokens:Record<string,number>;
   actions:ArkActionCard[];partners:string[];universities:string[];partnerSupply:string[];universitySupply:string[];goals:ArkCard[];discardedGoals:ArkCard[];
   money:number;appeal:number;conservation:number;reputation:number;x:number;workers:number;
@@ -40,6 +41,11 @@ export function resolveArkEffect<T extends ArkEffectState>(current:T,effectId:nu
   if(current.cardReveal&& !['HUNTER','SCAVENGING','PERCEPTION'].includes(effect.kind))return invalid();
   if(current.goalReveal&&effect.kind!=='RESISTANCE')return invalid();
   switch(effect.kind) {
+    case 'HOLLYWOOD': {
+      if(a.kind!=='NONE')return invalid();
+      while(s.zooDeck.length){const card=s.zooDeck.shift()!;if(ARK_CARDS.some(d=>d.key===card.key&&d.kind==='SPONSOR')){s.hand.push(card);break;}s.discarded.push(card);}break;
+    }
+    case 'MOVE_1_TWICE':if(a.kind!=='NONE')return invalid();enqueue({kind:'MOVE_ACTION',action:null,slots:[1]});enqueue({kind:'MOVE_ACTION',action:null,slots:[1]});break;
     case 'WAZA_PLAY': {
       if(a.kind!=='SKIP') {
         if(a.kind!=='ANIMAL'||!s.hand.some(c=>c.cardId===a.card.cardId))return invalid();
@@ -58,7 +64,7 @@ export function resolveArkEffect<T extends ArkEffectState>(current:T,effectId:nu
       const index=s.display.findIndex(c=>c?.cardId===a.cardId);s.hand.push(s.display[index]!);s.display[index]=null;break;
     }
     case 'ARCHAEOLOGIST': {
-      const available=arkUncoveredPlacementBonuses(s.buildings);
+      const available=arkUncoveredPlacementBonuses(s.buildings,s.mapId);
       if(a.kind==='NONE'&&available.length===0)break;
       if(a.kind!=='MAP_BONUS')return invalid();
       const cell=available.find(c=>c.q===a.cell.q&&c.r===a.cell.r);
@@ -102,8 +108,8 @@ export function resolveArkEffect<T extends ArkEffectState>(current:T,effectId:nu
       const card=s.played.find(c=>c.cardId===a.cardId),animal=ARK_CARDS.find(d=>d.key===card?.key&&d.kind==='ANIMAL');
       const destination=s.buildings.find(b=>b.id===effect.buildingId),ignoreTerrain=s.played.some(c=>c.key==='219');
       if(!animal||!destination||!['ReptileHouse','LargeBirdAviary'].includes(destination.kind)||
-        (a.housingId===null?arkEnclosuresToEmpty(s.buildings,animal,ignoreTerrain).length>0:!arkEnclosuresToEmpty(s.buildings,animal,ignoreTerrain).includes(a.housingId)))return invalid();
-      const occupied=occupyArkAnimalHousing(s.buildings,animal,destination.id,ignoreTerrain);if(!occupied.ok)return invalid();
+        (a.housingId===null?arkEnclosuresToEmpty(s.buildings,animal,ignoreTerrain,s.mapId).length>0:!arkEnclosuresToEmpty(s.buildings,animal,ignoreTerrain,s.mapId).includes(a.housingId)))return invalid();
+      const occupied=occupyArkAnimalHousing(s.buildings,animal,destination.id,ignoreTerrain,s.mapId);if(!occupied.ok)return invalid();
       s.buildings=occupied.buildings;if(a.housingId!==null)s.buildings.find(b=>b.id===a.housingId)!.occupied=false;
       enqueue({...effect,moved:[...effect.moved,a.cardId]});break;
     }
@@ -115,10 +121,10 @@ export function resolveArkEffect<T extends ArkEffectState>(current:T,effectId:nu
       if(!definition||!upgraded&&!effect.ignoreBuildUpgrade&&['ReptileHouse','LargeBirdAviary'].includes(kind))return invalid();
       const cells=arkShape(kind,a.placement.anchor,a.placement.rotation,a.placement.reflected);
       // The special-building permission does not upgrade restricted map spaces.
-      if(arkPlacementReason(s.buildings,kind,cells,upgraded,s.played.some(c=>c.key==='219'))!==null)return invalid();
+      if(arkPlacementReason(s.buildings,kind,cells,upgraded,s.played.some(c=>c.key==='219'),false,s.mapId)!==null)return invalid();
       const building={id:`effect-building:${choiceId}`,kind,cells,occupied:false,used:0};
       if(s.buildings.some(b=>b.id===building.id))return invalid();
-      arkNewBuildingEffects(s.buildings,building,s.played).forEach(enqueue);s.buildings.push(building);
+      arkNewBuildingEffects(s.buildings,building,s.played,s.mapId).forEach(enqueue);s.buildings.push(building);
       if(['ReptileHouse','LargeBirdAviary'].includes(kind))enqueue({kind:'MOVE_TO_SPECIAL',buildingId:building.id,moved:[]});
       if(effect.amount>1)continuation.push({sourceId:job.sourceId,effect:{...effect,amount:effect.amount-1},timing:'IMMEDIATE'});
       break;

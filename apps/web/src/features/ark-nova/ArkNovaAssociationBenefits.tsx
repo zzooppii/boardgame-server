@@ -1,3 +1,4 @@
+import {ARK_MAP_LAYOUTS,type ArkMapId} from '@hangul-rummikub/shared';
 import type {ARK_SOLO_UNIVERSITIES} from '@hangul-rummikub/shared';
 
 export const ARK_UNIVERSITY_LABELS:Record<(typeof ARK_SOLO_UNIVERSITIES)[number],string>={
@@ -7,9 +8,10 @@ export const ARK_UNIVERSITY_LABELS:Record<(typeof ARK_SOLO_UNIVERSITIES)[number]
 };
 
 /** Explains existing acquisition rewards; reaching a slot is not proof its queued reward was resolved. */
-export function ArkNovaAssociationBenefits({kind,count}:{kind:'PARTNER'|'UNIVERSITY';count:number}) {
+export function ArkNovaAssociationBenefits({kind,count,mapId='A'}:{mapId?:ArkMapId|undefined;kind:'PARTNER'|'UNIVERSITY';count:number}) {
   const partner=kind==='PARTNER';
-  const milestones=partner?[[2,'행동 업그레이드'],[3,'직원 +1'],[4,'보전 +2']] as const:[[2,'행동 업그레이드'],[3,'보전 +2']] as const;
+  const layout=ARK_MAP_LAYOUTS[mapId];
+  const milestones:readonly (readonly [number,string])[]=partner?[[2,'행동 업그레이드'],[3,'직원 +1'],...(layout.partnerPoints?[[4,`보전 +${layout.partnerPoints}`] as const]:[])]:[[mapId==='1'||mapId==='3'?1:2,'행동 업그레이드'],...(layout.universityPoints?[[3,`보전 +${layout.universityPoints}`] as const]:[])];
   return <details className="ark-association-benefits"><summary>{partner?'제휴':'대학'} 혜택 · 현재 {count}곳</summary>
     <p>{partner?'제휴 대륙 아이콘마다 해당 동물의 비용이 돈 3 줄어듭니다. 제휴는 카드·번식 조건에도 사용합니다.':'연구 아이콘은 카드 조건에 쓰이며 소모되지 않습니다. 평판은 대학 획득 시 한 번 받고, 손패 한도는 휴식 때 적용합니다. 손패 한도 대학은 연구 아이콘을 주지 않습니다.'}</p>
     <ul>{milestones.map(([n,reward])=><li key={n}>{n}번째 획득: {reward} · {count>=n?'도달':count===n-1?'다음 획득 보상':`${n-count}곳 더 필요`}</li>)}</ul>

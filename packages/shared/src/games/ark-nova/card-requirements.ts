@@ -1,7 +1,10 @@
+import {arkMapFeatureActive,type ArkMapId} from './maps.js';
+import type {ArkBuilding} from './actions.js';
 import type {ArkCardDefinition} from './catalog.js';
 import { ARK_CONTINENTS, type ArkActionCard, type ArkCard, } from './actions.js';
 import { arkZooIcons } from './zoo-icons.js';
 export type ArkRequirementContext=Readonly<{
+  mapId?:ArkMapId|undefined;buildings?:readonly ArkBuilding[]|undefined;
   played:readonly ArkCard[];partners:readonly string[];universities:readonly string[];
   actions:readonly ArkActionCard[];reputation:number;appeal:number;
 }>;
@@ -30,3 +33,6 @@ export function arkAnimalPrice(card:ArkCardDefinition,s:Pick<ArkRequirementConte
   const large=card.size>=4&&s.played.some(c=>c.key==='230')?4:0;
   return Math.max(0,card.cost-partnerDiscount-small-large)+displaySlot;
 }
+
+export function arkIgnoredAnimalConditions(card:ArkCardDefinition,s:ArkRequirementContext):number {return card.kind==='ANIMAL'?Number(s.mapId==='6'&&arkMapFeatureActive(s.mapId,s.buildings??[]))+Number(card.size>=4&&s.played.some(c=>c.key==='263')):0;}
+export function arkSponsorLevel(card:ArkCardDefinition,s:Pick<ArkRequirementContext,'mapId'|'buildings'>):number {return Math.max(0,card.cost-Number(card.kind==='SPONSOR'&&s.mapId==='8'&&arkMapFeatureActive(s.mapId,s.buildings??[])));}

@@ -20,7 +20,7 @@ export type ArkZooEffect=
   | {kind:'PAID_SPONSOR';usesSponsorToken:boolean}
   | {kind:'UPGRADE'|'UPGRADE_OR_WORKER'|'DISCARD_GOAL'}
   | {kind:'CONSERVATION_BONUS';track:5|8}
-  | {kind:'RESISTANCE'|'ASSERTION'|'DOMINANCE'|'SPONSOR_MAGNET'};
+  | {kind:'HOLLYWOOD'|'MOVE_1_TWICE'|'RESISTANCE'|'ASSERTION'|'DOMINANCE'|'SPONSOR_MAGNET'};
 export type ArkPlannedEffects={immediate:ArkZooEffect[];afterFinishing:ArkZooEffect[]};
 const ACTION_SUFFIX:Readonly<Record<string,ArkActionKind>>={ANIMAL:'ANIMALS',ANIMALS:'ANIMALS',ASSOCIATION:'ASSOCIATION',BUILD:'BUILD',BUILDING:'BUILD',CARD:'CARDS',CARDS:'CARDS',SPONSORS:'SPONSORS'};
 export function evaluateArkEffectAmount(amount:ArkEffectAmount,icons:ArkZooIcons):number {

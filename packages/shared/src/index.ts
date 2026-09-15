@@ -170,3 +170,5 @@ export * from './games/mars/actions.js';
 export * from './games/mars/contracts.js';
 export * from './games/mars/catalog.js';
 export * from './games/mars/board.js';
+
+export * from './games/ark-nova/maps.js';

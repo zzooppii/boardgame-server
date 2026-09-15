@@ -1,3 +1,4 @@
+import {type ArkMapId} from '@hangul-rummikub/shared';
 import * as v from 'valibot';
 import { ArkCellSchema, ARK_BUILDINGS, arkShape, arkPlacementReason, type ArkBuilding } from '@hangul-rummikub/shared';
 
@@ -9,7 +10,7 @@ const ConstructionInput = v.strictObject({
   reflected: v.boolean(),
 });
 export type ConstructionContext = Readonly<{
-  buildings: readonly ArkBuilding[];
+mapId?:ArkMapId|undefined;  buildings: readonly ArkBuilding[];
   money: number;
   remainingStrength: number;
   upgraded: boolean;
@@ -39,7 +40,7 @@ export function validateArkConstruction(context: ConstructionContext, input: unk
   if (context.money < cost) return {ok: false, reason: 'INSUFFICIENT_MONEY', message: '건설 비용이 부족합니다.'};
   // The client supplies an anchor/orientation, never trusted occupied cells or cost.
   const cells = arkShape(a.building, a.anchor, a.rotation, a.reflected);
-  const reason = arkPlacementReason(context.buildings, a.building, cells, context.upgraded,context.ignoreTerrain===true);
+  const reason = arkPlacementReason(context.buildings, a.building, cells, context.upgraded,context.ignoreTerrain===true,false,context.mapId);
   if (reason) return {ok: false, reason: 'INVALID_PLACEMENT', message: reason};
   return {ok: true, cost, strengthCost,engineer,building: {kind: a.building, cells, occupied: false, used: 0}};
 }

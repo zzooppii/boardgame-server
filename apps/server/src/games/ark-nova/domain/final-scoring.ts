@@ -1,4 +1,5 @@
-import { ARK_ANIMAL_TAGS, ARK_CARDS, ARK_CONTINENTS, ARK_MAP_A, arkBorder, arkCellKey, arkNeighbours, type ArkCard } from '@hangul-rummikub/shared';
+import {arkMapCells,arkEnclosureSize,type ArkMapId} from '@hangul-rummikub/shared';
+import { ARK_ANIMAL_TAGS, ARK_CARDS, ARK_CONTINENTS, arkBorder, arkCellKey, arkNeighbours, type ArkCard } from '@hangul-rummikub/shared';
 import { scoreArkSoloGoal, type ArkGoalContext } from './goals.js';
 import { arkVictoryPoints } from './scoring.js';
 
@@ -23,17 +24,17 @@ export type ArkFinalScore = Readonly<{
 }>;
 
 /** Empty land is scored in separate connected groups, not as one total. */
-function emptyGroupScore(covered: ReadonlySet<string>): number {
-  const empty = new Set(ARK_MAP_A.filter(c => c.terrain === 'LAND' && !covered.has(arkCellKey(c))).map(arkCellKey));
+function emptyGroupScore(covered: ReadonlySet<string>,mapId:ArkMapId='A'): number {
+  const empty = new Set(arkMapCells(mapId).filter(c => c.terrain === 'LAND' && !covered.has(arkCellKey(c))).map(arkCellKey));
   let points = 0;
-  for (const cell of ARK_MAP_A) {
+  for (const cell of arkMapCells(mapId)) {
     if (!empty.delete(arkCellKey(cell))) continue;
     const queue = [cell]; let size = 0;
     while (queue.length > 0) {
       const next = queue.shift()!; size++;
       for (const n of arkNeighbours(next)) {
         if (!empty.delete(arkCellKey(n))) continue;
-        const mapCell = ARK_MAP_A.find(c => arkCellKey(c) === arkCellKey(n));
+        const mapCell = arkMapCells(mapId).find(c => arkCellKey(c) === arkCellKey(n));
         if (mapCell) queue.push(mapCell);
       }
     }
@@ -44,6 +45,7 @@ function emptyGroupScore(covered: ReadonlySet<string>): number {
 
 /** Resolve final goal selection first. This never accepts a score from a client. */
 export function calculateArkSoloFinalScore(context: ArkFinalContext): ArkFinalScore {
+ const mapId=context.mapId;
   arkVictoryPoints(context.appeal, context.conservation);
   if (context.goals.length === 0 || !context.rightZoo&&context.goals.some(c => c.key === '009') ||
     new Set(context.goals.map(c => c.cardId)).size !== context.goals.length) throw new Error('Final goals have not been resolved.');
@@ -59,9 +61,9 @@ export function calculateArkSoloFinalScore(context: ArkFinalContext): ArkFinalSc
   const covered = new Set(context.buildings.flatMap(b => b.cells.map(arkCellKey)));
   const empty = (c: {q: number; r: number}) => !covered.has(arkCellKey(c));
   const adjacent = (c: {q: number; r: number}) => arkNeighbours(c).some(n => covered.has(arkCellKey(n)));
-  const connectedTerrain = (terrain: 'WATER' | 'ROCK') => ARK_MAP_A.filter(c => c.terrain === terrain && empty(c)).every(adjacent);
-  const isolatedTerrain = (terrain: 'WATER' | 'ROCK') => ARK_MAP_A.filter(c => c.terrain === terrain && empty(c) && !adjacent(c)).length;
-  const full = ARK_MAP_A.filter(c => c.terrain === 'LAND').every(c => !empty(c));
+  const connectedTerrain = (terrain: 'WATER' | 'ROCK') => arkMapCells(mapId).filter(c => c.terrain === terrain && empty(c)).every(adjacent);
+  const isolatedTerrain = (terrain: 'WATER' | 'ROCK') => arkMapCells(mapId).filter(c => c.terrain === terrain && empty(c) && !adjacent(c)).length;
+  const full = arkMapCells(mapId).filter(c => c.terrain === 'LAND').every(c => !empty(c));
   const details: {cardId: string; conservation: number; appeal: number}[] = [];
   let goalPoints = 0, sponsorPoints = 0, sponsorAppeal = 0;
   for (const goal of context.goals) {
@@ -73,12 +75,12 @@ export function calculateArkSoloFinalScore(context: ArkFinalContext): ArkFinalSc
     switch (card.key) {
       case '203': case '209': points = Number(context.universities.length === 3); break;
       case '210': points = Number(context.buildings.filter(b=>b.kind==='KIOSK').length>=5); break;
-      case '211': points = Number(context.buildings.filter(b=>b.kind==='ENCLOSURE_1'&&b.occupied).length>=5); break;
+      case '211': points = Number(context.buildings.filter(b=>b.kind.startsWith('ENCLOSURE_')&&arkEnclosureSize(b,mapId)===1&&b.occupied).length>=5); break;
       case '214': appeal = context.x; break;
       case '216': case '220': points = Number(context.reputation>=9); break;
       case '217': appeal = full ? 5 : 0; break;
       case '219': appeal = 2*Math.min(3,icons('Water'),icons('Rock')); break;
-      case '221': points = Number(ARK_MAP_A.filter(c=>c.terrain==='LAND'&&arkBorder(c)).every(c=>!empty(c))); break;
+      case '221': points = Number(arkMapCells(mapId).filter(c=>c.terrain==='LAND'&&arkBorder(c)).every(c=>!empty(c))); break;
       case '201': points = icons('Science') >= 6 ? 2 : Number(icons('Science') >= 3); break;
       case '208': case '261': points = Number(categories.filter(tag => icons(tag) > 0).length >= 5); break;
       case '215': case '218': points = Number(context.supportedProjects >= 5); break;
@@ -96,8 +98,8 @@ export function calculateArkSoloFinalScore(context: ArkFinalContext): ArkFinalSc
       case '257': appeal = full ? 5 : 0; break;
       case '258': points = Math.floor(isolatedTerrain('WATER') / 2); break;
       case '259': points = Math.floor(isolatedTerrain('ROCK') / 2); break;
-      case '260': points = emptyGroupScore(covered); break;
-      case '264': points = Math.floor(ARK_MAP_A.filter(c => c.bonus !== null && empty(c) && !adjacent(c)).length / 2); break;
+      case '260': points = emptyGroupScore(covered,mapId); break;
+      case '264': points = Math.floor(arkMapCells(mapId).filter(c => c.bonus !== null && empty(c) && !adjacent(c)).length / 2); break;
       default: continue;
     }
     details.push({cardId: card.cardId, conservation: points, appeal}); sponsorPoints += points; sponsorAppeal += appeal;

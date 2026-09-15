@@ -2,7 +2,7 @@ import * as v from 'valibot';
 import { ArkRefSchema } from './actions.js';
 import { ARK_PROJECTS } from './catalog.js';
 export const ARK_MAP_A_PROJECT_BONUSES=['SNAP_1','ENCLOSURE_2','MONEY_5','CONSERVATION_1','REPUTATION_2','MONEY_12','X_3'] as const;
-export const ArkProjectBonusSchema=v.picklist(ARK_MAP_A_PROJECT_BONUSES);
+export const ArkProjectBonusSchema=v.picklist([...ARK_MAP_A_PROJECT_BONUSES,'WORKER','PAID_SPONSOR','UPGRADE','FREE_UNIVERSITY','SPECIAL_ENCLOSURE','MOVE_1_TWICE','APPEAL_2','FREE_PARTNER']);
 export type ArkProjectBonus=v.InferOutput<typeof ArkProjectBonusSchema>;
 export const ArkActivatedProjectBonusesSchema=v.pipe(v.array(ArkProjectBonusSchema),v.maxLength(7),v.check(xs=>new Set(xs).size===xs.length));
 export const ArkProjectSupportChoiceSchema=v.strictObject({cardId:ArkRefSchema,slot:v.picklist([0,1,2]),bonus:ArkProjectBonusSchema,

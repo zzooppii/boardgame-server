@@ -1,15 +1,16 @@
+import {arkMapCells,type ArkMapId} from '@hangul-rummikub/shared';
 import * as v from 'valibot';
-import { ARK_BUILDINGS, ARK_MAP_A, ArkBuildBonusSchema, arkCellKey, arkInitialBuildings, type ArkBuilding, type ArkBuildBonus } from '@hangul-rummikub/shared';
+import { ARK_BUILDINGS, ArkBuildBonusSchema, arkCellKey, arkInitialBuildings, type ArkBuilding, type ArkBuildBonus } from '@hangul-rummikub/shared';
 import { validateArkConstruction } from './construction.js';
 
 export {arkReputationRange} from '@hangul-rummikub/shared';
-export function arkPlacementBonuses(building:ArkBuilding):ArkBuildBonus[] {
+export function arkPlacementBonuses(building:ArkBuilding,mapId:ArkMapId='A'):ArkBuildBonus[] {
   const covered=new Set(building.cells.map(arkCellKey));
-  return ARK_MAP_A.filter(cell=>covered.has(arkCellKey(cell))&&cell.bonus!==null).map(cell=>v.parse(ArkBuildBonusSchema,{id:`map:${arkCellKey(cell)}`,kind:cell.bonus}));
+  return arkMapCells(mapId).filter(cell=>covered.has(arkCellKey(cell))&&cell.bonus!==null).map(cell=>v.parse(ArkBuildBonusSchema,{id:`map:${arkCellKey(cell)}`,kind:cell.bonus}));
 }
-export function arkConstructionAppeal(buildings:readonly ArkBuilding[]):number {
+export function arkConstructionAppeal(buildings:readonly ArkBuilding[],mapId:ArkMapId='A'):number {
   const covered=new Set(buildings.flatMap(b=>b.cells.map(arkCellKey)));
-  return buildings.filter(b=>b.kind==='PAVILION').length + (ARK_MAP_A.filter(c=>c.terrain==='LAND').every(c=>covered.has(arkCellKey(c))) ? 7 : 0);
+  return buildings.filter(b=>b.kind==='PAVILION').length + (arkMapCells(mapId).filter(c=>c.terrain==='LAND').every(c=>covered.has(arkCellKey(c))) ? 7 : 0);
 }
 /** Current construction-only games contain empty buildings; animal occupancy is added with card play. */
 export function assertArkConstructedMap(buildings:readonly ArkBuilding[]):void {
@@ -26,7 +27,7 @@ export function assertArkConstructedMap(buildings:readonly ArkBuilding[]):void {
     placed.push(building);
   }
 }
-export function canContinueArkBuild(buildings:readonly ArkBuilding[],money:number,remaining:number,builtKinds:readonly string[],upgraded=true,engineerAvailable=false,ignoreTerrain=false):boolean {
-  return Object.keys(ARK_BUILDINGS).some(building=>ARK_MAP_A.some(anchor=>[0,1,2,3,4,5].some(rotation=>[false,true].some(reflected=>
-    validateArkConstruction({buildings,money,remainingStrength:remaining,upgraded,builtKinds,engineerAvailable,ignoreTerrain},{building,anchor:{q:anchor.q,r:anchor.r},rotation,reflected}).ok))));
+export function canContinueArkBuild(buildings:readonly ArkBuilding[],money:number,remaining:number,builtKinds:readonly string[],upgraded=true,engineerAvailable=false,ignoreTerrain=false,mapId:ArkMapId='A'):boolean {
+  return Object.keys(ARK_BUILDINGS).some(building=>arkMapCells(mapId).some(anchor=>[0,1,2,3,4,5].some(rotation=>[false,true].some(reflected=>
+    validateArkConstruction({buildings,money,remainingStrength:remaining,upgraded,builtKinds,engineerAvailable,ignoreTerrain,mapId},{building,anchor:{q:anchor.q,r:anchor.r},rotation,reflected}).ok))));
 }

@@ -1,7 +1,8 @@
-import { ARK_CARDS, ARK_GOALS, ARK_MAP_A, arkBorder, arkCellKey, arkNeighbours, type ArkBuilding, type ArkCard } from '@hangul-rummikub/shared';
+import {arkMapCells,type ArkMapId} from '@hangul-rummikub/shared';
+import { ARK_CARDS, ARK_GOALS, arkBorder, arkCellKey, arkNeighbours, type ArkBuilding, type ArkCard } from '@hangul-rummikub/shared';
 
 export type ArkGoalContext = Readonly<{
-  played: readonly ArkCard[];
+mapId?:ArkMapId|undefined;  played: readonly ArkCard[];
   buildings: readonly ArkBuilding[];
   universityResearch: number;
   supportedProjects: number;
@@ -21,10 +22,10 @@ export function scoreArkSoloGoal(key: string, context: ArkGoalContext): number {
   const covered = new Set(context.buildings.flatMap(b => b.cells.map(arkCellKey)));
   const connected = (cell: {q: number; r: number}) => !covered.has(arkCellKey(cell)) && arkNeighbours(cell).some(n => covered.has(arkCellKey(n)));
   if (key === '004') {
-    return Number(ARK_MAP_A.filter(c => c.terrain === 'WATER' && !covered.has(arkCellKey(c))).every(connected)) +
-      Number(ARK_MAP_A.filter(c => c.terrain === 'ROCK' && !covered.has(arkCellKey(c))).every(connected)) +
-      Number(ARK_MAP_A.filter(c => c.terrain === 'LAND' && arkBorder(c)).every(c => covered.has(arkCellKey(c)))) +
-      Number(ARK_MAP_A.filter(c => c.terrain === 'LAND').every(c => covered.has(arkCellKey(c))));
+    return Number(arkMapCells(context.mapId).filter(c => c.terrain === 'WATER' && !covered.has(arkCellKey(c))).every(connected)) +
+      Number(arkMapCells(context.mapId).filter(c => c.terrain === 'ROCK' && !covered.has(arkCellKey(c))).every(connected)) +
+      Number(arkMapCells(context.mapId).filter(c => c.terrain === 'LAND' && arkBorder(c)).every(c => covered.has(arkCellKey(c)))) +
+      Number(arkMapCells(context.mapId).filter(c => c.terrain === 'LAND').every(c => covered.has(arkCellKey(c))));
   }
   let value: number;
   switch (key) {
@@ -32,7 +33,7 @@ export function scoreArkSoloGoal(key: string, context: ArkGoalContext): number {
     case '002': value = animals.filter(c => c.size <= 2).length; break;
     case '003': value = context.universityResearch + definitions.reduce((sum, c) => sum + c.tags.filter(t => t === 'Science').length, 0); break;
     case '005': value = context.supportedProjects; break;
-    case '006': value = ARK_MAP_A.filter(c => c.terrain === 'LAND' && !covered.has(arkCellKey(c))).length; break;
+    case '006': value = arkMapCells(context.mapId).filter(c => c.terrain === 'LAND' && !covered.has(arkCellKey(c))).length; break;
     case '007': value = context.reputation; break;
     case '008': value = definitions.filter(c => c.kind === 'SPONSOR').length; break;
     case '010':

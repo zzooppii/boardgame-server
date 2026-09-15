@@ -1,5 +1,6 @@
+import {arkMapCells,arkIgnoredAnimalConditions,arkSponsorLevel} from '@hangul-rummikub/shared';
 import {arkEnclosuresToEmpty,ARK_UNIQUE_BUILDINGS,validateArkUniqueConstruction,arkAnimalPrice,arkMissingCardConditions,arkAnimalHousingChoices,arkCanShareFlockEnclosure,arkCardDefinition,ARK_TAG_LABELS} from '@hangul-rummikub/shared';
-import {ARK_BUILDINGS,ARK_MAP_A,arkCellKey,type ArkCell,ARK_CARDS,arkReputationRange,arkActionStrength,arkPlacementReason,arkShape,type ArkActionKind,type ArkSoloCommand,type ArkSoloView} from '@hangul-rummikub/shared';
+import {ARK_BUILDINGS,arkCellKey,type ArkCell,ARK_CARDS,arkReputationRange,arkActionStrength,arkPlacementReason,arkShape,type ArkActionKind,type ArkSoloCommand,type ArkSoloView} from '@hangul-rummikub/shared';
 
 /** Display the server's continuation constraint; commands are still validated by the server. */
 export function arkActionControls(state:Pick<ArkSoloView,'extraAction'|'repeatedAction'|'table'>,action:ArkActionKind) {
@@ -34,7 +35,7 @@ export function arkBuildPlacementHint(state:ArkSoloView,placement:Extract<ArkSol
   const unavailable=arkBuildOptionAdvice(state,placement.building,x);
   if(unavailable)return unavailable;
   return arkPlacementReason(state.buildings,placement.building,arkShape(placement.building,placement.anchor,placement.rotation,placement.reflected),
-    state.activeBuild?.upgraded??state.actions.some(a=>a.kind==='BUILD'&&a.upgraded),state.played.some(c=>c.key==='219'));
+    state.activeBuild?.upgraded??state.actions.some(a=>a.kind==='BUILD'&&a.upgraded),state.played.some(c=>c.key==='219'),false,state.mapId);
 }
 
 export function arkDisplayedStrength(state:ArkSoloView,kind:ArkActionKind,x:number):number {
@@ -54,7 +55,7 @@ export function arkZooSelectionHint(state:ArkSoloView,cardId:string|null):string
   if(!definition||definition.kind!==(work.action==='ANIMALS'?'ANIMAL':'SPONSOR'))return work.action==='ANIMALS'?'동물 카드를 선택하세요.':'후원자 카드를 선택하세요.';
   if(!held&&!work.upgraded)return '공개 카드 사용은 해당 행동 카드의 업그레이드가 필요합니다.';
   if(!held&&slot>=arkReputationRange(state.reputation))return '현재 평판으로 이용할 수 없는 공개 카드 칸입니다.';
-  if(definition.kind==='SPONSOR'&&definition.cost>work.remaining)return `후원 행동력 부족: 후원 등급 ${definition.cost} 필요 · 남은 ${work.remaining}. 돈으로 대신 지불할 수 없습니다. X 토큰은 행동 시작 전에 추가하세요.`;
+  if(definition.kind==='SPONSOR'&&arkSponsorLevel(definition,state)>work.remaining)return `후원 행동력 부족: 후원 등급 ${arkSponsorLevel(definition,state)} 필요 · 남은 ${work.remaining}. 돈으로 대신 지불할 수 없습니다. X 토큰은 행동 시작 전에 추가하세요.`;
   return null;
 }
 
@@ -69,13 +70,13 @@ export function arkAnimalSelectionAdvice(state:ArkSoloView,cardId:string|null) {
   if(!animal)return null;
   const slot=state.hand.some(c=>c.cardId===cardId)?0:state.display.findIndex(c=>c?.cardId===cardId)+1;
   const price=arkAnimalPrice(animal,state,slot),missing=arkMissingCardConditions(animal,state);
-  const ignores=animal.size>=4&&state.played.some(c=>c.key==='263')?1:0;
+  const ignores=arkIgnoredAnimalConditions(animal,state);
   const missingLabels=missing.map(key=>key==='Partner_Zoo'?'이 동물과 같은 대륙의 제휴 동물원':key==='AnimalsII'?'동물 행동 II':key==='Reputation'?'평판 3 이상':key==='Appeal'?'매력 25 이하':`${ARK_TAG_LABELS[key]??key} 아이콘`);
   const issues:string[]=[];
-  if(missing.length>ignores)issues.push(`부족한 조건: ${missingLabels.join(', ')}${ignores?' (이 중 1개 무시 가능)':''}`);
+  if(missing.length>ignores)issues.push(`부족한 조건: ${missingLabels.join(', ')}${ignores?` (이 중 ${ignores}개 무시 가능)`:''}`);
   if(state.money<price)issues.push(`돈 ${price-state.money} 부족 (필요 ${price} · 보유 ${state.money})`);
   if(state.wazaFocus==='SMALL'&&animal.size>=4||state.wazaFocus==='LARGE'&&animal.size<=2)issues.push('현재 WAZA 전문화로 이 크기의 동물을 사용할 수 없습니다.');
-  const housingIds=arkAnimalHousingChoices(state.buildings,animal,state.played.some(c=>c.key==='219'));
+  const housingIds=arkAnimalHousingChoices(state.buildings,animal,state.played.some(c=>c.key==='219'),state.mapId);
   const flock=arkCanShareFlockEnclosure(animal,state.played.map(arkCardDefinition));
   if(!housingIds.length&&!flock)issues.push(`입주 가능한 우리가 없습니다. ${animal.standard?`${animal.size}칸 이상의 빈 우리 또는 허용된 특수 우리`:'허용된 특수 우리'}${animal.water?` · 물 ${animal.water}칸 인접`:''}${animal.rock?` · 바위 ${animal.rock}칸 인접`:''} 조건과 남은 용량을 확인하세요.`);
   return {price,housingIds,flock,issues};
@@ -86,12 +87,12 @@ export function arkSponsorSelectionAdvice(state:ArkSoloView,cardId:string|null,p
   const definition=card&&ARK_CARDS.find(c=>c.key===card.key&&c.kind==='SPONSOR');
   if(!definition)return null;
   const held=state.hand.some(c=>c.cardId===cardId);
-  const price=mode==='PAID_EFFECT'?definition.cost:held?0:state.display.findIndex(c=>c?.cardId===cardId)+1;
+  const price=mode==='PAID_EFFECT'?arkSponsorLevel(definition,state):held?0:state.display.findIndex(c=>c?.cardId===cardId)+1;
   const missing=arkMissingCardConditions(definition,state),issues:string[]=[];
   if(mode==='PAID_EFFECT'&&!held)issues.push('이 효과는 손패의 후원자만 사용할 수 있습니다.');
   if(missing.length)issues.push(`부족한 조건: ${missing.map(key=>key==='Partner_Zoo'?'제휴 동물원':key==='SponsorsII'?'후원자 행동 II':key==='Appeal'?'매력 25 이하':key==='Reputation'?'평판 3 이상':`${ARK_TAG_LABELS[key]??key} 아이콘`).join(', ')}`);
   if(state.money<price)issues.push(`돈 ${price-state.money} 부족 (필요 ${price} · 보유 ${state.money})`);
-  if(Object.hasOwn(ARK_UNIQUE_BUILDINGS,definition.key)&&!validateArkUniqueConstruction(state.buildings,definition,state.actions.some(a=>a.kind==='BUILD'&&a.upgraded),state.played.some(c=>c.key==='219'),placement).ok)issues.push('고유 건물을 배치할 수 없습니다. 지도에서 위치·회전·연결·지형·가장자리 조건을 확인하세요.');
+  if(Object.hasOwn(ARK_UNIQUE_BUILDINGS,definition.key)&&!validateArkUniqueConstruction(state.buildings,definition,state.actions.some(a=>a.kind==='BUILD'&&a.upgraded),state.played.some(c=>c.key==='219'),placement,state.mapId).ok)issues.push('고유 건물을 배치할 수 없습니다. 지도에서 위치·회전·연결·지형·가장자리 조건을 확인하세요.');
   return {price,issues};
 }
 
@@ -109,7 +110,7 @@ export function arkWazaSelectionAdvice(state:ArkSoloView,cardId:string|null,hous
 export function arkFreeBuildPlacementHint(state:ArkSoloView,placement:Extract<ArkSoloCommand,{kind:'BUILD'}>['placement']|null):string|null {
   if(!placement)return '시설과 지도 기준 칸을 선택하세요.';
   if(state.activeEffect?.kind!=='FREE_BUILD'||!state.activeEffect.guide.buildings.includes(placement.building))return '이 효과에서 허용된 시설을 선택하세요.';
-  return arkPlacementReason(state.buildings,placement.building,arkShape(placement.building,placement.anchor,placement.rotation,placement.reflected),state.actions.some(a=>a.kind==='BUILD'&&a.upgraded),state.played.some(c=>c.key==='219'));
+  return arkPlacementReason(state.buildings,placement.building,arkShape(placement.building,placement.anchor,placement.rotation,placement.reflected),state.actions.some(a=>a.kind==='BUILD'&&a.upgraded),state.played.some(c=>c.key==='219'),false,state.mapId);
 }
 
 export function arkSpecialMoveAdvice(state:ArkSoloView,cardId:string|null,housingId:string|null) {
@@ -121,8 +122,8 @@ export function arkSpecialMoveAdvice(state:ArkSoloView,cardId:string|null,housin
   if(!animal)issues.push('이동할 동물을 선택하세요.');
   if(move&&cardId&&move.moved.includes(cardId))issues.push('이번 효과에서 이미 이동한 동물입니다.');
   const ignoreTerrain=state.played.some(c=>c.key==='219');
-  if(animal&&destination&&!arkAnimalHousingChoices([destination],animal,ignoreTerrain).length)issues.push('이 특수 우리에 들어갈 수 없습니다. 동물 종류·남은 용량·지형 조건을 확인하세요.');
-  const housingIds=animal?arkEnclosuresToEmpty(state.buildings,animal,ignoreTerrain):[];
+  if(animal&&destination&&!arkAnimalHousingChoices([destination],animal,ignoreTerrain,state.mapId).length)issues.push('이 특수 우리에 들어갈 수 없습니다. 동물 종류·남은 용량·지형 조건을 확인하세요.');
+  const housingIds=animal?arkEnclosuresToEmpty(state.buildings,animal,ignoreTerrain,state.mapId):[];
   if(animal&&(housingId===null?housingIds.length>0:!housingIds.includes(housingId)))issues.push('비울 수 있는 기존 우리를 선택하세요.');
   return {destination,housingIds,issues};
 }
@@ -134,10 +135,10 @@ export function arkToggleLimitedSelection(selected:readonly string[],id:string,l
 }
 
 const mapBonusLabels:Readonly<Record<string,string>>={REPUTATION_2:'평판 2',X_1:'X 토큰 1',CARD_1:'카드 1장',MONEY_5:'돈 5',MONEY_10:'돈 10',WORKER:'직원 1'};
-export function arkMapBonusAdvice(state:Pick<ArkSoloView,'buildings'>,cell:ArkCell|null) {
+export function arkMapBonusAdvice(state:Pick<ArkSoloView,'buildings'|'mapId'>,cell:ArkCell|null) {
   const covered=new Set(state.buildings.flatMap(b=>b.cells.map(arkCellKey)));
-  const available=ARK_MAP_A.filter(c=>c.bonus!==null&&!covered.has(arkCellKey(c)));
-  const selected=cell?ARK_MAP_A.find(c=>arkCellKey(c)===arkCellKey(cell)):undefined;
+  const available=arkMapCells(state.mapId).filter(c=>c.bonus!==null&&!covered.has(arkCellKey(c)));
+  const selected=cell?arkMapCells(state.mapId).find(c=>arkCellKey(c)===arkCellKey(cell)):undefined;
   const reason=!cell?'강조된 지도 보너스 칸을 선택하세요.':!selected?'동물원 지도 안의 보너스 칸을 선택하세요.':covered.has(arkCellKey(selected))?'이미 건물로 덮인 칸의 보너스는 선택할 수 없습니다.':!selected.bonus?'보너스가 없는 칸입니다.':null;
   return {available,reason,label:reason===null&&selected?.bonus?mapBonusLabels[selected.bonus]??selected.bonus:null};
 }

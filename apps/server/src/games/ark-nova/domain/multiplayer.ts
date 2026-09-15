@@ -133,14 +133,15 @@ export function applyArkMultiplayerCommand(current:ArkMultiplayerState,actor:Pla
   const command=v.safeParse(ArkSoloCommandSchema,input);if(!command.success)return invalid();
   if(current.stage==='SETUP'?(command.output.kind!=='INITIAL_HAND'||current.readyPlayerIds.includes(actor)):actor!==current.playerId)return invalid();
   const s=parseArkMultiplayerState(current),p=hydrateArkPlayer(s,actor),a=command.output;
+  if(a.kind==='INITIAL_HAND'&&a.mapId&&a.mapId!=='A'&&a.mapId!=='0'&&s.players.some(other=>other.playerId!==actor&&s.readyPlayerIds.includes(other.playerId)&&other.mapId===a.mapId))return invalid();
   const borrowing=s.borrowed.at(-1);
   s.notice=null;
   const starting=a.kind==='BEGIN_ZOO'||a.kind==='TAKE_X'?a.action:a.kind==='FUNDRAISE'?'SPONSORS':a.kind==='DRAW'||a.kind==='SNAP'?'CARDS':a.kind==='BUILD'?'BUILD':a.kind==='ASSOCIATION'?'ASSOCIATION':null;
-  if(starting&&s.stage==='ACTION'&&!p.pending&&!p.zooWork&&!p.activeBuild&&!p.activeAssociation){
+  if((starting||a.kind==='HARBOR')&&s.stage==='ACTION'&&!p.pending&&!p.zooWork&&!p.activeBuild&&!p.activeAssociation){
     if(!s.venomRollback&&p.actions.some(c=>c.venom))s.venomRollback=JSON.stringify(s);
-    const m=p.multiplayer!,card=p.actions.find(c=>c.kind===starting)!;
+    const m=p.multiplayer!,card=p.actions.find(c=>c.kind===starting);
     if(a.kind==='BEGIN_ZOO')m.venomStart={removed:m.venomRemoved??false};
-    if(card.venom)m.venomRemoved=true;
+    if(card?.venom)m.venomRemoved=true;
   }
   if(borrowing?.ownerId===actor&&!borrowing.rowRestored&&!p.extraActions.length){
     const kind=a.kind==='BEGIN_ZOO'||a.kind==='TAKE_X'?a.action:a.kind==='FUNDRAISE'?'SPONSORS':a.kind==='DRAW'||a.kind==='SNAP'?'CARDS':a.kind==='BUILD'?'BUILD':a.kind==='ASSOCIATION'?'ASSOCIATION':null;
@@ -220,7 +221,7 @@ export function applyArkMultiplayerCommand(current:ArkMultiplayerState,actor:Pla
 export function projectArkMultiplayerGame(s:ArkMultiplayerState,viewer:PlayerId):ArkSoloView {
   const p=hydrateArkPlayer(s,viewer);
   return projectArkSoloGame(p,viewer,{hideDisplay:s.stage==='SETUP',table:{notice:s.notice,interaction:s.interaction?{ownerId:s.interaction.ownerId,targetId:s.interaction.targetId}:null,borrowed:s.borrowed.at(-1)?.ownerId===viewer&&!s.borrowed.at(-1)!.rowRestored?{targetId:s.borrowed.at(-1)!.targetId,action:s.borrowed.at(-1)!.action,strength:s.borrowed.at(-1)!.strength}:null,stage:s.stage,activePlayerId:s.playerId,breakPosition:s.breakPosition,breakLimit:arkMultiplayerBreakLimit(s.players.length),breakNumber:s.breakNumber,readyPlayerIds:s.readyPlayerIds,finalTurns:s.finalTurns,winners:s.winners,occupiedProjects:s.occupiedProjects,
-    players:s.players.map(p=>({playerId:p.playerId,money:p.money,appeal:p.appeal,conservation:p.conservation,reputation:p.reputation,x:p.x,workers:p.workers,busyWorkers:p.busyWorkers,handCount:p.hand.length,goalCount:p.goals.length,played:p.played,buildings:p.buildings,actions:p.actions,partners:p.partners,universities:p.universities,supportedProjects:p.supportedProjects,total:p.result?.total??null}))}});
+    players:s.players.map(p=>({mapId:p.mapId,playerId:p.playerId,money:p.money,appeal:p.appeal,conservation:p.conservation,reputation:p.reputation,x:p.x,workers:p.workers,busyWorkers:p.busyWorkers,handCount:p.hand.length,goalCount:p.goals.length,played:p.played,buildings:p.buildings,actions:p.actions,partners:p.partners,universities:p.universities,supportedProjects:p.supportedProjects,total:p.result?.total??null}))}});
 }
 function finishInteraction(p:ArkSoloState,id:number,next:TurnId):void {
   const job=p.effects.active;if(job?.id!==id||job.effect.kind!=='INTERACTION')throw new Error('Invalid interactive effect.');

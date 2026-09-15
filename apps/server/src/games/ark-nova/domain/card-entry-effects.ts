@@ -1,3 +1,4 @@
+import {arkNeighbours,arkCellKey,arkOffset} from '@hangul-rummikub/shared';
 import type { ArkCard } from '@hangul-rummikub/shared';
 import { arkCardDefinition, arkZooIcons } from './zoo-icons.js';
 import { planArkAnimalEffects, type ArkZooEffect } from './animal-effects.js';
@@ -15,7 +16,8 @@ export function arkCardEntryEffects(before:ArkSponsorContext,after:ArkSponsorCon
   batch.push(...arkSponsorIconTriggers(after,arkZooIcons([card],[],[]),arkZooIcons(before.played,before.partners,before.universities)));
   const placed=[...before.buildings];
   for(const building of after.buildings.filter(b=>!before.buildings.some(old=>old.id===b.id))) {
-    arkNewBuildingEffects(placed,building,after.played).forEach(effect=>emit(effect));placed.push(building);
+    arkNewBuildingEffects(placed,building,after.played,after.mapId).forEach(effect=>emit(effect));placed.push(building);
   }
+  if(after.mapId==='1')for(const building of after.buildings){if(building.kind.startsWith('ENCLOSURE_')&&building.occupied&&before.buildings.some(b=>b.id===building.id&&!b.occupied)&&building.cells.some(c=>arkNeighbours(c).some(n=>arkCellKey(n)===arkCellKey(arkOffset(1,3)))))emit({kind:'GAIN',resource:'APPEAL',amount:2});}
   return batch;
 }

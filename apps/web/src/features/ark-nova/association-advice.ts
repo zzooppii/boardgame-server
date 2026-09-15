@@ -42,7 +42,7 @@ export function arkAssociationAdvice(s:ArkSoloView,task:ArkAssociationTask,x=0):
   } else if(!eligible.eligible)issues.push(`프로젝트 조건 부족 (현재 ${eligible.value} · 필요 ${project.slots[task.slot]?.requirement??0})`);
   if(project.kind==='RELEASE'&&task.animalId) {
     const animal=s.played.find(c=>c.cardId===task.animalId);
-    if(animal){const choices=arkReleaseHousingChoices(s.buildings,animal,s.played.some(c=>c.key==='219'));
+    if(animal){const choices=arkReleaseHousingChoices(s.buildings,animal,s.played.some(c=>c.key==='219'),s.mapId);
       if(choices.length?!task.housingId||!choices.includes(task.housingId):task.housingId!==null)issues.push('방사할 동물에 맞는 비울 우리를 선택하세요.');}
   }
   return issues;

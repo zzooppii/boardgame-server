@@ -1,3 +1,4 @@
+import {ArkMapIdSchema} from './maps.js';
 import {ArkHistorySchema} from './history.js';
 import { arkProjectSupportsAreConsistent, ArkActivatedProjectBonusesSchema, ArkProjectSupportRecordSchema } from './project-contracts.js';
 import { ArkEffectGuideSchema, ArkRepeatedActionSchema, ArkExtraActionKindSchema, ArkZooWorkSchema } from './effect-contracts.js';
@@ -27,6 +28,7 @@ export const ArkSoloResultSchema = v.strictObject({
 const cards = v.pipe(v.array(ArkCardSchema),v.maxLength(250));
 /** Solo command-loop projection. The platform registration uses this contract once all actions are connected. */
 export const ArkSoloViewSchema = v.pipe(v.strictObject({
+  mapId:v.optional(ArkMapIdSchema),harborUsed:v.optional(v.boolean()),
   table:v.optional(v.strictObject({
     notice:v.optional(v.nullable(v.string())),
     stage:v.picklist(['SETUP','ACTION','BREAK','GOAL_DISCARD','INTERACTION','FINAL_SCORING','FINISHED']),
@@ -35,7 +37,7 @@ export const ArkSoloViewSchema = v.pipe(v.strictObject({
     activePlayerId:PlayerIdSchema,breakPosition:ArkCountSchema,breakLimit:v.picklist([9,12,15]),breakNumber:ArkCountSchema,
     readyPlayerIds:v.array(PlayerIdSchema),finalTurns:v.nullable(v.array(PlayerIdSchema)),winners:v.array(PlayerIdSchema),
     occupiedProjects:v.array(v.strictObject({cardId:ArkRefSchema,slot:v.picklist([0,1,2]),playerId:v.nullable(PlayerIdSchema)})),
-    players:v.pipe(v.array(v.strictObject({playerId:PlayerIdSchema,money:ArkCountSchema,appeal:ArkCountSchema,conservation:ArkCountSchema,reputation:ArkCountSchema,x:ArkCountSchema,workers:ArkCountSchema,busyWorkers:ArkCountSchema,handCount:ArkCountSchema,goalCount:ArkCountSchema,played:cards,buildings:v.array(ArkBuildingSchema),actions:v.array(ArkActionCardSchema),partners:v.array(ArkRefSchema),universities:v.array(ArkUniversitySchema),supportedProjects:ArkCountSchema,total:v.nullable(v.pipe(v.number(),v.safeInteger()))})),v.minLength(2),v.maxLength(4)),
+    players:v.pipe(v.array(v.strictObject({mapId:v.optional(ArkMapIdSchema),playerId:PlayerIdSchema,money:ArkCountSchema,appeal:ArkCountSchema,conservation:ArkCountSchema,reputation:ArkCountSchema,x:ArkCountSchema,workers:ArkCountSchema,busyWorkers:ArkCountSchema,handCount:ArkCountSchema,goalCount:ArkCountSchema,played:cards,buildings:v.array(ArkBuildingSchema),actions:v.array(ArkActionCardSchema),partners:v.array(ArkRefSchema),universities:v.array(ArkUniversitySchema),supportedProjects:ArkCountSchema,total:v.nullable(v.pipe(v.number(),v.safeInteger()))})),v.minLength(2),v.maxLength(4)),
   })),
   history:v.optional(ArkHistorySchema,()=>[]),
   /** Public board information only; effect jobs and private decks remain server-side. */

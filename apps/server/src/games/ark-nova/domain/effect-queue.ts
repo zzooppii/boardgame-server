@@ -18,7 +18,7 @@ export const ArkZooEffectSchema:v.GenericSchema<ArkZooEffect>=v.variant('kind',[
   v.strictObject({kind:v.literal('MOVE_ACTION'),action:v.nullable(ArkActionKindSchema),slots:v.pipe(v.array(v.picklist([1,5])),v.minLength(1),v.maxLength(2),v.check(xs=>new Set(xs).size===xs.length))}),
   ...(['EXTRA_ACTION','MULTIPLIER'] as const).map(kind=>v.strictObject({kind:v.literal(kind),action:v.nullable(ArkActionKindSchema)})),
   v.strictObject({kind:v.literal('FREE_BUILD'),buildings:v.pipe(v.array(ArkRefSchema),v.minLength(1)),amount:ArkCountSchema,ignoreBuildUpgrade:v.boolean()}),
-  ...(['WAZA_SNAP','ARCHAEOLOGIST','UPGRADE','UPGRADE_OR_WORKER','DISCARD_GOAL','WAZA_FOCUS','FREE_PARTNER','FREE_UNIVERSITY','RESISTANCE','ASSERTION','DOMINANCE','SPONSOR_MAGNET'] as const).map(kind=>v.strictObject({kind:v.literal(kind)})),
+  ...(['HOLLYWOOD','MOVE_1_TWICE','WAZA_SNAP','ARCHAEOLOGIST','UPGRADE','UPGRADE_OR_WORKER','DISCARD_GOAL','WAZA_FOCUS','FREE_PARTNER','FREE_UNIVERSITY','RESISTANCE','ASSERTION','DOMINANCE','SPONSOR_MAGNET'] as const).map(kind=>v.strictObject({kind:v.literal(kind)})),
 ]);
 const Sequence=v.pipe(v.number(),v.safeInteger(),v.minValue(1));
 const Job=v.strictObject({id:Sequence,sourceId:ArkRefSchema,effect:ArkZooEffectSchema});

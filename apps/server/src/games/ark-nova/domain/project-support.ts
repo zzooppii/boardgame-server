@@ -1,3 +1,4 @@
+import {arkMapProjectBonuses,type ArkMapId} from '@hangul-rummikub/shared';
 import * as v from 'valibot';
 import { ARK_PROJECTS, ArkProjectSupportChoiceSchema, ArkActivatedProjectBonusesSchema, type ArkProjectBonus, type ArkCard, type ArkBuilding } from '@hangul-rummikub/shared';
 import { arkProjectEligibility, releaseArkProjectAnimal } from './project-requirements.js';
@@ -5,6 +6,7 @@ import { arkProjectBonusEffect } from './project-bonuses.js';
 import { arkReputationRange } from './build-turn.js';
 import type { ArkEffectBatch } from './effect-queue.js';
 export type ArkProjectSupportState={
+  mapId?:ArkMapId|undefined;
   multiplayer?:{playerCount:number;occupiedProjects:{cardId:string;slot:number}[]}|undefined;
   hand:ArkCard[];display:(ArkCard|null)[];discarded:ArkCard[];played:ArkCard[];buildings:ArkBuilding[];pouched:Record<string,ArkCard[]>;
   baseProjects:ArkCard[];playedProjects:ArkCard[];projectSupports:{cardId:string;slot:0|1|2}[];
@@ -18,7 +20,7 @@ export type ArkProjectSupportState={
 export function supportArkProject<T extends ArkProjectSupportState>(current:T,upgraded:boolean,remaining:number,input:unknown):
   {ok:true;state:T;cost:number;effects:ArkEffectBatch[]}|{ok:false} {
   const selected=v.safeParse(ArkProjectSupportChoiceSchema,input),bonuses=v.safeParse(ArkActivatedProjectBonusesSchema,current.activatedProjectBonuses);
-  if(!selected.success||!bonuses.success)return {ok:false};
+  if(!selected.success||!bonuses.success||!arkMapProjectBonuses(current.mapId).includes(selected.output.bonus))return {ok:false};
   const a=selected.output,cost=current.played.some(c=>c.key==='203')?4:5;
   const used=current.taskWorkers.PROJECT??0,staff=used===0?1:used===1?2:Infinity;
   if(!Number.isSafeInteger(remaining)||remaining<cost||current.workers-current.busyWorkers<staff||bonuses.output.includes(a.bonus))return {ok:false};

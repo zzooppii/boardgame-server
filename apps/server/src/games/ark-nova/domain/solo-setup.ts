@@ -1,3 +1,4 @@
+import {ArkMapIdSchema} from '@hangul-rummikub/shared';
 import * as v from 'valibot';
 import {
   ARK_CARDS, ARK_GOALS, ARK_PROJECTS, ArkActionCardSchema, ArkBuildingSchema, ArkCardSchema,
@@ -10,6 +11,7 @@ import { createArkSoloProgress, parseArkSoloProgress, startArkSolo } from './sol
 
 const cards = v.array(ArkCardSchema);
 export const ArkSoloSetupStateSchema = v.strictObject({
+  mapId:v.optional(ArkMapIdSchema),
   gameId: GameIdSchema,
   playerId: PlayerIdSchema,
   revision: GameRevisionSchema,
@@ -34,7 +36,7 @@ export const ArkSoloSetupStateSchema = v.strictObject({
   x: v.literal(0),
 });
 export type ArkSoloSetup = v.InferOutput<typeof ArkSoloSetupStateSchema>;
-const ChooseHand = v.strictObject({keep: v.pipe(v.array(ArkRefSchema), v.length(4))});
+const ChooseHand = v.strictObject({mapId:v.optional(ArkMapIdSchema),keep: v.pipe(v.array(ArkRefSchema), v.length(4))});
 
 function shuffle<T>(input: readonly T[], random: RandomSource): T[] {
   const result = [...input];
@@ -70,7 +72,7 @@ export function parseArkSoloSetup(input: unknown): ArkSoloSetup {
     s.discarded.length !== (s.progress.stage === 'SETUP' ? 0 : 4) ||
     s.actions[0]!.kind !== 'ANIMALS' || new Set(s.actions.map(c => c.kind)).size !== 5 ||
     s.actions.some(c => c.upgraded || c.venom || c.constriction || c.multiplier !== 0) ||
-    JSON.stringify(s.buildings) !== JSON.stringify(arkInitialBuildings()) ||
+    JSON.stringify(s.buildings) !== JSON.stringify(arkInitialBuildings(s.mapId)) ||
     s.goals.some(c => c.key === '009') || s.discardedGoals.some(c => c.key !== '009') ||
     s.appeal !== createArkSoloProgress(s.difficulty).appeal) throw new Error('Ark solo setup invariant failed.');
   return s;
@@ -108,6 +110,7 @@ export function chooseArkSoloInitialHand(current: ArkSoloSetup, actor: PlayerId,
     return {ok: false, reason: 'INVALID_CHOICE'};
   }
   const s = parseArkSoloSetup(current), keep = new Set(parsed.output.keep);
+  s.mapId=parsed.output.mapId??s.mapId??'A';s.buildings=arkInitialBuildings(s.mapId);
   s.discarded.push(...s.hand.filter(c => !keep.has(c.cardId)));
   s.hand = s.hand.filter(c => keep.has(c.cardId));
   const started = startArkSolo(s.progress);

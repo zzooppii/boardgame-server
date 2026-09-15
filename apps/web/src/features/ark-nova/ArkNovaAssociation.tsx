@@ -1,20 +1,22 @@
+import {arkMapProjectBonuses,ArkProjectBonusSchema} from '@hangul-rummikub/shared';
+import * as v from 'valibot';
 import {ARK_UNIVERSITY_LABELS,ArkNovaAssociationBenefits} from './ArkNovaAssociationBenefits.js';
 import {arkProjectCopy,arkProjectSlotCopy} from './project-copy.js';
 import {ArkTagBadge} from './ArkTagBadge.js';
 import {arkAssociationAdvice,arkDonationAdvice} from './association-advice.js';
 import {useEffect,useState} from 'react';
-import {occupyArkSoloDonation,ARK_DONATION_COSTS,arkProjectEligibility,arkReleaseHousingChoices,ARK_CONTINENTS,ARK_SOLO_UNIVERSITIES,ARK_TAG_LABELS,ARK_PROJECTS,ARK_CARDS,ARK_BUILDINGS,ARK_MAP_A_PROJECT_BONUSES,arkCardName,type ArkSoloView,type ArkAssociationTask,type ArkProjectBonus} from '@hangul-rummikub/shared';
-const bonusLabels:Record<ArkProjectBonus,string>={SNAP_1:'카드 낚아채기',ENCLOSURE_2:'2칸 우리',MONEY_5:'돈 5',CONSERVATION_1:'보전 1',REPUTATION_2:'평판 2',MONEY_12:'돈 12',X_3:'X 토큰 3'};
+import {occupyArkSoloDonation,ARK_DONATION_COSTS,arkProjectEligibility,arkReleaseHousingChoices,ARK_CONTINENTS,ARK_SOLO_UNIVERSITIES,ARK_TAG_LABELS,ARK_PROJECTS,ARK_CARDS,ARK_BUILDINGS,arkCardName,type ArkSoloView,type ArkAssociationTask,type ArkProjectBonus} from '@hangul-rummikub/shared';
+const bonusLabels:Record<ArkProjectBonus,string>={WORKER:'직원 1명',PAID_SPONSOR:'후원자 사용 · 등급만큼 돈 지불',UPGRADE:'행동 업그레이드',FREE_UNIVERSITY:'대학 1개',SPECIAL_ENCLOSURE:'파충류관 또는 대형 조류관 무료 건설',MOVE_1_TWICE:'행동 카드 2회 → 1번',APPEAL_2:'매력 2',FREE_PARTNER:'제휴 동물원 1개',SNAP_1:'카드 낚아채기',ENCLOSURE_2:'2칸 우리',MONEY_5:'돈 5',CONSERVATION_1:'보전 1',REPUTATION_2:'평판 2',MONEY_12:'돈 12',X_3:'X 토큰 3'};
 export function ArkNovaAssociation({state:s,disabled,onTask,onDonate,x=0}:{state:ArkSoloView;x?:number;disabled:boolean;onTask(task:ArkAssociationTask):void;onDonate?():void}) {
   const [projectId,setProject]=useState(s.baseProjects[0]?.cardId??''),[animalId,setAnimal]=useState(''),[housingId,setHousing]=useState(''),[tokens,setTokens]=useState<string[]>([]);
-  const availableBonuses=ARK_MAP_A_PROJECT_BONUSES.filter(b=>!s.activatedProjectBonuses.includes(b));
+  const availableBonuses=arkMapProjectBonuses(s.mapId).map(b=>v.parse(ArkProjectBonusSchema,b)).filter(b=>!s.activatedProjectBonuses.includes(b));
   const [chosenBonus,setBonus]=useState<ArkProjectBonus|null>(null);
   const bonus=chosenBonus&&availableBonuses.includes(chosenBonus)?chosenBonus:availableBonuses[0];
   const projects=[...s.baseProjects,...s.playedProjects,...s.hand,...s.display.filter(c=>c!==null)].filter(c=>ARK_PROJECTS.some(p=>p.key===c.key));
   useEffect(()=>{setAnimal('');setHousing('');setTokens([]);},[s.revision]);
   const project=projects.find(c=>c.cardId===projectId),definition=project&&ARK_PROJECTS.find(p=>p.key===project.key);
   const selectedAnimal=s.played.find(c=>c.cardId===animalId);
-  const releaseChoices=selectedAnimal?arkReleaseHousingChoices(s.buildings,selectedAnimal,s.played.some(c=>c.key==='219')):[];
+  const releaseChoices=selectedAnimal?arkReleaseHousingChoices(s.buildings,selectedAnimal,s.played.some(c=>c.key==='219'),s.mapId):[];
   const eligibleAnimals=definition?new Set([0,1,2].flatMap(slot=>arkProjectEligibility(definition.key,slot,s).animals)):new Set<string>();
   function taskButton(task:ArkAssociationTask,label:string){
     const reasons=arkAssociationAdvice(s,task,x);
@@ -30,8 +32,8 @@ export function ArkNovaAssociation({state:s,disabled,onTask,onDonate,x=0}:{state
     <div className="ark-association-lanes">
       <section className="ark-association-donation"><h3><b>II</b> 기부</h3><p>{s.table?'돈을 내고 보전 1 · 점유된 기부 칸은 모두 공유합니다.':'돈을 내고 보전 1 · 솔로는 휴식마다 가장 저렴한 빈 칸을 막습니다.'}</p><div className="ark-donation-spaces">{ARK_DONATION_COSTS.map((cost,i)=><span key={i} className={s.donations.includes(i)?'is-occupied':''}>돈 {cost} {s.donations.includes(i)?'■ 점유':i===nextDonation?'다음 기부':i===7?'∞':'□'}</span>)}</div><button disabled={disabled||!onDonate||donation.issues.length>0} onClick={onDonate}>돈 {donation.cost} 기부 · 보전 +1</button><p className="ark-task-reason">{donation.issues.join(' · ')}</p></section>
       <section><h3><b>2</b> 평판</h3><div className="ark-association-emblem" aria-hidden="true">🎓</div><p>평판 +2</p>{taskButton({kind:'REPUTATION'},'평판 올리기')}{staff('REPUTATION')}</section>
-      <section><h3><b>3</b> 제휴 동물원</h3><div className="ark-partner-tiles">{ARK_CONTINENTS.map(continent=>taskButton({kind:'PARTNER',continent},ARK_TAG_LABELS[continent]??continent))}</div><ArkNovaAssociationBenefits kind="PARTNER" count={s.partners.length}/>{staff('PARTNER')}</section>
-      <section><h3><b>4</b> 대학</h3><div className="ark-university-tiles">{ARK_SOLO_UNIVERSITIES.map(university=>taskButton({kind:'UNIVERSITY',university},ARK_UNIVERSITY_LABELS[university]))}</div><ArkNovaAssociationBenefits kind="UNIVERSITY" count={s.universities.length}/>{staff('UNIVERSITY')}</section>
+      <section><h3><b>3</b> 제휴 동물원</h3><div className="ark-partner-tiles">{ARK_CONTINENTS.map(continent=>taskButton({kind:'PARTNER',continent},ARK_TAG_LABELS[continent]??continent))}</div><ArkNovaAssociationBenefits mapId={s.mapId} kind="PARTNER" count={s.partners.length}/>{staff('PARTNER')}</section>
+      <section><h3><b>4</b> 대학</h3><div className="ark-university-tiles">{ARK_SOLO_UNIVERSITIES.map(university=>taskButton({kind:'UNIVERSITY',university},ARK_UNIVERSITY_LABELS[university]))}</div><ArkNovaAssociationBenefits mapId={s.mapId} kind="UNIVERSITY" count={s.universities.length}/>{staff('UNIVERSITY')}</section>
       <section><h3><b>{s.played.some(c=>c.key==='203')?4:5}</b> 프로젝트</h3><div className="ark-association-emblem" aria-hidden="true">♜</div><p>아래 프로젝트를 선택한 뒤 지원할 보상 칸을 고르세요.</p>{staff('PROJECT')}</section>
     </div>
     <section className="ark-association-projects" aria-label="보전 프로젝트 지원">

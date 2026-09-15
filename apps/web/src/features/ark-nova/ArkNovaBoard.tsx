@@ -1,52 +1,55 @@
+import {arkMapCells,ARK_MAP_LAYOUTS,arkEnclosureSize,type ArkMapId} from '@hangul-rummikub/shared';
 import {arkSponsorCopy} from './sponsor-copy.js';
 import {arkMapBonusLabels,arkBuildingName,arkUniqueBuildingCardKey,arkBuildingLabel,arkBuildingOutline} from './board-labels.js';
 import type {ArkFeedback} from './feedback.js';
 import {useId, useState, type KeyboardEvent} from 'react';
-import {ARK_MAP_A, arkCellKey, type ArkBuilding, type ArkCell} from '@hangul-rummikub/shared';
+import { arkCellKey, type ArkBuilding, type ArkCell} from '@hangul-rummikub/shared';
 import {BoardIllustrationDefs, BoardBonus} from './BoardIllustration.js';
 import {arkHexPoints, arkScreenPoint} from './presentation.js';
 
-const bonuses:Readonly<Record<string,string>>={REPUTATION_2:'↑2',X_1:'X',CARD_1:'▤',MONEY_5:'5',MONEY_10:'10',WORKER:'♟'};
+const bonuses:Readonly<Record<string,string>>={MONEY_2:'2',REPUTATION_1:'↑1',MOVE_1:'→1',KIOSK:'⌂',PAID_SPONSOR:'$@',FREE_PARTNER:'제휴',FREE_UNIVERSITY:'대학',MULTIPLIER:'×2',REPUTATION_2:'↑2',X_1:'X',CARD_1:'▤',MONEY_5:'5',MONEY_10:'10',WORKER:'♟'};
 export const arkBoardCellInput=(cell:ArkCell):ArkCell=>({q:cell.q,r:cell.r});
 export type ArkNovaBoardProps=Readonly<{
+  mapId?:ArkMapId|undefined;
   eligibleBonusCells?:readonly ArkCell[];eligibleHousingIds?:readonly string[];feedback?:ArkFeedback|null;buildings:readonly ArkBuilding[];selected:ArkCell|null;ghost?:readonly ArkCell[];invalid?:boolean;
   disabled?:boolean;onSelect(cell:ArkCell):void;onRotate?():void;onReflect?():void;onCancel?():void;
 }>;
 /** Server buildings are immutable here; the translucent placement is only an input draft. */
-export function ArkNovaBoard({eligibleBonusCells=[],eligibleHousingIds=[],feedback,buildings,selected,ghost=[],invalid=false,disabled=false,onSelect,onRotate,onReflect,onCancel}:ArkNovaBoardProps) {
-  const tileId=useId();
+export function ArkNovaBoard({mapId='A',eligibleBonusCells=[],eligibleHousingIds=[],feedback,buildings,selected,ghost=[],invalid=false,disabled=false,onSelect,onRotate,onReflect,onCancel}:ArkNovaBoardProps) {
+  const tileId=useId(),mapCells=arkMapCells(mapId),layout=ARK_MAP_LAYOUTS[mapId];
   const [focused,setFocused]=useState(0),[zoomed,setZoomed]=useState(false);
   const occupied=new Map(buildings.flatMap(b=>b.cells.map(c=>[arkCellKey(c),b] as const)));
   const selectedBuilding=selected?occupied.get(arkCellKey(selected)):undefined;
   const uniqueCardKey=selectedBuilding?arkUniqueBuildingCardKey(selectedBuilding):null;
-  const selectedMapCell=selected?ARK_MAP_A.find(c=>arkCellKey(c)===arkCellKey(selected)):undefined;
+  const selectedMapCell=selected?mapCells.find(c=>arkCellKey(c)===arkCellKey(selected)):undefined;
   function key(e:KeyboardEvent<SVGPolygonElement>,index:number) {
     if(disabled)return;
-    if(e.key==='Enter'||e.key===' ') {e.preventDefault();onSelect(arkBoardCellInput(ARK_MAP_A[index]!));return;}
+    if(e.key==='Enter'||e.key===' ') {e.preventDefault();onSelect(arkBoardCellInput(mapCells[index]!));return;}
     if(e.key.toLowerCase()==='r'){e.preventDefault();onRotate?.();return;}
     if(e.key.toLowerCase()==='f'){e.preventDefault();onReflect?.();return;}
     if(e.key==='Escape'){e.preventDefault();onCancel?.();return;}
     if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key))return;
     e.preventDefault();
-    const origin=arkScreenPoint(ARK_MAP_A[index]!);
-    const candidates=ARK_MAP_A.map((cell,i)=>({i,p:arkScreenPoint(cell)})).filter(({p})=>
+    const origin=arkScreenPoint(mapCells[index]!);
+    const candidates=mapCells.map((cell,i)=>({i,p:arkScreenPoint(cell)})).filter(({p})=>
       e.key==='ArrowLeft'?p.x<origin.x:e.key==='ArrowRight'?p.x>origin.x:e.key==='ArrowUp'?p.y<origin.y:p.y>origin.y);
     const next=candidates.sort((a,b)=>Math.hypot(a.p.x-origin.x,a.p.y-origin.y)-Math.hypot(b.p.x-origin.x,b.p.y-origin.y))[0];
     if(next)e.currentTarget.ownerSVGElement?.querySelector<SVGPolygonElement>(`[data-cell-index="${next.i}"]`)?.focus();
   }
-  return <div className="ark-map-panel"><div className="ark-map-heading"><span>MY ZOO · 지도 A</span><span>{buildings.length}개 시설</span></div>
-    <p className="ark-map-legend">노란 오각형: 건설로 덮으면 받는 보상 · 굵은 노란 테두리 하나 = 우리 하나 · 모래색: 빈 우리 · 진한 초록: 동물 입주 · 청록색: 후원자 고유 건물 · 보라색 II: 건설 II 필요</p>
+  return <div className="ark-map-panel"><div className="ark-map-heading"><span>MY ZOO · 지도 {mapId} · {layout.name}</span><span>{buildings.length}개 시설</span></div>
+    <p>{layout.description}</p><p className="ark-map-legend">노란 오각형: 건설로 덮으면 받는 보상 · 굵은 노란 테두리 하나 = 우리 하나 · 모래색: 빈 우리 · 진한 초록: 동물 입주 · 청록색: 후원자 고유 건물 · 보라색 II: 건설 II 필요</p>
     <div className={`ark-map-viewport ${zoomed?'is-zoomed':''}`}><svg className="ark-map" viewBox="0 0 450 410" role="group" aria-label="내 동물원 지도. 방향키로 이동, Enter로 칸 선택, R 회전, F 반전.">
       <BoardIllustrationDefs/><rect x="4" y="4" width="442" height="402" rx="14" fill="url(#ark-painted-grass)" pointerEvents="none"/>
-      {ARK_MAP_A.map((cell,i)=>{
+      {mapCells.map((cell,i)=>{
         const id=arkCellKey(cell),b=occupied.get(id),p=arkScreenPoint(cell),isSelected=selected!==null&&id===arkCellKey(selected);
         const bonusEligible=eligibleBonusCells.some(c=>arkCellKey(c)===id);
         const label=`${cell.q+1}열 ${cell.r+Math.ceil(cell.q/2)+1}칸, ${b?arkBuildingName(b):cell.terrain==='WATER'?'물':cell.terrain==='ROCK'?'바위':'빈 땅'}${b?.occupied?', 동물 입주':''}${b&&eligibleHousingIds.includes(b.id)?', 입주 가능':''}${cell.restricted?', 건설 II 필요':''}${!b&&cell.bonus?`, 덮으면 ${arkMapBonusLabels[cell.bonus]??cell.bonus}`:''}${bonusEligible?', 지도 보너스 선택 가능':''}${b?`, ${arkBuildingLabel(b)}`:''}`;
         return <g key={id}><polygon points={arkHexPoints(cell)} role="button" data-cell-index={i} tabIndex={focused===i?0:-1} aria-label={label} aria-disabled={disabled} aria-pressed={isSelected}
           className={`ark-hex ${bonusEligible?'is-eligible-bonus':''} terrain-${cell.terrain.toLowerCase()} ${isSelected?'is-anchor':''} ${b&&eligibleHousingIds.includes(b.id)?'is-eligible-housing':''} ${b?`is-built ${b.occupied||b.used>0?'is-occupied':''} ${b.kind==='KIOSK'?'is-kiosk':b.kind==='PAVILION'?'is-pavilion':''}`:''}`}
           onFocus={()=>setFocused(i)} onKeyDown={e=>key(e,i)} onClick={()=>{if(!disabled)onSelect(arkBoardCellInput(cell));}}/>
+          {!b&&layout.landmarks?.[`${cell.q}:${cell.r+Math.ceil(cell.q/2)}`]&&<text x={p.x} y={p.y+4} className="ark-hex-label" pointerEvents="none">{layout.landmarks[`${cell.q}:${cell.r+Math.ceil(cell.q/2)}`]==='HOLLYWOOD'?'H':layout.landmarks[`${cell.q}:${cell.r+Math.ceil(cell.q/2)}`]==='OUTDOOR'?'+2':layout.landmarks[`${cell.q}:${cell.r+Math.ceil(cell.q/2)}`]==='TOWER'?'망루':'식당'}</text>}
           {!b&&cell.bonus&&<BoardBonus x={p.x} y={p.y} label={bonuses[cell.bonus]??'+'}/>}
-          {!b&&cell.restricted&&<BoardBonus x={p.x} y={p.y} label="II" restricted/>}
+          {!b&&cell.restricted&&<BoardBonus x={p.x} y={cell.bonus?p.y-14:p.y} label="II" restricted/>}
           {b&&(b.kind==='KIOSK'||b.kind==='PAVILION'||b.occupied)&&<text className="ark-hex-label" x={p.x} y={p.y+5} pointerEvents="none">{b.kind==='KIOSK'?'⌂':b.kind==='PAVILION'?'✦':'●'}</text>}
         </g>;
       })}
@@ -74,7 +77,7 @@ export function ArkNovaBoard({eligibleBonusCells=[],eligibleHousingIds=[],feedba
         <path d={outline} className={`ark-facility-outline ${eligibleHousingIds.includes(b.id)?'is-eligible':''} ${selectedBuilding?.id===b.id?'is-selected':''}`}/>
         <rect x={p.x-24} y={p.y-14} width="48" height="28" rx="7" fill={b.occupied||b.used>0?'#285b42':'#fff4d5'} stroke="#634b2a"/>
         <text x={p.x} y={p.y-3} textAnchor="middle" {...(arkBuildingName(b).length>6?{textLength:44,lengthAdjust:"spacingAndGlyphs" as const}:{})} style={{fontSize:8,fontWeight:800,fill:b.occupied||b.used>0?'#fff':'#493a24'}}>{arkBuildingName(b)}</text>
-        <text x={p.x} y={p.y+8} textAnchor="middle" style={{fontSize:7,fill:b.occupied||b.used>0?'#fff':'#493a24'}}>{b.cells.length}칸 · {b.occupied||b.used>0?'입주':b.kind.startsWith('ENCLOSURE_')?'빈 우리':'시설'}</text>
+        <text x={p.x} y={p.y+8} textAnchor="middle" style={{fontSize:7,fill:b.occupied||b.used>0?'#fff':'#493a24'}}>{b.cells.length}칸{mapId==='2'&&arkEnclosureSize(b,mapId)>b.cells.length?`(수용 ${arkEnclosureSize(b,mapId)})`:''} · {b.occupied||b.used>0?'입주':b.kind.startsWith('ENCLOSURE_')?'빈 우리':'시설'}</text>
       </g>;})}
       {feedback&&buildings.filter(b=>feedback.built.includes(b.id)||feedback.arrivals.includes(b.id)).flatMap(b=>b.cells.map(c=><polygon key={`${feedback.revision}-${arkCellKey(c)}`} points={arkHexPoints(c,27)} className={`ark-board-celebration ${feedback.arrivals.includes(b.id)?'is-arrival':'is-construction'}`} pointerEvents="none"/>))}
       {ghost.map(c=><polygon key={arkCellKey(c)} points={arkHexPoints(c,27)} className={`ark-ghost ${invalid?'is-invalid':''}`} pointerEvents="none"/>)}

@@ -35,7 +35,7 @@ export function playNextArkZooCard<T extends ArkZooWorkState>(current:T,input:un
   if(!result.ok)return {ok:false};
   const s=result.state,batch=arkCardEntryEffects(current,s,result.card);
   s.zooWork={...active,remaining:result.remaining,playedCount:active.playedCount+1,onlySmall:active.onlySmall===true&&result.definition.kind==='ANIMAL'&&result.definition.size<=2};
-  assertArkZooMap(s.buildings,s.played,s.actions.some(a=>a.kind==='BUILD'&&a.upgraded));
+  assertArkZooMap(s.buildings,s.played,s.actions.some(a=>a.kind==='BUILD'&&a.upgraded),s.mapId);
   s.effects=enqueueArkEffects(s.effects,batch);
   return {ok:true,state:s};
 }

@@ -1,6 +1,6 @@
 import {ARK_BUILDINGS,ARK_CARDS,ARK_UNIQUE_BUILDINGS,type ArkBuilding,type ArkCell} from '@hangul-rummikub/shared';
 import {arkHexPoints} from './presentation.js';
-export const arkMapBonusLabels:Readonly<Record<string,string>>={REPUTATION_2:'평판 +2',X_1:'X 토큰 +1',CARD_1:'카드 1장 획득',MONEY_5:'돈 +5',MONEY_10:'돈 +10',WORKER:'협회 직원 +1'};
+export const arkMapBonusLabels:Readonly<Record<string,string>>={MONEY_2:'돈 +2',REPUTATION_1:'평판 +1',MOVE_1:'행동 카드 → 1번',KIOSK:'무료 매점 1개',PAID_SPONSOR:'후원자 등급만큼 돈을 내고 사용',FREE_PARTNER:'제휴 동물원 1개',FREE_UNIVERSITY:'대학 1개',MULTIPLIER:'배수 토큰',REPUTATION_2:'평판 +2',X_1:'X 토큰 +1',CARD_1:'카드 1장 획득',MONEY_5:'돈 +5',MONEY_10:'돈 +10',WORKER:'협회 직원 +1'};
 export function arkUniqueBuildingCardKey(b:ArkBuilding):string|null {
   const key=b.kind.startsWith('UNIQUE_')?b.kind.slice(7):null;
   return key&&Object.hasOwn(ARK_UNIQUE_BUILDINGS,key)?key:null;
