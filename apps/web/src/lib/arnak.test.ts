@@ -69,3 +69,44 @@ test('Arnak detailed cards explain alternate passing, exile and artifact use wit
  assert.match(html('0207'),/aria-labelledby=/);assert.match(html('0207'),/카드 상세 닫기/);
  assert.doesNotMatch(html('0207'),/선택 확정/);
 });
+
+import { ARNAK_SOUND_SCORES, arnakVolume } from '../features/arnak/sound-engine.js';
+import { arnakTurnNotice, type ArnakTurnFeedbackSnapshot } from '../features/arnak/feedback.js';
+import { PlayerIdSchema } from '@hangul-rummikub/shared';
+import { ArnakSoundControls } from '../features/arnak/ArnakSoundControls.js';
+test('Arnak turn feedback announces only new continuous transitions', () => {
+ const self=v.parse(PlayerIdSchema,'self'), other=v.parse(PlayerIdSchema,'other');
+ const before:ArnakTurnFeedbackSnapshot={gameId:v.parse(GameIdSchema,'turn-feedback'),gameRevision:v.parse(GameRevisionSchema,3),round:1,phase:'PLAYING',stage:'ACTION',activePlayerId:other};
+ const next={...before,gameRevision:v.parse(GameRevisionSchema,4),activePlayerId:self};
+ assert.equal(arnakTurnNotice(before,next,self),'내 차례입니다');
+ assert.equal(arnakTurnNotice(before,{...next,round:2},self),'라운드 2 시작 · 내 차례입니다');
+ assert.equal(arnakTurnNotice(before,{...next,round:2,activePlayerId:other},self),'라운드 2 시작');
+ assert.equal(arnakTurnNotice(before,{...next,stage:'CLEANUP'},self),'라운드 정리 · 보관할 카드를 확인하세요');
+ assert.equal(arnakTurnNotice({...before,activePlayerId:self},next,self),'');
+ assert.equal(arnakTurnNotice(null,next,self),'');
+ assert.equal(arnakTurnNotice(next,next,self),'');
+ assert.equal(arnakTurnNotice(before,{...next,gameRevision:v.parse(GameRevisionSchema,8)},self),'');
+ assert.equal(arnakTurnNotice(before,{...next,gameId:v.parse(GameIdSchema,'new-game')},self),'');
+ assert.equal(arnakTurnNotice(before,{...next,phase:'FINISHED'},self),'');
+});
+test('Arnak sound scores have bounded envelopes and distinct physical textures', () => {
+ assert.equal(arnakVolume(-1),0);assert.equal(arnakVolume(140),100);assert.equal(arnakVolume(NaN),30);
+ assert.equal(arnakVolume(57),57);
+ for(const score of Object.values(ARNAK_SOUND_SCORES)) {
+  assert.ok(score.tones.length+score.textures.length>0);
+  for(const part of [...score.tones,...score.textures]) {
+   assert.ok(part.frequency>0 && part.frequency<20000);
+   assert.ok(part.duration>0 && part.delay>=0 && part.delay+part.duration<2);
+   assert.ok(part.gain>0 && part.gain<=.5);
+  }
+ }
+ assert.ok(ARNAK_SOUND_SCORES.CARD.textures.some(t=>t.filter==='highpass'));
+ assert.ok(ARNAK_SOUND_SCORES.DIG.textures.some(t=>t.filter==='lowpass'));
+ assert.notDeepEqual(ARNAK_SOUND_SCORES.WIN,ARNAK_SOUND_SCORES.DISCOVER);
+});
+test('Arnak sound controls label mute and disable previews while muted', () => {
+ const html=renderToStaticMarkup(createElement(ArnakSoundControls,{volume:0,setVolume(){},async unlock(){},play(){}}));
+ assert.match(html,/소리 꺼짐/);assert.match(html,/aria-pressed="true"/);
+ assert.equal((html.match(/disabled=""/g)??[]).length,4);
+ assert.match(html,/카드 넘김/);assert.match(html,/발굴/);assert.match(html,/구매/);assert.match(html,/유적 발견/);
+});

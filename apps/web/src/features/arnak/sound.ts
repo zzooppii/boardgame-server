@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ArnakProjection } from '@hangul-rummikub/shared';
-export type ArnakCue = 'SELECT' | 'CARD' | 'DIG' | 'DISCOVER' | 'BUY' | 'RESEARCH' | 'GUARDIAN' | 'TURN' | 'WIN' | 'ERROR';
+import { arnakVolume, scheduleArnakCue, type ArnakCue } from './sound-engine.js';
+export type { ArnakCue } from './sound-engine.js';
 type SoundSnapshot = Pick<ArnakProjection, 'gameId' | 'gameRevision' | 'phase' | 'stage'> & { history: readonly { kind: string }[]; result?: { reason: string } };
 export function arnakNewCue(previous: {
     gameId: string;
@@ -18,7 +19,7 @@ export function arnakNewCue(previous: {
 export function useArnakSound(g: ArnakProjection | null, connected: boolean) {
     const [volume, setVolume] = useState(() => { try {
         const n = Number(localStorage.getItem('arnak-volume') ?? '30');
-        return Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 30;
+        return Number.isFinite(n) ? arnakVolume(n) : 30;
     }
     catch {
         return 30;
@@ -27,46 +28,28 @@ export function useArnakSound(g: ArnakProjection | null, connected: boolean) {
         gameId: string;
         revision: number;
     } | null>(null), wasConnected = useRef(false);
+    const bus = useRef<GainNode | null>(null), stopCue = useRef<(() => void) | null>(null);
     volumeRef.current = volume;
     function play(cue: ArnakCue) {
         const c = context.current;
-        if (!c || c.state !== 'running' || !volumeRef.current)
-            return;
-        const at = c.currentTime, amp = volumeRef.current * .001;
-        function tone(f: number, delay: number, duration: number, type: OscillatorType = 'sine', end = f) { if (!c)
-            return; const o = c.createOscillator(), g = c.createGain(); o.type = type; o.frequency.setValueAtTime(f, at + delay); o.frequency.exponentialRampToValueAtTime(end, at + delay + duration); g.gain.setValueAtTime(.0001, at + delay); g.gain.exponentialRampToValueAtTime(amp, at + delay + .008); g.gain.exponentialRampToValueAtTime(.0001, at + delay + duration); o.connect(g); g.connect(c.destination); o.start(at + delay); o.stop(at + delay + duration + .01); o.onended = () => { o.disconnect(); g.disconnect(); }; }
-        if (cue === 'DISCOVER' || cue === 'WIN')
-            ([196, 293.66, 392, 493.88, 587.33]).forEach((f, i) => tone(f, i * .09, .65, 'triangle'));
-        else if (cue === 'RESEARCH')
-            ([523.25, 783.99, 1046.5]).forEach((f, i) => tone(f, i * .09, .38));
-        else if (cue === 'GUARDIAN') {
-            tone(85, 0, .45, 'triangle', 42);
-            tone(392, .12, .55, 'triangle');
-            tone(587, .25, .55);
-        }
-        else if (cue === 'BUY') {
-            tone(1600, 0, .14, 'triangle');
-            tone(2100, .06, .22, 'triangle');
-        }
-        else if (cue === 'DIG') {
-            tone(150, 0, .14, 'triangle', 60);
-            tone(110, .06, .19, 'triangle', 48);
-        }
-        else if (cue === 'TURN') {
-            tone(440, 0, .17);
-            tone(659, .12, .25);
-        }
-        else if (cue === 'ERROR')
-            tone(130, 0, .17, 'triangle', 80);
-        else if (cue === 'CARD') {
-            tone(540, 0, .08, 'triangle', 220);
-            tone(290, .03, .09);
-        }
-        else
-            tone(780, 0, .065, 'sine', 520);
+        if (!c || !bus.current || c.state !== 'running' || !volumeRef.current || document.hidden) return;
+        stopCue.current?.();
+        stopCue.current = scheduleArnakCue(c, bus.current, cue);
+    }
+    function changeVolume(value: number) {
+        const next = arnakVolume(value);
+        volumeRef.current = next;
+        if (!next) { stopCue.current?.(); stopCue.current = null; }
+        if (bus.current && context.current) bus.current.gain.setTargetAtTime(next / 100, context.current.currentTime, .01);
+        setVolume(next);
     }
     async function unlock() { try {
-        context.current ??= new AudioContext();
+        if (!context.current) {
+            context.current = new AudioContext();
+            bus.current = context.current.createGain();
+            bus.current.gain.value = volumeRef.current / 100;
+            bus.current.connect(context.current.destination);
+        }
         await context.current.resume();
     }
     catch { /* Sound availability never blocks play. */ } }
@@ -82,6 +65,15 @@ export function useArnakSound(g: ArnakProjection | null, connected: boolean) {
     }
     else
         previous.current = null; wasConnected.current = connected; }, [g?.gameId, g?.gameRevision, connected]);
-    useEffect(() => () => { void context.current?.close().catch(() => undefined); context.current = null; }, []);
-    return { volume, setVolume, play, unlock };
+    useEffect(() => {
+        const silence = () => { if (document.hidden) { stopCue.current?.(); stopCue.current = null; } };
+        document.addEventListener('visibilitychange', silence);
+        return () => {
+            document.removeEventListener('visibilitychange', silence);
+            stopCue.current?.(); stopCue.current = null;
+            bus.current?.disconnect(); bus.current = null;
+            void context.current?.close().catch(() => undefined); context.current = null;
+        };
+    }, []);
+    return { volume, setVolume: changeVolume, play, unlock };
 }
