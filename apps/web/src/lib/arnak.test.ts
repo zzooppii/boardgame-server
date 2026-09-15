@@ -110,3 +110,55 @@ test('Arnak sound controls label mute and disable previews while muted', () => {
  assert.equal((html.match(/disabled=""/g)??[]).length,4);
  assert.match(html,/카드 넘김/);assert.match(html,/발굴/);assert.match(html,/구매/);assert.match(html,/유적 발견/);
 });
+
+import { ARNAK_CARD_ART_SHEETS, arnakCardArtStyle } from '../features/arnak/card-art.js';
+import { ArnakCardArt } from '../features/arnak/ArnakCardArt.js';
+test('Arnak every card definition has a unique illustration with complete atlas files', () => {
+ const ids=ARNAK_CARD_ART_SHEETS.flat();
+ assert.deepEqual([...ids].sort(),ARNAK_CARDS.map(c=>c.id).sort());
+ assert.equal(new Set(ids).size,80);
+ const locations=new Set<string>();
+ for(const [index,sheet] of ARNAK_CARD_ART_SHEETS.entries()){
+  assert.equal(sheet.length,16);
+  const bytes=readFileSync(new URL(`../../public/images/arnak/cards-${index+1}.webp`,import.meta.url));
+  assert.equal(bytes.subarray(8,12).toString(),'WEBP');assert.ok(bytes.length<1_000_000);
+  for(const id of sheet){const style=arnakCardArtStyle(id);locations.add(JSON.stringify(style));assert.match(String(style.backgroundImage),new RegExp(`cards-${index+1}\\.webp`));}
+ }
+ assert.equal(locations.size,80);
+});
+test('Arnak small and enlarged card artwork share the same source and avoid duplicate accessible labels', () => {
+ const small=renderToStaticMarkup(createElement(ArnakCardArt,{definitionId:'0111'}));
+ const detail=renderToStaticMarkup(createElement(ArnakCardArt,{definitionId:'0111',detail:true}));
+ assert.match(small,/aria-hidden="true"/);assert.match(detail,/튼튼한 장화 테마 일러스트/);
+ assert.match(small,/cards-1.webp/);assert.match(detail,/cards-1.webp/);
+ const extract=(html:string)=>html.match(/style="([^"]+)"/)?.[1];
+ assert.ok(extract(small));assert.equal(extract(small),extract(detail));
+ const [x,y]=String(arnakCardArtStyle('0111').backgroundPosition).split(' ').map(parseFloat);
+ assert.ok(x!>60&&x!<70&&y!>60&&y!<70);
+});
+
+import { ARNAK_WORLD_ART_SHEETS, arnakWorldArt } from '../features/arnak/world-art.js';
+import { ArnakWorldArt } from '../features/arnak/ArnakWorldArt.js';
+test('Arnak every public site, guardian and assistant has distinct world art', () => {
+ const catalog=[...ARNAK_SITES,...ARNAK_GUARDIANS,...ARNAK_ASSISTANTS];
+ assert.deepEqual(ARNAK_WORLD_ART_SHEETS.flat().slice().sort(),catalog.map(d=>d.id).sort());
+ assert.equal(new Set(ARNAK_WORLD_ART_SHEETS.flat()).size,48);
+ assert.equal(new Set(catalog.map(d=>JSON.stringify(arnakWorldArt(d.id)?.style))).size,48);
+ for(const [sheet,ids] of ARNAK_WORLD_ART_SHEETS.entries()){
+  assert.equal(ids.length,16);
+  const bytes=readFileSync(new URL(`../../public/images/arnak/world-${sheet+1}.webp`,import.meta.url));
+  assert.equal(bytes.subarray(8,12).toString(),'WEBP');assert.ok(bytes.length<1_000_000);
+  for(const id of ids)assert.equal(arnakWorldArt(id)?.name,catalog.find(d=>d.id===id)?.name);
+ }
+});
+test('Arnak hidden definitions never select world illustrations and previews name the public subject', () => {
+ for(const definitionId of [null,undefined,'hidden-location','unknown']){
+  assert.equal(arnakWorldArt(definitionId),null);
+  assert.equal(renderToStaticMarkup(createElement(ArnakWorldArt,{definitionId,expanded:true})),'');
+ }
+ const small=renderToStaticMarkup(createElement(ArnakWorldArt,{definitionId:'assistant-6'}));
+ const large=renderToStaticMarkup(createElement(ArnakWorldArt,{definitionId:'assistant-6',expanded:true}));
+ assert.match(small,/aria-hidden="true"/);assert.match(large,/항공 조종사 테마 일러스트/);
+ assert.equal(small.match(/style="([^"]+)"/)?.[1],large.match(/style="([^"]+)"/)?.[1]);
+ assert.match(large,/world-3.webp/);
+});

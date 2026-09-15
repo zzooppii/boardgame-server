@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef } from 'react';
 import { arnakCard, ARNAK_TRAVEL_NAMES, type ArnakCard } from '@hangul-rummikub/shared';
 import { describeArnakEffect } from './effect-description.js';
+import { ArnakCardArt } from './ArnakCardArt.js';
 
 export function ArnakCardDetail({ card, onClose }: { card: ArnakCard; onClose(): void }) {
     const dialog = useRef<HTMLDialogElement>(null), closeButton = useRef<HTMLButtonElement>(null), title = useId(), d = arnakCard(card.definitionId);
@@ -21,7 +22,7 @@ export function ArnakCardDetail({ card, onClose }: { card: ArnakCard; onClose():
         <div className="ar-detail-heading"><span className="ar-kicker">EXPEDITION ARCHIVE</span><button ref={closeButton} type="button" onClick={onClose} aria-label="카드 상세 닫기">닫기 ×</button></div>
         <div className="ar-detail-layout">
             <div className={'ar-detail-illustration ' + d.type}>
-                <div className="ar-detail-art" role="img" aria-label={d.name + ' 테마 일러스트'} style={{ backgroundPosition: `${d.art % 4 * 100 / 3}% ${Math.floor(d.art / 4) * 100 / 3}%` }}/>
+                <ArnakCardArt definitionId={d.id} detail/>
                 <span>{d.type === 'artifact' ? '유물' : d.type === 'item' ? '아이템' : d.type === 'fear' ? '공포' : '기본 카드'}</span><strong>{d.points} VP</strong>
             </div>
             <div className="ar-detail-copy"><h2 id={title}>{d.name}</h2><p className="ar-detail-english">{d.englishName}</p>
