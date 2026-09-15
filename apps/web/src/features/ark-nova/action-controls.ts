@@ -1,5 +1,5 @@
 import {arkEnclosuresToEmpty,ARK_UNIQUE_BUILDINGS,validateArkUniqueConstruction,arkAnimalPrice,arkMissingCardConditions,arkAnimalHousingChoices,arkCanShareFlockEnclosure,arkCardDefinition,ARK_TAG_LABELS} from '@hangul-rummikub/shared';
-import {ARK_MAP_A,arkCellKey,type ArkCell,ARK_CARDS,arkReputationRange,arkActionStrength,arkPlacementReason,arkShape,type ArkActionKind,type ArkSoloCommand,type ArkSoloView} from '@hangul-rummikub/shared';
+import {ARK_BUILDINGS,ARK_MAP_A,arkCellKey,type ArkCell,ARK_CARDS,arkReputationRange,arkActionStrength,arkPlacementReason,arkShape,type ArkActionKind,type ArkSoloCommand,type ArkSoloView} from '@hangul-rummikub/shared';
 
 /** Display the server's continuation constraint; commands are still validated by the server. */
 export function arkActionControls(state:Pick<ArkSoloView,'extraAction'|'repeatedAction'>,action:ArkActionKind) {
@@ -12,8 +12,26 @@ export function arkActionControls(state:Pick<ArkSoloView,'extraAction'|'repeated
   };
 }
 
+/** Selection guidance only; the server validates the submitted construction again. */
+export function arkBuildOptionAdvice(state:ArkSoloView,kind:string,x=0):string|null {
+  const definition=ARK_BUILDINGS[kind];
+  if(!definition)return '알 수 없는 시설';
+  const work=state.activeBuild,upgraded=work?.upgraded??state.actions.some(a=>a.kind==='BUILD'&&a.upgraded);
+  if(!upgraded&&['ReptileHouse','LargeBirdAviary'].includes(kind))return '건설 II 필요';
+  if(definition.special&&state.buildings.some(b=>b.kind===kind))return '이미 보유한 특수 우리';
+  const engineer=!!work&&!work.engineerUsed&&state.played.some(c=>c.key==='217')&&work.builtKinds.includes(kind)&&!definition.special;
+  if(work&&!engineer&&(work.builtKinds.includes(kind)||!upgraded&&work.builtKinds.length>0))return '이번 행동에서 추가 건설 불가';
+  const strength=work?.remaining??arkDisplayedStrength(state,'BUILD',x),required=engineer?0:definition.shape.length;
+  if(required>strength)return `행동력 ${required} 필요 · 현재 ${strength}`;
+  const cost=definition.shape.length*2;
+  if(state.money<cost)return `돈 ${cost} 필요 · 보유 ${state.money}`;
+  return null;
+}
+
 /** Advisory geometry uses the same shared map kernel as server construction. */
-export function arkBuildPlacementHint(state:ArkSoloView,placement:Extract<ArkSoloCommand,{kind:'BUILD'}>['placement']):string|null {
+export function arkBuildPlacementHint(state:ArkSoloView,placement:Extract<ArkSoloCommand,{kind:'BUILD'}>['placement'],x=0):string|null {
+  const unavailable=arkBuildOptionAdvice(state,placement.building,x);
+  if(unavailable)return unavailable;
   return arkPlacementReason(state.buildings,placement.building,arkShape(placement.building,placement.anchor,placement.rotation,placement.reflected),
     state.activeBuild?.upgraded??state.actions.some(a=>a.kind==='BUILD'&&a.upgraded),state.played.some(c=>c.key==='219'));
 }

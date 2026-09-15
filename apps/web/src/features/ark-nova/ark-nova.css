@@ -392,3 +392,13 @@ button.ark-bonus-option:focus-visible{outline:3px solid #267b66;outline-offset:3
 .ark-market-fold>summary:focus-visible{outline:3px solid #fff0aa;outline-offset:6px;border-radius:4px}
 .ark-market-fold .ark-market-collapse{display:none}.ark-market-fold[open] .ark-market-collapse{display:inline}.ark-market-fold[open] .ark-market-expand{display:none}
 .ark-market-fold>summary>b{font-size:13px;white-space:nowrap}
+.ark-build-panel{scroll-margin-top:18px;border:2px solid #4c947e;border-radius:12px;padding:16px;background:#f5faec}.ark-build-panel:focus{outline:3px solid #d2b866;outline-offset:3px}.ark-build-panel p{line-height:1.6}
+.ark-map .ark-hex.is-built:not(.is-kiosk):not(.is-pavilion){fill:#b4cf79;stroke:#adc577;stroke-width:1}.ark-map .ark-hex.is-built.is-occupied{fill:#518354}
+.ark-facility-outline{fill:none;stroke:#f7c84e;stroke-width:3;stroke-linejoin:round;filter:drop-shadow(0 1px 1px #513d22)}.ark-facility-outline.is-selected{stroke:#fff;stroke-width:4}
+.ark-map-legend{font-size:12px;line-height:1.7;color:#574a31;margin:8px 0 12px}.ark-facility-list{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}.ark-facility-list button{font-size:12px;padding:8px;border:1px solid #ad984e;border-radius:7px;background:#fff4d5;color:#3b492e}.ark-facility-list button[aria-pressed=true]{outline:2px solid #386853}
+.ark-break-track{padding:15px 18px;margin:12px 0;border:1px solid #a89366;border-radius:12px;background:#f4ead2;color:#493e29}.ark-break-heading{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}.ark-break-heading strong{font-size:19px}.ark-break-heading span{font-size:13px}.ark-break-spaces{display:flex;gap:6px;align-items:center;margin:12px 0}.ark-break-spaces span{flex:1;text-align:center;padding:7px 0;background:#fff9e9;border:1px solid #c2b389;border-radius:5px;font-weight:700}.ark-break-spaces .is-done{background:#4d785e;color:#fff}.ark-break-spaces .is-current{outline:2px solid #bd872c;background:#ffdf86}.ark-break-spaces b{font-size:24px}.ark-break-track small{font-size:12px;line-height:1.6}.ark-break-track.is-soon{border:2px solid #ba7e23;background:#fff0c7}
+
+.ark-facility-separator{fill:none;stroke:#635435;stroke-width:7;stroke-linejoin:round}
+.ark-facility-outline{stroke:#fff0a3;stroke-width:4;filter:none}
+.ark-facility-outline.is-eligible{stroke:#63e8ef;stroke-dasharray:5 3}
+.ark-facility-outline.is-selected{stroke:#fff;stroke-width:4}
