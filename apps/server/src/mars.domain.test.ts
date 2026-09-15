@@ -44,3 +44,38 @@ test('Mars herbivores trigger only for their owner and flooding resolves its own
 test('Mars Helion reserves mandatory heat costs before offering or paying for a card',()=>{let s=ready();const p=s.players[0]!;p.corporationId='Helion';p.resources.money=0;p.resources.heat=5;const c=give(s,'LocalHeatTrapping');assert.equal(marsOffers(s,p.playerId).some(o=>o.kind==='CARD'&&o.targetId===c.tileId),false);p.resources.money=1;s=act(s,o=>o.kind==='CARD'&&o.targetId===c.tileId);const before=structuredClone(s);assert.equal(applyMarsAction(s,p.playerId,{type:'PAY',payment:{money:0,steel:0,titanium:0,heat:1}},now,s.transitionId,random).ok,false);assert.deepEqual(s,before);s=command(s,{type:'PAY',payment:{money:1,steel:0,titanium:0,heat:0}});s=settle(s);assert.equal(s.players[0]!.resources.heat,0);assert.equal(s.players[0]!.resources.plants,4);});
 
 test('Mars action payment identifies the card by its readable name',()=>{let s=ready();rich(s);const c=give(s,'AquiferPumping',s.activePlayerId,true);s=act(s,o=>o.kind==='ACTION'&&o.targetId===c.tileId);assert.equal(projection(s).privateState.payment?.label,'대수층 펌프');assert.equal(projection(s).privateState.payment?.steel,true);});
+
+test('Mars receiving available animal resources is mandatory, missing receivers may be skipped',()=>{
+ let s=ready();rich(s);const fish=give(s,'Fish',s.activePlayerId,true),nitrogen=give(s,'ImportedNitrogen');
+ s=act(s,o=>o.kind==='CARD'&&o.targetId===nitrogen.tileId);s=command(s,{type:'PAY',payment:{money:23,steel:0,titanium:0,heat:0}});
+ s=act(s,o=>o.kind==='EFFECT'&&o.label.includes('동물'));
+ assert.equal(marsOffers(s,s.activePlayerId).some(o=>o.id==='skip'),false);
+ s=act(s,o=>o.id==='add:'+fish.tileId);assert.equal(s.players[0]!.played.find(c=>c.tileId===fish.tileId)!.resources,2);
+ s=act(s,o=>o.kind==='EFFECT'&&o.label.includes('미생물'));assert.ok(marsOffers(s,s.activePlayerId).some(o=>o.id==='skip'));s=settle(s);
+});
+test('Mars stacked space discounts and Phobolog titanium pay the discounted amount',()=>{
+ let s=ready();rich(s);const p=s.players[0]!;p.corporationId='PhoboLog';give(s,'ResearchOutpost',p.playerId,true);give(s,'Shuttles',p.playerId,true);const c=give(s,'Asteroid');
+ s=act(s,o=>o.kind==='CARD'&&o.targetId===c.tileId);assert.equal(s.payment!.cost,11);
+ s=command(s,{type:'PAY',payment:{money:3,steel:0,titanium:2,heat:0}});s=settle(s);assert.equal(s.players[0]!.resources.money,497);assert.equal(s.players[0]!.resources.titanium,20);assert.equal(s.temperature,-28);
+});
+test('Mars cinematic and aerobraking refunds trigger together once per space event',()=>{
+ let s=ready();rich(s);s.players[0]!.corporationId='InterplanetaryCinematics';give(s,'OptimalAerobraking',s.activePlayerId,true);const c=give(s,'Asteroid');
+ s=act(s,o=>o.kind==='CARD'&&o.targetId===c.tileId);s=settle(s);assert.equal(s.players[0]!.resources.money,491);assert.equal(s.players[0]!.resources.heat,23);assert.equal(s.players[1]!.resources.money,500);
+});
+test('Mars Credicor uses printed price after discounts and refunds standard greenery too',()=>{
+ let s=ready();rich(s);s.players[0]!.corporationId='CrediCor';give(s,'ResearchOutpost',s.activePlayerId,true);give(s,'Shuttles',s.activePlayerId,true);const c=give(s,'Comet');
+ s=act(s,o=>o.kind==='CARD'&&o.targetId===c.tileId);assert.equal(s.payment!.cost,18);s=settle(s);assert.equal(s.players[0]!.resources.money,486);
+ s=act(s,o=>o.id==='project:greenery');assert.equal(s.payment!.cost,23);s=command(s,{type:'PAY',payment:{money:23,steel:0,titanium:0,heat:0}});s=act(s,o=>o.kind==='EFFECT'&&o.label.includes('녹지'));s=act(s,o=>o.kind==='PLACE'&&o.targetId==='3-4');s=settle(s);assert.equal(s.players[0]!.resources.money,467);
+});
+test('Mars city placement combines Tharsis, Immigrant City, Rover Construction and Pets; offworld excludes Tharsis income',()=>{
+ let s=ready();rich(s);const p=s.players[0]!;p.corporationId='TharsisRepublic';give(s,'ImmigrantCity',p.playerId,true);give(s,'RoverConstruction',p.playerId,true);const pets=give(s,'Pets',p.playerId,true);
+ s=act(s,o=>o.id==='project:city');s=command(s,{type:'PAY',payment:{money:25,steel:0,titanium:0,heat:0}});s=act(s,o=>o.kind==='EFFECT'&&o.label.includes('도시'));s=act(s,o=>o.kind==='PLACE'&&o.targetId==='1-3');s=settle(s);
+ assert.equal(s.players[0]!.production.money,13);assert.equal(s.players[0]!.resources.money,480);assert.equal(s.players[0]!.played.find(c=>c.tileId===pets.tileId)!.resources,1);
+ const phobos=give(s,'PhobosSpaceHaven');s=act(s,o=>o.kind==='CARD'&&o.targetId===phobos.tileId);s=settle(s);assert.equal(s.players[0]!.production.money,14);assert.equal(s.players[0]!.played.find(c=>c.tileId===pets.tileId)!.resources,2);
+});
+test('Mars Mining Guild gains one production per metal placement, in addition to Mining Rights production',()=>{
+ let s=ready();rich(s);s.players[0]!.corporationId='MiningGuild';const c=give(s,'MiningRights');s=act(s,o=>o.kind==='CARD'&&o.targetId===c.tileId);s=command(s,{type:'PAY',payment:{money:9,steel:0,titanium:0,heat:0}});s=act(s,o=>o.kind==='PLACE'&&o.targetId==='1-1');assert.equal(s.players[0]!.resources.steel,22);assert.equal(s.players[0]!.production.steel,12);
+});
+test('Mars Decomposers and Ecological Zone count both printed life tags including the played card itself',()=>{
+ let s=ready();rich(s);s.oxygen=3;give(s,'Decomposers',s.activePlayerId,true);s.tiles.push({spaceId:'7-4',kind:'greenery',ownerId:s.activePlayerId,source:'greenery'});const c=give(s,'EcologicalZone');s=act(s,o=>o.kind==='CARD'&&o.targetId===c.tileId);s=settle(s);assert.equal(s.players[0]!.played.find(c=>c.definitionId==='Decomposers')!.resources,2);assert.equal(s.players[0]!.played.find(c=>c.definitionId==='EcologicalZone')!.resources,2);
+});

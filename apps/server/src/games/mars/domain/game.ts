@@ -537,7 +537,8 @@ function choices(s: MarsState, viewer: PlayerId, now: ServerTime, r: RandomSourc
             const targets = p.played.filter(c => c.tileId !== j.source && marsCard(c.definitionId).resource === e.resource);
             for (const c of targets)
                 offer(`add:${c.tileId}`, 'EFFECT', c.tileId, marsCard(c.definitionId).name, marsEffectText(e), 0, resolve(() => { c.resources += e.amount; }));
-            offer('skip', 'EFFECT', 'skip', '자원 추가 생략', targets.length ? '자원 수령은 생략할 수 있습니다.' : '자원을 받을 카드가 없습니다.', 0, resolve(() => undefined));
+            if (!targets.length)
+                offer('skip', 'EFFECT', 'skip', '자원 추가 생략', '자원을 받을 카드가 없습니다.', 0, resolve(() => undefined));
         }
         if (e.kind === 'steal') {
             for (const owner of s.players)
