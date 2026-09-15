@@ -47,13 +47,13 @@ test('Ark effect panel renders only published conservation rewards and offers th
   const html=renderToStaticMarkup(createElement(ArkNovaEffects,{state,disabled:false,onSelect:()=>{},placement:null,cell:null,housingId:null,onUniqueCard:()=>{},onBuilding:()=>{},onRotate:()=>{},onReflect:()=>{}}));
   assert.match(html,/X 토큰 3/);assert.match(html,/돈 5 받기/);assert.doesNotMatch(html,/돈 10|대학/);
 });
-test('Ark reveal panel requires the prescribed keep count and filters Hunter to animals',async()=>{
+test('Ark reveal panel requires the prescribed keep count and shows all Hunter cards but disables non-animals',async()=>{
   const {ArkNovaEffects}=await import('../features/ark-nova/ArkNovaEffects.js');
   const state=structuredClone(arkSoloSetupFixture);
   state.activeEffect={id:1,kind:'HUNTER',sourceId:'hunter',guide:{resource:null,amount:2,actions:[],buildings:[],slots:[],mayRefill:false,bonuses:[]}};
   state.revealedCards={kind:'HUNTER',choiceId:'reveal',candidates:[{cardId:'animal',key:'401'},{cardId:'sponsor',key:'201'}],keep:1};
   const html=renderToStaticMarkup(createElement(ArkNovaEffects,{state,disabled:false,onSelect:()=>{},placement:null,cell:null,housingId:null,onUniqueCard:()=>{},onBuilding:()=>{},onRotate:()=>{},onReflect:()=>{}}));
-  assert.match(html,/<button disabled="">선택 확정/);assert.ok(html.includes(arkCardName('401')));assert.ok(!html.includes(arkCardName('201')));
+  assert.match(html,/<button disabled="">선택 확정/);assert.ok(html.includes(arkCardName('401')));assert.ok(html.includes(arkCardName('201')));assert.match(html,/선택 불가 · 동물 카드가 아니므로 버려질 카드/);assert.match(html,/<button[^>]*disabled=""[^>]*aria-label="과학 연구실"/);
 });
 
 test('Ark board strips terrain and bonus metadata before producing a strict placement command',async()=>{
@@ -269,4 +269,10 @@ test('Unused zoo action offers cancellation with its X refund; played cards cann
  const render=()=>renderToStaticMarkup(createElement(ArkNovaTable,{state:s,disabled:false,onCommand:()=>{},onCue:()=>{}}));
  assert.match(render(),/카드 사용 취소 · 행동 선택으로/);assert.match(render(),/턴을 소비하지 않고 돌아갑니다/);
  s.zooWork.playedCount=1;assert.doesNotMatch(render(),/카드 사용 취소 · 행동 선택으로/);assert.match(render(),/취소할 수 없습니다/);
+});
+
+test('Research display counts universities and played icons, not hand requirements',()=>{
+ const s=structuredClone(arkSoloSetupFixture);s.universities=['RESEARCH_2'];s.played=[{key:'201',cardId:'science'}];
+ const html=renderToStaticMarkup(createElement(ArkNovaTable,{state:s,disabled:false,onCommand:()=>{},onCue:()=>{}}));
+ assert.match(html,/연구 <b>3<\/b>개/);
 });

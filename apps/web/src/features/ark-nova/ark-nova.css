@@ -404,3 +404,5 @@ button.ark-bonus-option:focus-visible{outline:3px solid #267b66;outline-offset:3
 .ark-facility-outline.is-selected{stroke:#fff;stroke-width:4}
 
 .ark-upgrade-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:12px;margin:12px 0}.ark-upgrade-choice{display:flex;flex-direction:column;padding:16px;border:1px solid #c8b887;border-radius:10px;background:#fffbed}.ark-upgrade-choice h4{margin:0 0 8px;color:#783f68;font-size:17px}.ark-upgrade-choice ul{padding-left:20px;margin:0 0 14px;font-size:13px;line-height:1.7}.ark-upgrade-choice li+li{margin-top:6px}.ark-upgrade-choice button{margin-top:auto;align-self:flex-start}
+
+.ark-card-unavailable{margin:8px 12px;padding:9px;border-radius:6px;background:#eee7d9;color:#644b37;font-size:12px;line-height:1.5}

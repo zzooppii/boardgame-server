@@ -4,7 +4,7 @@ import {ArkNovaScoreBoard} from './ArkNovaScoreBoard.js';
 import {ArkNovaHistory} from './ArkNovaHistory.js';
 import {arkFeedback,type ArkFeedback} from './feedback.js';
 import {ArkAnimalArt} from './animal-art.js';
-import {arkCardName} from '@hangul-rummikub/shared';
+import {arkCardName,arkZooIcons} from '@hangul-rummikub/shared';
 import {useEffect,useRef,useState} from 'react';
 import {ARK_UNIQUE_BUILDINGS,arkUniqueShape,ARK_ACTION_LABELS,ARK_BUILDINGS,arkCellKey,arkShape,type ArkCell,type ArkSoloView,type ArkSoloCommand} from '@hangul-rummikub/shared';
 import {arkBuildOptionAdvice,arkMapBonusAdvice,arkFreeBuildPlacementHint,arkWazaSelectionAdvice,arkSponsorSelectionAdvice,arkAnimalSelectionAdvice,arkActionControls,arkBuildPlacementHint,arkDisplayedStrength,arkZooSelectionHint,arkReachableDisplayCards} from './action-controls.js';
@@ -52,7 +52,7 @@ export function ArkNovaTable({state:s,disabled,onCommand:send,onCue}:Props) {
   const uniqueKey=effectUnique??(selectedCard&&Object.hasOwn(ARK_UNIQUE_BUILDINGS,selectedCard.key)?selectedCard.key:null);
   const select=(id:string)=>{setMarket(null);setChosen(ids=>ids.includes(id)?ids.filter(x=>x!==id):[...ids,id]);onCue('CARD');};
   return <div className="ark-live-table">
-    <div className="ark-live-status" aria-label="내 동물원 자원"><span>돈 <b>{s.money}</b></span><span>매력 <b>{s.appeal}</b></span><span>보전 <b>{s.conservation}</b></span><span>평판 <b>{s.reputation}</b></span><span>X <b>{s.x}</b></span><span>직원 <b>{s.workers-s.busyWorkers}/{s.workers}</b></span></div>
+    <div className="ark-live-status" aria-label="내 동물원 자원"><span>돈 <b>{s.money}</b></span><span>매력 <b>{s.appeal}</b></span><span>보전 <b>{s.conservation}</b></span><span>평판 <b>{s.reputation}</b></span><span title="보유 대학과 사용한 카드의 연구 아이콘 합계. 카드 조건에 쓰이며 소모되지 않습니다.">연구 <b>{arkZooIcons(s.played,s.partners,s.universities).Science??0}</b>개</span><span>X <b>{s.x}</b></span><span>직원 <b>{s.workers-s.busyWorkers}/{s.workers}</b></span></div>
     <ArkNovaBreakTrack progress={s.progress}/>
     <ArkNovaScoreBoard state={s}/>
     <ArkNovaResult state={s}/>

@@ -8,7 +8,7 @@ import {arkAbilityCopy} from './card-copy.js';
 
 const requirementLabel=(key:string)=>key==='Partner_Zoo'?'같은 대륙 제휴':key==='AnimalsII'?'동물 II':key==='SponsorsII'?'후원자 II':key==='Reputation'?'평판 3 이상':key==='Appeal'?'매력 25 이하':ARK_TAG_LABELS[key]??key;
 
-export function ArkNovaCard({card,selected=false,disabled=false,onSelect}:{card:ArkCard;selected?:boolean;disabled?:boolean;onSelect?():void}) {
+export function ArkNovaCard({card,selected=false,disabled=false,disabledReason,onSelect}:{card:ArkCard;selected?:boolean;disabled?:boolean;disabledReason?:string;onSelect?():void}) {
   const definition=ARK_CARDS.find(c=>c.key===card.key);
   const abilities=definition?(definition.kind==='SPONSOR'?(arkSponsorCopy[definition.key]??[]):arkSoloCardAbilities(definition).map(a=>arkAbilityCopy(a,true))):[];
   const habitats:Readonly<Record<string,string>>={ReptileHouse:'파충류관',LargeBirdAviary:'대형 조류관',PettingZoo:'체험 동물원'};
@@ -26,6 +26,7 @@ export function ArkNovaCard({card,selected=false,disabled=false,onSelect}:{card:
       </>}
       {selected&&<span className="ark-selection-mark">✓ 선택됨</span>}</div>
     </button>
+    {disabledReason&&<p className="ark-card-unavailable">{disabledReason}</p>}
     <details><summary>카드 내용</summary>{definition?<div className="ark-live-card-details">
       <p>{definition.tags.map(t=>ARK_TAG_LABELS[t]??t).join(' · ')}</p>
       <p>조건: {definition.requirements.length?definition.requirements.map(t=>ARK_TAG_LABELS[t]??t).join(' · '):'아이콘 조건 없음'}{definition.water?` · 물 ${definition.water}`:''}{definition.rock?` · 바위 ${definition.rock}`:''}</p>
@@ -33,9 +34,9 @@ export function ArkNovaCard({card,selected=false,disabled=false,onSelect}:{card:
     </div>:<div>{goal&&arkGoalCopy(goal).map((text,i)=><p key={i}>{text}</p>)}{project&&<><p>{arkProjectCopy(project)}</p>{project.slots.map((_,i)=><p key={i}>{arkProjectSlotCopy(project,i)}</p>)}</>}</div>}</details>
   </article>;
 }
-export function ArkNovaCardRow({cards,selected=[],disabled=false,onSelect,maxSelected}:{cards:readonly ArkCard[];selected?:readonly string[];disabled?:boolean;maxSelected?:number;onSelect?(id:string):void}) {
+export function ArkNovaCardRow({cards,selected=[],disabled=false,onSelect,maxSelected,unavailable}:{cards:readonly ArkCard[];selected?:readonly string[];disabled?:boolean;maxSelected?:number;unavailable?:(card:ArkCard)=>string|undefined;onSelect?(id:string):void}) {
   const atLimit=maxSelected!==undefined&&cards.filter(c=>selected.includes(c.cardId)).length>=maxSelected;
-  return <div className="ark-live-card-row">{cards.map(card=><ArkNovaCard key={card.cardId} card={card} selected={selected.includes(card.cardId)} disabled={disabled||atLimit&&!selected.includes(card.cardId)} {...(onSelect?{onSelect:()=>onSelect(card.cardId)}:{})}/>)}</div>;
+  return <div className="ark-live-card-row">{cards.map(card=>{const reason=unavailable?.(card);return <ArkNovaCard key={card.cardId} card={card} selected={selected.includes(card.cardId)} disabled={disabled||!!reason||atLimit&&!selected.includes(card.cardId)} {...(reason?{disabledReason:reason}:{})} {...(onSelect?{onSelect:()=>onSelect(card.cardId)}:{})}/>;})}</div>;
 }
 
 /** Keep empty slots visible: a card's display position must not shift before server refill. */
