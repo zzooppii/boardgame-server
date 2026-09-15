@@ -1,16 +1,19 @@
+import {useContext} from 'react';
+import {ArkNovaMultiplayerContext} from './ArkNovaMode.js';
 import {ArkTagBadge} from './ArkTagBadge.js';
 import {arkReputationRange,ARK_SOLO_ABILITIES,arkSoloCardAbilities,ARK_CARDS, ARK_GOALS, ARK_PROJECTS, ARK_TAG_LABELS, arkCardName, type ArkCard} from '@hangul-rummikub/shared';
 import {arkProjectCopy,arkProjectSlotCopy} from './project-copy.js';
 import {arkGoalCopy} from './goal-copy.js';
-import {arkSponsorCopy} from './sponsor-copy.js';
+import {arkSponsorDescription} from './sponsor-copy.js';
 import {ArkAnimalArt} from './animal-art.js';
 import {arkAbilityCopy} from './card-copy.js';
 
 const requirementLabel=(key:string)=>key==='Partner_Zoo'?'같은 대륙 제휴':key==='AnimalsII'?'동물 II':key==='SponsorsII'?'후원자 II':key==='Reputation'?'평판 3 이상':key==='Appeal'?'매력 25 이하':ARK_TAG_LABELS[key]??key;
 
 export function ArkNovaCard({card,selected=false,disabled=false,disabledReason,onSelect}:{card:ArkCard;selected?:boolean;disabled?:boolean;disabledReason?:string;onSelect?():void}) {
+  const multiplayer=useContext(ArkNovaMultiplayerContext);
   const definition=ARK_CARDS.find(c=>c.key===card.key);
-  const abilities=definition?(definition.kind==='SPONSOR'?(arkSponsorCopy[definition.key]??[]):arkSoloCardAbilities(definition).map(a=>arkAbilityCopy(a,true))):[];
+  const abilities=definition?(definition.kind==='SPONSOR'?arkSponsorDescription(definition.key,multiplayer):(multiplayer?definition.abilities:arkSoloCardAbilities(definition)).map(a=>arkAbilityCopy(a,!multiplayer))):[];
   const habitats:Readonly<Record<string,string>>={ReptileHouse:'파충류관',LargeBirdAviary:'대형 조류관',PettingZoo:'체험 동물원'};
   const goal=ARK_GOALS.find(c=>c.key===card.key),project=ARK_PROJECTS.find(c=>c.key===card.key);
   return <article className={`ark-live-card ${definition?.kind==='ANIMAL'?'is-animal':definition?.kind==='SPONSOR'?'is-sponsor':''} ${selected?'is-selected':''}`}>
@@ -21,7 +24,7 @@ export function ArkNovaCard({card,selected=false,disabled=false,disabledReason,o
         <span className="ark-card-tags" aria-label="카드 아이콘">{definition.tags.map((tag,i)=><ArkTagBadge key={`${tag}-${i}`} tag={tag}/>)}</span>
         <span className="ark-card-requirements">조건: {definition.requirements.length?definition.requirements.map(requirementLabel).join(' · '):'없음'}{definition.water?` · 물 ${definition.water}`:''}{definition.rock?` · 바위 ${definition.rock}`:''}</span>
         {definition.kind==='ANIMAL'&&<span className="ark-card-habitats">서식지: {definition.standard?`일반 우리 ${definition.size}칸`: '특수 우리 전용'}{definition.special.map((h,i)=><span key={i}> · {habitats[h.kind]??h.kind} {h.size}칸</span>)}</span>}
-        <span className="ark-card-abilities" aria-label="특수능력">{ARK_SOLO_ABILITIES[definition.key]&&<b>솔로 전용 효과</b>}{abilities.length?abilities.map((text,i)=><span key={i}>{text}</span>):<span>추가 특수능력 없음</span>}</span>
+        <span className="ark-card-abilities" aria-label="특수능력">{!multiplayer&&ARK_SOLO_ABILITIES[definition.key]&&<b>솔로 전용 효과</b>}{abilities.length?abilities.map((text,i)=><span key={i}>{text}</span>):<span>추가 특수능력 없음</span>}</span>
         <span className="ark-card-scores" aria-label="인쇄된 기본 보상"><span>매력 {definition.appeal}</span><span>보전 {definition.conservation}</span><span>평판 {definition.reputation}</span></span>
       </>}
       {selected&&<span className="ark-selection-mark">✓ 선택됨</span>}</div>
@@ -30,8 +33,8 @@ export function ArkNovaCard({card,selected=false,disabled=false,disabledReason,o
     <details><summary>카드 내용</summary>{definition?<div className="ark-live-card-details">
       <p>{definition.tags.map(t=>ARK_TAG_LABELS[t]??t).join(' · ')}</p>
       <p>조건: {definition.requirements.length?definition.requirements.map(t=>ARK_TAG_LABELS[t]??t).join(' · '):'아이콘 조건 없음'}{definition.water?` · 물 ${definition.water}`:''}{definition.rock?` · 바위 ${definition.rock}`:''}</p>
-      {definition.kind==='SPONSOR'&&arkSponsorCopy[definition.key]?.map((text,i)=><p key={`sponsor-${i}`}>{text}</p>)}{ARK_SOLO_ABILITIES[definition.key]&&<strong>솔로 전용 효과</strong>}{arkSoloCardAbilities(definition).map((a,i)=><p key={i}>{arkAbilityCopy(a,true)}</p>)}
-    </div>:<div>{goal&&arkGoalCopy(goal).map((text,i)=><p key={i}>{text}</p>)}{project&&<><p>{arkProjectCopy(project)}</p>{project.slots.map((_,i)=><p key={i}>{arkProjectSlotCopy(project,i)}</p>)}</>}</div>}</details>
+      {definition.kind==='SPONSOR'&&arkSponsorDescription(definition.key,multiplayer).map((text,i)=><p key={`sponsor-${i}`}>{text}</p>)}{!multiplayer&&ARK_SOLO_ABILITIES[definition.key]&&<strong>솔로 전용 효과</strong>}{(multiplayer?definition.abilities:arkSoloCardAbilities(definition)).map((a,i)=><p key={i}>{arkAbilityCopy(a,!multiplayer)}</p>)}
+    </div>:<div>{goal&&arkGoalCopy(goal,multiplayer).map((text,i)=><p key={i}>{text}</p>)}{project&&<><p>{arkProjectCopy(project)}</p>{project.slots.map((_,i)=><p key={i}>{arkProjectSlotCopy(project,i)}</p>)}</>}</div>}</details>
   </article>;
 }
 export function ArkNovaCardRow({cards,selected=[],disabled=false,onSelect,maxSelected,unavailable}:{cards:readonly ArkCard[];selected?:readonly string[];disabled?:boolean;maxSelected?:number;unavailable?:(card:ArkCard)=>string|undefined;onSelect?(id:string):void}) {

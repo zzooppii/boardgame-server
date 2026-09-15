@@ -9,7 +9,7 @@ const bonusLabels:Readonly<Record<string,string>>={WORKER:'직원 1명',MONEY_5:
 /** Same horizontal coordinate for both markers; conservation spaces widen after 10.
  * Score comparison and pending choices come from the server, never from client commands.
  */
-type ScoreState=Pick<ArkSoloView,'appeal'|'conservation'|'scoreBoard'|'result'>;
+type ScoreState=Pick<ArkSoloView,'appeal'|'conservation'|'scoreBoard'|'result'|'table'>;
 export function ArkNovaScoreBoardDetail({state:s,onNavigate}:{state:ScoreState;onNavigate?:()=>void}) {
   const board=s.scoreBoard;
   const next=rewards.find(r=>r.score>s.conservation);
@@ -22,7 +22,7 @@ export function ArkNovaScoreBoardDetail({state:s,onNavigate}:{state:ScoreState;o
       <ArkNovaScoreTrack appeal={s.appeal} conservation={s.conservation} board={board}/>
     </div>}
     {board&&<p className="ark-score-note">매력에 따른 휴식 수입 <b>돈 {board.appealIncome[s.appeal]}</b> · 매점·후원자 등의 추가 수입은 별도입니다.</p>}
-    <p className="ark-score-note">{s.result?'목표·후원자 정산을 포함한 최종 점수입니다.':'현재 거리는 최종 목표·후원자 정산 전 수치입니다. 솔로는 교차해도 6라운드 끝까지 진행합니다.'}</p>
+    <p className="ark-score-note">{s.result?'목표·후원자 정산을 포함한 최종 점수입니다.':s.table?'현재 거리는 최종 정산 전 수치입니다. 자기 턴 종료 또는 휴식 중 교차하면 마지막 차례가 시작됩니다.':'현재 거리는 최종 목표·후원자 정산 전 수치입니다. 솔로는 교차해도 6라운드 끝까지 진행합니다.'}</p>
     {!s.result&&<div className="ark-score-next"><strong>다음 보전 보상</strong><span>{next?`${next.score}점까지 보전 ${next.score-s.conservation}점 필요`:'보전 10점 기준점까지 모두 도달'}</span></div>}
     <div className="ark-score-rewards">{rewards.map(r=>{
       const pending=board?.pendingMilestones.includes(r.score)??false;

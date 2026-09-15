@@ -4,6 +4,8 @@ import {PROTOCOL_VERSION,type ArkNovaActCommand,type ArkNovaLobbyPlatformSnapsho
 import {getGameStartControl} from '../../lib/game-start.js';
 import {createRequestId} from '../../lib/request-id.js';
 import {ArkNovaCommandRejected} from '../../lib/ark-nova-command-error.js';
+import {ArkNovaMultiplayer} from './ArkNovaMultiplayer.js';
+import {ArkNovaMultiplayerContext} from './ArkNovaMode.js';
 import {ArkNovaTable} from './ArkNovaTable.js';
 import {ArkAudio,readArkSoundPreferences,saveArkSoundPreferences,type ArkCue} from './sound.js';
 import './ark-nova.css';
@@ -13,9 +15,9 @@ function soundStorage():Storage|undefined {
 export type ArkNovaScreenProps={snapshot:ArkNovaLobbyPlatformSnapshotV2|ArkNovaPlayingPlatformSnapshotV2|ArkNovaFinishedPlatformSnapshotV2;connected:boolean;pending:boolean;error:string|null;connectionLabel:string;onStart():void;onLeave():void;onRematch():void;onCommand(command:ArkNovaActCommand):Promise<void>};
 export function ArkNovaScreen(props:ArkNovaScreenProps) {
   const {snapshot:s}=props,start=getGameStartControl(s,props.pending||!props.connected);
-  return <section className="ark-live-screen" aria-label="아크노바 솔로"><header className="ark-live-header"><div><small>ARK NOVA · SOLO</small><h1>나의 동물원</h1></div><div><span role="status">{props.connectionLabel}</span><button disabled={props.pending} onClick={props.onLeave}>나가기</button></div></header>
+  return <section className="ark-live-screen" aria-label="아크노바"><header className="ark-live-header"><div><small>ARK NOVA · {s.room.players.length===1?'SOLO':`${s.room.players.length} PLAYERS`}</small><h1>나의 동물원</h1></div><div><span role="status">{props.connectionLabel}</span><button disabled={props.pending} onClick={props.onLeave}>나가기</button></div></header>
     {props.error&&<p className="ark-live-error" role="alert">{props.error}</p>}
-    {s.game===null?<div className="ark-live-lobby"><div className="ark-live-lobby-art"/><h2>작은 동물원에서 시작하는 보전 이야기</h2><p>전체 기본판 · 지도 A · 공식 솔로 6라운드, 총 27턴</p><p>기본 난도에서 매력 20으로 시작합니다. 휴식마다 자원을 정리하고 마지막에 목표와 후원자를 정산합니다.</p><p>{start.guidance}</p><button disabled={!start.canStart} onClick={props.onStart}>솔로 동물원 시작</button></div>:<LiveGame key={s.game.gameId} {...props} game={s.game}/>}
+    {s.game===null?<div className="ark-live-lobby"><div className="ark-live-lobby-art"/><h2>작은 동물원에서 시작하는 보전 이야기</h2><p>전체 기본판 · 지도 A · 1인 솔로 또는 2–4인 대국</p><p>방 코드 <strong>{s.room.roomCode}</strong> · {s.room.players.map(p=>p.nickname).join(", ")}</p><p>혼자 시작하면 매력 20의 솔로 27턴, 함께 시작하면 공용 휴식 트랙과 점수 교차로 게임이 진행됩니다.</p><p>{start.guidance}</p><button disabled={!start.canStart} onClick={props.onStart}>동물원 시작</button></div>:<LiveGame key={s.game.gameId} {...props} game={s.game}/>}
   </section>;
 }
 function LiveGame({game, ...props}:ArkNovaScreenProps&{game:NonNullable<ArkNovaScreenProps['snapshot']['game']>}) {
@@ -39,6 +41,7 @@ function LiveGame({game, ...props}:ArkNovaScreenProps&{game:NonNullable<ArkNovaS
   }
   return <div onPointerDownCapture={()=>audio.current?.unlock()} onKeyDownCapture={()=>audio.current?.unlock()}><div className="ark-live-audio"><label><input type="checkbox" checked={sound.enabled} onChange={e=>{const next={...sound,enabled:e.target.checked};audio.current?.setPreferences(next);audio.current?.unlock();setSound(next);}}/> 효과음</label><input aria-label="효과음 음량" type="range" min="0" max="1" step="0.05" value={sound.volume} onChange={e=>{const next={...sound,volume:Number(e.target.value)};audio.current?.setPreferences(next);setSound(next);}}/><span>{Math.round(sound.volume*100)}%</span><details><summary>효과음 미리 듣기</summary>{(['PLACE','ARRIVAL','CONSERVATION'] as const).map((kind,i)=><button type="button" key={kind} disabled={!sound.enabled||sound.volume===0} onClick={()=>cue(kind)}>{['건설','동물 입주','보전 달성'][i]}</button>)}</details></div>
     {message&&<p className="ark-live-error" role="alert">{message}</p>}{retry&&<div className="ark-live-error"><p>요청의 처리 결과를 확인해야 합니다. 같은 요청으로 다시 확인하세요.</p><button disabled={flight||!props.connected} onClick={()=>void execute(retry)}>처리 결과 다시 확인</button></div>}
-    <ArkNovaTable state={game.state} disabled={props.pending||flight||!!retry||!props.connected} onCommand={send} onCue={cue} onRematch={props.onRematch}/>
+    <ArkNovaMultiplayer state={game.state} players={props.snapshot.room.players} disabled={props.pending||flight||!!retry||!props.connected} onCommand={send}/>
+    <ArkNovaMultiplayerContext.Provider value={!!game.state.table}><ArkNovaTable state={game.state} disabled={props.pending||flight||!!retry||!props.connected||!!game.state.table&&(game.state.table.stage==='SETUP'?game.state.table.readyPlayerIds.includes(game.state.playerId):game.state.table.activePlayerId!==game.state.playerId||['GOAL_DISCARD','INTERACTION','FINAL_SCORING'].includes(game.state.table.stage))} onCommand={send} onCue={cue} onRematch={props.onRematch}/></ArkNovaMultiplayerContext.Provider>
   </div>;
 }

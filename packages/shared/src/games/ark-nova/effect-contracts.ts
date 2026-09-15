@@ -6,6 +6,7 @@ export const ArkExtraActionKindSchema=v.union([ArkActionKindSchema,v.literal('TA
 const ArkBonusTileSchema=v.picklist(['REPUTATION_2','X_3','ENCLOSURE_3','CARDS_3','MONEY_10','MULTIPLIER','UNIVERSITY','PARTNER','PAID_SPONSOR']);
 export const ArkZooCardChoiceSchema=v.strictObject({cardId:ArkRefSchema,housingId:v.nullable(ArkRefSchema),uniquePlacement:v.optional(v.strictObject({anchor:ArkCellSchema,rotation:v.picklist([0,1,2,3,4,5])}))});
 export const ArkEffectSelectionSchema=v.variant('kind',[
+  v.strictObject({kind:v.literal('INTERACTION'),targetId:v.nullable(ArkRefSchema),action:v.nullable(ArkActionKindSchema)}),
   v.strictObject({kind:v.literal('ANIMAL'),card:ArkZooCardChoiceSchema}),
   v.strictObject({kind:v.literal('MAP_BONUS'),cell:ArkCellSchema}),
   v.strictObject({kind:v.literal('ACTION'),action:ArkExtraActionKindSchema}),
@@ -37,6 +38,7 @@ export const ArkRepeatedActionSchema=v.strictObject({action:ArkActionKindSchema,
 
 /** Display-only options for the active job; never accepted as an executable effect. */
 export const ArkEffectGuideSchema=v.strictObject({
+  interaction:v.optional(v.strictObject({ability:v.picklist(['VENOM','CONSTRICTION','PILFERING','HYPNOSIS']),amount:ArkCountSchema,track:v.optional(v.literal('CONSERVATION'))})),
   resource:v.nullable(v.picklist(['APPEAL','CONSERVATION','REPUTATION','MONEY','X','WORKER'])),
   amount:v.nullable(ArkCountSchema),actions:v.array(ArkExtraActionKindSchema),
   buildings:v.array(ArkRefSchema),slots:v.array(v.picklist([1,5])),

@@ -64,8 +64,8 @@ function ark(snapshot:PlatformSnapshotV2) {
 }
 test('ARK_NOVA socket solo: one player, private setup, reconnect, receipts and all 27 turns through scoring',async t=>{
   const h=await harness(t), outsider=await h.connect(),credential=await h.bootstrap(outsider);
-  assert.equal(h.failure(await h.call(outsider,'room:join',{bootstrapCredential:credential,nickname:'참가자',roomCode:h.lobby.room.roomCode})),'ROOM_FULL');
   let snapshot=h.success(await h.call(h.host,'game:start',{}, {expectedRoomRevision:h.lobby.versions.roomRevision}));
+  assert.equal(h.failure(await h.call(outsider,'room:join',{bootstrapCredential:credential,nickname:'참가자',roomCode:h.lobby.room.roomCode})),'ROOM_NOT_JOINABLE');
   assert.equal(ark(snapshot).state.hand.length,8);
   assert.equal(Object.hasOwn(ark(snapshot).state,'zooDeck'),false);
   assert.equal((await h.server.runtime.persistence.listActiveTurnDeadlines()).some(d=>d.roomId===snapshot.room.roomId),false);
@@ -95,12 +95,50 @@ test('ARK_NOVA socket solo: one player, private setup, reconnect, receipts and a
   assert.ok(left.ok);assert.equal(await h.server.runtime.persistence.findById(snapshot.room.roomId),null);
 });
 
-test('ARK_NOVA refuses a multi-player room selection atomically and explicit playing leave removes the solo room',async t=>{
-  const group=await harness(t,2),before=await group.sync();
+test('ARK_NOVA refuses a five-player room selection atomically and explicit playing leave removes the solo room',async t=>{
+  const group=await harness(t,5),before=await group.sync();
   const stored=await group.server.runtime.persistence.findById(before.room.roomId);
   assert.equal(group.failure(await group.send(group.host,group.selection(before,'ARK_NOVA'))),'ROOM_FULL');
   assert.deepEqual(await group.server.runtime.persistence.findById(before.room.roomId),stored);
   const h=await harness(t),started=h.success(await h.call(h.host,'game:start',{}, {expectedRoomRevision:h.lobby.versions.roomRevision}));
   const left=v.parse(RoomLeaveAckSchema,await h.call(h.host,'room:leave',{}, {expectedRoomRevision:started.versions.roomRevision,expectedGameRevision:ark(started).gameRevision}));
   assert.ok(left.ok);assert.equal(await h.server.runtime.persistence.findById(started.room.roomId),null);
+});
+
+for(const count of [2,3,4])test(`ARK_NOVA ${count}-player sockets: shared turns, private hands, reconnect and idempotent commands`,async t=>{
+  const h=await harness(t,count);
+  h.success(await h.send(h.host,h.selection(await h.sync(),'ARK_NOVA')));
+  const ready=await h.readyAll();
+  let snapshot=h.success(await h.call(h.host,'game:start',{}, {expectedRoomRevision:ready.versions.roomRevision}));
+  for(const member of h.members){
+    const own=ark(await h.sync(member.client));
+    assert.equal(own.state.table?.players.length,count);
+    assert.equal(own.state.hand.length,8);
+    for(const other of h.members.filter(m=>m!==member)){
+      const view=ark(await h.sync(other.client)).state;
+      for(const card of [...own.state.hand,...own.state.goals])assert.ok(!JSON.stringify(view).includes(JSON.stringify(card.cardId)));
+    }
+    snapshot=h.success(await h.call(member.client,'arkNova:act',{kind:'INITIAL_HAND',keep:own.state.hand.slice(0,4).map(c=>c.cardId)},{gameId:own.gameId,expectedGameRevision:own.gameRevision,turnId:own.state.transitionId}));
+  }
+  assert.equal(ark(snapshot).state.table!.stage,'ACTION');
+  const active=h.members.find(m=>m.playerId===ark(snapshot).state.table!.activePlayerId)!;
+  const before=ark(await h.sync(active.client));
+  const replacement=await h.connect();
+  const resumed=h.success(await h.call(replacement,'session:resume',{credential:{...active.credential,roomCode:snapshot.room.roomCode},lastSeenVersions:null}));
+  assert.deepEqual(ark(resumed),before);
+  const command=h.request('arkNova:act',{kind:'FUNDRAISE',x:0},{gameId:before.gameId,expectedGameRevision:before.gameRevision,turnId:before.state.transitionId});
+  const wrong=h.members.find(m=>m.playerId!==active.playerId)!;
+  assert.equal(h.failure(await h.send(wrong.client,command)),'RULE_VIOLATION');
+  assert.deepEqual(ark(await h.sync(replacement)),before);
+  snapshot=h.success(await h.send(replacement,command));
+  assert.notEqual(ark(snapshot).state.table!.activePlayerId,active.playerId);
+  assert.deepEqual(ark(h.success(await h.send(replacement,command))),ark(snapshot));
+  const selfView=ark(snapshot).state;
+  for(const member of h.members.filter(m=>m.playerId!==active.playerId)){
+    const other=ark(await h.sync(member.client));
+    assert.equal(other.gameRevision,ark(snapshot).gameRevision);
+    assert.deepEqual(other.state.display,selfView.display);
+    assert.deepEqual(other.state.table,selfView.table);
+    for(const card of selfView.hand)assert.ok(!JSON.stringify(other.state).includes(JSON.stringify(card.cardId)));
+  }
 });

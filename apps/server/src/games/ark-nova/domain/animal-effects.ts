@@ -1,7 +1,9 @@
 import { arkSoloCardAbilities, type ArkActionKind, type ArkCardDefinition } from '@hangul-rummikub/shared';
 import type { ArkZooIcons } from './zoo-icons.js';
-export type ArkEffectAmount=number|{kind:'ICONS';tag:string;factor:number;cap:number}|{kind:'THRESHOLDS';tag:string;thresholds:readonly number[]};
+export type ArkEffectAmount=number|{kind:'ICONS';tag:string;factor:number;cap:number;scope?:'ALL'|undefined}|{kind:'THRESHOLDS';tag:string;thresholds:readonly number[]};
 export type ArkZooEffect=
+  | {kind:'INTERACTION';ability:'VENOM'|'CONSTRICTION'|'PILFERING'|'HYPNOSIS';amount:number;track?:'CONSERVATION'|undefined}
+  | {kind:'BREAK';amount:number}
   | {kind:'WAZA_PLAY';upgraded:boolean}
   | {kind:'WAZA_SNAP'}
   | {kind:'GAIN';resource:'APPEAL'|'CONSERVATION'|'REPUTATION'|'MONEY'|'X'|'WORKER';amount:ArkEffectAmount}
@@ -27,26 +29,28 @@ export function evaluateArkEffectAmount(amount:ArkEffectAmount,icons:ArkZooIcons
   return amount.thresholds.filter(t=>(icons[amount.tag]??0)>=t).length;
 }
 /** Keep effects separate: the owner selects simultaneous order, and dynamic icon amounts resolve at execution time. */
-export function planArkAnimalEffects(card:ArkCardDefinition):ArkPlannedEffects {
+export function planArkAnimalEffects(card:ArkCardDefinition,multiplayer=false):ArkPlannedEffects {
   if (card.kind!=='ANIMAL') throw new Error('Expected animal definition.');
   const immediate:ArkZooEffect[]=[],afterFinishing:ArkZooEffect[]=[];
   const gain=(resource:'APPEAL'|'CONSERVATION'|'REPUTATION'|'MONEY'|'X'|'WORKER',amount:ArkEffectAmount)=>{if (amount!==0) immediate.push({kind:'GAIN',resource,amount});};
   gain('APPEAL',card.appeal);gain('CONSERVATION',card.conservation);gain('REPUTATION',card.reputation);
-  for (const a of arkSoloCardAbilities(card)) {
+  for (const a of (multiplayer?card.abilities:arkSoloCardAbilities(card))) {
     const action=ACTION_SUFFIX[a.key.split('_').slice(1).join('_')];
     if (a.key.startsWith('BOOST_')&&action) {afterFinishing.push({kind:'MOVE_ACTION',action,slots:[1,5]});continue;}
     if (a.key.startsWith('ACTION_')&&action) {afterFinishing.push({kind:'EXTRA_ACTION',action});continue;}
     if (a.key.startsWith('MULTIPLIER_')&&action) {immediate.push({kind:'MULTIPLIER',action});continue;}
     switch (a.key) {
+      case 'VENOM':case 'CONSTRICTION':case 'HYPNOSIS':immediate.push({kind:'INTERACTION',ability:a.key,amount:a.value});break;
+      case 'PILFERING_1':case 'PILFERING_2':immediate.push({kind:'INTERACTION',ability:'PILFERING',amount:a.key==='PILFERING_1'?1:2});break;
       case 'SPRINT': immediate.push({kind:'DRAW',amount:a.value});break;
       case 'PACK': gain('APPEAL',{kind:'ICONS',tag:'Predator',factor:1,cap:10000});break;
-      case 'ICONIC_ANIMAL': gain('APPEAL',{kind:'ICONS',tag:a.tag,factor:1,cap:8});break;
+      case 'ICONIC_ANIMAL': gain('APPEAL',{kind:'ICONS',tag:a.tag,factor:1,cap:8,...(multiplayer?{scope:'ALL' as const}:{})});break;
       case 'PETTING_ZOO_ANIMAL': gain('APPEAL',{kind:'ICONS',tag:'Pet',factor:3,cap:10000});break;
       case 'INVENTIVE': gain('X',a.value);break;
-      case 'INVENTIVE_BEAR': gain('X',{kind:'ICONS',tag:'Bear',factor:1,cap:3});break;
+      case 'INVENTIVE_BEAR': gain('X',{kind:'ICONS',tag:'Bear',factor:1,cap:3,...(multiplayer?{scope:'ALL' as const}:{})});break;
       case 'INVENTIVE_PRIMARY': gain('X',{kind:'THRESHOLDS',tag:'Primate',thresholds:[1,3,5]});break;
       case 'FULL_THROATED': gain('WORKER',1);break;
-      case 'JUMPING': gain('MONEY',a.value);break;
+      case 'JUMPING': gain('MONEY',a.value);if(multiplayer)immediate.push({kind:'BREAK',amount:a.value});break;
       case 'CLEVER': afterFinishing.push({kind:'MOVE_ACTION',action:null,slots:[1]});break;
       case 'DETERMINATION': afterFinishing.push({kind:'EXTRA_ACTION',action:null});break;
       case 'SNAPPING_1': case 'SNAPPING_2': immediate.push({kind:'SNAP',amount:a.key==='SNAPPING_1'?1:2,mayRefillBetween:a.key==='SNAPPING_2'});break;

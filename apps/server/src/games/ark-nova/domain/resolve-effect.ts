@@ -17,6 +17,7 @@ import { arkEnclosuresToEmpty, occupyArkAnimalHousing } from './animal-housing.j
 import { arkNewBuildingEffects, arkPlacementBonusEffect, arkUncoveredPlacementBonuses } from './construction-effects.js';
 import { arkReputationRange } from './build-turn.js';
 export type ArkEffectState=ArkCardEffectZones & ArkGoalZones & {
+  multiplayer?:{breakAdvance:number;otherZoo:ArkCard[];otherPartners?:string[];otherUniversities?:string[]}|undefined;
   conservationChoices?:{track:2|5|8|10;choice:string}[]|undefined;
   supportedProjects:number;buildings:ArkBuilding[];baseProjectReserve:ArkCard[];
   effects:ArkEffectQueue;played:ArkCard[];pouched:Record<string,ArkCard[]>;sponsorTokens:Record<string,number>;
@@ -171,11 +172,13 @@ export function resolveArkEffect<T extends ArkEffectState>(current:T,effectId:nu
       }
       break;
     }
+    case 'BREAK':if(a.kind!=='NONE'||!s.multiplayer)return invalid();s.multiplayer.breakAdvance+=effect.amount;break;
     case 'DRAW':
       if(a.kind!=='NONE')return invalid();drawArkCards(s,effect.amount);break;
     case 'GAIN': {
       if(a.kind!=='NONE')return invalid();
-      const amount=evaluateArkEffectAmount(effect.amount,arkZooIcons(s.played,s.partners,s.universities));
+      const all=typeof effect.amount==='object'&&effect.amount.kind==='ICONS'&&effect.amount.scope==='ALL';
+      const amount=evaluateArkEffectAmount(effect.amount,arkZooIcons(all?[...s.played,...(s.multiplayer?.otherZoo??[])]:s.played,all?[...s.partners,...(s.multiplayer?.otherPartners??[])]:s.partners,all?[...s.universities,...(s.multiplayer?.otherUniversities??[])]:s.universities));
       switch(effect.resource) {
         case 'MONEY':s.money+=amount;break;
         case 'APPEAL':s.appeal=Math.min(113,s.appeal+amount);break;
@@ -195,7 +198,7 @@ export function resolveArkEffect<T extends ArkEffectState>(current:T,effectId:nu
           const advanced=arkConservationAdvance(s.conservation,amount);s.conservation=advanced.conservation;
           for(const track of advanced.milestones) {
             if(track===2)enqueue({kind:'UPGRADE_OR_WORKER'});
-            else if(track===10) {if(s.goals.length>1)enqueue({kind:'DISCARD_GOAL'});}
+            else if(track===10) {if(!s.multiplayer&&s.goals.length>1)enqueue({kind:'DISCARD_GOAL'});}
             else enqueue({kind:'CONSERVATION_BONUS',track});
           }
           break;

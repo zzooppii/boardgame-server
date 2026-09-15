@@ -57,10 +57,10 @@ export function ArkNovaTable({state:s,disabled,onCommand:send,onCue,onRematch}:P
   const select=(id:string)=>{setMarket(null);setChosen(ids=>ids.includes(id)?ids.filter(x=>x!==id):s.zooWork&&!pending?[id]:[...ids,id]);if(s.zooWork&&!pending)setAnchor(null);onCue('CARD');};
   return <div className="ark-live-table">
     <div className="ark-live-status" aria-label="내 동물원 자원"><span>돈 <b>{s.money}</b></span><span>매력 <b>{s.appeal}</b></span><span>보전 <b>{s.conservation}</b></span><span>평판 <b>{s.reputation}</b></span><span title="보유 대학과 사용한 카드의 연구 아이콘 합계. 카드 조건에 쓰이며 소모되지 않습니다.">연구 <b>{arkZooIcons(s.played,s.partners,s.universities).Science??0}</b>개</span><span>X <b>{s.x}</b></span><span>직원 <b>{s.workers-s.busyWorkers}/{s.workers}</b></span></div>
-    <ArkNovaBreakTrack progress={s.progress}/>
-    <ArkNovaMoneyGuide state={s} x={x} canFundraise={actionAvailable&&arkActionControls(s,'SPONSORS').regular}/>
+    {!s.table&&<ArkNovaBreakTrack progress={s.progress}/>}
+    {!s.table&&<ArkNovaMoneyGuide state={s} x={x} canFundraise={actionAvailable&&arkActionControls(s,'SPONSORS').regular}/>}
     <ArkNovaScoreBoard state={s}/>
-    <ArkNovaResult state={s} disabled={disabled} {...(onRematch?{onRematch}:{})}/>
+    {!s.table&&<ArkNovaResult state={s} disabled={disabled} {...(onRematch?{onRematch}:{})}/>}
     <ArkNovaHistory entries={s.history}/>
     <div className="ark-feedback-host" role="status" aria-live="polite" aria-atomic="true">{feedback&&<div key={feedback.revision} className={`ark-feedback ${feedback.conservation?'is-conservation':feedback.animals.length?'is-arrival':'is-construction'}`}>
       {feedback.animals[0]&&<ArkAnimalArt cardKey={feedback.animals[0]} eager/>}

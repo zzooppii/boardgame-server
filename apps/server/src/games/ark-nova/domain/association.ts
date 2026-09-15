@@ -32,16 +32,16 @@ export function performArkAssociation(s:ArkBreakState,strength:number,upgraded:b
 }
 export function arkReputationAdvance(reputation:number,amount:number,actions:readonly ArkActionCard[],id:string) {
   const cap=actions.find(a=>a.kind==='CARDS')!.upgraded?15:9;
-  const next=Math.min(cap,reputation+amount),rewards:ArkReward[]=[];
+  const next=Math.max(reputation,Math.min(cap,reputation+amount)),rewards:ArkReward[]=[];
   for (let value=reputation+1;value<=next;value++) {
     const kind:ArkReward['kind']|null=value===5?'UPGRADE':value===8?'WORKER':value===10||value===13?'CARD':value===11||value===14?'CONSERVATION':value===12||value===15?'X':null;
     if (kind) rewards.push({id:`${id}:reputation-${value}`,kind,amount:value===13?2:1});
   }
   return {reputation:next,appeal:cap===15?Math.max(0,reputation+amount-15):0,rewards};
 }
-export function assertArkAssociation(s:ArkBreakState):void {
+export function assertArkAssociation(s:ArkBreakState & {multiplayer?:unknown}):void {
   if (Object.keys(s.taskWorkers).some(k=>!['REPUTATION','PARTNER','UNIVERSITY','PROJECT'].includes(k))||Object.values(s.taskWorkers).some(n=>n!==1&&n!==3)||
     Object.values(s.taskWorkers).reduce((sum,n)=>sum+n,0)!==s.busyWorkers||s.busyWorkers>s.workers||
-    new Set(s.partners).size!==s.partners.length||s.partners.length>(s.actions.find(a=>a.kind==='ASSOCIATION')?.upgraded?4:2)||new Set(s.universities).size!==s.universities.length||
+    new Set(s.partners).size!==s.partners.length||!s.multiplayer&&s.partners.length>(s.actions.find(a=>a.kind==='ASSOCIATION')?.upgraded?4:2)||new Set(s.universities).size!==s.universities.length||
     s.universities.some(u=>!ARK_UNIVERSITIES.includes(u))) throw new Error('Invalid Ark association state.');
 }

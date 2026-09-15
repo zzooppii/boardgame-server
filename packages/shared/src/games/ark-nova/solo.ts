@@ -14,9 +14,10 @@ export const ARK_SOLO_DIFFICULTY_LABELS: Readonly<Record<ArkSoloDifficulty, stri
   STANDARD: '기본 · 매력 20', ADVANCED: '숙련 · 매력 10', EXPERT: '도전 · 매력 0',
 };
 export const ArkSoloProgressSchema = v.strictObject({
-  round: v.picklist([1, 2, 3, 4, 5, 6]),
-  turnsCompleted: v.pipe(v.number(), v.safeInteger(), v.minValue(0), v.maxValue(27)),
-  turnInRound: v.pipe(v.number(), v.safeInteger(), v.minValue(0), v.maxValue(7)),
+  mode: v.optional(v.literal('MULTIPLAYER')),
+  round: v.pipe(v.number(),v.safeInteger(),v.minValue(1)),
+  turnsCompleted: v.pipe(v.number(), v.safeInteger(), v.minValue(0), v.maxValue(1000000)),
+  turnInRound: v.pipe(v.number(), v.safeInteger(), v.minValue(0), v.maxValue(1000000)),
   stage: v.picklist(['SETUP', 'ACTION', 'BREAK', 'FINAL_SCORING', 'FINISHED']),
 });
 export type ArkSoloProgress = v.InferOutput<typeof ArkSoloProgressSchema>;
@@ -24,6 +25,7 @@ const ids = v.pipe(v.array(ArkRefSchema), v.maxLength(250));
 const x = v.pipe(v.number(), v.safeInteger(), v.minValue(0), v.maxValue(5));
 /** Commands currently wired into the server domain; platform transport registration is separate. */
 export const ArkSoloCommandSchema = v.variant('kind', [
+  v.strictObject({kind:v.literal('INTERACTION_PAYMENT'),choiceId:ArkRefSchema,payment:v.picklist(['MONEY','CARD'])}),
   v.strictObject({kind:v.literal('CANCEL_EXTRA')}),
   v.strictObject({kind:v.literal('END_REPEAT')}),
   v.strictObject({kind:v.literal('SELECT_EFFECT'),choiceId:ArkRefSchema,effectId:v.pipe(v.number(),v.safeInteger(),v.minValue(1))}),
@@ -52,6 +54,8 @@ export const ArkSoloCommandSchema = v.variant('kind', [
 ]);
 export type ArkSoloCommand = v.InferOutput<typeof ArkSoloCommandSchema>;
 export function arkSoloProgressIsConsistent(progress: ArkSoloProgress): boolean {
+  if(progress.mode==='MULTIPLAYER')return progress.stage!=='SETUP'||progress.turnsCompleted===0;
+  if(progress.round>6||progress.turnsCompleted>27||progress.turnInRound>7)return false;
   const before = ARK_SOLO_ROUND_TURNS.slice(0, progress.round - 1).reduce((sum, n) => sum + n, 0);
   const capacity = ARK_SOLO_ROUND_TURNS[progress.round - 1]!;
   if (progress.turnsCompleted !== before + progress.turnInRound || progress.turnInRound > capacity) return false;

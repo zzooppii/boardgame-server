@@ -6,7 +6,7 @@ import { ArkAssociationWorkSchema, ArkRewardSchema, ArkUniversitySchema } from '
 import { ArkActiveBuildSchema, ArkBuildBonusSchema } from './build.js';
 import { GameIdSchema, PlayerIdSchema, TurnIdSchema } from '../../identifiers.js';
 import { GameRevisionSchema, ServerTimeSchema } from '../../protocol.js';
-import { ArkActionCardSchema, ArkBuildingSchema, ArkCardSchema, ArkCountSchema, ArkRefSchema } from './actions.js';
+import { ArkActionKindSchema, ArkActionCardSchema, ArkBuildingSchema, ArkCardSchema, ArkCountSchema, ArkRefSchema } from './actions.js';
 import { ArkSoloDifficultySchema, ArkSoloProgressSchema, arkSoloProgressIsConsistent } from './solo.js';
 
 export const ArkSoloPendingSchema = v.nullable(v.variant('kind', [
@@ -27,6 +27,16 @@ export const ArkSoloResultSchema = v.strictObject({
 const cards = v.pipe(v.array(ArkCardSchema),v.maxLength(250));
 /** Solo command-loop projection. The platform registration uses this contract once all actions are connected. */
 export const ArkSoloViewSchema = v.pipe(v.strictObject({
+  table:v.optional(v.strictObject({
+    notice:v.optional(v.nullable(v.string())),
+    stage:v.picklist(['SETUP','ACTION','BREAK','GOAL_DISCARD','INTERACTION','FINAL_SCORING','FINISHED']),
+    interaction:v.optional(v.nullable(v.strictObject({ownerId:PlayerIdSchema,targetId:PlayerIdSchema}))),
+    borrowed:v.optional(v.nullable(v.strictObject({targetId:PlayerIdSchema,action:ArkActionKindSchema,strength:ArkCountSchema}))),
+    activePlayerId:PlayerIdSchema,breakPosition:ArkCountSchema,breakLimit:v.picklist([9,12,15]),breakNumber:ArkCountSchema,
+    readyPlayerIds:v.array(PlayerIdSchema),finalTurns:v.nullable(v.array(PlayerIdSchema)),winners:v.array(PlayerIdSchema),
+    occupiedProjects:v.array(v.strictObject({cardId:ArkRefSchema,slot:v.picklist([0,1,2]),playerId:v.nullable(PlayerIdSchema)})),
+    players:v.pipe(v.array(v.strictObject({playerId:PlayerIdSchema,money:ArkCountSchema,appeal:ArkCountSchema,conservation:ArkCountSchema,reputation:ArkCountSchema,x:ArkCountSchema,workers:ArkCountSchema,busyWorkers:ArkCountSchema,handCount:ArkCountSchema,goalCount:ArkCountSchema,played:cards,buildings:v.array(ArkBuildingSchema),actions:v.array(ArkActionCardSchema),partners:v.array(ArkRefSchema),universities:v.array(ArkUniversitySchema),supportedProjects:ArkCountSchema,total:v.nullable(v.pipe(v.number(),v.safeInteger()))})),v.minLength(2),v.maxLength(4)),
+  })),
   history:v.optional(ArkHistorySchema,()=>[]),
   /** Public board information only; effect jobs and private decks remain server-side. */
   scoreBoard:v.optional(v.strictObject({
@@ -40,7 +50,7 @@ export const ArkSoloViewSchema = v.pipe(v.strictObject({
   gameId:GameIdSchema, playerId:PlayerIdSchema, revision:GameRevisionSchema, transitionId:TurnIdSchema,
   phase:v.picklist(['PLAYING','FINISHED']), startedAt:ServerTimeSchema, finishedAt:v.nullable(ServerTimeSchema),
   difficulty:ArkSoloDifficultySchema, progress:ArkSoloProgressSchema,
-  activatedProjectBonuses:ArkActivatedProjectBonusesSchema,projectSupports:v.pipe(v.array(ArkProjectSupportRecordSchema),v.maxLength(7)),playedProjects:v.pipe(cards,v.maxLength(2)),
+  activatedProjectBonuses:ArkActivatedProjectBonusesSchema,projectSupports:v.pipe(v.array(ArkProjectSupportRecordSchema),v.maxLength(7)),playedProjects:v.pipe(cards,v.maxLength(4)),
   associationWork:v.nullable(ArkAssociationWorkSchema),
   activeAssociation:v.boolean(), rewards:v.array(ArkRewardSchema),
   partners:v.array(ArkRefSchema),partnerSupply:v.array(ArkRefSchema),universities:v.array(ArkUniversitySchema),universitySupply:v.array(ArkUniversitySchema),
@@ -58,13 +68,18 @@ export const ArkSoloViewSchema = v.pipe(v.strictObject({
   reputation:v.pipe(ArkCountSchema,v.minValue(1),v.maxValue(15)), x:v.pipe(ArkCountSchema,v.maxValue(5)),
   workers:v.pipe(ArkCountSchema,v.minValue(1),v.maxValue(4)), busyWorkers:v.pipe(ArkCountSchema,v.maxValue(4)),
   actions:v.pipe(v.array(ArkActionCardSchema),v.length(5)), buildings:v.pipe(v.array(ArkBuildingSchema),v.maxLength(100)),
-  hand:cards, goals:cards, baseProjects:v.pipe(cards,v.length(3)),
+  hand:cards, goals:cards, baseProjects:v.pipe(cards,v.minLength(3),v.maxLength(4)),
   donations:v.pipe(v.array(v.pipe(ArkCountSchema,v.maxValue(6))),v.maxLength(7)),
   display:v.pipe(v.array(v.nullable(ArkCardSchema)),v.length(6)), deckCount:ArkCountSchema, discardCount:ArkCountSchema,
 }),v.check(s=> {
   const finished = s.phase === 'FINISHED';
   const visible = [...s.hand,...s.goals,...s.played,...s.playedProjects,...(s.revealedCards?.candidates??[]),...s.baseProjects,...s.display.filter(c=>c!==null)];
-  return s.history.every(entry=>entry.revision<=s.revision)&&s.projectSupports.length<=s.activatedProjectBonuses.length&&arkProjectSupportsAreConsistent(s)&&s.activeAssociation===(s.associationWork!==null) && (s.repeatedAction===null||s.progress.stage==='ACTION') && (s.extraAction===null||s.progress.stage==='ACTION'&&(s.extraAction.started||s.pending===null&&s.zooWork===null&&s.activeBuild===null&&!s.activeAssociation)) && arkSoloProgressIsConsistent(s.progress) &&
+  const t=s.table;
+  if((s.progress.mode==='MULTIPLAYER')!==!!t)return false;
+  if(t){const ids=t.players.map(p=>p.playerId),self=t.players.find(p=>p.playerId===s.playerId);
+    if(new Set(ids).size!==ids.length||!ids.includes(t.activePlayerId)||!self||self.money!==s.money||self.handCount!==s.hand.length||self.goalCount!==s.goals.length||t.breakLimit!==([9,12,15][ids.length-2])||t.breakPosition>t.breakLimit||(t.stage==='FINISHED')!==finished||[t.readyPlayerIds,t.finalTurns??[],t.winners].some(xs=>new Set(xs).size!==xs.length||xs.some(id=>!ids.includes(id)))||t.occupiedProjects.some(p=>p.playerId!==null&&!ids.includes(p.playerId)))return false;
+  }
+  return (s.progress.mode==='MULTIPLAYER'||s.baseProjects.length===3&&s.playedProjects.length<=2)&&s.history.every(entry=>entry.revision<=s.revision&&(s.table||entry.turn>=1))&&s.projectSupports.length<=s.activatedProjectBonuses.length&&arkProjectSupportsAreConsistent(s)&&s.activeAssociation===(s.associationWork!==null) && (s.repeatedAction===null||s.progress.stage==='ACTION') && (s.extraAction===null||s.progress.stage==='ACTION'&&(s.extraAction.started||s.pending===null&&s.zooWork===null&&s.activeBuild===null&&!s.activeAssociation)) && arkSoloProgressIsConsistent(s.progress) &&
     finished === (s.progress.stage === 'FINISHED') && finished === (s.result !== null) && finished === (s.finishedAt !== null) &&
     (s.finishedAt === null || s.finishedAt >= s.startedAt) &&
     (!finished || s.pending === null && s.activeBuild === null && s.buildBonuses.length === 0 && !s.activeAssociation && s.rewards.length === 0) && s.busyWorkers <= s.workers &&

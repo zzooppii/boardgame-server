@@ -1,16 +1,16 @@
 import * as v from 'valibot';
 import { ARK_GOALS, ARK_PROJECTS, ArkCardSchema, ArkRefSchema, type ArkCard } from '@hangul-rummikub/shared';
 export const ArkGoalRevealSchema=v.pipe(v.strictObject({choiceId:ArkRefSchema,candidates:v.pipe(v.array(ArkCardSchema),v.length(2))}),
-  v.check(s=>new Set(s.candidates.map(c=>c.cardId)).size===2&&s.candidates.every(c=>c.key!=='009'&&ARK_GOALS.some(g=>g.key===c.key))));
+  v.check(s=>new Set(s.candidates.map(c=>c.cardId)).size===2&&s.candidates.every(c=>ARK_GOALS.some(g=>g.key===c.key))));
 export type ArkGoalReveal=v.InferOutput<typeof ArkGoalRevealSchema>;
-export type ArkGoalZones={goalDeck:ArkCard[];goals:ArkCard[];discardedGoals:ArkCard[];goalReveal:ArkGoalReveal|null};
+export type ArkGoalZones={multiplayer?:unknown;goalDeck:ArkCard[];goals:ArkCard[];discardedGoals:ArkCard[];goalReveal:ArkGoalReveal|null};
 /** Resistance uses a separate goal-card zone, never the zoo deck or zoo discard. */
 export function beginArkResistance<T extends ArkGoalZones>(current:T,choiceId:string):{ok:true;state:T}|{ok:false} {
   if(current.goalReveal||!v.safeParse(ArkRefSchema,choiceId).success)return {ok:false};
   const s=structuredClone(current),candidates:ArkCard[]=[];
   while(candidates.length<2) {
     const card=s.goalDeck.shift();if(!card)return {ok:false};
-    if(card.key==='009')s.discardedGoals.push(card);else candidates.push(card);
+    if(!s.multiplayer&&card.key==='009')s.discardedGoals.push(card);else candidates.push(card);
   }
   s.goalReveal=v.parse(ArkGoalRevealSchema,{choiceId,candidates});return {ok:true,state:s};
 }
@@ -22,7 +22,7 @@ export function resolveArkResistance<T extends ArkGoalZones>(current:T,input:unk
   if(selected.output.choiceId!==reveal.choiceId||!reveal.candidates.some(c=>c.cardId===selected.output.keep))return {ok:false};
   const s=structuredClone(current);
   s.goals.push(...reveal.candidates.filter(c=>c.cardId===selected.output.keep));
-  s.discardedGoals.push(...reveal.candidates.filter(c=>c.cardId!==selected.output.keep));
+  (s.multiplayer?s.goalDeck:s.discardedGoals).push(...reveal.candidates.filter(c=>c.cardId!==selected.output.keep));
   s.goalReveal=null;return {ok:true,state:s};
 }
 const ProjectSelection=v.strictObject({cardId:v.nullable(ArkRefSchema)});

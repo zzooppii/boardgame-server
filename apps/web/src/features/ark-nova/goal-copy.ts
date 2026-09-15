@@ -10,7 +10,8 @@ const subjects:Readonly<Record<string,string>>={
   '010':'내 카드의 바위 아이콘 수. 지도 바위 칸의 수가 아닙니다',
   '011':'내 카드의 물 아이콘 수. 지도 물 칸의 수가 아닙니다',
 };
-export function arkGoalCopy(goal:ArkGoalDefinition):readonly string[]{
+export function arkGoalCopy(goal:ArkGoalDefinition,multiplayer=false):readonly string[]{
+  if(goal.key==='009'&&multiplayer)return ['종료 시 오른쪽 플레이어보다 많은 동물 종류 아이콘마다 보전 1, 최대 보전 4를 얻습니다. 같은 수는 세지 않습니다. 곰·체험 동물과 후원자의 동물 아이콘도 포함합니다.'];
   if(goal.key==='009')return ['솔로에서는 이 카드를 사용하지 않습니다. 뽑으면 즉시 버리고 다른 목표로 교체합니다.'];
   if(goal.key==='004')return ['다음 조건마다 보전 1을 얻습니다. 최대 보전 4.',...goal.thresholds.map(String),'연결은 해당 물·바위 칸에 건물이 인접한 상태입니다. 땅 전체와 가장자리 덮기에서 물·바위 칸은 제외합니다.'];
   return [`종료 시 ${subjects[goal.key]??goal.name}를 셉니다.`,`${goal.thresholds.join(' / ')} 이상이면 각각 보전 1 / 2 / 3 / 4를 얻습니다. 첫 기준에 못 미치면 0입니다.`];

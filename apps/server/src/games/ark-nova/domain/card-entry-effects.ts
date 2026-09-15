@@ -9,7 +9,7 @@ export function arkCardEntryEffects(before:ArkSponsorContext,after:ArkSponsorCon
   const sourceId=card.cardId,batch:ArkEffectBatch[]=[],definition=arkCardDefinition(card);
   const emit=(effect:ArkZooEffect,timing:'IMMEDIATE'|'AFTER_FINISHING'='IMMEDIATE')=>batch.push({sourceId,effect,timing});
   if(definition.kind==='ANIMAL') {
-    const effects=planArkAnimalEffects(definition);
+    const effects=planArkAnimalEffects(definition,!!after.multiplayer);
     effects.immediate.forEach(effect=>emit(effect));effects.afterFinishing.forEach(effect=>emit(effect,'AFTER_FINISHING'));
   } else arkSponsorImmediate(card.key,after).forEach(effect=>emit(effect));
   batch.push(...arkSponsorIconTriggers(after,arkZooIcons([card],[],[]),arkZooIcons(before.played,before.partners,before.universities)));

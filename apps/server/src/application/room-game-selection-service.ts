@@ -45,7 +45,7 @@ export class RoomGameSelectionService {
         const now = this.deps.clock.now();
         let candidate: RoomWriteCandidate;
         if (command.kind === "room:selectGame") {
-          if(command.payload.gameType === "ARK_NOVA" && players.length !== 1)return fail("ROOM_FULL", "아크노바 솔로는 한 명인 방에서 선택해주세요.");
+          if(command.payload.gameType === "ARK_NOVA" && players.length > 4)return fail("ROOM_FULL", "아크노바는 최대 네 명인 방에서 선택해주세요.");
           if ((room.game?.gameId ?? null) !== command.payload.gameId || (room.gameType === "TERRORSCAPE" && room.game ? (input.actorPlayerId === room.game.state.killerPlayerId ? room.game.state.killerRevision : room.game.state.survivorRevision) : room.game?.gameRevision ?? null) !== command.expectedGameRevision) return fail("STALE_GAME_REVISION");
           if (!input.canRepresentGame(command.payload.gameType)) return fail("INCOMPATIBLE_GAME_CAPABILITY", "참가자가 새로고침하여 선택한 게임을 지원하는 버전으로 접속해야 합니다.");
           const lobby = {

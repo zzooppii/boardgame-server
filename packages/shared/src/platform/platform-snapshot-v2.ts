@@ -421,14 +421,14 @@ export const SpaceCrewPlayingPlatformSnapshotV2Schema: v.GenericSchema<unknown, 
 export const SpaceCrewFinishedPlatformSnapshotV2Schema: v.GenericSchema<unknown, SpaceCrewFinishedPlatformSnapshotV2> = SpaceCrewFinishedRaw;
 const ArkNovaOuter = { snapshotVersion: PlatformSnapshotVersionSchema, versions: PlatformSnapshotVersionsV2Schema, serverTime: ServerTimeSchema, self: PlatformSelfViewV2Schema };
 const ArkNovaRoom = { roomId: RoomIdSchema, roomCode: RoomCodeSchema, gameType: v.literal("ARK_NOVA") };
-const ArkNovaPlayers = v.pipe(v.array(PlatformPlayerViewV2Schema), v.length(1));
+const ArkNovaPlayers = v.pipe(v.array(PlatformPlayerViewV2Schema), v.minLength(1),v.maxLength(4));
 const ArkNovaLobbyRaw = v.pipe(v.strictObject({ ...ArkNovaOuter, room: v.strictObject({ ...ArkNovaRoom, phase: v.literal("LOBBY"),
-  players: v.pipe(v.array(PlatformPlayerViewV2Schema), v.length(1)) }), game: v.null() }),
+  players: v.pipe(v.array(PlatformPlayerViewV2Schema), v.minLength(1),v.maxLength(4)) }), game: v.null() }),
   v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)));
 const ArkNovaPlayingRaw = v.pipe(v.strictObject({ ...ArkNovaOuter, room: v.strictObject({ ...ArkNovaRoom, phase: v.literal("PLAYING"), players: ArkNovaPlayers }), game: ArkNovaPlayingProjectionSchema }),
-  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)), v.check(s => s.game.state.playerId === s.self.playerId));
+  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)), v.check(s => s.game.state.playerId === s.self.playerId), v.check(s => {const ids=s.game.state.table?.players.map(p=>p.playerId)??[s.game.state.playerId];return ids.length===s.room.players.length&&s.room.players.every(p=>ids.includes(p.playerId));}));
 const ArkNovaFinishedRaw = v.pipe(v.strictObject({ ...ArkNovaOuter, room: v.strictObject({ ...ArkNovaRoom, phase: v.literal("FINISHED"), players: ArkNovaPlayers }), game: ArkNovaFinishedProjectionSchema }),
-  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)), v.check(s => s.game.state.playerId === s.self.playerId));
+  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)), v.check(s => s.game.state.playerId === s.self.playerId), v.check(s => {const ids=s.game.state.table?.players.map(p=>p.playerId)??[s.game.state.playerId];return ids.length===s.room.players.length&&s.room.players.every(p=>ids.includes(p.playerId));}));
 export type ArkNovaLobbyPlatformSnapshotV2 = v.InferOutput<typeof ArkNovaLobbyRaw>;
 export type ArkNovaPlayingPlatformSnapshotV2 = v.InferOutput<typeof ArkNovaPlayingRaw>;
 export type ArkNovaFinishedPlatformSnapshotV2 = v.InferOutput<typeof ArkNovaFinishedRaw>;

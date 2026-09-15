@@ -5,6 +5,7 @@ import { arkProjectBonusEffect } from './project-bonuses.js';
 import { arkReputationRange } from './build-turn.js';
 import type { ArkEffectBatch } from './effect-queue.js';
 export type ArkProjectSupportState={
+  multiplayer?:{playerCount:number;occupiedProjects:{cardId:string;slot:number}[]}|undefined;
   hand:ArkCard[];display:(ArkCard|null)[];discarded:ArkCard[];played:ArkCard[];buildings:ArkBuilding[];pouched:Record<string,ArkCard[]>;
   baseProjects:ArkCard[];playedProjects:ArkCard[];projectSupports:{cardId:string;slot:0|1|2}[];
   sponsorTokens:Record<string,number>;
@@ -26,6 +27,7 @@ export function supportArkProject<T extends ArkProjectSupportState>(current:T,up
   const card=inBase??existing??held??(upgraded&&displayIndex>=0&&displayIndex<arkReputationRange(current.reputation)?current.display[displayIndex]:null);
   const project=card&&ARK_PROJECTS.find(p=>p.key===card.key);
   const migration=current.played.find(c=>c.key==='224');
+  if(current.multiplayer?.occupiedProjects.some(p=>p.cardId===a.cardId&&p.slot===a.slot))return {ok:false};
   if(!card||!project||current.projectSupports.some(p=>p.cardId===a.cardId&&
     (p.slot===a.slot||project.kind!=='RELEASE'||!migration)))return {ok:false};
   const tokens=a.sponsorTokenIds??[];
@@ -53,7 +55,7 @@ export function supportArkProject<T extends ArkProjectSupportState>(current:T,up
   if(fresh) {
     if(held)s.hand=s.hand.filter(c=>c.cardId!==a.cardId);else s.display[displayIndex]=null;
     s.playedProjects.unshift({...card});
-    if(s.playedProjects.length>2) {
+    if(s.playedProjects.length>(s.multiplayer?.playerCount??2)) {
       const removed=s.playedProjects.pop()!;s.discarded.push(removed);s.projectSupports=s.projectSupports.filter(p=>p.cardId!==removed.cardId);
     }
     if(project.kind==='RELEASE')emit({kind:'GAIN',resource:'REPUTATION',amount:1});

@@ -32,6 +32,7 @@ export function arkAssociationAdvice(s:ArkSoloView,task:ArkAssociationTask,x=0):
     if(s.money<slot+1)issues.push(`공개 프로젝트 비용 ${slot+1} · 돈 ${slot+1-s.money} 부족`);
   }
   if(s.projectSupports.some(p=>p.cardId===card.cardId&&(p.slot===task.slot||project.kind!=='RELEASE'||!s.played.some(c=>c.key==='224'))))issues.push('이미 지원한 프로젝트 또는 점유된 보상 칸입니다.');
+  if(s.table?.occupiedProjects.some(p=>p.cardId===card.cardId&&p.slot===task.slot&&p.playerId!==s.playerId))issues.push('다른 플레이어가 점유했거나 인원수에 따라 막힌 보상 칸입니다.');
   if(s.activatedProjectBonuses.includes(task.bonus))issues.push('이미 사용한 지도 보너스입니다.');
   const tokens=task.sponsorTokenIds??[];
   if(tokens.length&&(!base||new Set(tokens).size!==tokens.length||tokens.length>2||tokens.some(id=>!s.played.some(c=>c.cardId===id&&(c.key==='215'||c.key==='218'))||(s.sponsorTokens[id]??0)<1)))issues.push('사용할 수 없는 후원 토큰입니다.');

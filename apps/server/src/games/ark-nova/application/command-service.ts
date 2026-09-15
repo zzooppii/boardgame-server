@@ -1,3 +1,4 @@
+import {arkNovaPlayerIds} from '../compatibility/adapter.js';
 import * as v from 'valibot';
 import { ArkNovaActCommandSchema, type ArkNovaActCommand, type ErrorDto, type PlayerId, type RoomId } from '@hangul-rummikub/shared';
 import type { RoomMutationSerialExecutor } from '../../../application/room-session-service.js';
@@ -32,7 +33,8 @@ export class ArkNovaCommandService {
         const room=await d.commandStore.load(input.roomId);
         if(!room)return failure('INVALID_PHASE');
         if(room.roomId!==input.roomId)return failure('INTERNAL_ERROR');
-        if(room.activePlayerIds.length!==1||room.activePlayerIds[0]!==input.actorPlayerId||room.game.state.playerId!==input.actorPlayerId)return failure('UNAUTHENTICATED');
+        if(!room.activePlayerIds.includes(input.actorPlayerId)||!arkNovaPlayerIds(room.game.state).includes(input.actorPlayerId))return failure('UNAUTHENTICATED');
+        const seats=arkNovaPlayerIds(room.game.state);if(seats.length!==room.activePlayerIds.length||seats.some(id=>!room.activePlayerIds.includes(id)))return failure('INVALID_PHASE');
         const scopeKey=`room-player:${room.roomId}:${input.actorPlayerId}`,payloadFingerprint=arkNovaCommandFingerprint(command);
         const prior=await d.idempotencyRepository.classify(scopeKey,command.requestId,payloadFingerprint);
         if(!input.authorization.isCurrent())return failure('UNAUTHENTICATED');

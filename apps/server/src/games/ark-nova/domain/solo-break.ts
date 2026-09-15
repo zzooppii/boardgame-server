@@ -8,6 +8,7 @@ export const ARK_UNIVERSITIES = ARK_SOLO_UNIVERSITIES;
 export type ArkUniversity = typeof ARK_UNIVERSITIES[number];
 export type ArkBreakState = ArkCardZones & {
   progress: ArkSoloProgress;
+  multiplayer?:unknown;
   breakStep: 'NOT_STARTED' | 'DISCARD' | 'CARD_INCOME' | 'COMPLETE';
   donations: number[];
   actions: ArkActionCard[];
@@ -45,12 +46,14 @@ export function resolveArkSoloBreakDiscard(current: ArkBreakState, input: unknow
   state.actions = state.actions.map(card => ({...card, venom: false, constriction: false, multiplier: 0}));
   state.busyWorkers = 0;
   state.taskWorkers = {};
+  if(!state.multiplayer){
   state.partnerSupply = ARK_CONTINENTS.filter(partner => !state.partners.includes(partner));
   state.universitySupply = ARK_UNIVERSITIES.filter(university => !state.universities.includes(university));
   state.discarded.push(...state.display.slice(0, 2).filter(card => card !== null));
   state.display[0] = null;
   state.display[1] = null;
   replenishArkDisplay(state);
+  }
   state.money += arkAppealIncome(state.appeal) + arkKioskIncome(state.buildings);
   state.breakStep = 'CARD_INCOME';
   return {ok: true, state};

@@ -43,7 +43,15 @@ const ExtraActionFrame=v.pipe(v.strictObject({
     f.zooWork.remaining<=(f.zooWork.action==='ANIMALS'?2:11)&&
     (f.zooWork.action!=='SPONSORS'||f.zooWork.upgraded||f.zooWork.playedCount<=1):f.legacyAfterFinishing!==null)));
 
-const State = v.strictObject({
+export const ArkParticipantContextSchema=v.strictObject({
+  venomRemoved:v.optional(v.boolean()),venomStart:v.optional(v.strictObject({removed:v.boolean()})),
+  borrowedFinished:v.optional(v.boolean()),borrowedStrength:v.optional(v.pipe(ArkCountSchema,v.minValue(1),v.maxValue(3))),borrowedBuildUnlocked:v.optional(v.boolean()),borrowedAssociationUnlocked:v.optional(v.boolean()),
+  startingAppeal:v.picklist([0,1,2,3]),playerCount:v.picklist([2,3,4]),
+  otherPartners:v.optional(v.array(ArkRefSchema),()=>[]),otherUniversities:v.optional(v.array(ArkRefSchema),()=>[]),otherZoo:v.array(ArkCardSchema),rightZoo:v.array(ArkCardSchema),turnEnded:v.boolean(),breakAdvance:ArkCountSchema,breakCompleted:v.boolean(),
+  occupiedProjects:v.array(v.strictObject({cardId:ArkRefSchema,slot:v.picklist([0,1,2])})),
+});
+export const ArkParticipantStateSchema = v.strictObject({
+  multiplayer:v.optional(ArkParticipantContextSchema),
   history:v.optional(ArkHistorySchema,()=>[]),
   ...ArkSoloSetupStateSchema.entries,
   extraActions:v.array(ExtraActionFrame),
@@ -57,11 +65,12 @@ const State = v.strictObject({
   money:ArkCountSchema, appeal:v.pipe(ArkCountSchema,v.maxValue(113)),
   conservation:v.pipe(ArkCountSchema,v.maxValue(41)), reputation:v.pipe(ArkCountSchema,v.minValue(1),v.maxValue(15)),
   x:v.pipe(ArkCountSchema,v.maxValue(5)), workers:v.pipe(ArkCountSchema,v.minValue(1),v.maxValue(4)),
+  baseProjects:v.pipe(cards,v.minLength(3),v.maxLength(4)),
   goals:cards, display:v.pipe(v.array(v.nullable(ArkCardSchema)),v.length(6)),
   associationWork:v.nullable(ArkAssociationWorkSchema),donationsMade:ArkCountSchema,
   activeAssociation:v.boolean(), rewards:v.array(ArkRewardSchema),
   associationConservation:v.pipe(ArkCountSchema,v.maxValue(41)), extraWorkers:v.pipe(ArkCountSchema,v.maxValue(3)),
-  upgradeCount:v.pipe(ArkCountSchema,v.maxValue(4)), extraAppeal:ArkCountSchema, reputationGained:v.pipe(ArkCountSchema,v.maxValue(14)),
+  upgradeCount:v.pipe(ArkCountSchema,v.maxValue(5)), extraAppeal:ArkCountSchema, reputationGained:v.pipe(ArkCountSchema,v.maxValue(14)),
   activeBuild:ArkActiveBuildSchema, buildBonuses:v.array(ArkBuildBonusSchema),
   phase:v.picklist(['PLAYING','FINISHED']), startedAt:ServerTimeSchema, finishedAt:v.nullable(ServerTimeSchema),
   transitionId:TurnIdSchema, pending:ArkSoloPendingSchema, result:v.nullable(ArkSoloResultSchema),
@@ -71,14 +80,14 @@ const State = v.strictObject({
   partners:v.array(ArkRefSchema), partnerSupply:v.array(ArkRefSchema),
   universities:v.array(v.picklist(ARK_UNIVERSITIES)), universitySupply:v.array(v.picklist(ARK_UNIVERSITIES)),
 });
-export type ArkSoloState = v.InferOutput<typeof State>;
+export type ArkSoloState = v.InferOutput<typeof ArkParticipantStateSchema>;
 
 /** One canonical state for the connected setup/action/break/final loop.
  * Zoo-card actions, multiplied actions, nested extra actions and effect choices share this loop.
  * Card-specific exceptions and platform transport integration remain under audit.
  */
 export function parseArkSoloState(input: unknown): ArkSoloState {
-  const s = v.parse(State, input);
+  const s = v.parse(ArkParticipantStateSchema, input);
   if(s.history.some(entry=>entry.revision>s.revision))throw new Error('History exceeds game revision.');
   parseArkSoloProgress(s.progress);
   if(s.activeAssociation!==(s.associationWork!==null)||s.associationWork?.upgraded&&!s.actions.some(c=>c.kind==='ASSOCIATION'&&c.upgraded))throw new Error('Invalid Ark association continuation.');
@@ -89,8 +98,8 @@ export function parseArkSoloState(input: unknown): ArkSoloState {
     repeated.awaiting&&(repeated.completed<1||s.pending!==null||s.activeBuild!==null||s.activeAssociation||s.zooWork!==null||s.legacyAfterFinishing!==null)))throw new Error('Invalid Ark repeated action.');
   if(s.extraActions.length&&(s.progress.stage!=='ACTION'||s.extraActions.slice(0,-1).some(f=>!f.started)||
     !s.extraActions.at(-1)!.started&&(s.pending!==null||s.zooWork!==null||s.activeBuild!==null||s.activeAssociation||s.legacyAfterFinishing!==null||arkEffectsPending(s.effects))))throw new Error('Invalid Ark extra action continuation.');
-  assertArkExtendedCardInventory(s);
-  if(s.playedProjects.length>2||s.supportedProjects!==s.activatedProjectBonuses.length||
+  if(!s.multiplayer){assertArkExtendedCardInventory(s);if(s.history.some(e=>e.turn<1))throw new Error("Invalid solo history turn.");}
+  if(s.playedProjects.length>(s.multiplayer?.playerCount??2)||s.supportedProjects!==s.activatedProjectBonuses.length||
     !arkProjectSupportsAreConsistent(s)||s.projectSupports.length>s.supportedProjects)throw new Error('Invalid Ark project board.');
   if((arkEffectsPending(s.effects))!==(s.pending?.kind==='EFFECT') ||
     s.zooWork!==null&&(s.progress.stage!=='ACTION'||s.activeBuild!==null||s.activeAssociation||s.legacyAfterFinishing!==null||
@@ -108,23 +117,24 @@ export function parseArkSoloState(input: unknown): ArkSoloState {
   const finished = s.phase === 'FINISHED';
   if (finished !== (s.progress.stage === 'FINISHED') || finished !== (s.result !== null) || finished !== (s.finishedAt !== null) ||
     s.finishedAt !== null && s.finishedAt < s.startedAt || s.busyWorkers > s.workers ||
-    s.goals.some(c=>c.key==='009') || new Set(s.actions.map(c=>c.kind)).size!==5 ||
+    !s.multiplayer&&s.goals.some(c=>c.key==='009') || new Set(s.actions.map(c=>c.kind)).size!==5 ||
     new Set(s.donations).size!==s.donations.length) throw new Error('Invalid Ark solo state.');
   if (s.progress.stage === 'SETUP') {
     const setup = Object.fromEntries(Object.keys(ArkSoloSetupStateSchema.entries).map(key=>[key,Reflect.get(s,key)]));
     // Reuse the setup boundary, including exact initial hand, action order and buildings.
-    parseArkSoloSetup(setup);
+    if(!s.multiplayer)parseArkSoloSetup(setup);
+    else if(s.hand.length!==8||s.goals.length!==2||s.money!==25||s.appeal!==s.multiplayer.startingAppeal)throw new Error('Invalid multiplayer setup.');
     if (s.pending !== null || s.activeBuild !== null || s.buildBonuses.length || s.activeAssociation || s.rewards.length || s.associationConservation || s.extraWorkers || s.upgradeCount || s.extraAppeal || s.reputationGained || s.partners.length || s.universities.length || s.busyWorkers) throw new Error('Invalid Ark setup phase.');
   }
   if (s.pending?.kind === 'DRAW_DISCARD' && s.progress.stage !== 'ACTION' ||
     s.pending?.kind === 'BREAK_DISCARD' && (s.progress.stage !== 'BREAK' || s.breakStep !== 'DISCARD') ||
     s.pending?.kind === 'FINAL_GOAL' && s.progress.stage !== 'FINAL_SCORING' ||
     finished && s.pending !== null ||
-    s.progress.stage === 'BREAK' && s.pending?.kind !== 'BREAK_DISCARD' && !(s.pending?.kind==='EFFECT'&&s.breakStep==='CARD_INCOME') ||
-    s.progress.stage === 'FINAL_SCORING' && s.pending?.kind !== 'FINAL_GOAL' ||
+    !s.multiplayer&&s.progress.stage === 'BREAK' && s.pending?.kind !== 'BREAK_DISCARD' && !(s.pending?.kind==='EFFECT'&&s.breakStep==='CARD_INCOME') ||
+    !s.multiplayer&&s.progress.stage === 'FINAL_SCORING' && s.pending?.kind !== 'FINAL_GOAL' ||
     s.pending?.kind === 'DRAW_DISCARD' && s.pending.count !== 1 ||
     s.pending?.kind === 'BREAK_DISCARD' && s.pending.count !== s.hand.length - (s.universities.includes('HAND_LIMIT')?5:3)) throw new Error('Invalid Ark pending choice.');
-  assertArkZooMap(s.buildings,s.played,s.actions.some(a=>a.kind==='BUILD'&&a.upgraded));
+  assertArkZooMap(s.buildings,s.played,s.actions.some(a=>a.kind==='BUILD'&&a.upgraded)||s.multiplayer?.borrowedBuildUnlocked===true);
   if(!s.played.length&&s.buildings.some(b=>b.occupied||b.used))throw new Error('Unpopulated Ark zoo has occupied buildings.');
   const coveredBonuses=s.buildings.slice(2).flatMap(arkPlacementBonuses);
   const reputation=1+s.reputationGained;
@@ -132,10 +142,10 @@ export function parseArkSoloState(input: unknown): ArkSoloState {
   const upgrades=s.actions.filter(a=>a.upgraded).length;
   if (new Set(s.buildBonuses.map(b=>b.id)).size!==s.buildBonuses.length ||
     s.buildBonuses.some(b=>b.kind==='UPGRADE' ? b.id!=='reputation:5' || reputation<5 : !coveredBonuses.some(c=>c.id===b.id&&c.kind===b.kind)) ||
-    s.actions.some(c=>c.venom||c.constriction) ||
+    !s.multiplayer&&s.actions.some(c=>c.venom||c.constriction) ||
     s.conservation !== (s.result?.conservation ?? s.associationConservation) || s.reputation !== reputation || s.workers !== workers ||
-    upgrades !== s.upgradeCount ||
-    s.appeal !== Math.min(113,ARK_SOLO_STARTING_APPEAL[s.difficulty]+s.extraAppeal+(s.result?.sponsorAppeal??0)) ||
+    upgrades !== s.upgradeCount || (!s.multiplayer?.borrowedStrength&&upgrades>4) ||
+    s.appeal !== Math.min(113,(s.multiplayer?.startingAppeal??ARK_SOLO_STARTING_APPEAL[s.difficulty])+s.extraAppeal+(s.result?.sponsorAppeal??0)) ||
     s.goals.length !== 2+s.resistanceGained-Number(s.goalDiscarded)) throw new Error('Unsupported Ark command state.');
   if (s.activeBuild !== null && (s.progress.stage!=='ACTION' || s.activeBuild.remaining>10 ||
       new Set(s.activeBuild.builtKinds).size!==s.activeBuild.builtKinds.length-Number(s.activeBuild.engineerUsed===true) ||
@@ -150,9 +160,9 @@ export function parseArkSoloState(input: unknown): ArkSoloState {
     s.pending?.kind==='REWARD'&&s.rewards.length===0 || s.rewards.length>0&&!['REWARD','EFFECT'].includes(s.pending?.kind??'') ||
     s.rewards.length>0 && !s.activeBuild && !s.activeAssociation ||
     new Set(s.rewards.map(r=>r.id)).size!==s.rewards.length ||
-    s.reputation>9&&!s.actions.find(a=>a.kind==='CARDS')!.upgraded ||
-    JSON.stringify([...s.partnerSupply].sort())!==JSON.stringify(ARK_CONTINENTS.filter(c=>!s.partners.includes(c)).sort()) ||
-    JSON.stringify([...s.universitySupply].sort())!==JSON.stringify(ARK_UNIVERSITIES.filter(u=>!s.universities.includes(u)).sort())) throw new Error('Invalid Ark reward state.');
+    !s.multiplayer&&s.reputation>9&&!s.actions.find(a=>a.kind==='CARDS')!.upgraded ||
+    !s.multiplayer&&JSON.stringify([...s.partnerSupply].sort())!==JSON.stringify(ARK_CONTINENTS.filter(c=>!s.partners.includes(c)).sort()) ||
+    !s.multiplayer&&JSON.stringify([...s.universitySupply].sort())!==JSON.stringify(ARK_UNIVERSITIES.filter(u=>!s.universities.includes(u)).sort())) throw new Error('Invalid Ark reward state.');
   if (s.activeBuild) {
     const build=s.activeBuild, placed=s.buildings.slice(-build.builtKinds.length);
     if (placed.some((b,index)=>b.kind!==build.builtKinds[index]) ||
@@ -161,14 +171,14 @@ export function parseArkSoloState(input: unknown): ArkSoloState {
       build.upgraded&&!s.actions.find(a=>a.kind==='BUILD')!.upgraded) throw new Error('Invalid Ark build continuation.');
   }
   const expectedDonations = s.progress.stage === 'BREAK' ? s.progress.round : s.progress.round - 1;
-  if (s.donations.length !== Math.min(7,expectedDonations+s.donationsMade) || s.donations.some((space,index)=>space!==index) ||
+  if (!s.multiplayer&&(s.donations.length !== Math.min(7,expectedDonations+s.donationsMade) || s.donations.some((space,index)=>space!==index) ||
     s.progress.stage !== 'SETUP' && s.revision < s.progress.turnsCompleted + 1 ||
-    s.progress.stage !== 'BREAK' && s.breakStep !== (s.progress.round === 1 ? 'NOT_STARTED' : 'COMPLETE')) {
+    s.progress.stage !== 'BREAK' && s.breakStep !== (s.progress.round === 1 ? 'NOT_STARTED' : 'COMPLETE'))) {
     throw new Error('Invalid Ark round state.');
   }
   if (s.result !== null) {
-    const expected = calculateArkSoloFinalScore({universities:s.universities,x:s.x,played:s.played,buildings:s.buildings,universityResearch:arkUniversityResearch(s.universities),supportedProjects:s.supportedProjects,
-      reputation:s.reputation,appeal:Math.min(113,ARK_SOLO_STARTING_APPEAL[s.difficulty]+s.extraAppeal),conservation:s.associationConservation,partners:s.partners,goals:s.goals});
+    const expected = calculateArkSoloFinalScore({rightZoo:s.multiplayer?.rightZoo,universities:s.universities,x:s.x,played:s.played,buildings:s.buildings,universityResearch:arkUniversityResearch(s.universities),supportedProjects:s.supportedProjects,
+      reputation:s.reputation,appeal:Math.min(113,(s.multiplayer?.startingAppeal??ARK_SOLO_STARTING_APPEAL[s.difficulty])+s.extraAppeal),conservation:s.associationConservation,partners:s.partners,goals:s.goals});
     if (JSON.stringify(s.result) !== JSON.stringify(expected)) throw new Error('Invalid Ark final score.');
   }
   return s;
@@ -190,9 +200,10 @@ function finishTurn(s: ArkSoloState, nextChoice: TurnId): void {
   if(parent) {
     if(!parent.started)throw new Error('Ark extra action was not started.');
     s.effects=parent.effects;s.zooWork=parent.zooWork;s.legacyAfterFinishing=parent.legacyAfterFinishing;
-    resumeEffects(s,nextChoice);return;
+    resumeArkParticipantEffects(s,nextChoice);return;
   }
   replenishArkDisplay(s);
+  if(s.multiplayer){s.progress.turnsCompleted++;s.progress.turnInRound++;s.multiplayer.turnEnded=true;return;}
   const next = finishArkSoloTurn(s.progress, 0);
   if (!next.ok) throw new Error('Cannot finish Ark action.');
   s.progress = next.progress;
@@ -203,25 +214,25 @@ function finishTurn(s: ArkSoloState, nextChoice: TurnId): void {
     Object.assign(s, started.state);
     const count = Math.max(0, s.hand.length - (s.universities.includes('HAND_LIMIT')?5:3));
     if (count > 0) s.pending = {kind:'BREAK_DISCARD',choiceId:nextChoice,count};
-    else finishBreak(s, [],nextChoice);
+    else finishArkParticipantBreak(s, [],nextChoice);
   } else if (s.progress.stage === 'FINAL_SCORING') {
     s.pending = s.goalDiscarded?null:{kind:'FINAL_GOAL',choiceId:nextChoice};
   }
 }
 
-function finishBreak(s:ArkSoloState,discarded:string[],next:TurnId):boolean {
+export function finishArkParticipantBreak(s:ArkSoloState,discarded:string[],next:TurnId):boolean {
   const result=resolveArkSoloBreakDiscard(s,{discard:discarded});if(!result.ok)return false;
   Object.assign(s,result.state);s.pending=null;
   s.effects=enqueueArkEffects(createArkEffectQueue(),[...arkSponsorIncome(s),...arkProjectBonusIncome(s.activatedProjectBonuses)]);
-  resumeEffects(s,next);return true;
+  resumeArkParticipantEffects(s,next);return true;
 }
-function finalize(s:ArkSoloState,now:ServerTime):void {
-  const result=calculateArkSoloFinalScore({...s,universityResearch:arkUniversityResearch(s.universities)});
-  const finished=completeArkSoloScoring(s.progress,result.total);if(!finished.ok)throw new Error('Unresolved Ark scoring.');
+export function finalizeArkParticipant(s:ArkSoloState,now:ServerTime):void {
+  const result=calculateArkSoloFinalScore({...s,rightZoo:s.multiplayer?.rightZoo,universityResearch:arkUniversityResearch(s.universities)});
+  const finished=s.multiplayer?{ok:true as const,progress:{...s.progress,stage:'FINISHED' as const}}:completeArkSoloScoring(s.progress,result.total);if(!finished.ok)throw new Error('Unresolved Ark scoring.');
   s.result={...result,details:result.details.map(d=>({...d}))};s.appeal=result.appeal;s.conservation=result.conservation;
   s.progress=finished.progress;s.pending=null;s.phase='FINISHED';s.finishedAt=now;
 }
-function resumeEffects(s:ArkSoloState,next:TurnId):void {
+export function resumeArkParticipantEffects(s:ArkSoloState,next:TurnId):void {
   if(s.progress.stage==='BREAK'&&!arkEffectsPending(s.effects)&&s.effects.afterFinishing.length)s.effects=beginArkAfterFinishing(s.effects);
   if(arkEffectsPending(s.effects)){s.pending={kind:'EFFECT',choiceId:next};return;}
   s.pending=null;
@@ -233,6 +244,7 @@ function resumeEffects(s:ArkSoloState,next:TurnId):void {
     s.legacyAfterFinishing=null;finishTurn(s,next);
   } else if(s.progress.stage==='BREAK') {
     replenishArkDisplay(s);
+    if(s.multiplayer){s.multiplayer.breakCompleted=true;s.breakStep='COMPLETE';s.progress.stage='ACTION';return;}
     const finished=completeArkSoloBreak(s,0);if(!finished.ok)throw new Error('Unresolved Ark income.');Object.assign(s,finished.state);
   } else if(s.activeBuild)finishBuild(s,next);
   else if(s.activeAssociation)finishAssociation(s,next);
@@ -253,9 +265,10 @@ function finishLegacyAction(s:ArkSoloState,kind:ArkActionKind,next:TurnId):void 
     if(repeated.remaining>1){repeated.remaining--;repeated.awaiting=true;return;}
     finishRepeatedAction(s,next);return;
   }
+  if(s.multiplayer?.borrowedStrength&&!s.extraActions.length)s.multiplayer.borrowedFinished=true;
   s.actions=finishArkAction(s.actions,kind);
   if(s.effects.afterFinishing.length) {
-    s.effects=beginArkAfterFinishing(s.effects);s.legacyAfterFinishing=kind;resumeEffects(s,next);
+    s.effects=beginArkAfterFinishing(s.effects);s.legacyAfterFinishing=kind;resumeArkParticipantEffects(s,next);
   } else finishTurn(s,next);
 }
 function finishBuild(s:ArkSoloState,next:TurnId):void {
@@ -287,7 +300,7 @@ function placeBuilding(s:ArkSoloState,input:v.InferOutput<typeof ArkPlacementSch
   } else {
     s.extraAppeal+=arkConstructionAppeal(s.buildings)-beforeAppeal;
     s.buildBonuses.push(...arkPlacementBonuses(building));
-    s.appeal=Math.min(113,ARK_SOLO_STARTING_APPEAL[s.difficulty]+s.extraAppeal);
+    s.appeal=Math.min(113,(s.multiplayer?.startingAppeal??ARK_SOLO_STARTING_APPEAL[s.difficulty])+s.extraAppeal);
   }
   finishBuild(s,next); return true;
 }
@@ -336,6 +349,7 @@ export function applyArkSoloCommand(current: ArkSoloState, actor: PlayerId, expe
   const parsed = v.safeParse(ArkSoloCommandSchema,input);
   if (!parsed.success) return {ok:false,reason:'INVALID_ACTION'};
   const a = parsed.output, s = parseArkSoloState(current), invalid = ():ArkSoloApplied=>({ok:false,reason:'INVALID_ACTION'});
+  if(a.kind==='INTERACTION_PAYMENT')return invalid();
   if (now < s.startedAt) return invalid();
   const startingKind=a.kind==='BEGIN_ZOO'?a.action:a.kind==='TAKE_X'?a.action:a.kind==='FUNDRAISE'?'SPONSORS':
     a.kind==='DRAW'||a.kind==='SNAP'?'CARDS':a.kind==='BUILD'?'BUILD':a.kind==='ASSOCIATION'?'ASSOCIATION':null;
@@ -368,34 +382,39 @@ export function applyArkSoloCommand(current: ArkSoloState, actor: PlayerId, expe
   } else if(a.kind==='CANCEL_EXTRA') {
     if(!extra||extra.started)return invalid();
     s.extraActions.pop();s.effects=extra.effects;s.zooWork=extra.zooWork;s.legacyAfterFinishing=extra.legacyAfterFinishing;
-    resumeEffects(s,nextTransition);
+    resumeArkParticipantEffects(s,nextTransition);
   } else if (a.kind === 'INITIAL_HAND') {
     if (s.progress.stage !== 'SETUP') return invalid();
     // Preserve the existing strict initial-hand authentication/inventory checks.
+    if(s.multiplayer){
+      if(new Set(a.keep).size!==4||a.keep.some(id=>!s.hand.some(c=>c.cardId===id)))return invalid();
+      s.discarded.push(...s.hand.filter(c=>!a.keep.includes(c.cardId)));s.hand=s.hand.filter(c=>a.keep.includes(c.cardId));s.progress.stage='ACTION';
+    } else {
     const setupInput = Object.fromEntries(Object.keys(ArkSoloSetupStateSchema.entries).map(key => [key, Reflect.get(s,key)]));
     const chosen = chooseArkSoloInitialHand(v.parse(ArkSoloSetupStateSchema,setupInput), actor, expectedRevision, {keep:a.keep});
     if (!chosen.ok) return invalid();
     s.hand = chosen.state.hand; s.discarded = chosen.state.discarded;
     const started = startArkSolo(s.progress); if (!started.ok) return invalid(); s.progress = started.progress;
+    }
   } else if(a.kind==='BEGIN_ZOO') {
     if(s.progress.stage!=='ACTION'||s.pending||s.activeBuild||s.activeAssociation)return invalid();
-    const begun=beginArkZooWork(s,{action:a.action,x:a.x,gainReputation:a.gainReputation},s.repeatedAction?.baseStrength);if(!begun.ok)return invalid();Object.assign(s,begun.state);if(s.zooWork&&(s.repeatedAction||s.extraActions.length))s.zooWork.cancelX=null;resumeEffects(s,nextTransition);
+    const begun=beginArkZooWork(s,{action:a.action,x:a.x,gainReputation:a.gainReputation},s.repeatedAction?.baseStrength??(s.extraActions.length?undefined:s.multiplayer?.borrowedStrength));if(!begun.ok)return invalid();Object.assign(s,begun.state);if(s.zooWork&&(s.repeatedAction||s.extraActions.length))s.zooWork.cancelX=null;resumeArkParticipantEffects(s,nextTransition);
   } else if(a.kind==='CANCEL_ZOO') {
     if(s.progress.stage!=='ACTION'||s.pending||s.repeatedAction||s.extraActions.length)return invalid();
     const result=cancelArkZooWork(s);if(!result.ok)return invalid();Object.assign(s,result.state);
   } else if(a.kind==='PLAY_ZOO'||a.kind==='END_ZOO') {
     if(s.progress.stage!=='ACTION'||s.pending||!s.zooWork)return invalid();
     const waza=a.kind==='END_ZOO'?beginArkWazaBonus(s):null;
-    if(waza) {Object.assign(s,waza);resumeEffects(s,nextTransition);}
+    if(waza) {Object.assign(s,waza);resumeArkParticipantEffects(s,nextTransition);}
     else if(a.kind==='END_ZOO'&&s.repeatedAction) {
       if(s.zooWork.stage!=='PLAYING')return invalid();
       const kind=s.zooWork.action;s.zooWork=null;finishLegacyAction(s,kind,nextTransition);
     } else {
-      const result=a.kind==='PLAY_ZOO'?playNextArkZooCard(s,a.card):endArkZooWork(s);if(!result.ok)return invalid();Object.assign(s,result.state);resumeEffects(s,nextTransition);
+      const result=a.kind==='PLAY_ZOO'?playNextArkZooCard(s,a.card):endArkZooWork(s);if(!result.ok)return invalid();Object.assign(s,result.state);if(a.kind==='END_ZOO'&&s.multiplayer?.borrowedStrength&&!s.extraActions.length)s.multiplayer.borrowedFinished=true;resumeArkParticipantEffects(s,nextTransition);
     }
   } else if(a.kind==='SELECT_EFFECT') {
     if(s.pending?.kind!=='EFFECT'||s.pending.choiceId!==a.choiceId||s.effects.active)return invalid();
-    const selected=selectArkEffect(s.effects,a.effectId);if(!selected.ok)return invalid();s.effects=selected.queue;resumeEffects(s,nextTransition);
+    const selected=selectArkEffect(s.effects,a.effectId);if(!selected.ok)return invalid();s.effects=selected.queue;resumeArkParticipantEffects(s,nextTransition);
   } else if(a.kind==='EFFECT') {
     if(s.pending?.kind!=='EFFECT'||s.pending.choiceId!==a.choiceId)return invalid();
     if(!s.effects.active){const selected=selectArkEffect(s.effects,a.effectId);if(!selected.ok)return invalid();s.effects=selected.queue;}
@@ -405,7 +424,7 @@ export function applyArkSoloCommand(current: ArkSoloState, actor: PlayerId, expe
       if(a.selection.kind!=='ACTION'&&a.selection.kind!=='SKIP')return invalid();
       if(a.selection.kind==='ACTION'&&job.effect.action!==null&&a.selection.action!==job.effect.action)return invalid();
       const completed=completeArkEffect(s.effects,job.id);
-      if(a.selection.kind==='SKIP'){s.effects=completed;resumeEffects(s,nextTransition);}
+      if(a.selection.kind==='SKIP'){s.effects=completed;resumeArkParticipantEffects(s,nextTransition);}
       else {
         s.extraActions.push({action:a.selection.action,started:false,effects:completed,zooWork:s.zooWork,legacyAfterFinishing:s.legacyAfterFinishing});
         s.effects=createArkEffectQueue();s.zooWork=null;s.legacyAfterFinishing=null;s.pending=null;
@@ -417,7 +436,7 @@ export function applyArkSoloCommand(current: ArkSoloState, actor: PlayerId, expe
     s.reputationGained+=s.reputation-before.reputation;s.extraWorkers+=s.workers-before.workers;s.upgradeCount=s.actions.filter(c=>c.upgraded).length;
     if(job.effect.kind==='RESISTANCE'&&s.goals.length>before.goals)s.resistanceGained++;
     if(job.effect.kind==='DISCARD_GOAL'&&s.goals.length<before.goals)s.goalDiscarded=true;
-    resumeEffects(s,nextTransition);
+    resumeArkParticipantEffects(s,nextTransition);
     }
   } else if(a.kind==='ASSOCIATION_MORE'||a.kind==='DONATE'||a.kind==='END_ASSOCIATION') {
     if(!s.activeAssociation||!s.associationWork?.upgraded||s.pending)return invalid();
@@ -486,7 +505,7 @@ export function applyArkSoloCommand(current: ArkSoloState, actor: PlayerId, expe
   } else if (a.kind === 'DISCARD') {
     const pending = s.pending;
     if (!pending || pending.choiceId !== a.choiceId) return invalid();
-    if (pending.kind === 'BREAK_DISCARD') { if (!finishBreak(s,a.cards,nextTransition)) return invalid(); }
+    if (pending.kind === 'BREAK_DISCARD') { if (!finishArkParticipantBreak(s,a.cards,nextTransition)) return invalid(); }
     else if (pending.kind === 'DRAW_DISCARD') {
       if (!discardArkHand(s,a.cards,pending.count)) return invalid();
       s.pending = null; finishLegacyAction(s,'CARDS',nextTransition);
@@ -494,7 +513,7 @@ export function applyArkSoloCommand(current: ArkSoloState, actor: PlayerId, expe
   } else if (a.kind === 'FINAL_GOAL') {
     if(s.pending?.kind!=='FINAL_GOAL'||s.pending.choiceId!==a.choiceId||s.goalDiscarded||s.goals.length<2)return invalid();
     const index=s.goals.findIndex(c=>c.cardId===a.discard);if(index<0)return invalid();
-    s.discardedGoals.push(...s.goals.splice(index,1));s.goalDiscarded=true;finalize(s,now);
+    s.discardedGoals.push(...s.goals.splice(index,1));s.goalDiscarded=true;finalizeArkParticipant(s,now);
   } else {
     if (s.progress.stage !== 'ACTION' || s.pending || s.activeBuild || s.activeAssociation || s.zooWork) return invalid();
     if (a.kind === 'TAKE_X') {
@@ -502,11 +521,11 @@ export function applyArkSoloCommand(current: ArkSoloState, actor: PlayerId, expe
       s.x = result.x; finishLegacyAction(s,a.action,nextTransition);
     } else {
       const kind = a.kind === 'FUNDRAISE' ? 'SPONSORS' : a.kind==='BUILD' ? 'BUILD' : a.kind==='ASSOCIATION' ? 'ASSOCIATION' : 'CARDS';
-      const action = startArkAction(s.actions,kind,s.x,a.x,s.repeatedAction?.baseStrength); if (!action.ok) return invalid();
+      const action = startArkAction(s.actions,kind,s.x,a.x,s.repeatedAction?.baseStrength??(s.extraActions.length?undefined:s.multiplayer?.borrowedStrength)); if (!action.ok) return invalid();
       if (a.kind!=='ASSOCIATION') s.x = action.xRemaining;
       if (a.kind==='ASSOCIATION') {
         const previous=arkZooIcons(s.played,s.partners,s.universities),beforeAppeal=s.appeal;
-        const work=startArkAssociationWork(s,a.x,a.task,nextTransition,s.repeatedAction?.baseStrength);if (!work.ok) return invalid();
+        const work=startArkAssociationWork(s,a.x,a.task,nextTransition,s.repeatedAction?.baseStrength??(s.extraActions.length?undefined:s.multiplayer?.borrowedStrength));if (!work.ok) return invalid();
         Object.assign(s,work.state);s.extraAppeal+=s.appeal-beforeAppeal;
         s.activeAssociation=true;s.associationWork=work.work;
         queueAssociationRewards(s,previous,work.rewards,work.effects);
@@ -517,11 +536,14 @@ export function applyArkSoloCommand(current: ArkSoloState, actor: PlayerId, expe
         if (!placeBuilding(s,a.placement,nextTransition)) return invalid();
       } else if (a.kind === 'FUNDRAISE') {
         s.money += action.strength*(action.upgraded?2:1);
+        if(s.multiplayer)s.multiplayer.breakAdvance+=action.strength;
         finishLegacyAction(s,kind,nextTransition);
       } else if (a.kind === 'SNAP') {
         if (action.strength < (action.upgraded?3:5) || !takeArkDisplayCard(s,a.cardId,6)) return invalid();
+        if(s.multiplayer)s.multiplayer.breakAdvance+=2;
         finishLegacyAction(s,kind,nextTransition);
       } else {
+        if(s.multiplayer)s.multiplayer.breakAdvance+=2;
         const strength = Math.min(5,action.strength);
         const draw = (action.upgraded?[1,2,2,3,4]:[1,1,2,2,3])[strength-1]!, discard = (action.upgraded?[0,1,0,1,1]:[1,0,1,0,1])[strength-1]!;
         if (action.upgraded) {
@@ -536,16 +558,16 @@ export function applyArkSoloCommand(current: ArkSoloState, actor: PlayerId, expe
       }
     }
   }
-  if(s.progress.stage==='FINAL_SCORING'&&s.pending===null&&s.goalDiscarded)finalize(s,now);
+  if(s.progress.stage==='FINAL_SCORING'&&s.pending===null&&s.goalDiscarded)finalizeArkParticipant(s,now);
   s.revision = v.parse(GameRevisionSchema,s.revision+1); s.transitionId = nextTransition;
   s.history=recordArkHistory(current,s,a);
   return {ok:true,state:parseArkSoloState(s)};
 }
 
 /** Whitelist shared public state and the one owner's private cards. No reserves, deck order or discarded faces. */
-export function projectArkSoloGame(s: ArkSoloState, viewer: PlayerId): ArkSoloView {
+export function projectArkSoloGame(s: ArkSoloState, viewer: PlayerId, options:{table?:ArkSoloView["table"];hideDisplay?:boolean}={}): ArkSoloView {
   if (viewer !== s.playerId) throw new Error('Unauthorized Ark solo viewer.');
-  return v.parse(ArkSoloViewSchema,{scoreBoard:projectArkScoreBoard(s),history:s.history,gameId:s.gameId,playerId:s.playerId,revision:s.revision,transitionId:s.transitionId,phase:s.phase,
+  return v.parse(ArkSoloViewSchema,{...(options.table?{table:options.table}:{}),scoreBoard:projectArkScoreBoard(s),history:s.history,gameId:s.gameId,playerId:s.playerId,revision:s.revision,transitionId:s.transitionId,phase:s.phase,
     activatedProjectBonuses:s.activatedProjectBonuses,projectSupports:s.projectSupports,playedProjects:s.playedProjects,
     associationWork:s.associationWork,activeAssociation:s.activeAssociation,rewards:s.rewards,partners:s.partners,partnerSupply:s.partnerSupply,universities:s.universities,universitySupply:s.universitySupply,taskWorkers:s.taskWorkers,
     activeBuild:s.activeBuild,buildBonuses:s.buildBonuses,
@@ -560,6 +582,6 @@ export function projectArkSoloGame(s: ArkSoloState, viewer: PlayerId): ArkSoloVi
     difficulty:s.difficulty,progress:s.progress,pending:s.pending,result:s.result,money:s.money,appeal:s.appeal,
     conservation:s.conservation,reputation:s.reputation,x:s.x,actions:s.actions,buildings:s.buildings,
     hand:s.hand,goals:s.goals,baseProjects:s.baseProjects,donations:s.donations,
-    display:s.progress.stage==='SETUP'?Array.from({length:6},()=>null):s.display,
+    display:s.progress.stage==='SETUP'||options.hideDisplay?Array.from({length:6},()=>null):s.display,
     deckCount:s.zooDeck.length,discardCount:s.discarded.length});
 }

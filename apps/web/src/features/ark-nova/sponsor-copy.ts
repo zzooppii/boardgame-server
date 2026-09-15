@@ -60,3 +60,13 @@ export const arkSponsorCopy:Readonly<Record<string,readonly string[]>>={
   [String(236+i),[`지속: 내 동물원에 ${name} 아이콘을 새로 얻을 때마다 돈 3.`]],
 ])),
 };
+
+/** Multiplayer copy preserves the printed all-zoo triggers; solo retains its existing wording. */
+export function arkSponsorDescription(key:string,multiplayer=false):readonly string[]{
+  const lines=arkSponsorCopy[key]??[];
+  if(!multiplayer)return lines;
+  if(key==='222')return ['즉시: 연구 아이콘마다 보전 1, 최대 보전 3. 실제 받은 보전 1점마다 다른 모든 플레이어는 돈 2를 받습니다.'];
+  if(Number(key)>=236&&Number(key)<=240)return lines.map(line=>line.replace('내 동물원에','어느 플레이어의 동물원에든'));
+  if(key==='225')return lines.map(line=>line+' 도둑질·최면의 선두 판정에서 나를 제외합니다.');
+  return lines;
+}

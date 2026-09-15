@@ -2,10 +2,11 @@ import {arkEnclosuresToEmpty,ARK_UNIQUE_BUILDINGS,validateArkUniqueConstruction,
 import {ARK_BUILDINGS,ARK_MAP_A,arkCellKey,type ArkCell,ARK_CARDS,arkReputationRange,arkActionStrength,arkPlacementReason,arkShape,type ArkActionKind,type ArkSoloCommand,type ArkSoloView} from '@hangul-rummikub/shared';
 
 /** Display the server's continuation constraint; commands are still validated by the server. */
-export function arkActionControls(state:Pick<ArkSoloView,'extraAction'|'repeatedAction'>,action:ArkActionKind) {
+export function arkActionControls(state:Pick<ArkSoloView,'extraAction'|'repeatedAction'|'table'>,action:ArkActionKind) {
   const repeated=state.repeatedAction;
   const extra=state.extraAction&&!state.extraAction.started?state.extraAction:null;
-  const repeatAllowed=!repeated||(repeated.awaiting&&repeated.action===action);
+  const borrowed=state.table?.borrowed;
+  const repeatAllowed=(!borrowed||!!state.extraAction||borrowed.action===action)&&(!repeated||(repeated.awaiting&&repeated.action===action));
   return {
     regular:repeatAllowed&&(!repeated||repeated.mode==='REGULAR')&&(!extra||extra.action===action),
     takeX:repeatAllowed&&(!repeated||repeated.mode==='TAKE_X')&&(!extra||extra.action==='TAKE_X'),
@@ -39,7 +40,7 @@ export function arkBuildPlacementHint(state:ArkSoloView,placement:Extract<ArkSol
 export function arkDisplayedStrength(state:ArkSoloView,kind:ArkActionKind,x:number):number {
   const index=state.actions.findIndex(a=>a.kind===kind),action=state.actions[index];
   if(!action||!Number.isInteger(x)||x<0||x>state.x)return 0;
-  return arkActionStrength(state.repeatedAction?.action===kind?state.repeatedAction.baseStrength:index+1,x,action.constriction);
+  return arkActionStrength(state.repeatedAction?.action===kind?state.repeatedAction.baseStrength:state.table?.borrowed?.action===kind&&!state.extraAction?state.table.borrowed.strength:index+1,x,action.constriction);
 }
 export function arkZooSelectionHint(state:ArkSoloView,cardId:string|null):string|null {
   const work=state.zooWork;

@@ -28,5 +28,5 @@ export function recordArkHistory(before:ArkSoloState,after:ArkSoloState,command:
   }
   // Selecting a pending effect does not execute it; avoid duplicate entries on UI selection.
   if(command.kind==='SELECT_EFFECT')return before.history;
-  return [...before.history,{revision:after.revision,round:before.progress.round,turn:Math.min(27,before.progress.turnsCompleted+Number(before.progress.stage!=='BREAK'&&before.progress.stage!=='FINAL_SCORING')),label,notes:notes.filter(note=>note!==label).slice(0,20),changes}].slice(-100);
+  return [...before.history,{revision:after.revision,round:before.progress.round,turn:Math.min(before.multiplayer?1000000:27,before.progress.turnsCompleted+Number(before.progress.stage!=='BREAK'&&before.progress.stage!=='FINAL_SCORING')),label,notes:notes.filter(note=>note!==label).slice(0,20),changes}].slice(-100);
 }

@@ -141,3 +141,23 @@ test('A breeding token replaces a missing category for species diversity without
   assert.equal(arkProjectEligibility('101',1,result.state).value,3);
   assert.deepEqual(result.state.played,s.played);
 });
+
+import {arkSponsorIncome} from '../../games/ark-nova/domain/sponsor-effects.js';
+import {calculateArkSoloFinalScore} from '../../games/ark-nova/domain/final-scoring.js';
+test('Release recomputes subsequent sponsor income and final small-animal scoring without undoing earlier ability appeal',()=>{
+  const s=state();s.hand=[card('116')];s.played=[card('404'),card('234')];s.appeal=34;s.buildings[1]!.occupied=true;
+  const income=(value:ArkProjectSupportState)=>arkSponsorIncome(value).filter(e=>e.effect.kind==='GAIN'&&e.effect.resource==='MONEY');
+  assert.deepEqual(income(s).map(e=>e.effect),[{kind:'GAIN',resource:'MONEY',amount:3}]);
+  const final=(value:ArkProjectSupportState)=>calculateArkSoloFinalScore({...value,universityResearch:0,x:0,conservation:0,goals:[card('002')]});
+  const prior=final(s),before=structuredClone(s);
+  const released=supportArkProject(s,false,5,{...choice('116','MONEY_12'),animalId:card('404').cardId,housingId:'initial-enclosure'});assert.ok(released.ok);assert.deepEqual(s,before);
+  assert.equal(released.state.appeal,30);assert.equal(released.state.buildings[1]!.occupied,false);assert.deepEqual(income(released.state),[]);
+  const result=final(released.state);assert.equal(result.appeal,prior.appeal-4);assert.equal(result.goalPoints,0);assert.deepEqual(final(released.state),result);
+});
+test('Multiplayer project claims reject another player or blocked slot atomically and retain four public projects for four seats',()=>{
+  const s={...state(),multiplayer:{playerCount:4,occupiedProjects:[{cardId:card('130').cardId,slot:2}]}};
+  const before=structuredClone(s);assert.equal(supportArkProject(s,false,5,choice('130')).ok,false);assert.deepEqual(s,before);
+  s.multiplayer.occupiedProjects=[];
+  s.playedProjects=[card('101'),card('102'),card('105')];
+  const accepted=supportArkProject(s,false,5,choice('130'));assert.ok(accepted.ok);assert.equal(accepted.state.playedProjects.length,4);assert.equal(accepted.state.discarded.length,0);
+});

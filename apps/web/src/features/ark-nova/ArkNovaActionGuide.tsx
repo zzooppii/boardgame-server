@@ -1,3 +1,5 @@
+import {useContext} from 'react';
+import {ArkNovaMultiplayerContext} from './ArkNovaMode.js';
 import {ARK_ACTION_LABELS,type ArkActionKind} from '@hangul-rummikub/shared';
 
 /** Printed action reference. This does not authorize a command or replace server validation. */
@@ -33,6 +35,6 @@ export function ArkNovaActionGuide({kind,upgraded,strength}:{kind:ArkActionKind;
     <div className="ark-action-reference"><table aria-label={`${ARK_ACTION_LABELS[kind]} ${upgraded?'II':'I'} 행동력별 혜택`}><thead><tr><th scope="col">행동력</th>{[1,2,3,4,5].map(n=><th scope="col" key={n} className={n===referenceStrength?'is-current':''}>{n===5&&(kind==='ANIMALS'||kind==='CARDS')?'5+':n}</th>)}</tr></thead>
       <tbody>{kind==='CARDS'?<>{['가져오기','버리기','낚아채기'].map((label,row)=><tr key={label}><th scope="row">{label}</th>{[1,2,3,4,5].map(n=><td key={n} className={n===referenceStrength?'is-current':''}>{row===0?(upgraded?[1,2,2,3,4]:[1,1,2,2,3])[n-1]:row===1?(upgraded?[0,1,0,1,1]:[1,0,1,0,1])[n-1]:n>=(upgraded?3:5)?'1장':'—'}</td>)}</tr>)}</>:<tr><th scope="row">{kind==='ANIMALS'?'동물 수':kind==='BUILD'?'건설 칸':kind==='SPONSORS'?'등급 / 모금':'업무 강도'}</th>{[1,2,3,4,5].map(n=><td key={n} className={n===referenceStrength?'is-current':''}>{kind==='ANIMALS'?n>=5?2:n>=2?1:0:kind==='SPONSORS'?`${n+Number(upgraded)} / ${n*(upgraded?2:1)}`:n}</td>)}</tr>}</tbody>
     </table></div>
-    <small>{kind==='BUILD'||kind==='SPONSORS'||kind==='ASSOCIATION'?'표는 행동력 1–5 기준입니다. X 토큰으로 높인 수치는 위의 현재 혜택에 반영됩니다.':'강조한 열은 현재 행동력 기준입니다.'} 카드 효과·자원·배치 조건은 별도로 적용됩니다. 솔로 휴식은 라운드 종료에 진행합니다.</small>
+    <small>{kind==='BUILD'||kind==='SPONSORS'||kind==='ASSOCIATION'?'표는 행동력 1–5 기준입니다. X 토큰으로 높인 수치는 위의 현재 혜택에 반영됩니다.':'강조한 열은 현재 행동력 기준입니다.'} 카드 효과·자원·배치 조건은 별도로 적용됩니다. {useContext(ArkNovaMultiplayerContext)?'카드 행동은 휴식 2칸, 모금은 행동력만큼 전진합니다.':'솔로 휴식은 라운드 종료에 진행합니다.'}</small>
   </div>;
 }

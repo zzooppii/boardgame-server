@@ -1,5 +1,5 @@
 import { DuelSettingsSchema, DUEL_DEFAULT_SETTINGS } from "@hangul-rummikub/shared";
-import { ArkNovaGameStateAdapter, type ArkNovaLifecycle } from '../games/ark-nova/compatibility/adapter.js';
+import { ArkNovaGameStateAdapter, arkNovaPlayerIds, type ArkNovaLifecycle } from '../games/ark-nova/compatibility/adapter.js';
 import { SpaceCrewGameStateAdapter, type SpaceCrewLifecycle } from "../games/space-crew/compatibility/adapter.js";
 import { LiarPromptHistorySchema } from "../games/liar-game/domain/prompts.js";
 import { BurgundySettingsSchema, BURGUNDY_DEFAULT_SETTINGS } from "@hangul-rummikub/shared";
@@ -343,8 +343,9 @@ function cloneRoomWriteCandidate(
       return Object.freeze({...shell, gameType:"SPACE_CREW", game, departedPlayerIds});
     }
     case "ARK_NOVA": {
-      if(shell.players.length!==1)throw new Error("Ark Nova requires exactly one player.");
+      if(shell.players.length<1||shell.players.length>4)throw new Error("Ark Nova requires 1–4 players.");
       const adapter = new ArkNovaGameStateAdapter(), game = candidate.game === null ? null : adapter.cloneAndValidate(candidate.game);
+      if(game){const ids=arkNovaPlayerIds(game.state);if(ids.length!==shell.players.length||shell.players.some(p=>!ids.includes(p.playerId)))throw new Error("Ark Nova seats do not match room members.");}
       validateRoomGameCoherence(shell.phase, shell.players, game, () => game === null ? null : adapter.inspectLifecycle(game));
       const departedPlayerIds = Object.freeze([...(candidate.departedPlayerIds ?? [])]);
       if (new Set(departedPlayerIds).size !== departedPlayerIds.length || departedPlayerIds.some(id => !shell.players.some(p => p.playerId === id)) || shell.phase === "LOBBY" && departedPlayerIds.length > 0) throw new Error("Invalid departed ARK_NOVA roster.");
@@ -633,7 +634,7 @@ function validateRoomGameCoherence(
   }
 
   const playerIds = players.map((player) => player.playerId);
-  const participantIds: readonly string[] = "state" in game ? ("playerId" in game.state ? [game.state.playerId] : "seatOrder" in game.state ? game.state.seatOrder : "mission" in game.state ? game.state.mission.trick.players.map(p => p.playerId) : game.state.rulesVersion === "duet-2025-ko-v1" ? game.state.players : game.state.players.map(p => p.playerId)) : game.turnOrder;
+  const participantIds: readonly string[] = "state" in game ? ("mode" in game.state && game.state.mode === "MULTIPLAYER" ? game.state.players.map(p=>p.playerId) : "playerId" in game.state ? [game.state.playerId] : "seatOrder" in game.state ? game.state.seatOrder : "mission" in game.state ? game.state.mission.trick.players.map(p => p.playerId) : game.state.rulesVersion === "duet-2025-ko-v1" ? game.state.players : game.state.players.map(p => p.playerId)) : game.turnOrder;
   if (
     playerIds.length !== participantIds.length ||
     new Set(playerIds).size !== playerIds.length ||

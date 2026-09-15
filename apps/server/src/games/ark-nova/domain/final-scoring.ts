@@ -3,6 +3,7 @@ import { scoreArkSoloGoal, type ArkGoalContext } from './goals.js';
 import { arkVictoryPoints } from './scoring.js';
 
 export type ArkFinalContext = ArkGoalContext & Readonly<{
+  rightZoo?: readonly ArkCard[] | undefined;
   universities: readonly string[];
   x: number;
   appeal: number;
@@ -44,7 +45,7 @@ function emptyGroupScore(covered: ReadonlySet<string>): number {
 /** Resolve final goal selection first. This never accepts a score from a client. */
 export function calculateArkSoloFinalScore(context: ArkFinalContext): ArkFinalScore {
   arkVictoryPoints(context.appeal, context.conservation);
-  if (context.goals.length === 0 || context.goals.some(c => c.key === '009') ||
+  if (context.goals.length === 0 || !context.rightZoo&&context.goals.some(c => c.key === '009') ||
     new Set(context.goals.map(c => c.cardId)).size !== context.goals.length) throw new Error('Final goals have not been resolved.');
   const definitions = context.played.map(c => {
     const d = ARK_CARDS.find(d => d.key === c.key);
@@ -64,7 +65,7 @@ export function calculateArkSoloFinalScore(context: ArkFinalContext): ArkFinalSc
   const details: {cardId: string; conservation: number; appeal: number}[] = [];
   let goalPoints = 0, sponsorPoints = 0, sponsorAppeal = 0;
   for (const goal of context.goals) {
-    const points = scoreArkSoloGoal(goal.key, context);
+    const points = goal.key==='009'&&context.rightZoo?Math.min(4,[...ARK_ANIMAL_TAGS,'Bear'].filter(tag=>icons(tag)>context.rightZoo!.reduce((sum,c)=>sum+(ARK_CARDS.find(d=>d.key===c.key)?.tags.filter(t=>t===tag).length??0),0)).length):scoreArkSoloGoal(goal.key, context);
     details.push({cardId: goal.cardId, conservation: points, appeal: 0}); goalPoints += points;
   }
   for (const card of context.played) {

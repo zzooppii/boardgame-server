@@ -1,10 +1,12 @@
 import * as v from 'valibot';
 import { ArkActionKindSchema, ArkCountSchema, ArkRefSchema } from '@hangul-rummikub/shared';
 import type { ArkZooEffect } from './animal-effects.js';
-const Amount=v.union([ArkCountSchema,v.strictObject({kind:v.literal('ICONS'),tag:ArkRefSchema,factor:ArkCountSchema,cap:ArkCountSchema}),
+const Amount=v.union([ArkCountSchema,v.strictObject({kind:v.literal('ICONS'),tag:ArkRefSchema,factor:ArkCountSchema,cap:ArkCountSchema,scope:v.optional(v.literal('ALL'))}),
   v.strictObject({kind:v.literal('THRESHOLDS'),tag:ArkRefSchema,thresholds:v.pipe(v.array(ArkCountSchema),v.check(xs=>xs.every((n,i)=>i===0||n>xs[i-1]!)))})]);
 /** Internal executable jobs, never accepted as client commands or copied wholesale into projections. */
 export const ArkZooEffectSchema:v.GenericSchema<ArkZooEffect>=v.variant('kind',[
+  v.strictObject({kind:v.literal('INTERACTION'),ability:v.picklist(['VENOM','CONSTRICTION','PILFERING','HYPNOSIS']),amount:ArkCountSchema,track:v.optional(v.literal('CONSERVATION'))}),
+  v.strictObject({kind:v.literal('BREAK'),amount:ArkCountSchema}),
   v.strictObject({kind:v.literal('WAZA_PLAY'),upgraded:v.boolean()}),
   v.strictObject({kind:v.literal('PAID_SPONSOR'),usesSponsorToken:v.boolean()}),
   v.strictObject({kind:v.literal('MOVE_TO_SPECIAL'),buildingId:ArkRefSchema,moved:v.pipe(v.array(ArkRefSchema),v.check(ids=>new Set(ids).size===ids.length))}),

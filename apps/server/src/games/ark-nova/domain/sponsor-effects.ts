@@ -1,7 +1,7 @@
 import { ARK_CONTINENTS, ARK_MAP_A, arkBorder, arkCellKey, arkNeighbours, type ArkCard, type ArkBuilding } from '@hangul-rummikub/shared';
 import { arkCardDefinition, arkZooIcons, ARK_ZOO_ANIMAL_CATEGORIES, type ArkZooIcons } from './zoo-icons.js';
 import type { ArkZooEffect } from './animal-effects.js';
-export type ArkSponsorContext=Readonly<{played:readonly ArkCard[];partners:readonly string[];universities:readonly string[];buildings:readonly ArkBuilding[];supportedProjects:number}>;
+export type ArkSponsorContext=Readonly<{multiplayer?:unknown;played:readonly ArkCard[];partners:readonly string[];universities:readonly string[];buildings:readonly ArkBuilding[];supportedProjects:number}>;
 const categories=['Primate','Reptile','Bird','Predator','Herbivore'] as const;
 function icons(s:Pick<ArkSponsorContext,'played'|'partners'|'universities'>) {return arkZooIcons(s.played,s.partners,s.universities);}
 function animals(s:ArkSponsorContext) {return s.played.map(arkCardDefinition).filter(c=>c.kind==='ANIMAL');}
