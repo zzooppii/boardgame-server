@@ -31,3 +31,31 @@ test('Mars engine summary includes duplicate corporation tags, excludes event ta
  const p=game().playerStates[0]!;p.corporationId='MiningGuild';p.played=['Asteroid','Ironworks','ResearchOutpost','Shuttles'].map((definitionId,i)=>({tileId:v.parse(TileIdSchema,'engine-'+i),definitionId,resources:0,usedGeneration:definitionId==='Ironworks'?1:0}));
  const current=marsEngineSummary(p,1);assert.equal(current.tags.find(t=>t.tag==='building')!.count,4);assert.equal(current.tags.find(t=>t.tag==='space')!.count,1);assert.equal(current.actions,1);assert.equal(current.unused,0);assert.equal(current.passives.length,2);assert.equal(marsEngineSummary(p,2).unused,1);
 });
+
+import {marsResourceReceipt,ResourceReceipt,ActionGuide} from '../features/mars/ActionFeedback.js';
+test('Mars resource receipt includes actual stock, production and TR changes, including another player effect',()=>{
+ const before=game(),after=game(2);after.activePlayerId=after.playerStates[1]!.playerId;
+ after.playerStates[0]!.resources.money=24;after.playerStates[0]!.production.money=-1;after.playerStates[0]!.tr=21;
+ const receipt=marsResourceReceipt(before,after,true);
+ assert.deepEqual(receipt,{generation:1,changes:[{label:'M€',before:42,after:24},{label:'M€ 생산',before:0,after:-1},{label:'TR',before:20,after:21}]});
+ assert.equal(marsResourceReceipt(after,after,true),undefined,'Duplicate snapshot preserves receipt.');
+ assert.equal(marsResourceReceipt(before,game(2),true),undefined,'No resource change preserves receipt.');
+ const html=renderToStaticMarkup(createElement(ResourceReceipt,{receipt:receipt??null}));
+ assert.match(html,/42 → <strong>24<\/strong>/);assert.match(html,/\(-18\)/);assert.match(html,/\(\+1\)/);assert.match(html,/aria-live="polite"/);
+});
+test('Mars resource receipt does not fabricate a receipt on first load, reconnect, skipped revision or changed identity',()=>{
+ const before=game(),after=game(2);after.playerStates[0]!.resources.money=10;
+ assert.equal(marsResourceReceipt(null,after,true),null);assert.equal(marsResourceReceipt(before,after,false),null);
+ assert.equal(marsResourceReceipt(before,game(4),true),null);
+ const other=game(2);other.privateState.playerId=other.playerStates[1]!.playerId;assert.equal(marsResourceReceipt(before,other,true),null);
+ assert.equal(renderToStaticMarkup(createElement(ResourceReceipt,{receipt:null})).includes('마지막 내 자원 변화'),false);
+});
+test('Mars action guide distinguishes payment cancellation, committed action payment, placement and effect resolution',()=>{
+ const g=game(),html=()=>renderToStaticMarkup(createElement(ActionGuide,{game:g}));
+ assert.equal(html(),'');
+ g.privateState.payment={label:'지하수 추출',cost:18,steel:false,titanium:false,heat:false,titaniumValue:3,cardId:null,cancelable:true};
+ assert.match(html(),/아직 지불하지 않았습니다/);g.privateState.payment.cancelable=false;assert.match(html(),/행동의 다음 효과/);assert.doesNotMatch(html(),/취소/);
+ g.privateState.payment=null;g.privateState.offers=[{id:'place',kind:'PLACE',targetId:'1-1',label:'해양',detail:'배치',cost:0}];assert.match(html(),/배치할 위치/);
+ g.privateState.offers[0]!.kind='EFFECT';assert.match(html(),/남은 효과/);
+ g.activePlayerId=g.playerStates[1]!.playerId;assert.equal(html(),'');
+});
