@@ -1,3 +1,4 @@
+import {ARK_UNIVERSITY_LABELS,ArkNovaAssociationBenefits} from './ArkNovaAssociationBenefits.js';
 import {ArkNovaUpgradeChoice} from './ArkNovaUpgradeChoice.js';
 import {useState,type ReactNode} from 'react';
 import {ARK_UNIQUE_BUILDINGS,ARK_ACTION_LABELS,ARK_BUILDINGS,ARK_CARDS,ARK_CONTINENTS,ARK_SOLO_UNIVERSITIES,ARK_TAG_LABELS,arkCardName,type ArkEffectGuide,type ArkSoloView,type ArkSoloCommand,type ArkCell} from '@hangul-rummikub/shared';
@@ -13,7 +14,6 @@ export function arkEffectSummary(kind:string,guide:ArkEffectGuide):string {
   if(kind==='GAIN'&&guide.resource)return `${resourceLabels[guide.resource]} ${guide.amount===null?'획득 · 효과 처리 시 계산':`+${guide.amount}`}`;
   return `${arkEffectLabels[kind]??'카드 효과'}${guide.amount===null?'':` · ${guide.amount}`}`;
 }
-const universities={HAND_LIMIT:'손패 한도 6 · 연구 1',RESEARCH_2:'연구 2',RESEARCH_REPUTATION:'연구 1 · 평판 2'};
 export function ArkNovaEffects({state:s,disabled,onSelect,placement,cell,housingId,onUniqueCard,onBuilding,onRotate,onReflect,onAnimalCard,onClearHousing,selectedBuildingKind,onChooseHousing}:{
   state:ArkSoloView;disabled:boolean;onSelect(selection:Selection):void;placement:Placement|null;cell:ArkCell|null;housingId:string|null;
   onChooseHousing?(housingId:string|null):void;
@@ -44,8 +44,8 @@ export function ArkNovaEffects({state:s,disabled,onSelect,placement,cell,housing
   else if(['MOVE_ACTION','MULTIPLIER','EXTRA_ACTION'].includes(kind))controls=<>{guide.actions.map(action=>kind==='EXTRA_ACTION'?button(action==='TAKE_X'?'X 토큰 받기':ARK_ACTION_LABELS[action],{kind:'ACTION',action}):action==='TAKE_X'?null:kind==='MOVE_ACTION'?guide.slots.map(slot=>button(`${ARK_ACTION_LABELS[action]} → ${slot}번`,{kind:'MOVE',action,slot})):button(ARK_ACTION_LABELS[action],{kind:'MULTIPLIER',action}))}{(kind==='MOVE_ACTION'||kind==='EXTRA_ACTION')&&skip()}</>;
   else if(kind==='FREE_PARTNER') {
     const available=ARK_CONTINENTS.filter(c=>s.partnerSupply.includes(c)&&s.partners.length<(s.actions.some(a=>a.kind==='ASSOCIATION'&&a.upgraded)?4:2));
-    controls=<>{available.map(continent=>button(ARK_TAG_LABELS[continent]??continent,{kind:'PARTNER',continent}))}{!available.length&&button('대상 없음 · 계속',{kind:'NONE'})}</>;
-  } else if(kind==='FREE_UNIVERSITY')controls=<>{ARK_SOLO_UNIVERSITIES.filter(u=>s.universitySupply.includes(u)).map(university=>button(universities[university],{kind:'UNIVERSITY',university}))}{!s.universitySupply.length&&button('대상 없음 · 계속',{kind:'NONE'})}</>;
+    controls=<><ArkNovaAssociationBenefits kind="PARTNER" count={s.partners.length}/>{available.map(continent=>button(ARK_TAG_LABELS[continent]??continent,{kind:'PARTNER',continent}))}{!available.length&&button('대상 없음 · 계속',{kind:'NONE'})}</>;
+  } else if(kind==='FREE_UNIVERSITY')controls=<><ArkNovaAssociationBenefits kind="UNIVERSITY" count={s.universities.length}/>{ARK_SOLO_UNIVERSITIES.filter(u=>s.universitySupply.includes(u)).map(university=>button(ARK_UNIVERSITY_LABELS[university],{kind:'UNIVERSITY',university}))}{!s.universitySupply.length&&button('대상 없음 · 계속',{kind:'NONE'})}</>;
   else if(kind==='FREE_BUILD') {
     const hint=arkFreeBuildPlacementHint(s,placement);
     controls=<><p>건물을 고른 뒤 지도에서 기준 칸을 선택하세요.</p><select aria-label="무료 건물" value={selectedBuildingKind??placement?.building??''} onChange={e=>onBuilding(e.target.value)} disabled={disabled}><option value="">시설 선택</option>{guide.buildings.map(b=><option key={b} value={b}>{ARK_BUILDINGS[b]?.name??b}</option>)}</select><button disabled={disabled} onClick={onRotate}>회전 ↻</button><button disabled={disabled} onClick={onReflect}>반전 ↔</button>{hint&&<p role="status">{hint}</p>}{guide.buildings.length===0&&<p>현재 건설할 수 있는 시설이 없습니다. 이 효과를 포기할 수 있습니다.</p>}{button('무료 배치 확정',{kind:'BUILD',placement:placement??{building:'',anchor:{q:0,r:0},rotation:0,reflected:false}},hint!==null)}{skip()}</>;
