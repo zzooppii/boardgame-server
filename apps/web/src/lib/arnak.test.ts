@@ -184,3 +184,30 @@ test('Arnak empty opponent camp gives explicit empty states',()=>{
  const html=renderToStaticMarkup(createElement(ArnakOpponentCamp,{player,onInspectCard(){}}));
  assert.match(html,/고용한 조수가 없습니다/);assert.match(html,/극복한 수호자가 없습니다/);assert.match(html,/사용한 카드가 없습니다/);assert.match(html,/출발/);
 });
+
+import { ArnakOfferSchema } from '@hangul-rummikub/shared';
+import { groupArnakOffers } from '../features/arnak/offer-list.js';
+import { ArnakOfferList } from '../features/arnak/ArnakOfferList.js';
+const paymentOffer=(id:string,cards:string[],coin=0)=>v.parse(ArnakOfferSchema,{id,kind:'DIG',targetId:'base-0',label:'해안 야영지 발굴',detail:'장소 보상',cost:arnakResources({coin}),cards,free:false});
+test('Arnak payment grouping preserves distinct server IDs, cost choices and input order',()=>{
+ const a=paymentOffer('a',['card-a']),b=paymentOffer('b',['card-b']),coins=paymentOffer('coins',[],2);
+ const groups=groupArnakOffers([a,b,coins],new Set());
+ assert.equal(groups.length,1);assert.deepEqual(groups[0]?.offers,[a,b,coins]);
+ const different={...a,id:'effect',kind:'EFFECT' as const};
+ assert.equal(groupArnakOffers([a,different],new Set()).length,2);
+ assert.equal(groupArnakOffers([a,{...b,detail:'다른 효과'}],new Set()).length,2);
+ assert.equal(groupArnakOffers([a,{...b,targetId:'base-1'}],new Set()).length,2);
+});
+test('Arnak preserve-card filters use instance IDs and never invent alternative payments',()=>{
+ const offers=[paymentOffer('a',['card-a']),paymentOffer('b',['card-b']),paymentOffer('both',['card-a','card-b']),paymentOffer('coins',[],2)];
+ assert.deepEqual(groupArnakOffers(offers,new Set(['card-a'])).flatMap(g=>g.offers.map(o=>o.id)),['b','coins']);
+ assert.deepEqual(groupArnakOffers(offers,new Set(['card-a','card-b'])).flatMap(g=>g.offers.map(o=>o.id)),['coins']);
+ assert.equal(groupArnakOffers(offers.slice(0,3),new Set(['card-a','card-b'])).length,0);
+ assert.equal(offers.length,4);assert.deepEqual(offers[2]?.cards,['card-a','card-b']);
+});
+test('Arnak payment list exposes separate hand instances and selection without command controls',()=>{
+ const hand=['card-a','card-b'].map(id=>({tileId:v.parse(TileIdSchema,id),definitionId:'fear'}));
+ const html=renderToStaticMarkup(createElement(ArnakOfferList,{offers:[paymentOffer('a',['card-a']),paymentOffer('b',['card-b'])],hand,selected:'a',disabled:false,onSelect(){}}));
+ assert.match(html,/공포 · 도보 · 손패 1/);assert.match(html,/공포 · 도보 · 손패 2/);
+ assert.match(html,/자원 지불 없음/);assert.match(html,/지불 방법 2개/);assert.match(html,/aria-pressed="true"/);assert.doesNotMatch(html,/선택 확정/);
+});
