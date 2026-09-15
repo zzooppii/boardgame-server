@@ -1,0 +1,29 @@
+# 하모니즈 구현 경계
+
+2026-09-15. [게임 규칙](./HARMONIES_GAME_RULES.md)에 따른 서버 권위형 2–4인 기본판 A면.
+
+- shared/games/harmonies: 공개 카드 카탈로그, 엄격한 명령/상태 DTO, 육각 좌표, 순수 지형 정산과 미확정 행동 재생. React/Socket.IO에 의존하지 않는다. 주머니·덱과 서버 저장 상태는 공유하지 않는다.
+- server/games/harmonies/domain: 120개 토큰 보존과 32장 카드 보존, 서버 시계·난수·ID 주입, 순서별 행동 검증, 마지막 라운드와 동률 정산. 공개된 최종 보드를 제출받지 않는다.
+- harmonies:act: requestId/gameId/expectedGameRevision/turnId 및 SUBMIT_TURN의 순서 있는 steps. 인증 actor는 socket binding에서 얻는다. 같은 방 직렬화 → 인증/phase/identity/revision → candidate 전체 검증 → UoW 한 번 commit. 오류는 원본 상태와 revision을 보존한다. 중복 성공 요청은 이전 영수증으로 처리한다.
+- application/compatibility: 현재 primary 연결, 공개 projection, 종료·퇴장 취소, 방장 승계와 재시작. activeTurn은 null이며 임의로 시간 초과 전략을 실행하지 않는다.
+- web/features/harmonies: 개인 보드 편집과 상대 보드 열람, 동물 패턴/높이, 유효한 목표 강조, 점수 근거, 한 수 되돌리기/초기화, 확정 및 응답 불명확 시 동일 requestId 결과 재확인. 새 game/revision은 오래된 편집을 폐기한다.
+- 토큰은 색과 기호를 함께 가진 계층형 SVG, 그림은 정적인 자체 생성 WebP, 글·숫자·카드 점수는 DOM. 모바일은 카드 공급처 내부 가로 스크롤, 한 열 보드와 sticky 조작부를 사용한다. 클릭/탭, 키보드 버튼, 데스크톱 토큰 드래그가 같은 행동 경로를 이용한다.
+- Web Audio로 물·돌·나무/건물·잎·선택·카드·되돌리기·동물·확정·승리 소리를 합성한다. 최초 사용자 제스처에서 활성화하며 음량/음소거를 저장한다. 최초 snapshot, 재접속, 중복/오래된 revision은 확정 소리를 재생하지 않는다.
+- 아트 기록: [README](../apps/web/public/images/harmonies/README.md). 새 패키지 dependency, 범용 게임 엔진 추상화, 서버 배포는 추가하지 않는다.
+
+## 검증 대상
+
+- 전 카드 × 6회전, 잘못된 높이/목표 점유, 지형 쌓기, 동물과 지지 지형의 시간적 관계, 완료 카드와 네 장 제한.
+- 강의 가지·루프와 최단 경로, 들판 합병, 건물의 실제 맨 위 색, 고립된 산, 부분 완료 동물 점수.
+- 2/3/4인 seeded 전체 게임, 매 전이 토큰·카드 보존, 동일 턴 수와 최종 승자.
+- 실제 Socket.IO의 인증·동시/중복/stale 요청, 비공개 토큰 ID와 존재하지 않는 ID의 동일 오류, capability, 재접속, 퇴장/재시작/게임 교체.
+- 화면 SSR 계약과 실제 브라우저의 2인 게임, 선택/배치/카드/되돌리기/확정, 음량과 활성화, 데스크톱/모바일, 새로고침.
+
+## 실행 결과 (2026-09-15)
+
+- 루트 `npm test`: 4,810개 통과 (shared 133, web 848, server 3,674, Space Crew E2E 155), 실패 0.
+- 실제 Chrome 두 컨텍스트에서 8턴 진행: 카드 가져오기, 토큰 클릭/드래그/Enter 배치, 되돌리기, 턴 확정, 새로고침 복구, 소리 활성화·음량 저장 확인. 브라우저 오류 0, 320px 화면의 문서 가로 넘침 없음.
+- 동물 정착·회전과 전체 게임 종료는 domain/Socket.IO 테스트로 검증했다. 브라우저의 8턴 검수에서는 동물 정착이 발생하지 않았다.
+- 서버 재시작 후 게임 보존과 공개 배포는 이번 범위에 포함하지 않는다. B면·솔로·자연의 정령은 후속 범위다.
+- 최종 `npm run typecheck`, `npm run build`, UI 수정 후 web 테스트 848개와 두 브라우저 8턴 재검수 통과. `git diff --check` 통과.
+- 빌드에는 기존 통합 웹 번들의 500KB 초과 경고가 남아 있다 (현재 minified 약 2.18MB, gzip 약 615KB). 이번 작업에서 범용 번들 분리는 하지 않았다.

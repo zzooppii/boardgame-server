@@ -18,6 +18,7 @@ import { projectClue } from "../games/clue/compatibility/projector.js";
 import { projectTerrorscape } from "../games/terrorscape/compatibility/projector.js";
 import { projectPandemic } from "../games/pandemic/compatibility/projector.js";
 import { projectPerch } from "../games/perch/compatibility/projector.js";
+import { projectHarmonies } from "../games/harmonies/compatibility/projector.js";
 import { projectDuet } from "../games/word-duet/compatibility/projector.js";
 import { projectSaboteur } from "../games/saboteur/compatibility/projector.js";
 import { projectLostCities } from "../games/lost-cities/compatibility/projector.js";
@@ -161,6 +162,7 @@ export class PlatformSnapshotV2Projector {
     if(input.room.gameType === "TERRORSCAPE") return v.parse(PlatformSnapshotV2Schema, {...base,room:{...base.room,phase:input.room.phase},game:projectTerrorscape(input.room.game,input.selfPlayerId)});
     if(input.room.gameType === "PANDEMIC") return v.parse(PlatformSnapshotV2Schema, {...base,room:{...base.room,phase:input.room.phase},game:projectPandemic(input.room.game,input.selfPlayerId)});
     if(input.room.gameType === "PERCH") return v.parse(PlatformSnapshotV2Schema, {...base,room:{...base.room,phase:input.room.phase},game:projectPerch(input.room.game,input.selfPlayerId)});
+    if(input.room.gameType === "HARMONIES") return v.parse(PlatformSnapshotV2Schema, {...base,room:{...base.room,phase:input.room.phase},game:projectHarmonies(input.room.game,input.selfPlayerId)});
     if(input.room.gameType === "WORD_DUET") return v.parse(PlatformSnapshotV2Schema, {...base,room:{...base.room,phase:input.room.phase},game:projectDuet(input.room.game,input.selfPlayerId)});
     if(input.room.gameType === "SABOTEUR") return v.parse(PlatformSnapshotV2Schema, {...base,room:{...base.room,phase:input.room.phase},game:projectSaboteur(input.room.game,input.selfPlayerId)});
     if(input.room.gameType === "LOST_CITIES") return v.parse(PlatformSnapshotV2Schema, {...base,room:{...base.room,phase:input.room.phase,settings:input.room.settings??{mode:"BASE"}},game:projectLostCities(input.room.game,input.selfPlayerId)});

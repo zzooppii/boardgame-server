@@ -15,6 +15,7 @@ import type { ClueClientCommand } from "./protocol.js";
 import type { TerrorscapeClientCommand } from "./protocol.js";
 import type { PandemicClientCommand } from "./protocol.js";
 import type { PerchClientCommand } from "./protocol.js";
+import type { HarmoniesClientCommand } from "./protocol.js";
 import type { DuetClientCommand } from "./protocol.js";
 import type { SaboteurClientCommand } from "./protocol.js";
 import type { LostCitiesClientCommand } from "./protocol.js";
@@ -592,6 +593,7 @@ export interface SnapshotWireClientToServerEvents {
   "terrorscape:act": (command: Extract<TerrorscapeClientCommand,{kind:"terrorscape:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "pandemic:act": (command: Extract<PandemicClientCommand,{kind:"pandemic:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "perch:act": (command: Extract<PerchClientCommand,{kind:"perch:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
+  "harmonies:act": (command: Extract<HarmoniesClientCommand,{kind:"harmonies:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "duet:act": (command: Extract<DuetClientCommand,{kind:"duet:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "saboteur:act": (command: Extract<SaboteurClientCommand,{kind:"saboteur:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "lostCities:configure": (command: Extract<LostCitiesClientCommand,{kind:"lostCities:configure"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;

@@ -198,6 +198,7 @@ export function HomeScreen(props: HomeScreenProps) {
                             {game.gameType === "CLUE" ? <img src="/images/clue/manor.webp" alt="" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:12}} /> : null}
                             {game.gameType === "PANDEMIC" ? <img src="/images/pandemic/world.webp" alt="" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:12}} /> : null}
                             {game.gameType === "PERCH" ? <img src="/images/perch/fountain.png" alt="" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:12}} /> : null}
+                            {game.gameType === "HARMONIES" ? <img src="/images/harmonies/landscape.webp" alt="" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:12}} /> : null}
                             {game.gameType === "TERRORSCAPE" ? <img src="/images/terrorscape/manor.webp" alt="" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:12}} /> : null}
                             {game.gameType === "GURYONGTU" ? <span aria-hidden="true" style={{ fontSize: 52, letterSpacing: -8 }}>◐◑</span> : null}
                             {game.gameType === "LOVE_LETTER" ? <span aria-hidden="true" style={{display:"block",width:90,height:90,borderRadius:12,backgroundImage:"url(/images/love-letter/court.png)",backgroundSize:"500% 200%",backgroundPosition:"100% 100%"}}/> : null}

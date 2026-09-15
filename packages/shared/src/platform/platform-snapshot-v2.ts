@@ -19,6 +19,7 @@ import { CluePlayingProjectionSchema, ClueFinishedProjectionSchema, clueProjecti
 import { TerrorscapePlayingProjectionSchema, TerrorscapeFinishedProjectionSchema, terrorscapeProjectionIsConsistent } from "../games/terrorscape/contracts.js";
 import { PandemicPlayingProjectionSchema, PandemicFinishedProjectionSchema, pandemicProjectionIsConsistent } from "../games/pandemic/contracts.js";
 import { PerchPlayingProjectionSchema, PerchFinishedProjectionSchema, perchProjectionIsConsistent } from "../games/perch/contracts.js";
+import { HarmoniesPlayingProjectionSchema, HarmoniesFinishedProjectionSchema, harmoniesProjectionIsConsistent } from "../games/harmonies/contracts.js";
 import { DuetPlayingProjectionSchema, DuetFinishedProjectionSchema, duetProjectionIsConsistent } from "../games/word-duet/contracts.js";
 import { LostCitiesSettingsSchema } from "../games/lost-cities/actions.js";
 import { LostCitiesPlayingProjectionSchema, LostCitiesFinishedProjectionSchema, lostCitiesProjectionIsConsistent } from "../games/lost-cities/contracts.js";
@@ -614,6 +615,24 @@ export const PerchLobbyPlatformSnapshotV2Schema: v.GenericSchema<unknown, PerchL
 export const PerchPlayingPlatformSnapshotV2Schema: v.GenericSchema<unknown, PerchPlayingPlatformSnapshotV2> = PerchPlayingRaw;
 export const PerchFinishedPlatformSnapshotV2Schema: v.GenericSchema<unknown, PerchFinishedPlatformSnapshotV2> = PerchFinishedRaw;
 
+const HarmoniesOuter = { snapshotVersion: PlatformSnapshotVersionSchema, versions: PlatformSnapshotVersionsV2Schema, serverTime: ServerTimeSchema, self: PlatformSelfViewV2Schema };
+const HarmoniesRoom = { roomId: RoomIdSchema, roomCode: RoomCodeSchema, gameType: v.literal("HARMONIES") };
+const HarmoniesPlayers = v.pipe(v.array(PlatformPlayerViewV2Schema), v.minLength(2), v.maxLength(4));
+const HarmoniesLobbyRaw = v.pipe(v.strictObject({ ...HarmoniesOuter, room: v.strictObject({ ...HarmoniesRoom, phase: v.literal("LOBBY"),
+  players: v.pipe(v.array(PlatformPlayerViewV2Schema), v.maxLength(10)) }), game: v.null() }),
+  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)));
+const HarmoniesPlayingRaw = v.pipe(v.strictObject({ ...HarmoniesOuter, room: v.strictObject({ ...HarmoniesRoom, phase: v.literal("PLAYING"), players: HarmoniesPlayers }), game: HarmoniesPlayingProjectionSchema }),
+  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)), v.check(s => hasMatchingGamePlayers(s)), v.check(s => harmoniesProjectionIsConsistent(s.game)), v.check(s => s.game.privateState.playerId === s.self.playerId));
+const HarmoniesFinishedRaw = v.pipe(v.strictObject({ ...HarmoniesOuter, room: v.strictObject({ ...HarmoniesRoom, phase: v.literal("FINISHED"), players: HarmoniesPlayers }), game: HarmoniesFinishedProjectionSchema }),
+  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)), v.check(s => hasMatchingGamePlayers(s)), v.check(s => harmoniesProjectionIsConsistent(s.game)), v.check(s => s.game.privateState.playerId === s.self.playerId));
+export type HarmoniesLobbyPlatformSnapshotV2 = v.InferOutput<typeof HarmoniesLobbyRaw>;
+export type HarmoniesPlayingPlatformSnapshotV2 = v.InferOutput<typeof HarmoniesPlayingRaw>;
+export type HarmoniesFinishedPlatformSnapshotV2 = v.InferOutput<typeof HarmoniesFinishedRaw>;
+export const HarmoniesLobbyPlatformSnapshotV2Schema: v.GenericSchema<unknown, HarmoniesLobbyPlatformSnapshotV2> = HarmoniesLobbyRaw;
+export const HarmoniesPlayingPlatformSnapshotV2Schema: v.GenericSchema<unknown, HarmoniesPlayingPlatformSnapshotV2> = HarmoniesPlayingRaw;
+export const HarmoniesFinishedPlatformSnapshotV2Schema: v.GenericSchema<unknown, HarmoniesFinishedPlatformSnapshotV2> = HarmoniesFinishedRaw;
+
+
 const DuetOuter = { snapshotVersion: PlatformSnapshotVersionSchema, versions: PlatformSnapshotVersionsV2Schema, serverTime: ServerTimeSchema, self: PlatformSelfViewV2Schema };
 const DuetRoom = { roomId: RoomIdSchema, roomCode: RoomCodeSchema, gameType: v.literal("WORD_DUET") };
 const DuetPlayers = v.pipe(v.array(PlatformPlayerViewV2Schema), v.length(2));
@@ -769,6 +788,7 @@ export const LobbyPlatformSnapshotV2Schema = v.union([
   TerrorscapeLobbyPlatformSnapshotV2Schema,
   PandemicLobbyPlatformSnapshotV2Schema,
   PerchLobbyPlatformSnapshotV2Schema,
+  HarmoniesLobbyPlatformSnapshotV2Schema,
   DuetLobbyPlatformSnapshotV2Schema,
   SaboteurLobbyPlatformSnapshotV2Schema,
   LostCitiesLobbyPlatformSnapshotV2Schema,
@@ -935,6 +955,7 @@ export const PlayingPlatformSnapshotV2Schema = v.union([
   TerrorscapePlayingPlatformSnapshotV2Schema,
   PandemicPlayingPlatformSnapshotV2Schema,
   PerchPlayingPlatformSnapshotV2Schema,
+  HarmoniesPlayingPlatformSnapshotV2Schema,
   DuetPlayingPlatformSnapshotV2Schema,
   SaboteurPlayingPlatformSnapshotV2Schema,
   LostCitiesPlayingPlatformSnapshotV2Schema,
@@ -1101,6 +1122,7 @@ export const FinishedPlatformSnapshotV2Schema = v.union([
   TerrorscapeFinishedPlatformSnapshotV2Schema,
   PandemicFinishedPlatformSnapshotV2Schema,
   PerchFinishedPlatformSnapshotV2Schema,
+  HarmoniesFinishedPlatformSnapshotV2Schema,
   DuetFinishedPlatformSnapshotV2Schema,
   SaboteurFinishedPlatformSnapshotV2Schema,
   LostCitiesFinishedPlatformSnapshotV2Schema,

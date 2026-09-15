@@ -24,6 +24,7 @@ import { ClueScreen } from "./features/clue/ClueScreen.js";
 import { TerrorscapeScreen } from "./features/terrorscape/TerrorscapeScreen.js";
 import { PandemicScreen } from "./features/pandemic/PandemicScreen.js";
 import { PerchScreen } from "./features/perch/PerchScreen.js";
+import { HarmoniesScreen } from "./features/harmonies/HarmoniesScreen.js";
 import { DuetScreen } from "./features/word-duet/DuetScreen.js";
 import { SaboteurScreen } from "./features/saboteur/SaboteurScreen.js";
 import { LostCitiesScreen } from "./features/lost-cities/LostCitiesScreen.js";
@@ -41,6 +42,7 @@ import "./features/clue/clue.css";
 import "./features/terrorscape/terrorscape.css";
 import "./features/pandemic/pandemic.css";
 import "./features/perch/perch.css";
+import "./features/harmonies/harmonies.css";
 import "./features/word-duet/duet.css";
 import "./features/saboteur/saboteur.css";
 import "./features/lost-cities/lost-cities.css";
@@ -527,6 +529,14 @@ export function App() {
         pending={app.operationLabel !== null || app.roomLeavePending || app.gameStartPending}
         error={app.errorMessage} connectionLabel={connectionLabel}/></ReconnectBoundary>;
     }
+    if (roomView.kind === "HARMONIES") {
+      return <ReconnectBoundary {...recovery}><HarmoniesScreen snapshot={roomView.snapshot}
+        connected={app.connectionState === "CONNECTED" && !app.sessionReplaced && !app.resumePending && !app.reconnectNeeded} onCommand={app.actHarmonies} onRematch={() => app.selectRoomGame("HARMONIES")}
+        onStart={app.startGame} onLeave={app.leaveRoom} onCopy={() => app.copyInvitation(invitationUrl)}
+        pending={app.operationLabel !== null || app.roomLeavePending || app.gameStartPending}
+        error={app.errorMessage} connectionLabel={connectionLabel}/></ReconnectBoundary>;
+    }
+
 
     if (roomView.kind === "WORD_DUET") {
       return <div className="duet-room-shell"><ReconnectBoundary {...recovery}><DuetScreen snapshot={roomView.snapshot}

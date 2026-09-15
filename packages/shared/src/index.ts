@@ -133,10 +133,13 @@ export * from './games/ark-nova/solo-abilities.js';
 
 export * from './games/pandemic/catalog.js';
 export * from './games/perch/catalog.js';
+export * from './games/harmonies/catalog.js';
 export * from './games/pandemic/actions.js';
 export * from './games/perch/actions.js';
+export * from './games/harmonies/actions.js';
 export * from './games/pandemic/contracts.js';
 export * from './games/perch/contracts.js';
+export * from './games/harmonies/contracts.js';
 
 export * from './games/ark-nova/card-requirements.js';
 export * from './games/ark-nova/animal-housing.js';
@@ -147,6 +150,7 @@ export * from './games/ark-nova/unique-construction.js';
 export * from './games/ark-nova/donations.js';
 export * from './games/ark-nova/history.js';
 
+export * from './games/harmonies/rules.js';
 
 export * from "./games/avalon/contracts.js";
 export * from "./games/avalon/v2-projection-contracts.js";
