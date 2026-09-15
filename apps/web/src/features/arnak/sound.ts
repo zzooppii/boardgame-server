@@ -1,15 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ArnakProjection } from '@hangul-rummikub/shared';
 export type ArnakCue = 'SELECT' | 'CARD' | 'DIG' | 'DISCOVER' | 'BUY' | 'RESEARCH' | 'GUARDIAN' | 'TURN' | 'WIN' | 'ERROR';
+type SoundSnapshot = Pick<ArnakProjection, 'gameId' | 'gameRevision' | 'phase' | 'stage'> & { history: readonly { kind: string }[]; result?: { reason: string } };
 export function arnakNewCue(previous: {
     gameId: string;
     revision: number;
-} | null, g: ArnakProjection, continuous: boolean): ArnakCue | null {
-    if (!continuous || !previous || previous.gameId !== g.gameId || g.gameRevision <= previous.revision)
+} | null, g: SoundSnapshot, continuous: boolean): ArnakCue | null {
+    if (!continuous || !previous || previous.gameId !== g.gameId || g.gameRevision !== previous.revision + 1)
         return null;
     if (g.phase === 'FINISHED')
-        return g.result.reason === 'SCORED' ? 'WIN' : null;
+        return g.result?.reason === 'SCORED' ? 'WIN' : null;
     const kind = g.history.at(-1)?.kind;
+    if (kind === 'KEEP') return 'SELECT';
+    if (kind === 'PASS' && g.stage === 'CLEANUP') return 'CARD';
     return kind === 'DISCOVER' || kind === 'DIG' || kind === 'BUY' || kind === 'RESEARCH' || kind === 'GUARDIAN' ? kind : kind === 'END' || kind === 'PASS' ? 'TURN' : 'CARD';
 }
 export function useArnakSound(g: ArnakProjection | null, connected: boolean) {

@@ -82,9 +82,8 @@ function fear(s: ArnakState, p: Person) { const c = s.fearDeck.shift(); if (c)
 else
     p.fearTiles++; }
 function refill(s: ArnakState) { while (s.market.filter(c => arnakCard(c.definitionId).type === 'artifact').length < s.round && s.artifactDeck.length) {
-    const index = s.market.findIndex(c => arnakCard(c.definitionId).type === 'item');
-    s.market.splice(index < 0 ? s.market.length : index, 0, s.artifactDeck.shift()!);
-} while (s.market.length < 6 && s.itemDeck.length)
+    s.market.unshift(s.artifactDeck.shift()!);
+} while (s.market.filter(c => arnakCard(c.definitionId).type === 'item').length < 6 - s.round && s.itemDeck.length)
     s.market.push(s.itemDeck.shift()!); }
 function nextTurn(s: ArnakState, now: ServerTime, r: RandomSource) {
     refill(s);
@@ -211,8 +210,7 @@ function choices(s: ArnakState, now: ServerTime, r: RandomSource): Choice[] {
             else if (mode === 'item-top')
                 p.deck.unshift(c);
             else
-                p.deck.push(c); if (mode !== 'exiled')
-                refill(s); }, cost, [], free, `${d.points}점 · ${d.type === 'artifact' ? '즉시 효과 적용' : '덱 아래에 놓기'}`);
+                p.deck.push(c); }, cost, [], free, `${d.points}점 · ${d.type === 'artifact' ? '즉시 효과 적용' : '덱 아래에 놓기'}`);
         }
     }
     function sites(level: number, mode: string, done: () => void) { for (const site of s.sites) {
@@ -250,6 +248,17 @@ function choices(s: ArnakState, now: ServerTime, r: RandomSource): Choice[] {
         }
     }
     function research(mode: string, discount: Partial<ArnakResources>, freeAll: boolean, done: () => void) {
+        if (p.magnifier === '8' && mode !== 'notebook') {
+            for (const [i, baseCost] of ARNAK_TEMPLE_COSTS.entries()) {
+                if (!s.templeSupply[i]) continue;
+                const cost = arnakResources();
+                for (const k of ARNAK_RESOURCES) cost[k] = freeAll ? 0 : Math.max(0, baseCost[k] - (discount[k] ?? 0));
+                const points = [2, 2, 2, 6, 6, 11][i]!;
+                add('RESEARCH', 'temple', `사원 타일 ${points}점`, () => {
+                    done(); s.templeSupply[i]!--; p.templePoints += points;
+                }, cost, [], false, (ARNAK_RESOURCES.some(k => (discount[k] ?? 0) > 0) ? '연구 할인 적용 · ' : '') + '남은 타일 ' + s.templeSupply[i]);
+            }
+        }
         for (const token of ['magnifier', 'notebook'] as const) {
             if (mode === 'notebook' && token !== 'notebook')
                 continue;
@@ -334,7 +343,7 @@ function choices(s: ArnakState, now: ServerTime, r: RandomSource): Choice[] {
             add('EFFECT', 'skip', '구매하지 않기', () => { done(); const id = job.context.split('|')[1], index = s.market.findIndex(c => c.tileId === id); if (index >= 0) {
                 const card = s.market.splice(index, 1)[0]!;
                 (arnakCard(card.definitionId).type === 'item' ? s.itemDeck : s.artifactDeck).unshift(card);
-            } refill(s); });
+            } });
         }
         else if (job.effect === '@knife') {
             const used = job.context.split(',').filter(Boolean);
@@ -565,10 +574,6 @@ function choices(s: ArnakState, now: ServerTime, r: RandomSource): Choice[] {
             buyCards('either', 0, main);
             research('', {}, false, main);
             overcome('own', false, main);
-            if (p.magnifier === '8')
-                for (const [i, cost] of ARNAK_TEMPLE_COSTS.entries())
-                    if (s.templeSupply[i]! > 0)
-                        add('RESEARCH', 'temple', `사원 타일 ${[2, 2, 2, 6, 6, 11][i]}점`, () => { main(); s.templeSupply[i]!--; p.templePoints += [2, 2, 2, 6, 6, 11][i]!; }, cost, [], false);
             add('PASS', 'pass', '이번 라운드 패스', () => { s.mainActionUsed = true; enqueue(s, ['@pass'], '라운드 종료'); }, undefined, undefined, false);
         }
         else
