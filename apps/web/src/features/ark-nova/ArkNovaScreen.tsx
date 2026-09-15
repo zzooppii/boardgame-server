@@ -38,7 +38,6 @@ function LiveGame({game, ...props}:ArkNovaScreenProps&{game:NonNullable<ArkNovaS
   }
   return <><div className="ark-live-audio"><label><input type="checkbox" checked={sound.enabled} onChange={e=>{const next={...sound,enabled:e.target.checked};audio.current?.setPreferences(next);audio.current?.unlock();setSound(next);}}/> 효과음</label><input aria-label="효과음 음량" type="range" min="0" max="1" step="0.05" value={sound.volume} onChange={e=>setSound({...sound,volume:Number(e.target.value)})}/></div>
     {message&&<p className="ark-live-error" role="alert">{message}</p>}{retry&&<div className="ark-live-error"><p>요청의 처리 결과를 확인해야 합니다. 같은 요청으로 다시 확인하세요.</p><button disabled={flight||!props.connected} onClick={()=>void execute(retry)}>처리 결과 다시 확인</button></div>}
-    <ArkNovaTable state={game.state} disabled={props.pending||flight||!!retry||!props.connected} onCommand={send} onCue={cue}/>
-    {game.phase==='FINISHED'&&<button className="ark-live-rematch" disabled={props.pending||flight||!!retry||!props.connected} onClick={props.onRematch}>새 동물원 준비</button>}
+    <ArkNovaTable state={game.state} disabled={props.pending||flight||!!retry||!props.connected} onCommand={send} onCue={cue} onRematch={props.onRematch}/>
   </>;
 }

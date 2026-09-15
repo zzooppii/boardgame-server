@@ -276,3 +276,11 @@ test('Research display counts universities and played icons, not hand requiremen
  const html=renderToStaticMarkup(createElement(ArkNovaTable,{state:s,disabled:false,onCommand:()=>{},onCue:()=>{}}));
  assert.match(html,/연구 <b>3<\/b>개/);
 });
+
+test('Finished result explains negative score and places restart beside the result without next-reward guidance',()=>{
+ const s=structuredClone(arkSoloSetupFixture);s.phase='FINISHED';s.progress={round:6,turnInRound:2,turnsCompleted:27,stage:'FINISHED'};s.pending=null;
+ s.appeal=62;s.conservation=3;s.result={appeal:62,conservation:3,goalPoints:1,sponsorPoints:1,sponsorAppeal:0,total:-46,won:false,details:[]};
+ const html=renderToStaticMarkup(createElement(ArkNovaTable,{state:s,disabled:true,onCommand:()=>{},onCue:()=>{},onRematch:()=>{}}));
+ assert.match(html,/기준 매력 108/);assert.match(html,/정산 전후/);assert.match(html,/<button type="button" disabled="">새 솔로 게임 준비/);
+ assert.doesNotMatch(html,/다음 보상까지|다음 보전 보상/);
+});

@@ -23,7 +23,7 @@ export function ArkNovaScoreBoardDetail({state:s,onNavigate}:{state:ScoreState;o
     </div>}
     {board&&<p className="ark-score-note">매력에 따른 휴식 수입 <b>돈 {board.appealIncome[s.appeal]}</b> · 매점·후원자 등의 추가 수입은 별도입니다.</p>}
     <p className="ark-score-note">{s.result?'목표·후원자 정산을 포함한 최종 점수입니다.':'현재 거리는 최종 목표·후원자 정산 전 수치입니다. 솔로는 교차해도 6라운드 끝까지 진행합니다.'}</p>
-    <div className="ark-score-next"><strong>다음 보전 보상</strong><span>{next?`${next.score}점까지 보전 ${next.score-s.conservation}점 필요`:'보전 10점 기준점까지 모두 도달'}</span></div>
+    {!s.result&&<div className="ark-score-next"><strong>다음 보전 보상</strong><span>{next?`${next.score}점까지 보전 ${next.score-s.conservation}점 필요`:'보전 10점 기준점까지 모두 도달'}</span></div>}
     <div className="ark-score-rewards">{rewards.map(r=>{
       const pending=board?.pendingMilestones.includes(r.score)??false;
       const reached=s.conservation>=r.score;
@@ -61,7 +61,7 @@ export function ArkNovaScoreBoard({state:s}:{state:ScoreState}) {
       <span className="ark-score-peek-values"><strong>매력 {s.appeal}</strong><strong>보전 {s.conservation}</strong></span>
       <span className="ark-score-peek-detail">
         <span>{s.result?`최종 ${s.result.total}점`:board?board.gap<0?`교차까지 ${-board.gap}점`:`교차 · +${board.gap}점`:'상세 정보 연결 대기'}</span>
-        <small>{board?.pendingMilestones.length?`보상 선택 대기 ${board.pendingMilestones.length}건`:next?`다음 보상까지 보전 ${next.score-s.conservation}점`:'보전 10점 도달'}</small>
+        <small>{s.result?'27턴 완료 · 최종 정산 완료':board?.pendingMilestones.length?`보상 선택 대기 ${board.pendingMilestones.length}건`:next?`다음 보상까지 보전 ${next.score-s.conservation}점`:'보전 10점 도달'}</small>
       </span>
       <span className="ark-score-peek-open">전체 점수판 보기 ↗</span>
     </button>
