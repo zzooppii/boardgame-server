@@ -162,3 +162,25 @@ test('Arnak hidden definitions never select world illustrations and previews nam
  assert.equal(small.match(/style="([^"]+)"/)?.[1],large.match(/style="([^"]+)"/)?.[1]);
  assert.match(large,/world-3.webp/);
 });
+
+import { ArnakPlayerPublicSchema } from '@hangul-rummikub/shared';
+import { ArnakOpponentCamp } from '../features/arnak/ArnakOpponentCamp.js';
+const publicCamp=()=>v.parse(ArnakPlayerPublicSchema,{playerId:'opponent',resources:arnakResources({coin:3}),workers:1,handCount:4,deckCount:6,played:[{tileId:'public-card',definitionId:'0111'}],assistants:[{definitionId:'assistant-0',gold:true,ready:false}],guardians:[{definitionId:'guardian-0',used:true}],idols:2,idolSlots:1,magnifier:'3',notebook:'1L',templePoints:6,fearTiles:1,passed:false});
+test('Arnak opponent camp displays public research, current assistant grade and spent boons',()=>{
+ const html=renderToStaticMarkup(createElement(ArnakOpponentCamp,{player:publicCamp(),onInspectCard(){}}));
+ assert.match(html,/3단계 \(3\)/);assert.match(html,/1단계 \(1L\)/);
+ assert.match(html,/금색.*사용 완료/);assert.match(html,/금화 3/);assert.doesNotMatch(html,/금화 2/);
+ assert.match(html,/축복 사용 완료/);assert.match(html,/튼튼한 장화 카드 상세 보기/);
+ assert.match(html,/4장 \/ 6장/);
+ assert.doesNotMatch(html,/선택 확정|효과 사용하기/);
+});
+test('Arnak public camp never renders extra private hand or deck contents',()=>{
+ const player={...publicCamp(),hand:[{tileId:'secret-hand',definitionId:'secret-hand-name'}],deck:[{tileId:'secret-deck',definitionId:'secret-deck-name'}],offers:[{label:'secret-offer'}]};
+ const html=renderToStaticMarkup(createElement(ArnakOpponentCamp,{player,onInspectCard(){}}));
+ assert.doesNotMatch(html,/secret-/);assert.match(html,/손패와 덱은 장수만 공개/);
+});
+test('Arnak empty opponent camp gives explicit empty states',()=>{
+ const player={...publicCamp(),played:[],assistants:[],guardians:[],magnifier:'0',notebook:'0'};
+ const html=renderToStaticMarkup(createElement(ArnakOpponentCamp,{player,onInspectCard(){}}));
+ assert.match(html,/고용한 조수가 없습니다/);assert.match(html,/극복한 수호자가 없습니다/);assert.match(html,/사용한 카드가 없습니다/);assert.match(html,/출발/);
+});
