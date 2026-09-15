@@ -30,6 +30,7 @@ export const ArkSoloCommandSchema = v.variant('kind', [
   v.strictObject({kind:v.literal('BEGIN_ZOO'),action:v.picklist(['ANIMALS','SPONSORS']),x,gainReputation:v.optional(v.boolean(),true)}),
   v.strictObject({kind:v.literal('PLAY_ZOO'),card:ArkZooCardChoiceSchema}),
   v.strictObject({kind:v.literal('END_ZOO')}),
+  v.strictObject({kind:v.literal('CANCEL_ZOO')}),
   v.strictObject({kind:v.literal('EFFECT'),choiceId:ArkRefSchema,effectId:v.pipe(v.number(),v.safeInteger(),v.minValue(1)),selection:ArkEffectSelectionSchema}),
   v.strictObject({kind: v.literal('INITIAL_HAND'), keep: v.pipe(ids, v.length(4))}),
   v.strictObject({kind:v.literal('ASSOCIATION'),x,task:ArkAssociationTaskSchema}),

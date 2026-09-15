@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { ARK_ACTIONS, ARK_MAP_A, arkPlacementReason, arkInitialBuildings } from '@hangul-rummikub/shared';
 import { createArkEffectQueue, selectArkEffect } from '../../games/ark-nova/domain/effect-queue.js';
 import { resolveArkEffect } from '../../games/ark-nova/domain/resolve-effect.js';
-import { beginArkWazaBonus, beginArkZooWork, playNextArkZooCard, endArkZooWork, completeArkZooWork, type ArkZooWorkState } from '../../games/ark-nova/domain/zoo-card-work.js';
+import { beginArkWazaBonus, cancelArkZooWork, beginArkZooWork, playNextArkZooCard, endArkZooWork, completeArkZooWork, type ArkZooWorkState } from '../../games/ark-nova/domain/zoo-card-work.js';
 const card=(key:string)=>({key,cardId:`card-${key}`});
 function board():ArkZooWorkState {return {effects:createArkEffectQueue(),zooWork:null,supportedProjects:0,played:[],pouched:{},sponsorTokens:{},cardReveal:null,goalDeck:[],goalReveal:null,baseProjectReserve:[],
   zooDeck:[card('201'),card('405')],hand:[card('404')],discarded:[],display:Array.from({length:6},()=>null),buildings:arkInitialBuildings(),
@@ -59,4 +59,17 @@ test('Animal II reputation resolves before the first card, may be declined, and 
   let sponsors=begin(board(),'SPONSORS');sponsors.hand=[card('223'),card('208')];sponsors=play(sponsors,'223',null);
   sponsors.actions.find(a=>a.kind==='SPONSORS')!.upgraded=true;
   assert.equal(playNextArkZooCard(sponsors,{cardId:'card-208',housingId:null}).ok,false);
+});
+
+test('Cancel pristine zoo selection refunds X and preserves cards, board, resources and action order',()=>{
+ const initial=board(),started=begin(initial,'ANIMALS',2),before=structuredClone(started);
+ const result=cancelArkZooWork(started);assert.ok(result.ok);assert.deepEqual(result.state,initial);assert.deepEqual(started,before);
+ assert.equal(cancelArkZooWork(result.state).ok,false);
+ const played=play(started,'404','initial-enclosure');assert.equal(cancelArkZooWork(played).ok,false);
+});
+test('Zoo cancellation cannot refund after reputation, reveal, or a legacy session',()=>{
+ const initial=board();initial.actions.find(a=>a.kind==='ANIMALS')!.upgraded=true;
+ const started=begin(initial,'ANIMALS',2);assert.equal(cancelArkZooWork(started).ok,false);
+ const declined=beginArkZooWork(initial,{action:'ANIMALS',x:2,gainReputation:false});assert.ok(declined.ok);assert.ok(cancelArkZooWork(declined.state).ok);
+ const legacy=begin(board(),'ANIMALS');delete legacy.zooWork!.cancelX;assert.equal(cancelArkZooWork(legacy).ok,false);
 });

@@ -262,3 +262,11 @@ test('Board exposes touch rotation and reflection only for an active preview and
   assert.doesNotMatch(idle,/배치 회전/);assert.doesNotMatch(idle,/배치 반전/);assert.match(idle,/<button type="button" disabled="">선택 해제/);
   const unique=renderToStaticMarkup(createElement(ArkNovaBoard,{buildings:base.buildings,selected:base.selected,ghost:base.ghost,onSelect:base.onSelect,onRotate:base.onRotate}));assert.doesNotMatch(unique,/배치 반전/);
 });
+
+test('Unused zoo action offers cancellation with its X refund; played cards cannot be undone',()=>{
+ const s=structuredClone(arkSoloSetupFixture);s.progress={round:1,turnInRound:0,turnsCompleted:0,stage:'ACTION'};s.pending=null;
+ s.zooWork={action:'ANIMALS',upgraded:false,remaining:2,playedCount:0,cancelX:2,stage:'PLAYING'};
+ const render=()=>renderToStaticMarkup(createElement(ArkNovaTable,{state:s,disabled:false,onCommand:()=>{},onCue:()=>{}}));
+ assert.match(render(),/카드 사용 취소 · 행동 선택으로/);assert.match(render(),/턴을 소비하지 않고 돌아갑니다/);
+ s.zooWork.playedCount=1;assert.doesNotMatch(render(),/카드 사용 취소 · 행동 선택으로/);assert.match(render(),/취소할 수 없습니다/);
+});

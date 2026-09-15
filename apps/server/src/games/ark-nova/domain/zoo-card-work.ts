@@ -19,7 +19,7 @@ export function beginArkZooWork<T extends ArkZooWorkState>(current:T,input:unkno
   const remaining=chosen.output.action==='ANIMALS'?(action.strength>=5?2:action.strength>=2?1:0):action.strength+Number(action.upgraded);
   if(remaining===0)return {ok:false};
   const s=structuredClone(current);s.x=action.xRemaining;
-  s.zooWork={action:chosen.output.action,upgraded:action.upgraded,remaining,playedCount:0,onlySmall:true,wazaUsed:false,stage:'PLAYING'};
+  s.zooWork={action:chosen.output.action,upgraded:action.upgraded,remaining,playedCount:0,cancelX:chosen.output.action==='ANIMALS'&&action.upgraded&&action.strength>=5&&chosen.output.gainReputation?null:chosen.output.x,onlySmall:true,wazaUsed:false,stage:'PLAYING'};
   s.effects=createArkEffectQueue();
   if(chosen.output.action==='ANIMALS'&&action.upgraded&&action.strength>=5&&chosen.output.gainReputation)s.effects=enqueueArkEffects(s.effects,[{
     sourceId:'action:ANIMALS',effect:{kind:'GAIN',resource:'REPUTATION',amount:1},timing:'IMMEDIATE',
@@ -59,4 +59,12 @@ export function beginArkWazaBonus<T extends ArkZooWorkState>(current:T):T|null {
   const s=structuredClone(current);s.zooWork={...active,remaining:0,wazaUsed:true};
   s.effects=enqueueArkEffects(s.effects,[{sourceId:source.cardId,effect:{kind:'WAZA_PLAY',upgraded:active.upgraded},timing:'IMMEDIATE'}]);
   return s;
+}
+
+/** Only a pristine selection phase is reversible; no card or reward can be undone. */
+export function cancelArkZooWork<T extends ArkZooWorkState>(current:T):{ok:true;state:T}|{ok:false} {
+  const active=current.zooWork;
+  if(!active||active.stage!=='PLAYING'||active.playedCount!==0||active.cancelX==null||active.wazaUsed||
+    arkEffectsPending(current.effects)||current.effects.afterFinishing.length||current.cardReveal||current.goalReveal||current.x+active.cancelX>5)return {ok:false};
+  const s=structuredClone(current);s.x+=active.cancelX;s.zooWork=null;return {ok:true,state:s};
 }

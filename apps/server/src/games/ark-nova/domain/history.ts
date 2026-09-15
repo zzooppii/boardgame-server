@@ -13,7 +13,7 @@ export function recordArkHistory(before:ArkSoloState,after:ArkSoloState,command:
   if(before.donations.length<after.donations.length&&command.kind!=='DONATE')notes.push('휴식 시작');
   if(before.breakStep!=='CARD_INCOME'&&after.breakStep==='CARD_INCOME'||before.progress.round!==after.progress.round)notes.push('휴식 수입 처리 · 직원 복귀');
   if(after.phase==='FINISHED')notes.push(`최종 점수 ${after.result?.total??0} · ${after.result?.won?'승리':'패배'}`);
-  const labels:Partial<Record<ArkSoloCommand['kind'],string>>={INITIAL_HAND:'시작 손패 확정',FUNDRAISE:'모금',BUILD:'건설',BUILD_MORE:'추가 건설',END_BUILD:'건설 마치기',END_ZOO:'카드 사용 마치기',DRAW:'카드 뽑기',SNAP:'카드 낚아채기',PICK_CARD:'카드 가져오기',DISCARD:'카드 버리기',ASSOCIATION:'협회 업무',ASSOCIATION_MORE:'추가 협회 업무',END_ASSOCIATION:'협회 마치기',DONATE:'기부',FINAL_GOAL:'최종 목표 선택',END_REPEAT:'반복 행동 마치기',CANCEL_EXTRA:'추가 행동 취소',BUILD_BONUS:'건설 보너스',REWARD:'보상 받기'};
+  const labels:Partial<Record<ArkSoloCommand['kind'],string>>={INITIAL_HAND:'시작 손패 확정',FUNDRAISE:'모금',BUILD:'건설',BUILD_MORE:'추가 건설',END_BUILD:'건설 마치기',END_ZOO:'카드 사용 마치기',CANCEL_ZOO:'카드 사용 취소',DRAW:'카드 뽑기',SNAP:'카드 낚아채기',PICK_CARD:'카드 가져오기',DISCARD:'카드 버리기',ASSOCIATION:'협회 업무',ASSOCIATION_MORE:'추가 협회 업무',END_ASSOCIATION:'협회 마치기',DONATE:'기부',FINAL_GOAL:'최종 목표 선택',END_REPEAT:'반복 행동 마치기',CANCEL_EXTRA:'추가 행동 취소',BUILD_BONUS:'건설 보너스',REWARD:'보상 받기'};
   let label=labels[command.kind]??'선택 처리';
   if(command.kind==='BEGIN_ZOO')label=`${ARK_ACTION_LABELS[command.action]} 행동 시작`;
   if(command.kind==='TAKE_X')label=`${ARK_ACTION_LABELS[command.action]} · X 토큰 받기`;

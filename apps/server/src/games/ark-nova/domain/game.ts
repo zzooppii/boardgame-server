@@ -7,7 +7,7 @@ import { ArkCardRevealSchema } from './card-effect-choices.js';
 import { ArkGoalRevealSchema } from './reserve-card-choices.js';
 import { ArkEffectQueueSchema, completeArkEffect, createArkEffectQueue, beginArkAfterFinishing, arkEffectsPending, enqueueArkEffects, selectArkEffect } from './effect-queue.js';
 import { resolveArkEffect } from './resolve-effect.js';
-import { ArkZooWorkSchema, beginArkWazaBonus, beginArkZooWork, playNextArkZooCard, endArkZooWork, completeArkZooWork } from './zoo-card-work.js';
+import { ArkZooWorkSchema, beginArkWazaBonus, cancelArkZooWork, beginArkZooWork, playNextArkZooCard, endArkZooWork, completeArkZooWork } from './zoo-card-work.js';
 import { assertArkExtendedCardInventory } from './card-inventory.js';
 import { assertArkZooMap } from './zoo-map.js';
 import { arkZooIcons } from './zoo-icons.js';
@@ -379,7 +379,10 @@ export function applyArkSoloCommand(current: ArkSoloState, actor: PlayerId, expe
     const started = startArkSolo(s.progress); if (!started.ok) return invalid(); s.progress = started.progress;
   } else if(a.kind==='BEGIN_ZOO') {
     if(s.progress.stage!=='ACTION'||s.pending||s.activeBuild||s.activeAssociation)return invalid();
-    const begun=beginArkZooWork(s,{action:a.action,x:a.x,gainReputation:a.gainReputation},s.repeatedAction?.baseStrength);if(!begun.ok)return invalid();Object.assign(s,begun.state);resumeEffects(s,nextTransition);
+    const begun=beginArkZooWork(s,{action:a.action,x:a.x,gainReputation:a.gainReputation},s.repeatedAction?.baseStrength);if(!begun.ok)return invalid();Object.assign(s,begun.state);if(s.zooWork&&(s.repeatedAction||s.extraActions.length))s.zooWork.cancelX=null;resumeEffects(s,nextTransition);
+  } else if(a.kind==='CANCEL_ZOO') {
+    if(s.progress.stage!=='ACTION'||s.pending||s.repeatedAction||s.extraActions.length)return invalid();
+    const result=cancelArkZooWork(s);if(!result.ok)return invalid();Object.assign(s,result.state);
   } else if(a.kind==='PLAY_ZOO'||a.kind==='END_ZOO') {
     if(s.progress.stage!=='ACTION'||s.pending||!s.zooWork)return invalid();
     const waza=a.kind==='END_ZOO'?beginArkWazaBonus(s):null;

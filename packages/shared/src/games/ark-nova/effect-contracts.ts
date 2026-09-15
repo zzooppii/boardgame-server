@@ -30,7 +30,7 @@ export const ArkEffectSelectionSchema=v.variant('kind',[
   v.strictObject({kind:v.literal('BONUS'),tile:v.nullable(ArkBonusTileSchema)}),
   v.strictObject({kind:v.literal('FOCUS'),focus:v.picklist(['SMALL','LARGE'])}),
 ]);
-export const ArkZooWorkSchema=v.strictObject({action:v.picklist(['ANIMALS','SPONSORS']),upgraded:v.boolean(),remaining:ArkCountSchema,playedCount:ArkCountSchema,onlySmall:v.optional(v.boolean()),wazaUsed:v.optional(v.boolean()),stage:v.picklist(['PLAYING','AFTER_FINISHING'])});
+export const ArkZooWorkSchema=v.strictObject({action:v.picklist(['ANIMALS','SPONSORS']),upgraded:v.boolean(),remaining:ArkCountSchema,playedCount:ArkCountSchema,cancelX:v.optional(v.nullable(v.pipe(ArkCountSchema,v.maxValue(5)))),onlySmall:v.optional(v.boolean()),wazaUsed:v.optional(v.boolean()),stage:v.picklist(['PLAYING','AFTER_FINISHING'])});
 
 export const ArkRepeatedActionSchema=v.strictObject({action:ArkActionKindSchema,mode:v.picklist(['REGULAR','TAKE_X']),
   baseStrength:v.pipe(ArkCountSchema,v.minValue(1),v.maxValue(5)),remaining:v.pipe(ArkCountSchema,v.minValue(1)),completed:ArkCountSchema,awaiting:v.boolean()});

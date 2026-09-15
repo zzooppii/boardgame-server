@@ -173,3 +173,17 @@ test('History retains a bounded ordered tail without exposing private zones or m
   const wire=JSON.stringify(s.history);
   for(const card of [...s.zooDeck,...s.goalDeck,...s.baseProjectReserve])assert.ok(!wire.includes(card.cardId));
 });
+
+test('Cancel unused zoo action survives reconnect, refunds X once, and does not advance the solo turn',()=>{
+ const initial=started();initial.x=2;
+ const begun=act(initial,{kind:'BEGIN_ZOO',action:'ANIMALS',x:2,gainReputation:false});
+ const restored=parseArkSoloState(JSON.parse(JSON.stringify(begun)));
+ assert.equal(projectArkSoloGame(restored,playerId).zooWork?.cancelX,2);
+ const cancelled=act(restored,{kind:'CANCEL_ZOO'});
+ assert.equal(cancelled.zooWork,null);assert.equal(cancelled.x,2);
+ assert.deepEqual(cancelled.progress,initial.progress);assert.deepEqual(cancelled.actions,initial.actions);
+ assert.deepEqual(cancelled.hand,initial.hand);assert.deepEqual(cancelled.buildings,initial.buildings);assert.equal(cancelled.money,initial.money);
+ assert.equal(applyArkSoloCommand(restored,playerId,initial.revision,{kind:'CANCEL_ZOO'},now,nextTurn()).ok,false);
+ assert.equal(applyArkSoloCommand(cancelled,playerId,cancelled.revision,{kind:'CANCEL_ZOO'},now,nextTurn()).ok,false);
+ const next=act(cancelled,{kind:'FUNDRAISE',x:0});assert.equal(next.progress.turnsCompleted,initial.progress.turnsCompleted+1);
+});
