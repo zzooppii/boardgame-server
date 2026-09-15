@@ -35,6 +35,7 @@ export const SUPPORTED_GAME_TYPES = Object.freeze([
   "PERCH",
   "HARMONIES",
   "PATCHWORK",
+  "ARNAK",
   "SEVEN_WONDERS_DUEL",
 ] as const);
 
@@ -58,6 +59,7 @@ export const GAME_PLAYER_LIMITS = Object.freeze({
   PERCH: { min: 2, max: 5 },
   HARMONIES: { min: 2, max: 4 },
   PATCHWORK: { min: 2, max: 2 },
+  ARNAK: { min: 2, max: 4 },
   SEVEN_WONDERS_DUEL: { min: 2, max: 2 },
   HANGUL_TILE: { min: 2, max: 4 }, NUMBER_TILE: { min: 2, max: 4 }, GEM_CARD: { min: 2, max: 4 },
   CITY_ROLE: { min: 2, max: 6 }, DRAW_RELAY: { min: 3, max: 8 }, SNEAKY_LUNCH: { min: 2, max: 8 },

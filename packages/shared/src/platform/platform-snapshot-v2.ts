@@ -22,6 +22,7 @@ import { PandemicPlayingProjectionSchema, PandemicFinishedProjectionSchema, pand
 import { PerchPlayingProjectionSchema, PerchFinishedProjectionSchema, perchProjectionIsConsistent } from "../games/perch/contracts.js";
 import { HarmoniesPlayingProjectionSchema, HarmoniesFinishedProjectionSchema, harmoniesProjectionIsConsistent } from "../games/harmonies/contracts.js";
 import { PatchworkPlayingProjectionSchema, PatchworkFinishedProjectionSchema, patchworkProjectionIsConsistent } from "../games/patchwork/contracts.js";
+import { ArnakPlayingProjectionSchema, ArnakFinishedProjectionSchema, arnakProjectionIsConsistent } from "../games/arnak/contracts.js";
 import { DuelPlayingProjectionSchema, DuelFinishedProjectionSchema, duelProjectionIsConsistent } from "../games/seven-wonders-duel/contracts.js";
 import { DuetPlayingProjectionSchema, DuetFinishedProjectionSchema, duetProjectionIsConsistent } from "../games/word-duet/contracts.js";
 import { LostCitiesSettingsSchema } from "../games/lost-cities/actions.js";
@@ -651,6 +652,23 @@ export type PatchworkFinishedPlatformSnapshotV2 = v.InferOutput<typeof Patchwork
 export const PatchworkLobbyPlatformSnapshotV2Schema: v.GenericSchema<unknown, PatchworkLobbyPlatformSnapshotV2> = PatchworkLobbyRaw;
 export const PatchworkPlayingPlatformSnapshotV2Schema: v.GenericSchema<unknown, PatchworkPlayingPlatformSnapshotV2> = PatchworkPlayingRaw;
 export const PatchworkFinishedPlatformSnapshotV2Schema: v.GenericSchema<unknown, PatchworkFinishedPlatformSnapshotV2> = PatchworkFinishedRaw;
+
+const ArnakOuter = { snapshotVersion: PlatformSnapshotVersionSchema, versions: PlatformSnapshotVersionsV2Schema, serverTime: ServerTimeSchema, self: PlatformSelfViewV2Schema };
+const ArnakRoom = { roomId: RoomIdSchema, roomCode: RoomCodeSchema, gameType: v.literal("ARNAK") };
+const ArnakPlayers = v.pipe(v.array(PlatformPlayerViewV2Schema), v.minLength(2), v.maxLength(4));
+const ArnakLobbyRaw = v.pipe(v.strictObject({ ...ArnakOuter, room: v.strictObject({ ...ArnakRoom, phase: v.literal("LOBBY"),
+  players: v.pipe(v.array(PlatformPlayerViewV2Schema), v.maxLength(10)) }), game: v.null() }),
+  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)));
+const ArnakPlayingRaw = v.pipe(v.strictObject({ ...ArnakOuter, room: v.strictObject({ ...ArnakRoom, phase: v.literal("PLAYING"), players: ArnakPlayers }), game: ArnakPlayingProjectionSchema }),
+  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)), v.check(s => hasMatchingGamePlayers(s)), v.check(s => arnakProjectionIsConsistent(s.game)), v.check(s => s.game.privateState.playerId === s.self.playerId));
+const ArnakFinishedRaw = v.pipe(v.strictObject({ ...ArnakOuter, room: v.strictObject({ ...ArnakRoom, phase: v.literal("FINISHED"), players: ArnakPlayers }), game: ArnakFinishedProjectionSchema }),
+  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)), v.check(s => hasMatchingGamePlayers(s)), v.check(s => arnakProjectionIsConsistent(s.game)), v.check(s => s.game.privateState.playerId === s.self.playerId));
+export type ArnakLobbyPlatformSnapshotV2 = v.InferOutput<typeof ArnakLobbyRaw>;
+export type ArnakPlayingPlatformSnapshotV2 = v.InferOutput<typeof ArnakPlayingRaw>;
+export type ArnakFinishedPlatformSnapshotV2 = v.InferOutput<typeof ArnakFinishedRaw>;
+export const ArnakLobbyPlatformSnapshotV2Schema: v.GenericSchema<unknown, ArnakLobbyPlatformSnapshotV2> = ArnakLobbyRaw;
+export const ArnakPlayingPlatformSnapshotV2Schema: v.GenericSchema<unknown, ArnakPlayingPlatformSnapshotV2> = ArnakPlayingRaw;
+export const ArnakFinishedPlatformSnapshotV2Schema: v.GenericSchema<unknown, ArnakFinishedPlatformSnapshotV2> = ArnakFinishedRaw;
 const DuelOuter = { snapshotVersion: PlatformSnapshotVersionSchema, versions: PlatformSnapshotVersionsV2Schema, serverTime: ServerTimeSchema, self: PlatformSelfViewV2Schema };
 const DuelRoom = { roomId: RoomIdSchema, roomCode: RoomCodeSchema, gameType: v.literal("SEVEN_WONDERS_DUEL") };
 const DuelPlayers = v.pipe(v.array(PlatformPlayerViewV2Schema), v.length(2));
@@ -825,6 +843,7 @@ export const LobbyPlatformSnapshotV2Schema = v.union([
   PerchLobbyPlatformSnapshotV2Schema,
   HarmoniesLobbyPlatformSnapshotV2Schema,
   PatchworkLobbyPlatformSnapshotV2Schema,
+  ArnakLobbyPlatformSnapshotV2Schema,
   DuelLobbyPlatformSnapshotV2Schema,
   DuetLobbyPlatformSnapshotV2Schema,
   SaboteurLobbyPlatformSnapshotV2Schema,
@@ -994,6 +1013,7 @@ export const PlayingPlatformSnapshotV2Schema = v.union([
   PerchPlayingPlatformSnapshotV2Schema,
   HarmoniesPlayingPlatformSnapshotV2Schema,
   PatchworkPlayingPlatformSnapshotV2Schema,
+  ArnakPlayingPlatformSnapshotV2Schema,
   DuelPlayingPlatformSnapshotV2Schema,
   DuetPlayingPlatformSnapshotV2Schema,
   SaboteurPlayingPlatformSnapshotV2Schema,
@@ -1163,6 +1183,7 @@ export const FinishedPlatformSnapshotV2Schema = v.union([
   PerchFinishedPlatformSnapshotV2Schema,
   HarmoniesFinishedPlatformSnapshotV2Schema,
   PatchworkFinishedPlatformSnapshotV2Schema,
+  ArnakFinishedPlatformSnapshotV2Schema,
   DuelFinishedPlatformSnapshotV2Schema,
   DuetFinishedPlatformSnapshotV2Schema,
   SaboteurFinishedPlatformSnapshotV2Schema,

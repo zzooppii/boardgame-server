@@ -57,6 +57,7 @@ export const GAME_CATALOG = Object.freeze([
   Object.freeze({ gameType: "HARMONIES", displayName: "하모니즈", description: "토큰을 쌓아 나만의 풍경을 만들고 동물을 초대하세요. 2~4인 자연 전략 게임." }),
   Object.freeze({ gameType: "SEVEN_WONDERS_DUEL", displayName: "7 원더스 듀얼", description: "두 문명의 대결. 불가사의를 세우고 신과 원로원을 움직이세요. Pantheon · Agora 확장 포함." }),
   Object.freeze({ gameType: "PATCHWORK", displayName: "패치워크", description: "천 조각과 단추로 채워가는 나만의 퀼트. 시간과 공간을 겨루는 2인 퍼즐 보드게임." }),
+  Object.freeze({ gameType: "ARNAK", displayName: "아르낙의 잊혀진 유적", description: "잊힌 섬을 탐험하고 수호자를 넘어 사원의 비밀을 밝히는 2–4인 덱 빌딩 탐험." }),
   Object.freeze({ gameType: "TERRORSCAPE", displayName: "테러스케이프", description: "소리를 좇는 살인마와 탈출을 준비하는 생존자. 2~4인 비대칭 공포 게임 · 기본판 + Feral Instincts." }),
 ] as const satisfies readonly GameCatalogItem[]);
 

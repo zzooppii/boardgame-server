@@ -1099,3 +1099,7 @@ Dedicated Tile이 있는 ㅐ, ㅔ, ㅒ, ㅖ는 arbitrary component 합성으로 
 ### TRAIN 일본 창작 지도 — CONFIRMED (2026-09-14)
 
 사용자가 일본 지도만 추가하도록 요청했다. `JAPAN`은 창작 도시·노선·목적지와 미국판 기본 규칙을 사용한다. 공식 일본 확장의 공용 신칸센 및 기여도 점수는 포함하지 않는다. 상세 구성은 [TRAIN_GAME_RULES.md](TRAIN_GAME_RULES.md)를 따른다.
+
+## 아르낙 — CONFIRMED (2026-09-15)
+
+사용자의 개발 요청에 따라 [ARNAK_GAME_RULES.md](./ARNAK_GAME_RULES.md)의 2–4인 기본판 새 사원·5라운드·시간 제한 없는 운영을 확정한다. 확장은 후속 선택 사항이다.

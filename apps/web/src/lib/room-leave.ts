@@ -100,6 +100,7 @@ export function roomLeaveConfirmationMessage(phase: RoomPhase, gameType?: GameTy
       if (gameType === "PERCH") return "나가면 이번 퍼치 게임이 취소됩니다. 잠시 자리를 비우려면 창을 닫고 재접속할 수 있습니다. 방에서 나가시겠습니까?";
       if (gameType === "HARMONIES") return "나가면 이번 하모니즈 게임이 취소됩니다. 잠시 자리를 비우려면 창을 닫고 재접속할 수 있습니다. 방에서 나가시겠습니까?";
       if (gameType === "PATCHWORK") return "나가면 이번 패치워크 게임이 취소됩니다. 잠시 자리를 비우려면 창을 닫고 재접속할 수 있습니다. 방에서 나가시겠습니까?";
+      if (gameType === "ARNAK") return "나가면 이번 아르낙 게임이 취소됩니다. 잠시 자리를 비우려면 창을 닫고 재접속할 수 있습니다. 방에서 나가시겠습니까?";
       if (gameType === "SEVEN_WONDERS_DUEL") return "나가면 이번 7 원더스 듀얼 게임이 취소됩니다. 잠시 자리를 비우려면 창을 닫고 재접속할 수 있습니다. 방에서 나가시겠습니까?";
       if (gameType === "WORD_DUET") return "나가면 이번 코드네임 듀엣 매치가 취소됩니다. 잠시 자리를 비우려면 창을 닫고 재접속할 수 있습니다. 방에서 나가시겠습니까?";
       if (gameType === "SABOTEUR") return "나가면 이번 사보타지 매치가 취소됩니다. 잠시 자리를 비우려면 창을 닫고 재접속할 수 있습니다. 방에서 나가시겠습니까?";

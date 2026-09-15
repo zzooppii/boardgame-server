@@ -162,3 +162,7 @@ export * from "./games/avalon/v2-projection-contracts.js";
 export * from './games/seven-wonders-duel/catalog.js';
 export * from './games/seven-wonders-duel/actions.js';
 export * from './games/seven-wonders-duel/contracts.js';
+export * from './games/arnak/actions.js';
+export * from './games/arnak/contracts.js';
+export * from './games/arnak/catalog.js';
+export * from './games/arnak/board.js';

@@ -1,5 +1,7 @@
 # 시스템 아키텍처
 
+2026-09-15 아르낙 추가: [ARNAK_ARCHITECTURE.md](./ARNAK_ARCHITECTURE.md)의 서버 행동 목록·비공개 카드·일러스트·효과음 경계를 따른다.
+
 2026-09-15 7 원더스 듀얼 추가: [SEVEN_WONDERS_DUEL_ARCHITECTURE.md](./SEVEN_WONDERS_DUEL_ARCHITECTURE.md)의 기본판·Pantheon·Agora, 비공개 projection, 효과 선택 큐, 전용 일러스트·화면·음향 경계를 따른다.
 
 2026-09-15 패치워크 추가: [PATCHWORK_ARCHITECTURE.md](./PATCHWORK_ARCHITECTURE.md)의 2인 기본판·서버 판정·직물 SVG·배치 조작·효과음 경계를 따른다.

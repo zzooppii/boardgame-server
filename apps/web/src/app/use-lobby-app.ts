@@ -21,6 +21,7 @@ import { PandemicCommandRejected } from "../lib/pandemic-command-error.js";
 import { PerchCommandRejected } from "../lib/perch-command-error.js";
 import { HarmoniesCommandRejected } from "../lib/harmonies-command-error.js";
 import { PatchworkCommandRejected } from "../lib/patchwork-command-error.js";
+import { ArnakCommandRejected } from "../lib/arnak-command-error.js";
 import { DuelCommandRejected } from "../lib/duel-command-error.js";
 import { DuetCommandRejected } from "../lib/duet-command-error.js";
 import { SaboteurCommandRejected } from "../lib/saboteur-command-error.js";
@@ -44,6 +45,7 @@ import type { PandemicClientCommand } from "@hangul-rummikub/shared";
 import type { PerchClientCommand } from "@hangul-rummikub/shared";
 import type { HarmoniesClientCommand } from "@hangul-rummikub/shared";
 import type { PatchworkClientCommand } from "@hangul-rummikub/shared";
+import type { ArnakClientCommand } from "@hangul-rummikub/shared";
 import type { DuelClientCommand } from "@hangul-rummikub/shared";
 import type { DuetClientCommand } from "@hangul-rummikub/shared";
 import type { SaboteurClientCommand } from "@hangul-rummikub/shared";
@@ -309,6 +311,7 @@ export type LobbyAppState = Readonly<{
   actPerch: (command: PerchClientCommand) => Promise<void>;
   actHarmonies: (command: HarmoniesClientCommand) => Promise<void>;
   actPatchwork: (command: PatchworkClientCommand) => Promise<void>;
+  actArnak: (command: ArnakClientCommand) => Promise<void>;
   actDuel: (command: DuelClientCommand) => Promise<void>;
   actDuet: (command: DuetClientCommand) => Promise<void>;
   actSaboteur: (command: SaboteurClientCommand) => Promise<void>;
@@ -532,7 +535,7 @@ export function useLobbyApp(): LobbyAppState {
   function currentLegacyHangulSnapshot(): StateSnapshot | null {
     const compatible = compatibleSnapshotRef.current;
     return compatible === null || compatible.kind === "PLATFORM_V2_NUMBER_TILE" ||
-      compatible.kind === "PLATFORM_V2_GEM_CARD" || compatible.kind === "PLATFORM_V2_CITY_ROLE" || compatible.kind === "PLATFORM_V2_DRAW_RELAY" || compatible.kind === "PLATFORM_V2_SNEAKY_LUNCH" || compatible.kind === "PLATFORM_V2_WOLF_NIGHT" || compatible.kind === "PLATFORM_V2_LIAR_GAME" || compatible.kind === "PLATFORM_V2_SPYFALL" || compatible.kind === "PLATFORM_V2_AVALON" || compatible.kind === "PLATFORM_V2_WORD_DUET" || compatible.kind === "PLATFORM_V2_TRAIN" || compatible.kind === "PLATFORM_V2_CENTURY" || compatible.kind === "PLATFORM_V2_SPIRIT_ISLAND" || compatible.kind === "PLATFORM_V2_SPACE_CREW" || compatible.kind === "PLATFORM_V2_ARK_NOVA" || compatible.kind === "PLATFORM_V2_JAIPUR" || compatible.kind === "PLATFORM_V2_LOVE_LETTER" || compatible.kind === "PLATFORM_V2_GURYONGTU" || compatible.kind === "PLATFORM_V2_AZUL" || compatible.kind === "PLATFORM_V2_VEGAS" || compatible.kind === "PLATFORM_V2_CARCASSONNE" || compatible.kind === "PLATFORM_V2_BURGUNDY" || compatible.kind === "PLATFORM_V2_CLUE" || compatible.kind === "PLATFORM_V2_TERRORSCAPE" || compatible.kind === "PLATFORM_V2_PANDEMIC" || compatible.kind === "PLATFORM_V2_PERCH" || compatible.kind === "PLATFORM_V2_HARMONIES" || compatible.kind === "PLATFORM_V2_PATCHWORK" || compatible.kind === "PLATFORM_V2_SEVEN_WONDERS_DUEL" || compatible.kind === "PLATFORM_V2_SABOTEUR" || compatible.kind === "PLATFORM_V2_LOST_CITIES" || compatible.kind === "PLATFORM_V2_SPLENDOR" || compatible.kind === "PLATFORM_V2_HALLI_GALLI" || compatible.kind === "PLATFORM_V2_ISLAND_SETTLERS"
+      compatible.kind === "PLATFORM_V2_GEM_CARD" || compatible.kind === "PLATFORM_V2_CITY_ROLE" || compatible.kind === "PLATFORM_V2_DRAW_RELAY" || compatible.kind === "PLATFORM_V2_SNEAKY_LUNCH" || compatible.kind === "PLATFORM_V2_WOLF_NIGHT" || compatible.kind === "PLATFORM_V2_LIAR_GAME" || compatible.kind === "PLATFORM_V2_SPYFALL" || compatible.kind === "PLATFORM_V2_AVALON" || compatible.kind === "PLATFORM_V2_WORD_DUET" || compatible.kind === "PLATFORM_V2_TRAIN" || compatible.kind === "PLATFORM_V2_CENTURY" || compatible.kind === "PLATFORM_V2_SPIRIT_ISLAND" || compatible.kind === "PLATFORM_V2_SPACE_CREW" || compatible.kind === "PLATFORM_V2_ARK_NOVA" || compatible.kind === "PLATFORM_V2_JAIPUR" || compatible.kind === "PLATFORM_V2_LOVE_LETTER" || compatible.kind === "PLATFORM_V2_GURYONGTU" || compatible.kind === "PLATFORM_V2_AZUL" || compatible.kind === "PLATFORM_V2_VEGAS" || compatible.kind === "PLATFORM_V2_CARCASSONNE" || compatible.kind === "PLATFORM_V2_BURGUNDY" || compatible.kind === "PLATFORM_V2_CLUE" || compatible.kind === "PLATFORM_V2_TERRORSCAPE" || compatible.kind === "PLATFORM_V2_PANDEMIC" || compatible.kind === "PLATFORM_V2_PERCH" || compatible.kind === "PLATFORM_V2_HARMONIES" || compatible.kind === "PLATFORM_V2_PATCHWORK" || compatible.kind === "PLATFORM_V2_ARNAK" || compatible.kind === "PLATFORM_V2_SEVEN_WONDERS_DUEL" || compatible.kind === "PLATFORM_V2_SABOTEUR" || compatible.kind === "PLATFORM_V2_LOST_CITIES" || compatible.kind === "PLATFORM_V2_SPLENDOR" || compatible.kind === "PLATFORM_V2_HALLI_GALLI" || compatible.kind === "PLATFORM_V2_ISLAND_SETTLERS"
       ? null
       : compatible.legacySnapshot;
   }
@@ -860,6 +863,19 @@ export function useLobbyApp(): LobbyAppState {
     if (!ack.ok) {
       void requestLatestSnapshot();
       throw new PatchworkCommandRejected(getUserErrorMessage(ack.error.code));
+    }
+    applyWireSnapshot(ack.data.snapshot, session);
+  }
+
+  async function actArnak(command: ArnakClientCommand): Promise<void> {
+    const client = clientRef.current, session = storedSessionForCurrentRoute();
+    if (!client?.connected || session === null || sessionReplacedRef.current || compatibleSnapshotRef.current?.kind !== "PLATFORM_V2_ARNAK") throw new Error("연결을 확인하고 다시 시도해주세요.");
+    const ack = await client.actArnak(command);
+    if (clientRef.current !== client || sessionReplacedRef.current || storedSessionForCurrentRoute()?.playerId !== session.playerId ||
+      storedSessionForCurrentRoute()?.credential.roomCode !== session.credential.roomCode) throw new Error("게임 연결이 변경되었습니다.");
+    if (!ack.ok) {
+      void requestLatestSnapshot();
+      throw new ArnakCommandRejected(getUserErrorMessage(ack.error.code));
     }
     applyWireSnapshot(ack.data.snapshot, session);
   }
@@ -1283,7 +1299,7 @@ export function useLobbyApp(): LobbyAppState {
     const incomingSnapshot = projectRoomSnapshotShell(compatible);
     const incomingLegacySnapshot =
       compatible.kind === "PLATFORM_V2_NUMBER_TILE" ||
-      compatible.kind === "PLATFORM_V2_GEM_CARD" || compatible.kind === "PLATFORM_V2_CITY_ROLE" || compatible.kind === "PLATFORM_V2_DRAW_RELAY" || compatible.kind === "PLATFORM_V2_SNEAKY_LUNCH" || compatible.kind === "PLATFORM_V2_WOLF_NIGHT" || compatible.kind === "PLATFORM_V2_LIAR_GAME" || compatible.kind === "PLATFORM_V2_SPYFALL" || compatible.kind === "PLATFORM_V2_AVALON" || compatible.kind === "PLATFORM_V2_WORD_DUET" || compatible.kind === "PLATFORM_V2_TRAIN" || compatible.kind === "PLATFORM_V2_CENTURY" || compatible.kind === "PLATFORM_V2_SPIRIT_ISLAND" || compatible.kind === "PLATFORM_V2_SPACE_CREW" || compatible.kind === "PLATFORM_V2_ARK_NOVA" || compatible.kind === "PLATFORM_V2_JAIPUR" || compatible.kind === "PLATFORM_V2_LOVE_LETTER" || compatible.kind === "PLATFORM_V2_GURYONGTU" || compatible.kind === "PLATFORM_V2_AZUL" || compatible.kind === "PLATFORM_V2_VEGAS" || compatible.kind === "PLATFORM_V2_CARCASSONNE" || compatible.kind === "PLATFORM_V2_BURGUNDY" || compatible.kind === "PLATFORM_V2_CLUE" || compatible.kind === "PLATFORM_V2_TERRORSCAPE" || compatible.kind === "PLATFORM_V2_PANDEMIC" || compatible.kind === "PLATFORM_V2_PERCH" || compatible.kind === "PLATFORM_V2_HARMONIES" || compatible.kind === "PLATFORM_V2_PATCHWORK" || compatible.kind === "PLATFORM_V2_SEVEN_WONDERS_DUEL" || compatible.kind === "PLATFORM_V2_SABOTEUR" || compatible.kind === "PLATFORM_V2_LOST_CITIES" || compatible.kind === "PLATFORM_V2_SPLENDOR" || compatible.kind === "PLATFORM_V2_HALLI_GALLI" || compatible.kind === "PLATFORM_V2_ISLAND_SETTLERS"
+      compatible.kind === "PLATFORM_V2_GEM_CARD" || compatible.kind === "PLATFORM_V2_CITY_ROLE" || compatible.kind === "PLATFORM_V2_DRAW_RELAY" || compatible.kind === "PLATFORM_V2_SNEAKY_LUNCH" || compatible.kind === "PLATFORM_V2_WOLF_NIGHT" || compatible.kind === "PLATFORM_V2_LIAR_GAME" || compatible.kind === "PLATFORM_V2_SPYFALL" || compatible.kind === "PLATFORM_V2_AVALON" || compatible.kind === "PLATFORM_V2_WORD_DUET" || compatible.kind === "PLATFORM_V2_TRAIN" || compatible.kind === "PLATFORM_V2_CENTURY" || compatible.kind === "PLATFORM_V2_SPIRIT_ISLAND" || compatible.kind === "PLATFORM_V2_SPACE_CREW" || compatible.kind === "PLATFORM_V2_ARK_NOVA" || compatible.kind === "PLATFORM_V2_JAIPUR" || compatible.kind === "PLATFORM_V2_LOVE_LETTER" || compatible.kind === "PLATFORM_V2_GURYONGTU" || compatible.kind === "PLATFORM_V2_AZUL" || compatible.kind === "PLATFORM_V2_VEGAS" || compatible.kind === "PLATFORM_V2_CARCASSONNE" || compatible.kind === "PLATFORM_V2_BURGUNDY" || compatible.kind === "PLATFORM_V2_CLUE" || compatible.kind === "PLATFORM_V2_TERRORSCAPE" || compatible.kind === "PLATFORM_V2_PANDEMIC" || compatible.kind === "PLATFORM_V2_PERCH" || compatible.kind === "PLATFORM_V2_HARMONIES" || compatible.kind === "PLATFORM_V2_PATCHWORK" || compatible.kind === "PLATFORM_V2_ARNAK" || compatible.kind === "PLATFORM_V2_SEVEN_WONDERS_DUEL" || compatible.kind === "PLATFORM_V2_SABOTEUR" || compatible.kind === "PLATFORM_V2_LOST_CITIES" || compatible.kind === "PLATFORM_V2_SPLENDOR" || compatible.kind === "PLATFORM_V2_HALLI_GALLI" || compatible.kind === "PLATFORM_V2_ISLAND_SETTLERS"
         ? null
         : compatible.legacySnapshot;
     const incomingNumberSnapshot =
@@ -3539,6 +3555,7 @@ export function useLobbyApp(): LobbyAppState {
     actPerch,
     actHarmonies,
     actPatchwork,
+    actArnak,
     actDuel,
     actDuet,
     actSaboteur,

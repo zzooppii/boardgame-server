@@ -28,6 +28,7 @@ import { PandemicScreen } from "./features/pandemic/PandemicScreen.js";
 import { PerchScreen } from "./features/perch/PerchScreen.js";
 import { HarmoniesScreen } from "./features/harmonies/HarmoniesScreen.js";
 import { PatchworkScreen } from "./features/patchwork/PatchworkScreen.js";
+import { ArnakScreen } from "./features/arnak/ArnakScreen.js";
 import { DuetScreen } from "./features/word-duet/DuetScreen.js";
 import { SaboteurScreen } from "./features/saboteur/SaboteurScreen.js";
 import { LostCitiesScreen } from "./features/lost-cities/LostCitiesScreen.js";
@@ -47,6 +48,7 @@ import "./features/pandemic/pandemic.css";
 import "./features/perch/perch.css";
 import "./features/harmonies/harmonies.css";
 import "./features/patchwork/patchwork.css";
+import "./features/arnak/arnak.css";
 import "./features/word-duet/duet.css";
 import "./features/saboteur/saboteur.css";
 import "./features/lost-cities/lost-cities.css";
@@ -544,6 +546,14 @@ export function App() {
     if (roomView.kind === "PATCHWORK") {
       return <ReconnectBoundary {...recovery}><PatchworkScreen snapshot={roomView.snapshot}
         connected={app.connectionState === "CONNECTED" && !app.sessionReplaced && !app.resumePending && !app.reconnectNeeded} onCommand={app.actPatchwork} onRematch={() => app.selectRoomGame("PATCHWORK")}
+        onStart={app.startGame} onLeave={app.leaveRoom} onCopy={() => app.copyInvitation(invitationUrl)}
+        pending={app.operationLabel !== null || app.roomLeavePending || app.gameStartPending}
+        error={app.errorMessage} connectionLabel={connectionLabel}/></ReconnectBoundary>;
+    }
+
+    if (roomView.kind === "ARNAK") {
+      return <ReconnectBoundary {...recovery}><ArnakScreen snapshot={roomView.snapshot}
+        connected={app.connectionState === "CONNECTED" && !app.sessionReplaced && !app.resumePending && !app.reconnectNeeded} onCommand={app.actArnak} onRematch={() => app.selectRoomGame("ARNAK")}
         onStart={app.startGame} onLeave={app.leaveRoom} onCopy={() => app.copyInvitation(invitationUrl)}
         pending={app.operationLabel !== null || app.roomLeavePending || app.gameStartPending}
         error={app.errorMessage} connectionLabel={connectionLabel}/></ReconnectBoundary>;

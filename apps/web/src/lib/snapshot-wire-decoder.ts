@@ -18,6 +18,7 @@ import type { PandemicLobbyPlatformSnapshotV2, PandemicPlayingPlatformSnapshotV2
 import type { PerchLobbyPlatformSnapshotV2, PerchPlayingPlatformSnapshotV2, PerchFinishedPlatformSnapshotV2 } from "@hangul-rummikub/shared";
 import type { HarmoniesLobbyPlatformSnapshotV2, HarmoniesPlayingPlatformSnapshotV2, HarmoniesFinishedPlatformSnapshotV2 } from "@hangul-rummikub/shared";
 import type { PatchworkLobbyPlatformSnapshotV2, PatchworkPlayingPlatformSnapshotV2, PatchworkFinishedPlatformSnapshotV2 } from "@hangul-rummikub/shared";
+import type { ArnakLobbyPlatformSnapshotV2, ArnakPlayingPlatformSnapshotV2, ArnakFinishedPlatformSnapshotV2 } from "@hangul-rummikub/shared";
 import type { DuelLobbyPlatformSnapshotV2, DuelPlayingPlatformSnapshotV2, DuelFinishedPlatformSnapshotV2 } from "@hangul-rummikub/shared";
 import type { DuetLobbyPlatformSnapshotV2, DuetPlayingPlatformSnapshotV2, DuetFinishedPlatformSnapshotV2 } from "@hangul-rummikub/shared";
 import type { SaboteurLobbyPlatformSnapshotV2, SaboteurPlayingPlatformSnapshotV2, SaboteurFinishedPlatformSnapshotV2 } from "@hangul-rummikub/shared";
@@ -84,6 +85,7 @@ export const WEB_SUPPORTED_GAME_TYPES = Object.freeze([
   "PERCH",
   "HARMONIES",
   "PATCHWORK",
+  "ARNAK",
   "SEVEN_WONDERS_DUEL",
 ] as const);
 
@@ -123,6 +125,7 @@ export type PandemicWebSnapshot = PandemicLobbyPlatformSnapshotV2 | PandemicPlay
 export type PerchWebSnapshot = PerchLobbyPlatformSnapshotV2 | PerchPlayingPlatformSnapshotV2 | PerchFinishedPlatformSnapshotV2;
 export type HarmoniesWebSnapshot = HarmoniesLobbyPlatformSnapshotV2 | HarmoniesPlayingPlatformSnapshotV2 | HarmoniesFinishedPlatformSnapshotV2;
 export type PatchworkWebSnapshot = PatchworkLobbyPlatformSnapshotV2 | PatchworkPlayingPlatformSnapshotV2 | PatchworkFinishedPlatformSnapshotV2;
+export type ArnakWebSnapshot = ArnakLobbyPlatformSnapshotV2 | ArnakPlayingPlatformSnapshotV2 | ArnakFinishedPlatformSnapshotV2;
 export type DuelWebSnapshot = DuelLobbyPlatformSnapshotV2 | DuelPlayingPlatformSnapshotV2 | DuelFinishedPlatformSnapshotV2;
 export type DuetWebSnapshot = DuetLobbyPlatformSnapshotV2 | DuetPlayingPlatformSnapshotV2 | DuetFinishedPlatformSnapshotV2;
 export type SaboteurWebSnapshot = SaboteurLobbyPlatformSnapshotV2 | SaboteurPlayingPlatformSnapshotV2 | SaboteurFinishedPlatformSnapshotV2;
@@ -154,6 +157,7 @@ export type CompatibleWebSnapshot =
   | Readonly<{kind: "PLATFORM_V2_PERCH"; snapshotVersion: 2; gameType: "PERCH"; platformSnapshot: PerchWebSnapshot }>
   | Readonly<{kind: "PLATFORM_V2_HARMONIES"; snapshotVersion: 2; gameType: "HARMONIES"; platformSnapshot: HarmoniesWebSnapshot }>
   | Readonly<{kind: "PLATFORM_V2_PATCHWORK"; snapshotVersion: 2; gameType: "PATCHWORK"; platformSnapshot: PatchworkWebSnapshot }>
+  | Readonly<{kind: "PLATFORM_V2_ARNAK"; snapshotVersion: 2; gameType: "ARNAK"; platformSnapshot: ArnakWebSnapshot }>
   | Readonly<{kind: "PLATFORM_V2_SEVEN_WONDERS_DUEL"; snapshotVersion: 2; gameType: "SEVEN_WONDERS_DUEL"; platformSnapshot: DuelWebSnapshot }>
   | Readonly<{kind: "PLATFORM_V2_WORD_DUET"; snapshotVersion: 2; gameType: "WORD_DUET"; platformSnapshot: DuetWebSnapshot }>
   | Readonly<{kind: "PLATFORM_V2_SABOTEUR"; snapshotVersion: 2; gameType: "SABOTEUR"; platformSnapshot: SaboteurWebSnapshot }>
@@ -265,7 +269,7 @@ function decodePlatformSnapshotV2(
     input.room.gameType !== "HANGUL_TILE" &&
     input.room.gameType !== "NUMBER_TILE" &&
     input.room.gameType !== "GEM_CARD" &&
-    input.room.gameType !== "CITY_ROLE" && input.room.gameType !== "DRAW_RELAY" && input.room.gameType !== "SNEAKY_LUNCH" && input.room.gameType !== "WOLF_NIGHT" && input.room.gameType !== "LIAR_GAME" && input.room.gameType !== "SPYFALL" && input.room.gameType !== "AVALON" && input.room.gameType !== "WORD_DUET" && input.room.gameType !== "TRAIN" && input.room.gameType !== "CENTURY" && input.room.gameType !== "SPIRIT_ISLAND" && input.room.gameType !== "SPACE_CREW" && input.room.gameType !== "ARK_NOVA" && input.room.gameType !== "JAIPUR" && input.room.gameType !== "LOVE_LETTER" && input.room.gameType !== "GURYONGTU" && input.room.gameType !== "AZUL" && input.room.gameType !== "VEGAS" && input.room.gameType !== "BURGUNDY" && input.room.gameType !== "CARCASSONNE" && input.room.gameType !== "CLUE" && input.room.gameType !== "TERRORSCAPE" && input.room.gameType !== "PANDEMIC" && input.room.gameType !== "PERCH" && input.room.gameType !== "HARMONIES" && input.room.gameType !== "PATCHWORK" && input.room.gameType !== "SEVEN_WONDERS_DUEL" && input.room.gameType !== "SABOTEUR" && input.room.gameType !== "LOST_CITIES" && input.room.gameType !== "SPLENDOR" && input.room.gameType !== "HALLI_GALLI" && input.room.gameType !== "ISLAND_SETTLERS"
+    input.room.gameType !== "CITY_ROLE" && input.room.gameType !== "DRAW_RELAY" && input.room.gameType !== "SNEAKY_LUNCH" && input.room.gameType !== "WOLF_NIGHT" && input.room.gameType !== "LIAR_GAME" && input.room.gameType !== "SPYFALL" && input.room.gameType !== "AVALON" && input.room.gameType !== "WORD_DUET" && input.room.gameType !== "TRAIN" && input.room.gameType !== "CENTURY" && input.room.gameType !== "SPIRIT_ISLAND" && input.room.gameType !== "SPACE_CREW" && input.room.gameType !== "ARK_NOVA" && input.room.gameType !== "JAIPUR" && input.room.gameType !== "LOVE_LETTER" && input.room.gameType !== "GURYONGTU" && input.room.gameType !== "AZUL" && input.room.gameType !== "VEGAS" && input.room.gameType !== "BURGUNDY" && input.room.gameType !== "CARCASSONNE" && input.room.gameType !== "CLUE" && input.room.gameType !== "TERRORSCAPE" && input.room.gameType !== "PANDEMIC" && input.room.gameType !== "PERCH" && input.room.gameType !== "HARMONIES" && input.room.gameType !== "PATCHWORK" && input.room.gameType !== "ARNAK" && input.room.gameType !== "SEVEN_WONDERS_DUEL" && input.room.gameType !== "SABOTEUR" && input.room.gameType !== "LOST_CITIES" && input.room.gameType !== "SPLENDOR" && input.room.gameType !== "HALLI_GALLI" && input.room.gameType !== "ISLAND_SETTLERS"
   ) {
     return typeof input.room.gameType === "string"
       ? { kind: "INCOMPATIBLE", reason: "UNSUPPORTED_GAME_TYPE" }
@@ -380,6 +384,12 @@ function decodePlatformSnapshotV2(
     const snapshot = validation.value;
     if (!isPatchworkSnapshot(snapshot)) return { kind: "INCOMPATIBLE", reason: "INVALID_V2_PROJECTION" };
     return { kind: "COMPATIBLE", value: { kind: "PLATFORM_V2_PATCHWORK", snapshotVersion: 2, gameType: "PATCHWORK", platformSnapshot: snapshot } };
+  }
+
+  if (input.room.gameType === "ARNAK") {
+    const snapshot = validation.value;
+    if (!isArnakSnapshot(snapshot)) return { kind: "INCOMPATIBLE", reason: "INVALID_V2_PROJECTION" };
+    return { kind: "COMPATIBLE", value: { kind: "PLATFORM_V2_ARNAK", snapshotVersion: 2, gameType: "ARNAK", platformSnapshot: snapshot } };
   }
   if (input.room.gameType === "SEVEN_WONDERS_DUEL") {
     const snapshot = validation.value;
@@ -542,6 +552,7 @@ function isPandemicSnapshot(s: PlatformSnapshotV2): s is PandemicWebSnapshot { r
 function isPerchSnapshot(s: PlatformSnapshotV2): s is PerchWebSnapshot { return s.room.gameType === "PERCH" && (s.game === null || s.game.gameType === "PERCH"); }
 function isHarmoniesSnapshot(s: PlatformSnapshotV2): s is HarmoniesWebSnapshot { return s.room.gameType === "HARMONIES" && (s.game === null || s.game.gameType === "HARMONIES"); }
 function isPatchworkSnapshot(s: PlatformSnapshotV2): s is PatchworkWebSnapshot { return s.room.gameType === "PATCHWORK" && (s.game === null || s.game.gameType === "PATCHWORK"); }
+function isArnakSnapshot(s: PlatformSnapshotV2): s is ArnakWebSnapshot { return s.room.gameType === "ARNAK" && (s.game === null || s.game.gameType === "ARNAK"); }
 function isDuelSnapshot(s: PlatformSnapshotV2): s is DuelWebSnapshot { return s.room.gameType === "SEVEN_WONDERS_DUEL" && (s.game === null || s.game.gameType === "SEVEN_WONDERS_DUEL"); }
 function isDuetSnapshot(s: PlatformSnapshotV2): s is DuetWebSnapshot { return s.room.gameType === "WORD_DUET" && (s.game === null || s.game.gameType === "WORD_DUET"); }
 function isSaboteurSnapshot(s: PlatformSnapshotV2): s is SaboteurWebSnapshot { return s.room.gameType === "SABOTEUR" && (s.game === null || s.game.gameType === "SABOTEUR"); }

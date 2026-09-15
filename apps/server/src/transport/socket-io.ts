@@ -1370,6 +1370,7 @@ function registerResumeHandler(
         runtime.perchHostSuccession?.resumed(result.data.roomId, result.data.playerId);
         runtime.harmoniesHostSuccession?.resumed(result.data.roomId, result.data.playerId);
         runtime.patchworkHostSuccession?.resumed(result.data.roomId, result.data.playerId);
+        runtime.arnakHostSuccession?.resumed(result.data.roomId, result.data.playerId);
         runtime.duelHostSuccession?.resumed(result.data.roomId, result.data.playerId);
         runtime.duetHostSuccession?.resumed(result.data.roomId, result.data.playerId);
         runtime.saboteurHostSuccession?.resumed(result.data.roomId, result.data.playerId);
@@ -3190,6 +3191,27 @@ function registerPatchworkHandlers(socket: RealtimeSocket, runtime: ApplicationR
     })().catch(()=>acknowledgeIfPresent(acknowledge,failureAck(raw,INTERNAL_ERROR,receivedAt)));
   });
 }
+
+import { ArnakClientCommandSchema } from "@hangul-rummikub/shared";
+function registerArnakHandlers(socket: RealtimeSocket, runtime: ApplicationRuntime): void {
+  for (const event of ["arnak:act"] as const) socket.on(event, (raw: unknown, acknowledge: (ack: StateSyncWireAck) => void) => {
+    const receivedAt = runtime.clock.now(), command = parseNumberRematch(ArnakClientCommandSchema, raw);
+    if (!command.success || command.output.kind !== event) { acknowledgeIfPresent(acknowledge, failureAck(raw, INVALID_PAYLOAD_ERROR, receivedAt)); return; }
+    void (async () => {
+      const binding = runtime.connectionRegistry.getAuthenticatedBinding(createSocketId(socket.id));
+      if (!binding) { acknowledgeIfPresent(acknowledge, failureAck(raw, UNAUTHENTICATED_ERROR, receivedAt)); return; }
+      if (!isRoomAdmissionCompatible("ARNAK", socketAdmissionCapabilities(socket))) {
+        acknowledgeIfPresent(acknowledge, failureAck(raw, {code:"INCOMPATIBLE_GAME_CAPABILITY",message:"ARNAK requires V2 capability.",recoverable:false}, receivedAt)); return;
+      }
+      if (!runtime.arnakService) { acknowledgeIfPresent(acknowledge, failureAck(raw, INTERNAL_ERROR, receivedAt)); return; }
+      const result = await runtime.arnakService.command({roomId:binding.roomId,actorPlayerId:binding.playerId,command:command.output,receivedAt,
+        authorization:{isCurrent:()=>socket.connected && isCurrentBinding(runtime,binding)}});
+      if (!result.ok) { acknowledgeIfPresent(acknowledge, failureAck(raw,result.error,receivedAt)); return; }
+      const loaded = await loadSnapshotForSocket(runtime,socket,binding.roomId,binding.playerId);
+      if (loaded && socket.connected && isCurrentBinding(runtime,binding)) acknowledgeIfPresent(acknowledge,snapshotSuccessAck(command.output.requestId,loaded.metadata,loaded.wireSnapshot));
+    })().catch(()=>acknowledgeIfPresent(acknowledge,failureAck(raw,INTERNAL_ERROR,receivedAt)));
+  });
+}
 import { DuelClientCommandSchema } from "@hangul-rummikub/shared";
 function registerDuelHandlers(socket: RealtimeSocket, runtime: ApplicationRuntime): void {
   for (const event of ["duel:act", "duel:configure"] as const) socket.on(event, (raw: unknown, acknowledge: (ack: StateSyncWireAck) => void) => {
@@ -3695,6 +3717,7 @@ function registerDisconnectHandler(
     runtime.perchHostSuccession?.disconnected(binding.roomId, binding.playerId, disconnectedAt);
     runtime.harmoniesHostSuccession?.disconnected(binding.roomId, binding.playerId, disconnectedAt);
     runtime.patchworkHostSuccession?.disconnected(binding.roomId, binding.playerId, disconnectedAt);
+    runtime.arnakHostSuccession?.disconnected(binding.roomId, binding.playerId, disconnectedAt);
     runtime.duelHostSuccession?.disconnected(binding.roomId, binding.playerId, disconnectedAt);
     runtime.duetHostSuccession?.disconnected(binding.roomId, binding.playerId, disconnectedAt);
     runtime.saboteurHostSuccession?.disconnected(binding.roomId, binding.playerId, disconnectedAt);
@@ -3802,6 +3825,7 @@ export function registerSocketIoHandlers(
   const unsubscribePerch = runtime.perchService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
   const unsubscribeHarmonies = runtime.harmoniesService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
   const unsubscribePatchwork = runtime.patchworkService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
+  const unsubscribeArnak = runtime.arnakService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
   const unsubscribeDuel = runtime.duelService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
   const unsubscribeDuet = runtime.duetService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
   const unsubscribeSaboteur = runtime.saboteurService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
@@ -3880,6 +3904,7 @@ export function registerSocketIoHandlers(
     registerPerchHandlers(socket, runtime);
     registerHarmoniesHandlers(socket, runtime);
     registerPatchworkHandlers(socket, runtime);
+    registerArnakHandlers(socket, runtime);
     registerDuelHandlers(socket, runtime);
     registerDuetHandlers(socket, runtime);
     registerSaboteurHandlers(socket, runtime);
@@ -3927,6 +3952,7 @@ export function registerSocketIoHandlers(
     unsubscribePerch?.();
     unsubscribeHarmonies?.();
     unsubscribePatchwork?.();
+    unsubscribeArnak?.();
     unsubscribeDuel?.();
     unsubscribeDuet?.();
     unsubscribeSaboteur?.();
