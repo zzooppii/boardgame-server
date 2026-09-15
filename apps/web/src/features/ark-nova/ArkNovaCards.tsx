@@ -43,8 +43,9 @@ const reputationRewards:Readonly<Record<number,string>>={5:'행동 II',8:'직원
 export function ArkNovaDisplay({cards,selected,disabled,onSelect,reputation=1,cardsUpgraded=false}:{cards:readonly (ArkCard|null)[];selected:string|null;disabled:boolean;onSelect(id:string):void;reputation?:number;cardsUpgraded?:boolean}) {
   const range=arkReputationRange(reputation);
   const groups=Array.from({length:6},(_,i)=>Array.from({length:15},(_,n)=>n+1).filter(n=>arkReputationRange(n)===i+1));
-  return <div className="ark-market-board">
-    <div className="ark-market-caption"><strong>공개 카드 · 평판 연결판</strong><span>현재 평판 {reputation} · 1–{range}번 칸이 평판 범위 안</span></div>
+  const selectedCard=cards.find(card=>card?.cardId===selected);
+  return <details className="ark-market-board ark-market-fold">
+    <summary className="ark-market-caption"><strong>공개 카드 · 평판 연결판</strong><span>현재 평판 {reputation} · 1–{range}번 칸이 평판 범위 안{selectedCard?` · 선택: ${arkCardName(selectedCard.key)}`:''}</span><b className="ark-market-expand">펼치기 ↓</b><b className="ark-market-collapse">접기 ↑</b></summary>
     <p className="ark-market-help">평판은 명성을 나타냅니다. 범위 안의 공개 카드 이용에는 행동별 조건도 필요합니다. 낚아채기는 평판 범위와 무관합니다.</p>
     <div className="ark-market-scroll" role="region" aria-label="공개 카드와 평판 트랙 · 가로로 스크롤" tabIndex={0}><div className="ark-market-surface">
       <div className="ark-live-display">{cards.map((card,index)=><section key={index} aria-label={`공개 카드 ${index+1}번 칸`} className={index<range?'is-in-range':'is-outside-range'}><h3><b>{index+1}</b><span>{index<range?'평판 범위 안':`평판 ${groups[index]?.[0]}부터`}</span></h3>{card?<ArkNovaCard card={card} selected={selected===card.cardId} disabled={disabled} onSelect={()=>onSelect(card.cardId)}/>:<div className="ark-live-empty">다음 보충을 기다리는 빈 칸</div>}</section>)}</div>
@@ -53,5 +54,5 @@ export function ArkNovaDisplay({cards,selected,disabled,onSelect,reputation=1,ca
       </div>)}</div>
     </div></div>
     <p className="ark-market-help">{cardsUpgraded?'카드 II · 평판 15까지 진행 가능':'평판 10–15는 카드 행동 II 필요 · 현재 상한 9'}. 금색 마커가 현재 위치입니다. 카드의 숫자는 인쇄된 기본값이며 실제 지불액은 선택 후 안내에 표시됩니다.</p>
-  </div>;
+  </details>;
 }

@@ -1,6 +1,7 @@
 import {useState,type ReactNode} from 'react';
 import {ARK_UNIQUE_BUILDINGS,ARK_ACTION_LABELS,ARK_BUILDINGS,ARK_CARDS,ARK_CONTINENTS,ARK_SOLO_UNIVERSITIES,ARK_TAG_LABELS,arkCardName,type ArkEffectGuide,type ArkSoloView,type ArkSoloCommand,type ArkCell} from '@hangul-rummikub/shared';
 import {arkMapBonusAdvice,arkToggleLimitedSelection,arkSpecialMoveAdvice,arkFreeBuildPlacementHint,arkWazaSelectionAdvice,arkSponsorSelectionAdvice,arkReachableDisplayCards} from './action-controls.js';
+import {ArkNovaBonusTile} from './ArkNovaBonusTile.js';
 import {ArkNovaCardRow} from './ArkNovaCards.js';
 
 type Selection=Extract<ArkSoloCommand,{kind:'EFFECT'}>['selection'];
@@ -11,7 +12,6 @@ export function arkEffectSummary(kind:string,guide:ArkEffectGuide):string {
   if(kind==='GAIN'&&guide.resource)return `${resourceLabels[guide.resource]} ${guide.amount===null?'획득 · 효과 처리 시 계산':`+${guide.amount}`}`;
   return `${arkEffectLabels[kind]??'카드 효과'}${guide.amount===null?'':` · ${guide.amount}`}`;
 }
-const bonusLabels:Readonly<Record<string,string>>={REPUTATION_2:'평판 2',X_3:'X 토큰 3',ENCLOSURE_3:'3칸 우리',CARDS_3:'카드 3장',MONEY_10:'돈 10',MULTIPLIER:'배수 토큰',UNIVERSITY:'대학',PARTNER:'제휴 동물원',PAID_SPONSOR:'후원자 사용'};
 const universities={HAND_LIMIT:'손패 한도 6 · 연구 1',RESEARCH_2:'연구 2',RESEARCH_REPUTATION:'연구 1 · 평판 2'};
 export function ArkNovaEffects({state:s,disabled,onSelect,placement,cell,housingId,onUniqueCard,onBuilding,onRotate,onReflect,onAnimalCard,onClearHousing,selectedBuildingKind,onChooseHousing}:{
   state:ArkSoloView;disabled:boolean;onSelect(selection:Selection):void;placement:Placement|null;cell:ArkCell|null;housingId:string|null;
@@ -63,7 +63,7 @@ export function ArkNovaEffects({state:s,disabled,onSelect,placement,cell,housing
     controls=<><p>선택 가능한 지도 보너스 {advice.available.length}개</p><p role="status">{advice.available.length===0?'남아 있는 지도 보너스가 없습니다. 계속을 눌러주세요.':advice.reason??`선택한 보상: ${advice.label}`}</p>{button('선택한 지도 보너스 받기',{kind:'MAP_BONUS',cell:cell??{q:0,r:0}},advice.reason!==null)}{advice.available.length===0&&button('대상 없음 · 계속',{kind:'NONE'})}</>;
   }
   else if(kind==='ASSERTION'||kind==='DOMINANCE')controls=<>{row(s.reserveChoices)}{button('프로젝트 가져오기',{kind:'PROJECT',cardId:chosen[0]??null},chosen.length!==1)}{s.reserveChoices.length===0&&button('대상 없음 · 계속',{kind:'PROJECT',cardId:null})}</>;
-  else if(kind==='CONSERVATION_BONUS')controls=<>{guide.bonuses.map(tile=>button(bonusLabels[tile]??tile,{kind:'BONUS',tile}))}{button('돈 5 받기',{kind:'BONUS',tile:null})}</>;
+  else if(kind==='CONSERVATION_BONUS')controls=<><p>남은 보너스 타일 하나 또는 돈 5 중 하나만 선택하세요. 돈 5는 추가 지급되지 않습니다.</p><div className="ark-bonus-options">{([...guide.bonuses,'MONEY_5'] as const).map(tile=><button key={tile} className="ark-bonus-option" disabled={disabled} onClick={()=>onSelect({kind:'BONUS',tile:tile==='MONEY_5'?null:tile})}><ArkNovaBonusTile tile={tile}/><span>{tile==='MONEY_5'?'돈 5 받기':'이 타일 선택'}</span></button>)}</div></>;
   else if(kind==='DISCARD_GOAL')controls=<>{row(s.goals)}{button('선택한 목표 버리기',{kind:'GOAL',discard:chosen[0]??''},chosen.length!==1)}</>;
   else if(kind==='WAZA_FOCUS')controls=<>{button('소형 동물',{kind:'FOCUS',focus:'SMALL'})}{button('대형 동물',{kind:'FOCUS',focus:'LARGE'})}</>;
   else controls=<p role="alert">이 효과의 선택 화면을 불러오지 못했습니다.</p>;

@@ -1,3 +1,4 @@
+import {arkBonusPresentation} from './ArkNovaBonusTile.js';
 import {useId} from 'react';
 import type {ArkSoloView} from '@hangul-rummikub/shared';
 
@@ -47,8 +48,12 @@ export function ArkNovaScoreTrack({appeal,conservation,board}:{appeal:number;con
     {[{c:2,label:'행동 II / 직원 +1'},{c:5,label:'타일 / 돈 5'},{c:8,label:'타일 / 돈 5'},{c:10,label:'목표 1장 정리'}].map(({c,label})=>{
       const p=point(target(c));return <g key={c}><path d={`M${p.x} 145v16`} stroke="#fff0b0" strokeWidth="2"/>
         <path d={shield(p.x-17,124,34,34)} fill="#edf5d8" stroke="#29553b" strokeWidth="2"/><text x={p.x} y="146" textAnchor="middle" className="ark-track-ticket">{c}</text>
-        <rect x={p.x-78} y="169" width="156" height="35" rx="9" fill="#f7e8a7" stroke="#b89e45"/>
-        <text x={p.x} y="191" textAnchor="middle" className="ark-track-reward">{label}</text>
+        {c===5||c===8?<g><text x={p.x} y="169" textAnchor="middle" className="ark-track-white">타일 하나 또는 돈 5 · 택1</text>{Array.from({length:2},(_,index)=>{
+          const tile=board.bonuses.filter(b=>b.track===c)[index]?.tile;
+          const bonus=tile?arkBonusPresentation(tile):null,x=p.x+(index===0?-58:58);
+          return <g key={index}><title>{bonus?`${bonus.label}: ${bonus.description}`:'남은 타일 없음'}</title><path d={`M${x} 174l29 19l-11 31h-36l-11 -31Z`} fill={bonus?'#f7dd67':'#796449'} stroke="#b89e45" strokeWidth="2"/><text x={x} y="201" textAnchor="middle" style={{fill:'#342b22',fontSize:18,fontWeight:800}}>{bonus?.symbol??'—'}</text><text x={x} y="219" textAnchor="middle" style={{fill:'#342b22',fontSize:9}}>{bonus?.label??'없음'}</text></g>;
+        })}<rect x={p.x-18} y="189" width="36" height="29" rx="8" fill="#40565c" stroke="#fff1cd"/><text x={p.x} y="209" textAnchor="middle" className="ark-track-white">돈 5</text></g>:<><rect x={p.x-78} y="169" width="156" height="35" rx="9" fill="#f7e8a7" stroke="#b89e45"/>
+        <text x={p.x} y="191" textAnchor="middle" className="ark-track-reward">{label}</text></>}
       </g>;
     })}
     <g className="ark-score-marker" style={{transform:`translate(${ap.x}px,${ap.y+24}px)`}}><circle r="19" fill="#e58232" stroke="#fff5c8" strokeWidth="3"/><text y="5" textAnchor="middle" className="ark-score-marker-number">{appeal}</text><title>{`매력 ${appeal}`}</title></g>

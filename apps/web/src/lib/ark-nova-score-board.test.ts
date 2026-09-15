@@ -38,3 +38,15 @@ test('Default score summary keeps the full board in a closed modal with an acces
   assert.doesNotMatch(summary,/<svg/);assert.doesNotMatch(html,/<dialog[^>]* open/);
   assert.match(html,/점수판 닫기/);
 });
+
+test('Both milestone tiles have separate pentagons and effect explanations with an exclusive money option',()=>{
+  const html=render({...initial,scoreBoard:{...initial.scoreBoard!,bonuses:[{track:5,tile:'REPUTATION_2'},{track:5,tile:'X_3'},{track:8,tile:'CARDS_3'},{track:8,tile:'PAID_SPONSOR'}]}});
+  assert.equal((html.match(/class="ark-bonus-token"/g)??[]).length,4);
+  assert.equal((html.match(/class="ark-bonus-token is-money"/g)??[]).length,2);
+  assert.match(html,/평판을 2 올립니다/);
+  assert.match(html,/보유 한도는 5개/);
+  assert.match(html,/덱 또는 평판 범위 안의 공개 카드/);
+  assert.match(html,/후원 등급만큼 돈을 내고/);
+  assert.match(html,/타일 하나 또는 돈 5 중 택1 · 추가 지급 없음/);
+  assert.doesNotMatch(html,/>타일 \/ 돈 5</);
+});

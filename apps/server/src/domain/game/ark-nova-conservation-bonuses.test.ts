@@ -19,3 +19,12 @@ test('Money alternative preserves available tiles, taking a tile removes exactly
   assert.equal(chooseArkConservationBonus(taken.pool,5,pool[0]!.tile).ok,false);
   assert.equal(chooseArkConservationBonus(pool,5,pool[2]!.tile).ok,false);
 });
+
+test('At both milestones a tile grants only its effect, never an additional five money',()=>{
+  for(const track of [5,8] as const){
+    const chosen=chooseArkConservationBonus([{track,tile:'X_3'}],track,'X_3');
+    assert.deepEqual(chosen,{ok:true,pool:[],effect:{kind:'GAIN',resource:'X',amount:3}});
+    const fallback=chooseArkConservationBonus([],track,null);
+    assert.deepEqual(fallback,{ok:true,pool:[],effect:{kind:'GAIN',resource:'MONEY',amount:5}});
+  }
+});

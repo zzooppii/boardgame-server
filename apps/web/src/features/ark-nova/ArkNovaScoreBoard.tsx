@@ -1,4 +1,5 @@
 import {useEffect,useId,useRef,useState} from 'react';
+import {ArkNovaBonusTile} from './ArkNovaBonusTile.js';
 import {ArkNovaScoreTrack} from './ArkNovaScoreTrack.js';
 import {ARK_ACTION_LABELS, type ArkSoloView} from '@hangul-rummikub/shared';
 
@@ -31,7 +32,7 @@ export function ArkNovaScoreBoardDetail({state:s,onNavigate}:{state:ScoreState;o
         <div className="ark-score-reward-heading"><b>보전 {r.score}</b><span>{pending?'선택 대기':receipt?'선택 완료':reached?'도달':`${r.score-s.conservation}점 남음`}</span></div>
         <strong>{r.label}</strong>
         {receipt&&<p>선택한 보상: {bonusLabels[receipt.choice]??receipt.choice}</p>}
-        {(r.score===5||r.score===8)&&<p>{board?`남은 타일: ${board.bonuses.filter(b=>b.track===r.score).map(b=>bonusLabels[b.tile]??b.tile).join(' · ')||'없음'} · 돈 5 선택 가능`:'배치된 타일 정보 연결 대기'}</p>}
+        {(r.score===5||r.score===8)&&<><p>{board?`남은 타일: ${board.bonuses.filter(b=>b.track===r.score).map(b=>bonusLabels[b.tile]??b.tile).join(' · ')||'없음'} · 돈 5 선택 가능`:'배치된 타일 정보 연결 대기'}</p>{board&&<><p>타일 하나 또는 돈 5 중 택1 · 추가 지급 없음</p><div className="ark-bonus-options">{[...board.bonuses.filter(b=>b.track===r.score).map(b=>b.tile),'MONEY_5'].map(tile=><div className="ark-bonus-option" key={tile}><ArkNovaBonusTile tile={tile}/></div>)}</div></>}</>}
         {r.score===10&&<p>목표가 2장 이상일 때 1장을 버립니다.</p>}
         {pending&&<a href="#ark-current-action" onClick={onNavigate}>현재 보상 선택으로 이동 ↓</a>}
       </article>;

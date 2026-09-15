@@ -36,3 +36,12 @@ test('Sponsor front distinguishes action level from animal money cost and shows 
   const lion=renderToStaticMarkup(createElement(ArkNovaCard,{card:{key:'402',cardId:'lion'}})).split('<details>')[0]!;
   assert.match(lion,/조건: 육식 · 육식 · 육식/);
 });
+
+test('Market starts collapsed and keeps reputation and selected card visible in its summary',()=>{
+  const html=renderToStaticMarkup(createElement(ArkNovaDisplay,{cards:[{cardId:'mandrill',key:'457'},null,null,null,null,null],selected:'mandrill',disabled:false,onSelect:()=>{},reputation:4}));
+  assert.match(html,/<details class="ark-market-board ark-market-fold">/);
+  const summary=html.split('</summary>')[0]!;
+  assert.match(summary,/현재 평판 4/);assert.match(summary,/1–3번 칸/);assert.match(summary,/선택: 맨드릴/);
+  assert.match(html,/펼치기 ↓/);assert.match(html,/접기 ↑/);
+  assert.match(html,/aria-pressed="true"/);assert.match(html,/aria-label="평판 트랙"/);
+});
