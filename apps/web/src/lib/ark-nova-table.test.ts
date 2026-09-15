@@ -137,9 +137,9 @@ test('Ark zoo selection explains exhausted actions, wrong cards, display upgrade
   state.zooWork.upgraded=true;state.reputation=1;
   assert.match(arkZooSelectionHint(state,'public-animal')!,/평판/);
   state.reputation=2;assert.equal(arkZooSelectionHint(state,'public-animal'),null);
-  state.zooWork.remaining=0;assert.match(arkZooSelectionHint(state,'animal')!,/사용을 마쳤/);
+  state.zooWork.remaining=0;assert.match(arkZooSelectionHint(state,'animal')!,/카드 사용 마치기/);
   state.zooWork={action:'SPONSORS',upgraded:false,remaining:4,playedCount:1,stage:'PLAYING'};
-  assert.match(arkZooSelectionHint(state,'sponsor')!,/사용을 마쳤/);
+  assert.match(arkZooSelectionHint(state,'sponsor')!,/카드 사용 마치기/);
   state.zooWork.upgraded=true;state.zooWork.remaining=3;
   assert.match(arkZooSelectionHint(state,'sponsor')!,/후원 등급/);
   state.zooWork.remaining=4;assert.equal(arkZooSelectionHint(state,'sponsor'),null);

@@ -45,14 +45,15 @@ export function arkZooSelectionHint(state:ArkSoloView,cardId:string|null):string
   const work=state.zooWork;
   if(!work)return null;
   if(work.stage!=='PLAYING')return '카드 사용을 마쳤습니다. 남은 효과를 처리하세요.';
-  if(work.remaining===0||work.action==='SPONSORS'&&!work.upgraded&&work.playedCount>0)return '이번 행동의 카드 사용을 마쳤습니다. 카드 사용 마치기를 눌러주세요.';
+  if(work.action==='SPONSORS'&&!work.upgraded&&work.playedCount>0)return '후원자 I은 한 행동에 1장만 사용할 수 있습니다. 카드 사용 마치기를 눌러주세요.';
+  if(work.remaining===0)return work.action==='SPONSORS'?'남은 후원 행동력이 0입니다. 돈과는 별개이며, X 토큰은 행동 시작 전에만 추가할 수 있습니다. 카드 사용 마치기를 눌러주세요.':'이번 행동에서 입주시킬 수 있는 동물을 모두 사용했습니다. 카드 사용 마치기를 눌러주세요.';
   if(!cardId)return '사용할 카드 1장을 선택하세요.';
   const held=state.hand.find(c=>c.cardId===cardId),slot=state.display.findIndex(c=>c?.cardId===cardId);
   const card=held??state.display[slot],definition=card&&ARK_CARDS.find(c=>c.key===card.key);
   if(!definition||definition.kind!==(work.action==='ANIMALS'?'ANIMAL':'SPONSOR'))return work.action==='ANIMALS'?'동물 카드를 선택하세요.':'후원자 카드를 선택하세요.';
   if(!held&&!work.upgraded)return '공개 카드 사용은 해당 행동 카드의 업그레이드가 필요합니다.';
   if(!held&&slot>=arkReputationRange(state.reputation))return '현재 평판으로 이용할 수 없는 공개 카드 칸입니다.';
-  if(definition.kind==='SPONSOR'&&definition.cost>work.remaining)return '남은 후원 행동력이 카드의 후원 등급보다 부족합니다.';
+  if(definition.kind==='SPONSOR'&&definition.cost>work.remaining)return `후원 행동력 부족: 후원 등급 ${definition.cost} 필요 · 남은 ${work.remaining}. 돈으로 대신 지불할 수 없습니다. X 토큰은 행동 시작 전에 추가하세요.`;
   return null;
 }
 
