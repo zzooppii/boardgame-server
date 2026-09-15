@@ -137,3 +137,128 @@ test('Duel science supremacy ends before pending influence effects can be applie
  s=op(s,'FREE_BUILD',last.tileId);
  assert.equal(s.result?.reason,'SCIENCE');assert.deepEqual(s.tasks,[]);assert.deepEqual(choices(s),[]);
 });
+
+function installGod(s:DuelState,id:string,slot=0) {
+ for(const d of s.godDecks) d.ids=d.ids.filter(x=>x!==id);
+ for(let i=0;i<s.pantheon.length;i++) if(s.pantheon[i]===id)s.pantheon[i]=null;
+ s.pantheon[slot]=id;s.age=2;s.players[s.active]!.coins=100;
+}
+function ownConspiracy(s:DuelState,id:string,p:DuelSeat,prepared=false) {
+ const c=s.conspiracies.find(c=>c.definitionId===id)!;
+ c.owner=p;c.zone='HAND';s.conspiracyOrder=s.conspiracyOrder.filter(x=>x!==c.id);
+ if(prepared){const card=s.cards.find(c=>available(s,c))!;card.zone='PREPARED';card.owner=p;card.slot=null;card.under=c.id;}
+ return c.id;
+}
+function chainWonders(s:DuelState,p:DuelSeat) {
+ const ids=['wonder-divine-theater','wonder-curia-julia','wonder-mausoleum','wonder-knossos','wonder-colossus','wonder-library','wonder-sanctuary','wonder-sphinx'];
+ s.wonders=ids.map(id=>({id,owner:p,built:false,removed:false}));
+}
+
+test('Duel Hades → politician → shield decree resolves military token before the next Senate action',()=>{
+ let s=ready(fixture()),p=s.active;
+ city(s,'theater',p);city(s,'altar',p);
+ s.decrees=[{id:9,chamber:0,revealed:true}];s.players.forEach(x=>x.influence=[0,0,0,0,0,0]);
+ s.military=p===0?2:-2;
+ const c=s.cards.find(c=>c.definitionId==='politician-0')!;c.zone='DISCARD';c.slot=null;c.owner=-1;
+ installGod(s,'hades');s=op(s,'INVOKE','0');s=op(s,'FREE_BUILD',c.tileId);
+ assert.equal(s.tasks[0]?.kind,'SENATE');assert.equal(s.tasks[0]?.remaining,2);
+ s=op(s,'PLACE','0');
+ assert.deepEqual(s.tasks.slice(0,2).map(t=>[t.kind,t.remaining]),[['PLACE',1],['SENATE',1]]);
+ s=op(s,'PLACE','5');s=op(s,'SKIP');
+ assert.equal(s.active,p===0?1:0);assert.equal(s.stage,'TURN_START');
+ assert.equal(s.players[p]!.influence[5],1);
+});
+
+test('Duel Theater → Isis → Curia Julia → conspiracy finishes before god ordering and grants one replay',()=>{
+ let s=ready(fixture()),p=s.active;chainWonders(s,p);
+ const id=ownConspiracy(s,'blackmail',p);
+ const discarded=s.cards.find(c=>available(s,c))!;discarded.zone='DISCARD';discarded.slot=null;
+ for(const d of s.godDecks)d.ids=d.ids.filter(id=>id!=='isis');
+ s.godDecks.find(d=>d.mythology==='EGYPTIAN')!.ids.push('isis');
+ s.players[p]!.coins=100;
+ const card=s.cards.find(c=>available(s,c))!;
+ s=act(s,choices(s).findIndex(c=>c.operation.kind==='WONDER'&&c.operation.a===card.tileId&&c.operation.b==='wonder-divine-theater'));
+ s=op(s,'GOD_DECK','EGYPTIAN');s=op(s,'FREE_GOD','isis');
+ s=act(s,choices(s).findIndex(c=>c.operation.kind==='FREE_WONDER'&&c.operation.a===discarded.tileId&&c.operation.b==='wonder-curia-julia'));
+ assert.equal(s.tasks[0]?.kind,'UNPREPARED');s=op(s,'TRIGGER',id);
+ let guard=0;while(s.tasks.length&&guard++<25)s=act(s);
+ assert.ok(guard<25);assert.equal(s.stage,'TURN_START');assert.equal(s.active,p);
+ assert.equal(s.conspiracies.find(c=>c.id===id)!.triggered,true);
+ assert.ok(s.wonders.find(w=>w.id==='wonder-curia-julia')!.built);assert.deepEqual(s.revealedGods,[]);
+ s=op(s,'DISCARD');while(s.tasks.length)s=act(s);
+ assert.equal(s.active,p===0?1:0);
+});
+
+test('Duel Gate → Enki → Law with Ishtar creates a pair and resolves the public progress choice',()=>{
+ let s=ready(fixture()),p=s.active;
+ for(const d of s.godDecks)d.ids=d.ids.filter(id=>id!=='ishtar'&&id!=='enki');
+ s.pantheon=s.pantheon.map(id=>id==='ishtar'||id==='enki'?null:id);
+ s.players[p]!.gods.push('ishtar');s.godDecks.find(d=>d.mythology==='MESOPOTAMIAN')!.ids.unshift('enki');
+ const law=s.progress.find(t=>t.id==='law')!;law.zone='BOX';law.owner=-1;
+ installGod(s,'gate');s=op(s,'INVOKE','0');
+ // Fix Enki's random draw to the two eligible public tokens for this effect fixture.
+ for(const t of s.progress)if(t.zone==='ENKI')t.zone='BOX';
+ s.progress.find(t=>t.id==='law')!.zone='ENKI';s.progress.find(t=>t.zone==='BOX'&&t.id!=='law')!.zone='ENKI';
+ s=op(s,'FREE_GOD','enki');s=op(s,'PROGRESS','law');
+ assert.equal(science(s,p).filter(x=>x==='LAW').length,2);assert.equal(s.tasks[0]?.kind,'PROGRESS');
+ s=act(s);assert.equal(s.progress.filter(t=>t.zone==='PLAYER'&&t.owner===p).length,2);
+ assert.equal(s.progress.filter(t=>t.zone==='ENKI').length,0);assert.equal(s.active,p===0?1:0);
+});
+
+test('Duel Neptune can trigger political supremacy before the remaining removal effect',()=>{
+ let s=ready(fixture()),p=s.active,opp:DuelSeat=p===0?1:0;
+ s.decrees=[];s.players[p]!.influence=[1,1,1,1,2,0];s.players[opp]!.influence=[0,0,0,0,0,0];
+ installGod(s,'neptune');s=op(s,'INVOKE','0');
+ s=op(s,'NEPTUNE_DISCARD','-3');s=op(s,'NEPTUNE_APPLY','6');
+ s=act(s,choices(s).findIndex(c=>c.operation.kind==='MOVE'&&c.operation.a==='4'&&c.operation.n===5));
+ assert.equal(s.result?.reason,'POLITICAL');assert.deepEqual(s.result?.winnerPlayerIds,[s.players[p]!.playerId]);assert.deepEqual(s.tasks,[]);
+});
+
+test('Duel Astarte treasure is protected from Blackmail and pays building shortfalls only',()=>{
+ let s=ready(fixture()),p=s.active,opp:DuelSeat=p===0?1:0;
+ s.players[opp]!.coins=5;s.players[opp]!.protectedCoins=7;
+ const id=ownConspiracy(s,'blackmail',p,true),before=s.players[p]!.coins;
+ s=op(s,'TRIGGER',id);while(s.tasks.length)s=act(s);
+ assert.equal(s.players[opp]!.coins,2);assert.equal(s.players[opp]!.protectedCoins,7);assert.equal(s.players[p]!.coins,before+3);
+ s.active=opp;s.stage='TURN_START';s.players[opp]!.coins=1;
+ const c=s.cards.find(c=>available(s,c)&&quote(s,opp,duelCard(c.definitionId)).total>1&&quote(s,opp,duelCard(c.definitionId)).total<=8)!;
+ assert.ok(c);const cost=quote(s,opp,duelCard(c.definitionId)).total;
+ s=op(s,'BUILD',c.tileId);assert.equal(s.players[opp]!.protectedCoins,8-cost);
+ assert.equal(scores(s)[opp]!.gods,8-cost);
+});
+
+test('Duel Coercion gives a shared victory when both cities simultaneously reach six science symbols',()=>{
+ let s=ready(fixture()),p=s.active,opp:DuelSeat=p===0?1:0;
+ const symbols=[...new Set(DUEL_BASE_CARDS.flatMap(c=>c.science?[c.science]:[]))];
+ const groups=symbols.map(symbol=>DUEL_BASE_CARDS.filter(c=>c.science===symbol));
+ assert.equal(groups.length,6);assert.ok(groups.every(g=>g.length>=2));
+ const give=city(s,groups[0]![0]!.id,p);city(s,groups[0]![1]!.id,p);
+ const take=city(s,groups[1]![0]!.id,opp);city(s,groups[1]![1]!.id,opp);
+ for(const group of groups.slice(2)){city(s,group[0]!.id,p);city(s,group[1]!.id,opp);}
+ s.tasks=[task('SWAP',p),task('MOVE',p)];
+ s=act(s,choices(s).findIndex(c=>c.operation.a===take.tileId&&c.operation.b===give.tileId));
+ assert.equal(s.result?.reason,'SCIENCE');assert.equal(s.result?.winnerPlayerIds.length,2);assert.deepEqual(s.tasks,[]);
+});
+
+test('Duel Anubis → Isis rebuilds the Mausoleum and can resurrect its newly discarded construction card',()=>{
+ let s=ready(fixture()),p=s.active;chainWonders(s,p);
+ const wonder=s.wonders.find(w=>w.id==='wonder-mausoleum')!;wonder.built=true;
+ const under=s.cards.find(c=>available(s,c))!;under.zone='WONDER';under.owner=p;under.under=wonder.id;under.slot=null;
+ installGod(s,'anubis');installGod(s,'isis',1);
+ s=op(s,'INVOKE','0');s=op(s,'ANUBIS',wonder.id);
+ s=op(s,'DISCARD');while(s.tasks.length)s=act(s);
+ assert.equal(s.active,p);
+ const material=s.cards.find(c=>c.zone==='DISCARD'&&c.tileId!==under.tileId)!;
+ s=op(s,'INVOKE','1');s=act(s,choices(s).findIndex(c=>c.operation.kind==='FREE_WONDER'&&c.operation.a===material.tileId&&c.operation.b===wonder.id));
+ assert.equal(s.tasks[0]?.kind,'RESURRECT');s=op(s,'FREE_BUILD',under.tileId);
+ while(s.tasks.length)s=act(s);
+ assert.ok(s.wonders.find(w=>w.id===wonder.id)!.built);assert.equal(s.cards.find(c=>c.tileId===under.tileId)!.zone,'CITY');
+});
+
+test('Duel hidden card locations are unique and Pantheon identifiers cannot collide with Senate choices',()=>{
+ const s=ready(fixture()),p=s.active;s.tasks=[task('DISCARD_ANY',p)];
+ const hidden=choices(s).filter(c=>c.view.definitionId===null);
+ assert.ok(hidden.length>1);assert.equal(new Set(hidden.map(c=>c.view.label)).size,hidden.length);
+ s.tasks=[];installGod(s,'mars');
+ assert.ok(choices(s).filter(c=>c.operation.kind==='INVOKE').every(c=>c.view.sourceId===`pantheon-${c.operation.a}`));
+});

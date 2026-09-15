@@ -22,3 +22,14 @@ test('DUEL event sounds ignore initial/reconnect/duplicate snapshots',()=>{
  const cue=(revision:number,continuous:boolean,previous:{gameId:string;revision:number}|null)=>duelNewCue(previous,{gameId:parse(GameIdSchema,'g'),gameRevision:parse(GameRevisionSchema,revision),phase:'PLAYING',history:[]},continuous);
  assert.equal(cue(0,true,null),null);assert.equal(cue(1,false,{gameId:'g',revision:0}),null);assert.equal(cue(1,true,{gameId:'g',revision:1}),null);assert.equal(cue(1,true,{gameId:'old',revision:0}),null);
 });
+
+test('DUEL inspecting one hidden target must not offer other hidden targets or unrelated location choices', async()=>{
+ const {duelInspectionOptions}=await import('../features/seven-wonders-duel/inspection.js');
+ const option=(id:string,sourceId:string,definitionId:string|null=null)=>({id,sourceId,definitionId,targetId:null,group:'CHOICE' as const,label:id,detail:'',cost:null});
+ const selected=option('option-0','hidden-a');
+ const options=[selected,option('option-1','hidden-b'),option('option-2','0')];
+ assert.deepEqual(duelInspectionOptions(options,{id:null,source:'hidden-a'}),[selected]);
+ assert.deepEqual(duelInspectionOptions(options,{id:null,source:'unrelated'}),[]);
+ const god=option('option-3','2','isis');
+ assert.deepEqual(duelInspectionOptions([god],{id:'isis',source:'isis'}),[god]);
+});

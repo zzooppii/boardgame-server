@@ -455,16 +455,16 @@ function execute(s: DuelState, p: DuelSeat, a: DuelOperation, now: ServerTime, r
             break;
         case 'PLACE':
             s.players[p]!.influence[a.n]!++;
-            senateChange(s, beforeShield, now);
-            if (s.phase === 'PLAYING' && pending!.remaining > 1)
+            if (pending!.remaining > 1)
                 s.tasks.unshift({ ...pending!, remaining: pending!.remaining - 1 });
+            senateChange(s, beforeShield, now);
             break;
         case 'MOVE':
             s.players[p]!.influence[Number(a.a)]!--;
             s.players[p]!.influence[a.n]!++;
-            senateChange(s, beforeShield, now);
-            if (s.phase === 'PLAYING' && pending!.remaining > 1)
+            if (pending!.remaining > 1)
                 s.tasks.unshift({ ...pending!, remaining: pending!.remaining - 1 });
+            senateChange(s, beforeShield, now);
             break;
         case 'REMOVE':
             s.players[other(p)]!.influence[a.n]!--;

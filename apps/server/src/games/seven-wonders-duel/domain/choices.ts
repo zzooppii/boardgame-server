@@ -26,11 +26,11 @@ export function choices(s: DuelState): DuelChoice[] {
         return [];
     const out: DuelChoice[] = [], p = decisionActor(s), op = other(p), me = s.players[p]!, t = s.tasks[0];
     function add(kind: string, a = '', b = '', n = 0, label = kind, group: DuelOption['group'] = 'CHOICE', definitionId: string | null = null, cost: number | null = null, detail = '') {
-        out.push({ view: { id: `option-${out.length}`, group, label, detail, sourceId: kind === 'DECREE' ? `decree-position-${s.decrees.findIndex(d => d.id === Number(a))}` : a || null, targetId: b || null, definitionId, cost }, operation: { kind, a, b, n } });
+        out.push({ view: { id: `option-${out.length}`, group, label, detail, sourceId: kind === 'DECREE' ? `decree-position-${s.decrees.findIndex(d => d.id === Number(a))}` : kind === 'INVOKE' ? `pantheon-${a}` : a || null, targetId: b || null, definitionId, cost }, operation: { kind, a, b, n } });
     }
     const cardChoice = (kind: string, c: DuelEntity, b = '', label?: string) => {
         const hidden = c.zone === 'BOARD' && c.slot !== null && !s.slots[c.slot]!.faceUp;
-        const title = hidden ? `비공개 ${['WHITE', 'BLACK'].includes(duelCard(c.definitionId).color) ? '의원' : '시대'} 카드 · ${s.slots[c.slot!]!.y + 1}행` : label ?? duelCard(c.definitionId).name;
+        const title = hidden ? `비공개 ${['WHITE', 'BLACK'].includes(duelCard(c.definitionId).color) ? '의원' : '시대'} 카드 · ${s.slots[c.slot!]!.y + 1}행 ${s.slots.filter(slot => slot.y === s.slots[c.slot!]!.y && slot.x <= s.slots[c.slot!]!.x).length}번째` : label ?? duelCard(c.definitionId).name;
         add(kind, c.tileId, b, 0, kind === 'FREE_BUILD' ? `무료 건설 · ${title}` : kind === 'FREE_WONDER' ? `무료 불가사의 · ${title}` : title, 'CHOICE', hidden ? null : c.definitionId, kind.startsWith('FREE_') ? 0 : null);
     };
     if (t) {
@@ -214,8 +214,8 @@ export function choices(s: DuelState): DuelChoice[] {
     for (const c of s.cards.filter(c => available(s, c))) {
         const d = duelCard(c.definitionId), q = quote(s, p, d);
         if (q.total <= money)
-            add('BUILD', c.tileId, '', 0, `${d.color === 'WHITE' || d.color === 'BLACK' ? '고용' : '건설'} · ${q.total}코인`, 'BUILD', d.id, q.total, q.detail);
-        add('DISCARD', c.tileId, '', 0, `버리고 ${2 + countType(s, p, 'YELLOW') + (hasDecree(s, p, 13) ? 2 : 0)}코인 받기`, 'DISCARD', d.id, null, '건물 효과를 얻지 않습니다.');
+            add('BUILD', c.tileId, '', 0, `${d.color === 'WHITE' || d.color === 'BLACK' ? '고용' : '건설'} · ${d.name} · ${q.total}코인`, 'BUILD', d.id, q.total, q.detail);
+        add('DISCARD', c.tileId, '', 0, `${d.name} · 버리고 ${2 + countType(s, p, 'YELLOW') + (hasDecree(s, p, 13) ? 2 : 0)}코인 받기`, 'DISCARD', d.id, null, '건물 효과를 얻지 않습니다.');
         for (const w of s.wonders.filter(w => w.owner === p && !w.built && !w.removed)) {
             const q = quote(s, p, duelWonder(w.id));
             if (q.total <= money)
