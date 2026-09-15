@@ -55,6 +55,7 @@ export class RoomGameSelectionService {
             readyPlayerIds: [], roomRevision, createdAt: room.createdAt, updatedAt: now,
           };
           candidate = command.payload.gameType === "ARK_NOVA" ? { ...lobby, gameType: "ARK_NOVA" }
+            : command.payload.gameType === "AVALON" ? { ...lobby, gameType: "AVALON" }
             : command.payload.gameType === "SPACE_CREW"
             ? { ...lobby, gameType: "SPACE_CREW" }
             : command.payload.gameType === "SPIRIT_ISLAND"
@@ -63,6 +64,7 @@ export class RoomGameSelectionService {
               : command.payload.gameType === "PANDEMIC" ? {...lobby,gameType:"PANDEMIC"}
               : command.payload.gameType === "PERCH" ? {...lobby,gameType:"PERCH"}
               : { ...lobby, gameType: command.payload.gameType };
+          if (command.payload.gameType === "AVALON" && room.gameType === "AVALON") candidate = { ...lobby, gameType: "AVALON", settings: room.settings ?? { roleSet: "INTRIGUE" } };
           if (command.payload.gameType === "LIAR_GAME" && room.gameType === "LIAR_GAME") {
             candidate = { ...candidate, gameType: "LIAR_GAME", game: null, settings: room.settings ?? { category: "RANDOM", discussionSeconds: 90 } };
           }

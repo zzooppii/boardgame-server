@@ -1,0 +1,14 @@
+# 아발론 자체 일러스트
+
+Built-in `image_gen.imagegen` 사용, 2026-09-15 생성. 첨부한 실물 사진의 중세 판타지·역할 카드·성배·왕관 분위기를 참고하고, 새 캐릭터와 장면을 제작했다. 원본 보드게임 이미지를 런타임에 사용하지 않는다. 모든 참가자가 같은 atlas를 로드하므로 역할별 파일 요청으로 비밀을 누설하지 않는다.
+
+- `atlas.png`: 3열 × 3행, 각 칸 동일 크기. 첫 행 멀린/암살자/퍼시벌, 둘째 행 모르가나/충신/하수인, 셋째 행 성공 성배/실패 성배/공통 카드 뒷면. CSS background-size 300%로 사용한다.
+- `castle.png`: 대기실 배경과 홈 카탈로그. 낮은 영역을 어둡고 단순하게 두어 React 문구 대비를 확보한다.
+
+## 생성 프롬프트 — atlas
+
+Use case: illustration-story. Create a single high-quality game illustration atlas for an original medieval Arthurian social deduction browser board game, inspired by physical painted fantasy board game components. Exactly 3 columns by 3 rows of equally sized square illustrations, edge to edge, no gaps, each cell self contained and safely center composed for CSS sprite cropping. Row1 left: Merlin, kindly elderly silver-bearded wizard in midnight blue robe holding a glowing star; middle: Assassin, dangerous hooded medieval figure with sheathed dagger under red torchlight; right: Percival, young knight in steel armor with blue cloak looking thoughtful. Row2 left: Morgana, regal sorceress in dark burgundy with auburn hair and subtle deceptive smile; middle: Loyal servant of Arthur, noble woman knight in cream cloak with sun shield; right: Minion of Mordred, sinister armored knight in black with crimson cape. Row3 left: sacred golden chalice in sunlit ruined abbey, lush green forest; middle: same chalice cracked with crimson embers in a moonlit ruin, no blood; right: ornate universal card back with embossed golden crown and circular Celtic knot on deep navy leather, absolutely symmetrical. Style: detailed painterly premium tabletop illustration, rich jewel tones, warm gold filigree, cinematic chiaroscuro, tactile oil brushwork. Portraits are waist-up, faces occupy central top-half, no written labels, no letters, no numbers, no logos, no watermarks, no UI, not a photograph of products. Completely new character designs, no copying any existing game's specific art. This asset will be displayed as 9 independently cropped square sprites.
+
+## 생성 프롬프트 — castle
+
+Use case: illustration-story. Asset: wide background illustration for an original Arthurian fantasy tabletop browser game. A medieval stone castle on a crag above a mist-covered lake at twilight, a ruined gothic arch framing the left edge, old forest on right, winding stone path leading from foreground toward castle. Painterly premium board game illustration, tactile oils, rich dark navy and deep forest greens, restrained gold sunset light in distant windows, sense of secrets and ancient oaths. Landscape 3:2 composition. Main castle on upper left third; lower half quiet dark stone and mist with little detail to support overlaid UI. No characters, no text, no typography, no logos, no watermarks, no borders, no game components. Original art, dramatic but readable, not photographic.

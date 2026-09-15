@@ -606,6 +606,13 @@ export interface SnapshotWireClientToServerEvents {
   "halli:flip": (command: Extract<HalliClientCommand,{kind:"halli:flip"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "halli:bell": (command: Extract<HalliClientCommand,{kind:"halli:bell"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "halli:rematch": (command: Extract<HalliClientCommand,{kind:"halli:rematch"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
+  "avalon:configure": (command: Extract<AvalonClientCommand,{kind:"avalon:configure"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
+  "avalon:ready": (command: Extract<AvalonClientCommand,{kind:"avalon:ready"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
+  "avalon:propose": (command: Extract<AvalonClientCommand,{kind:"avalon:propose"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
+  "avalon:vote": (command: Extract<AvalonClientCommand,{kind:"avalon:vote"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
+  "avalon:quest": (command: Extract<AvalonClientCommand,{kind:"avalon:quest"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
+  "avalon:continue": (command: Extract<AvalonClientCommand,{kind:"avalon:continue"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
+  "avalon:assassinate": (command: Extract<AvalonClientCommand,{kind:"avalon:assassinate"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "spyfall:configure": (command: Extract<SpyfallClientCommand,{kind:"spyfall:configure"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "spyfall:ask": (command: Extract<SpyfallClientCommand,{kind:"spyfall:ask"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "spyfall:answer": (command: Extract<SpyfallClientCommand,{kind:"spyfall:answer"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
@@ -708,3 +715,5 @@ import type { WolfClientCommand } from "./protocol.js";
 import type { LiarClientCommand } from "./protocol.js";
 
 import type { SpyfallClientCommand } from "./protocol.js";
+
+import type { AvalonClientCommand } from "./protocol.js";

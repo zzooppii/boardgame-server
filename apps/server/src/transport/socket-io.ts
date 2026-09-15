@@ -1375,6 +1375,7 @@ function registerResumeHandler(
         runtime.wolfHostSuccession?.resumed(result.data.roomId, result.data.playerId);
         runtime.liarHostSuccession?.resumed(result.data.roomId, result.data.playerId);
         runtime.spyfallHostSuccession?.resumed(result.data.roomId, result.data.playerId);
+        runtime.avalonHostSuccession?.resumed(result.data.roomId, result.data.playerId);
         runtime.sneakyLunchPresence?.resumed(result.data.roomId, result.data.playerId);
         const resumePolicyFollowUp =
           runtime.roomPresencePolicyService.onResume(
@@ -3273,6 +3274,27 @@ function registerSpyfallHandlers(socket: RealtimeSocket, runtime: ApplicationRun
   });
 }
 
+import { AvalonClientCommandSchema } from "@hangul-rummikub/shared";
+function registerAvalonHandlers(socket: RealtimeSocket, runtime: ApplicationRuntime): void {
+  for (const event of ["avalon:configure", "avalon:ready", "avalon:propose", "avalon:vote", "avalon:quest", "avalon:continue", "avalon:assassinate"] as const) socket.on(event, (raw: unknown, acknowledge: (ack: StateSyncWireAck) => void) => {
+    const receivedAt = runtime.clock.now(), command = parseNumberRematch(AvalonClientCommandSchema, raw);
+    if (!command.success || command.output.kind !== event) { acknowledgeIfPresent(acknowledge, failureAck(raw, INVALID_PAYLOAD_ERROR, receivedAt)); return; }
+    void (async () => {
+      const binding = runtime.connectionRegistry.getAuthenticatedBinding(createSocketId(socket.id));
+      if (!binding) { acknowledgeIfPresent(acknowledge, failureAck(raw, UNAUTHENTICATED_ERROR, receivedAt)); return; }
+      if (!isRoomAdmissionCompatible("AVALON", socketAdmissionCapabilities(socket))) {
+        acknowledgeIfPresent(acknowledge, failureAck(raw, {code:"INCOMPATIBLE_GAME_CAPABILITY",message:"AVALON requires V2 capability.",recoverable:false}, receivedAt)); return;
+      }
+      if (!runtime.avalonService) { acknowledgeIfPresent(acknowledge, failureAck(raw, INTERNAL_ERROR, receivedAt)); return; }
+      const result = await runtime.avalonService.command({roomId:binding.roomId,actorPlayerId:binding.playerId,command:command.output,receivedAt,
+        authorization:{isCurrent:()=>socket.connected && isCurrentBinding(runtime,binding)}});
+      if (!result.ok) { acknowledgeIfPresent(acknowledge, failureAck(raw,result.error,receivedAt)); return; }
+      const loaded = await loadSnapshotForSocket(runtime,socket,binding.roomId,binding.playerId);
+      if (loaded && socket.connected && isCurrentBinding(runtime,binding)) acknowledgeIfPresent(acknowledge,snapshotSuccessAck(command.output.requestId,loaded.metadata,loaded.wireSnapshot));
+    })().catch(()=>acknowledgeIfPresent(acknowledge,failureAck(raw,INTERNAL_ERROR,receivedAt)));
+  });
+}
+
 import { LiarClientCommandSchema } from "@hangul-rummikub/shared";
 function registerLiarHandlers(socket: RealtimeSocket, runtime: ApplicationRuntime): void {
   for (const event of ["liar:configure", "liar:clue", "liar:vote", "liar:say", "liar:guess", "liar:nextRound"] as const) socket.on(event, (raw: unknown, acknowledge: (ack: StateSyncWireAck) => void) => {
@@ -3614,6 +3636,7 @@ function registerDisconnectHandler(
     runtime.wolfHostSuccession?.disconnected(binding.roomId, binding.playerId, disconnectedAt);
     runtime.liarHostSuccession?.disconnected(binding.roomId, binding.playerId, disconnectedAt);
     runtime.spyfallHostSuccession?.disconnected(binding.roomId, binding.playerId, disconnectedAt);
+    runtime.avalonHostSuccession?.disconnected(binding.roomId, binding.playerId, disconnectedAt);
     runtime.sneakyLunchPresence?.disconnected(binding.roomId, binding.playerId, disconnectedAt);
     void runtime.roomPresencePolicyService
       .onCurrentDisconnect({
@@ -3717,6 +3740,7 @@ export function registerSocketIoHandlers(
   const unsubscribeWolf = runtime.wolfService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
   const unsubscribeLiar = runtime.liarService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
   const unsubscribeSpyfall = runtime.spyfallService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
+  const unsubscribeAvalon = runtime.avalonService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
   const unsubscribeSneaky = runtime.sneakyLunchService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
   const unsubscribeDrawRelay = runtime.drawRelayService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
   const unsubscribeCityRoleTimeoutApplied = runtime.subscribeCityRoleTimeoutApplied(async data => {
@@ -3791,6 +3815,7 @@ export function registerSocketIoHandlers(
     registerWolfHandlers(socket, runtime);
     registerLiarHandlers(socket, runtime);
     registerSpyfallHandlers(socket, runtime);
+    registerAvalonHandlers(socket, runtime);
     registerSneakyHandlers(socket, runtime);
     registerNumberSubmitHandler(io, socket, runtime);
     registerNumberDrawHandler(io, socket, runtime);
@@ -3834,6 +3859,7 @@ export function registerSocketIoHandlers(
     unsubscribeWolf?.();
     unsubscribeLiar?.();
     unsubscribeSpyfall?.();
+    unsubscribeAvalon?.();
     unsubscribeSneaky?.();
     unsubscribeGameDeadlineApplied();
   };

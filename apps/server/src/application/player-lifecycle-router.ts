@@ -22,6 +22,7 @@ import type { createHalliLifecycle } from "../games/halli-galli/application/life
 import type { createWolfLifecycle } from "../games/wolf-night/application/lifecycle.js";
 import type { createLiarLifecycle } from "../games/liar-game/application/lifecycle.js";
 import type { createSpyfallLifecycle } from "../games/spyfall/application/lifecycle.js";
+import type { createAvalonLifecycle } from "../games/avalon/application/lifecycle.js";
 import type { createSneakyLifecycle } from "../games/sneaky-lunch/application/lifecycle.js";
 import type { DrawRelayStoredGame } from "../games/draw-relay/compatibility/adapter.js";
 import type { createDrawRelayLifecycle } from "../games/draw-relay/application/lifecycle.js";
@@ -106,6 +107,7 @@ export type PlayerLifecycleRouterDependencies = Readonly<{
   wolf?: ReturnType<typeof createWolfLifecycle>;
   liar?: ReturnType<typeof createLiarLifecycle>;
   spyfall?: ReturnType<typeof createSpyfallLifecycle>;
+  avalon?: ReturnType<typeof createAvalonLifecycle>;
   sneaky?: ReturnType<typeof createSneakyLifecycle>;
   drawRelay?: ReturnType<typeof createDrawRelayLifecycle>;
   hangul: LegacyHangulPlayerLifecycleActionRouting;
@@ -152,6 +154,7 @@ export class PlayerLifecycleRouter implements PlayerLifecycleActionRouting {
   readonly #wolf: ReturnType<typeof createWolfLifecycle> | undefined;
   readonly #liar: ReturnType<typeof createLiarLifecycle> | undefined;
   readonly #spyfall: ReturnType<typeof createSpyfallLifecycle> | undefined;
+  readonly #avalon: ReturnType<typeof createAvalonLifecycle> | undefined;
   readonly #sneaky: ReturnType<typeof createSneakyLifecycle> | undefined;
   readonly #drawRelay: ReturnType<typeof createDrawRelayLifecycle> | undefined;
   readonly #hangul: LegacyHangulPlayerLifecycleActionRouting;
@@ -190,6 +193,7 @@ export class PlayerLifecycleRouter implements PlayerLifecycleActionRouting {
     this.#wolf = dependencies.wolf;
     this.#liar = dependencies.liar;
     this.#spyfall = dependencies.spyfall;
+    this.#avalon = dependencies.avalon;
     this.#sneaky = dependencies.sneaky;
     this.#drawRelay = dependencies.drawRelay;
     this.#hangul = dependencies.hangul;
@@ -280,6 +284,9 @@ export class PlayerLifecycleRouter implements PlayerLifecycleActionRouting {
       case "SPYFALL":
         if (!this.#spyfall) throw new Error("SPYFALL lifecycle missing.");
         return this.#spyfall.applyPlayingLeave(input);
+      case "AVALON":
+        if (!this.#avalon) throw new Error("AVALON lifecycle missing.");
+        return this.#avalon.applyPlayingLeave(input);
       case "SNEAKY_LUNCH":
         if (!this.#sneaky) throw new Error("SNEAKY lifecycle missing.");
         return this.#sneaky.applyPlayingLeave(input);
@@ -327,6 +334,7 @@ export class PlayerLifecycleRouter implements PlayerLifecycleActionRouting {
       case "WOLF_NIGHT": return {status:"NO_CHANGE"};
       case "LIAR_GAME": return {status:"NO_CHANGE"};
       case "SPYFALL": return {status:"NO_CHANGE"};
+      case "AVALON": return {status:"NO_CHANGE"};
       case "SNEAKY_LUNCH": return {status:"NO_CHANGE"};
       case "DRAW_RELAY":
         if (!this.#drawRelay) throw new Error("DRAW lifecycle missing.");

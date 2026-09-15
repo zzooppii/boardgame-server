@@ -139,6 +139,7 @@ export class ScheduledTurnRouter {
         case "TRAIN": return this.#train ? await this.#train.handleTurnTimeout(input) : {status:"FAILED"};
         case "CENTURY": return { status: "NO_OP" };
         case "SPIRIT_ISLAND": return { status: "NO_OP" };
+        case "AVALON":
         case "SPACE_CREW": return { status: "NO_OP" };
         case "ARK_NOVA": return { status: "NO_OP" };
         case "JAIPUR": return { status: "NO_OP" };

@@ -444,6 +444,18 @@ export const LiarGuessCommandSchema = v.strictObject({ ...LiarGameIdentity, kind
 export const LiarNextRoundCommandSchema = v.strictObject({ ...LiarGameIdentity, kind: v.literal("liar:nextRound"), payload: v.strictObject({}) });
 export const LiarClientCommandSchema = v.variant("kind", [LiarConfigureCommandSchema, LiarClueCommandSchema, LiarVoteCommandSchema, LiarSayCommandSchema, LiarGuessCommandSchema, LiarNextRoundCommandSchema]);
 export type LiarClientCommand = v.InferOutput<typeof LiarClientCommandSchema>;
+const AvalonIdentity = { protocolVersion: ProtocolVersionSchema, requestId: RequestIdSchema };
+const AvalonGameIdentity = { ...AvalonIdentity, gameId: GameIdSchema, phaseId: TurnIdSchema };
+export const AvalonConfigureCommandSchema = v.strictObject({ ...AvalonIdentity, kind: v.literal("avalon:configure"), expectedRoomRevision: RoomRevisionSchema, payload: AvalonSettingsSchema });
+export const AvalonReadyCommandSchema = v.strictObject({ ...AvalonGameIdentity, kind: v.literal("avalon:ready"), payload: v.strictObject({}) });
+export const AvalonProposeCommandSchema = v.strictObject({ ...AvalonGameIdentity, kind: v.literal("avalon:propose"), payload: v.strictObject({ playerIds: v.pipe(v.array(PlayerIdSchema), v.minLength(2), v.maxLength(5), v.check(ids => new Set(ids).size === ids.length)) }) });
+export const AvalonVoteCommandSchema = v.strictObject({ ...AvalonGameIdentity, kind: v.literal("avalon:vote"), payload: v.strictObject({ agree: v.boolean() }) });
+export const AvalonQuestCommandSchema = v.strictObject({ ...AvalonGameIdentity, kind: v.literal("avalon:quest"), payload: v.strictObject({ card: v.picklist(["SUCCESS", "FAIL"]) }) });
+export const AvalonContinueCommandSchema = v.strictObject({ ...AvalonGameIdentity, kind: v.literal("avalon:continue"), payload: v.strictObject({}) });
+export const AvalonAssassinateCommandSchema = v.strictObject({ ...AvalonGameIdentity, kind: v.literal("avalon:assassinate"), payload: v.strictObject({ playerId: PlayerIdSchema }) });
+export const AvalonClientCommandSchema = v.variant("kind", [AvalonConfigureCommandSchema, AvalonReadyCommandSchema, AvalonProposeCommandSchema, AvalonVoteCommandSchema, AvalonQuestCommandSchema, AvalonContinueCommandSchema, AvalonAssassinateCommandSchema]);
+export type AvalonClientCommand = v.InferOutput<typeof AvalonClientCommandSchema>;
+
 const SpyfallIdentity = { protocolVersion: ProtocolVersionSchema, requestId: RequestIdSchema };
 const SpyfallGameIdentity = { ...SpyfallIdentity, gameId: GameIdSchema, phaseId: TurnIdSchema };
 export const SpyfallConfigureCommandSchema = v.strictObject({ ...SpyfallIdentity, kind: v.literal("spyfall:configure"), expectedRoomRevision: RoomRevisionSchema, payload: SpyfallSettingsSchema });
@@ -615,6 +627,7 @@ export type Phase2ClientCommand = v.InferOutput<
 
 export const ClientCommandSchema = v.variant("kind", [
   LiarConfigureCommandSchema, LiarClueCommandSchema, LiarVoteCommandSchema, LiarSayCommandSchema, LiarGuessCommandSchema,
+  AvalonConfigureCommandSchema, AvalonReadyCommandSchema, AvalonProposeCommandSchema, AvalonVoteCommandSchema, AvalonQuestCommandSchema, AvalonContinueCommandSchema, AvalonAssassinateCommandSchema,
   SpyfallConfigureCommandSchema, SpyfallAskCommandSchema, SpyfallAnswerCommandSchema, SpyfallAccuseCommandSchema, SpyfallVoteCommandSchema, SpyfallSkipCommandSchema, SpyfallRevealCommandSchema, SpyfallGuessCommandSchema,
   WolfConfigureCommandSchema, WolfActCommandSchema, WolfVoteCommandSchema, WolfSayCommandSchema, WolfRematchCommandSchema,
   SneakyConfigureCommandSchema, SneakyEatCommandSchema, SneakyRematchCommandSchema,
@@ -797,3 +810,5 @@ export type SpiritClientCommand = v.InferOutput<typeof SpiritClientCommandSchema
 export const ArkNovaActCommandSchema=v.strictObject({kind:v.literal('arkNova:act'),protocolVersion:ProtocolVersionSchema,
   requestId:RequestIdSchema,gameId:GameIdSchema,expectedGameRevision:GameRevisionSchema,turnId:TurnIdSchema,payload:ArkSoloCommandSchema});
 export type ArkNovaActCommand=v.InferOutput<typeof ArkNovaActCommandSchema>;
+
+import { AvalonSettingsSchema } from "./games/avalon/contracts.js";

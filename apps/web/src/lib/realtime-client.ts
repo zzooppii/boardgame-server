@@ -25,6 +25,7 @@ import { HalliClientCommandSchema, type HalliClientCommand } from "@hangul-rummi
 import { WolfClientCommandSchema, type WolfClientCommand } from "@hangul-rummikub/shared";
 import { LiarClientCommandSchema, type LiarClientCommand } from "@hangul-rummikub/shared";
 import { SpyfallClientCommandSchema, type SpyfallClientCommand } from "@hangul-rummikub/shared";
+import { AvalonClientCommandSchema, type AvalonClientCommand } from "@hangul-rummikub/shared";
 import { DrawClientCommandSchema, type DrawClientCommand } from "@hangul-rummikub/shared";
 import { SneakyClientCommandSchema, type SneakyClientCommand } from "@hangul-rummikub/shared";
 import { safeParse as parseRematch } from "valibot";
@@ -940,6 +941,20 @@ export class RealtimeClient {
         case "spyfall:reveal": this.#socket.emit("spyfall:reveal", command, acknowledge); break;
         case "spyfall:guess": this.#socket.emit("spyfall:guess", command, acknowledge); break;
 
+      }
+    }, validateStateSyncWireAck, ack => hasConsistentSnapshotAcknowledgement(ack) && this.#acceptAcknowledgementSnapshotVersion(ack));
+  }
+  actAvalon(command: AvalonClientCommand): Promise<StateSyncWireAck> {
+    if (!parseRematch(AvalonClientCommandSchema, command).success) return Promise.reject(new RealtimeClientError("INVALID_COMMAND"));
+    return this.#emitAcknowledged(command.kind, command.requestId, acknowledge => {
+      switch (command.kind) {
+        case "avalon:configure": this.#socket.emit("avalon:configure", command, acknowledge); break;
+        case "avalon:ready": this.#socket.emit("avalon:ready", command, acknowledge); break;
+        case "avalon:propose": this.#socket.emit("avalon:propose", command, acknowledge); break;
+        case "avalon:vote": this.#socket.emit("avalon:vote", command, acknowledge); break;
+        case "avalon:quest": this.#socket.emit("avalon:quest", command, acknowledge); break;
+        case "avalon:continue": this.#socket.emit("avalon:continue", command, acknowledge); break;
+        case "avalon:assassinate": this.#socket.emit("avalon:assassinate", command, acknowledge); break;
       }
     }, validateStateSyncWireAck, ack => hasConsistentSnapshotAcknowledgement(ack) && this.#acceptAcknowledgementSnapshotVersion(ack));
   }

@@ -23,6 +23,7 @@ import type { HalliLobbyPlatformSnapshotV2, HalliPlayingPlatformSnapshotV2, Hall
 import type { WolfLobbyPlatformSnapshotV2, WolfPlayingPlatformSnapshotV2, WolfFinishedPlatformSnapshotV2 } from "@hangul-rummikub/shared";
 import type { LiarLobbyPlatformSnapshotV2, LiarPlayingPlatformSnapshotV2, LiarFinishedPlatformSnapshotV2 } from "@hangul-rummikub/shared";
 import type { SpyfallLobbyPlatformSnapshotV2, SpyfallPlayingPlatformSnapshotV2, SpyfallFinishedPlatformSnapshotV2 } from "@hangul-rummikub/shared";
+import type { AvalonLobbyPlatformSnapshotV2, AvalonPlayingPlatformSnapshotV2, AvalonFinishedPlatformSnapshotV2 } from "@hangul-rummikub/shared";
 import type { DrawRelayLobbyPlatformSnapshotV2, DrawRelayPlayingPlatformSnapshotV2, DrawRelayFinishedPlatformSnapshotV2 } from "@hangul-rummikub/shared";
 import type { SneakyLobbyPlatformSnapshotV2, SneakyPlayingPlatformSnapshotV2, SneakyFinishedPlatformSnapshotV2 } from "@hangul-rummikub/shared";
 import {
@@ -69,6 +70,7 @@ export const WEB_SUPPORTED_GAME_TYPES = Object.freeze([
   "SABOTEUR",
   "LIAR_GAME",
   "SPYFALL",
+  "AVALON",
   "AZUL",
   "VEGAS",
   "BURGUNDY",
@@ -120,6 +122,7 @@ export type HalliWebSnapshot = HalliLobbyPlatformSnapshotV2 | HalliPlayingPlatfo
 export type WolfWebSnapshot = WolfLobbyPlatformSnapshotV2 | WolfPlayingPlatformSnapshotV2 | WolfFinishedPlatformSnapshotV2;
 export type LiarWebSnapshot = LiarLobbyPlatformSnapshotV2 | LiarPlayingPlatformSnapshotV2 | LiarFinishedPlatformSnapshotV2;
 export type SpyfallWebSnapshot = SpyfallLobbyPlatformSnapshotV2 | SpyfallPlayingPlatformSnapshotV2 | SpyfallFinishedPlatformSnapshotV2;
+export type AvalonWebSnapshot = AvalonLobbyPlatformSnapshotV2 | AvalonPlayingPlatformSnapshotV2 | AvalonFinishedPlatformSnapshotV2;
 export type SneakyWebSnapshot = SneakyLobbyPlatformSnapshotV2 | SneakyPlayingPlatformSnapshotV2 | SneakyFinishedPlatformSnapshotV2;
 export type CompatibleWebSnapshot =
   | Readonly<{kind: "PLATFORM_V2_ISLAND_SETTLERS"; snapshotVersion: 2; gameType: "ISLAND_SETTLERS"; platformSnapshot: IslandWebSnapshot }>
@@ -147,6 +150,7 @@ export type CompatibleWebSnapshot =
   | Readonly<{kind: "PLATFORM_V2_WOLF_NIGHT"; snapshotVersion: 2; gameType: "WOLF_NIGHT"; platformSnapshot: WolfWebSnapshot }>
   | Readonly<{kind: "PLATFORM_V2_LIAR_GAME"; snapshotVersion: 2; gameType: "LIAR_GAME"; platformSnapshot: LiarWebSnapshot }>
   | Readonly<{kind: "PLATFORM_V2_SPYFALL"; snapshotVersion: 2; gameType: "SPYFALL"; platformSnapshot: SpyfallWebSnapshot }>
+  | Readonly<{kind: "PLATFORM_V2_AVALON"; snapshotVersion: 2; gameType: "AVALON"; platformSnapshot: AvalonWebSnapshot }>
   | Readonly<{kind: "PLATFORM_V2_SNEAKY_LUNCH"; snapshotVersion: 2; gameType: "SNEAKY_LUNCH"; platformSnapshot: SneakyWebSnapshot }>
   | Readonly<{kind: "PLATFORM_V2_DRAW_RELAY"; snapshotVersion: 2; gameType: "DRAW_RELAY"; platformSnapshot: DrawRelayWebSnapshot }>
   | Readonly<{
@@ -249,7 +253,7 @@ function decodePlatformSnapshotV2(
     input.room.gameType !== "HANGUL_TILE" &&
     input.room.gameType !== "NUMBER_TILE" &&
     input.room.gameType !== "GEM_CARD" &&
-    input.room.gameType !== "CITY_ROLE" && input.room.gameType !== "DRAW_RELAY" && input.room.gameType !== "SNEAKY_LUNCH" && input.room.gameType !== "WOLF_NIGHT" && input.room.gameType !== "LIAR_GAME" && input.room.gameType !== "SPYFALL" && input.room.gameType !== "WORD_DUET" && input.room.gameType !== "TRAIN" && input.room.gameType !== "CENTURY" && input.room.gameType !== "SPIRIT_ISLAND" && input.room.gameType !== "SPACE_CREW" && input.room.gameType !== "ARK_NOVA" && input.room.gameType !== "JAIPUR" && input.room.gameType !== "LOVE_LETTER" && input.room.gameType !== "GURYONGTU" && input.room.gameType !== "AZUL" && input.room.gameType !== "VEGAS" && input.room.gameType !== "BURGUNDY" && input.room.gameType !== "CARCASSONNE" && input.room.gameType !== "CLUE" && input.room.gameType !== "TERRORSCAPE" && input.room.gameType !== "PANDEMIC" && input.room.gameType !== "PERCH" && input.room.gameType !== "SABOTEUR" && input.room.gameType !== "LOST_CITIES" && input.room.gameType !== "SPLENDOR" && input.room.gameType !== "HALLI_GALLI" && input.room.gameType !== "ISLAND_SETTLERS"
+    input.room.gameType !== "CITY_ROLE" && input.room.gameType !== "DRAW_RELAY" && input.room.gameType !== "SNEAKY_LUNCH" && input.room.gameType !== "WOLF_NIGHT" && input.room.gameType !== "LIAR_GAME" && input.room.gameType !== "SPYFALL" && input.room.gameType !== "AVALON" && input.room.gameType !== "WORD_DUET" && input.room.gameType !== "TRAIN" && input.room.gameType !== "CENTURY" && input.room.gameType !== "SPIRIT_ISLAND" && input.room.gameType !== "SPACE_CREW" && input.room.gameType !== "ARK_NOVA" && input.room.gameType !== "JAIPUR" && input.room.gameType !== "LOVE_LETTER" && input.room.gameType !== "GURYONGTU" && input.room.gameType !== "AZUL" && input.room.gameType !== "VEGAS" && input.room.gameType !== "BURGUNDY" && input.room.gameType !== "CARCASSONNE" && input.room.gameType !== "CLUE" && input.room.gameType !== "TERRORSCAPE" && input.room.gameType !== "PANDEMIC" && input.room.gameType !== "PERCH" && input.room.gameType !== "SABOTEUR" && input.room.gameType !== "LOST_CITIES" && input.room.gameType !== "SPLENDOR" && input.room.gameType !== "HALLI_GALLI" && input.room.gameType !== "ISLAND_SETTLERS"
   ) {
     return typeof input.room.gameType === "string"
       ? { kind: "INCOMPATIBLE", reason: "UNSUPPORTED_GAME_TYPE" }
@@ -386,6 +390,11 @@ function decodePlatformSnapshotV2(
     if (!isSpyfallSnapshot(snapshot)) return { kind: "INCOMPATIBLE", reason: "INVALID_V2_PROJECTION" };
     return { kind: "COMPATIBLE", value: { kind: "PLATFORM_V2_SPYFALL", snapshotVersion: 2, gameType: "SPYFALL", platformSnapshot: snapshot } };
   }
+  if (input.room.gameType === "AVALON") {
+    const snapshot = validation.value;
+    if (!isAvalonSnapshot(snapshot)) return { kind: "INCOMPATIBLE", reason: "INVALID_V2_PROJECTION" };
+    return { kind: "COMPATIBLE", value: { kind: "PLATFORM_V2_AVALON", snapshotVersion: 2, gameType: "AVALON", platformSnapshot: snapshot } };
+  }
   if (input.room.gameType === "LIAR_GAME") {
     const snapshot = validation.value;
     if (!isLiarSnapshot(snapshot)) return { kind: "INCOMPATIBLE", reason: "INVALID_V2_PROJECTION" };
@@ -511,3 +520,4 @@ function isHalliSnapshot(s: PlatformSnapshotV2): s is HalliWebSnapshot { return 
 function isWolfSnapshot(s: PlatformSnapshotV2): s is WolfWebSnapshot { return s.room.gameType === "WOLF_NIGHT" && (s.game === null || s.game.gameType === "WOLF_NIGHT"); }
 function isLiarSnapshot(s: PlatformSnapshotV2): s is LiarWebSnapshot { return s.room.gameType === "LIAR_GAME" && (s.game === null || s.game.gameType === "LIAR_GAME"); }
 function isSpyfallSnapshot(s: PlatformSnapshotV2): s is SpyfallWebSnapshot { return s.room.gameType === "SPYFALL" && (s.game === null || s.game.gameType === "SPYFALL"); }
+function isAvalonSnapshot(s: PlatformSnapshotV2): s is AvalonWebSnapshot { return s.room.gameType === "AVALON" && (s.game === null || s.game.gameType === "AVALON"); }

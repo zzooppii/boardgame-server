@@ -27,9 +27,11 @@ import type { HalliStoredGame } from "../games/halli-galli/compatibility/adapter
 import type { WolfStoredGame } from "../games/wolf-night/compatibility/adapter.js";
 import type { LiarStoredGame } from "../games/liar-game/compatibility/adapter.js";
 import type { SpyfallStoredGame } from "../games/spyfall/compatibility/adapter.js";
+import type { AvalonStoredGame } from "../games/avalon/compatibility/adapter.js";
 import type { WolfSettings } from "@hangul-rummikub/shared";
 import type { LiarSettings } from "@hangul-rummikub/shared";
 import type { SpyfallSettings } from "@hangul-rummikub/shared";
+import type { AvalonSettings } from "@hangul-rummikub/shared";
 import type { SneakyLunchStoredGame } from "../games/sneaky-lunch/compatibility/adapter.js";
 import type { LunchSettings } from "../games/sneaky-lunch/domain/game.js";
 import type { GemGameState } from "../games/gem-card/domain/game-state.js";
@@ -122,6 +124,7 @@ export type SneakyLunchRoomRecord = RoomRecordBase & Readonly<{ gameType: "SNEAK
 export type WolfRoomRecord = RoomRecordBase & Readonly<{ gameType: "WOLF_NIGHT"; game: WolfStoredGame | null; departedPlayerIds?: readonly PlayerId[]; settings?: WolfSettings }>;
 export type LiarRoomRecord = RoomRecordBase & Readonly<{ gameType: "LIAR_GAME"; game: LiarStoredGame | null; departedPlayerIds?: readonly PlayerId[]; settings?: LiarSettings }>;
 export type SpyfallRoomRecord = RoomRecordBase & Readonly<{ gameType: "SPYFALL"; game: SpyfallStoredGame | null; departedPlayerIds?: readonly PlayerId[]; settings?: SpyfallSettings }>;
+export type AvalonRoomRecord = RoomRecordBase & Readonly<{ gameType: "AVALON"; game: AvalonStoredGame | null; departedPlayerIds?: readonly PlayerId[]; settings?: AvalonSettings }>;
 import type { SplendorSettings } from "@hangul-rummikub/shared";
 export type SplendorRoomRecord = RoomRecordBase & Readonly<{ gameType: "SPLENDOR"; settings?: SplendorSettings; game: SplendorStoredGame | null; departedPlayerIds?: readonly PlayerId[] }>;
 export type GuryongtuRoomRecord = RoomRecordBase & Readonly<{ gameType: "GURYONGTU"; game: GuryongtuStoredGame | null; departedPlayerIds?: readonly PlayerId[] }>;
@@ -145,7 +148,7 @@ export type LostCitiesRoomRecord = RoomRecordBase & Readonly<{ gameType: "LOST_C
 export type HalliRoomRecord = RoomRecordBase & Readonly<{ gameType: "HALLI_GALLI"; game: HalliStoredGame | null; departedPlayerIds?: readonly PlayerId[] }>;
 export type IslandRoomRecord = RoomRecordBase & Readonly<{ gameType: "ISLAND_SETTLERS"; game: IslandStoredGame | null; departedPlayerIds?: readonly PlayerId[] }>;
 export type ArkNovaRoomRecord = RoomRecordBase & Readonly<{gameType:"ARK_NOVA";game:ArkNovaStoredGame|null}>;
-export type RoomRecord = ArkNovaRoomRecord | SpaceCrewRoomRecord | TrainRoomRecord | CenturyRoomRecord | SpiritRoomRecord | GuryongtuRoomRecord | AzulRoomRecord | VegasRoomRecord | BurgundyRoomRecord | CarcassonneRoomRecord | ClueRoomRecord | TerrorscapeRoomRecord | PandemicRoomRecord | PerchRoomRecord | SaboteurRoomRecord | LostCitiesRoomRecord | DuetRoomRecord | JaipurRoomRecord | LoveLetterRoomRecord | SplendorRoomRecord | IslandRoomRecord | HalliRoomRecord | WolfRoomRecord | LiarRoomRecord | SpyfallRoomRecord | HangulRoomRecord | NumberTileRoomRecord | GemCardRoomRecord | CityRoleRoomRecord | DrawRelayRoomRecord | SneakyLunchRoomRecord;
+export type RoomRecord = ArkNovaRoomRecord | SpaceCrewRoomRecord | TrainRoomRecord | CenturyRoomRecord | SpiritRoomRecord | GuryongtuRoomRecord | AzulRoomRecord | VegasRoomRecord | BurgundyRoomRecord | CarcassonneRoomRecord | ClueRoomRecord | TerrorscapeRoomRecord | PandemicRoomRecord | PerchRoomRecord | SaboteurRoomRecord | LostCitiesRoomRecord | DuetRoomRecord | JaipurRoomRecord | LoveLetterRoomRecord | SplendorRoomRecord | IslandRoomRecord | HalliRoomRecord | WolfRoomRecord | LiarRoomRecord | SpyfallRoomRecord | AvalonRoomRecord | HangulRoomRecord | NumberTileRoomRecord | GemCardRoomRecord | CityRoleRoomRecord | DrawRelayRoomRecord | SneakyLunchRoomRecord;
 
 type WithoutStorageRevision<TRoom> = TRoom extends RoomRecord
   ? Omit<TRoom, "storageRevision">

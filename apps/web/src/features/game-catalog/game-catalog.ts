@@ -45,6 +45,7 @@ export const GAME_CATALOG = Object.freeze([
   Object.freeze({ gameType: "LOST_CITIES", displayName: "로스트시티", description: "일반판·확장판을 골라 탐험에 투자하고, 3라운드 합계 점수를 겨루는 2인 카드 게임입니다." }),
   Object.freeze({ gameType: "SABOTEUR", displayName: "사보타지", description: "3~10명이 비밀 역할을 숨기고 광산의 길을 잇거나 방해하는 3라운드 보드게임입니다." }),
   Object.freeze({ gameType: "LIAR_GAME", displayName: "라이어게임", description: "4~8명이 설명 속 거짓말을 찾아내는 비밀 제시어·토론·투표 게임입니다." }),
+  Object.freeze({ gameType: "AVALON", displayName: "아발론", description: "원탁에 숨은 악을 찾아라. 5~10명이 비밀 역할과 원정 투표로 겨루는 중세 판타지 추리 게임." }),
   Object.freeze({ gameType: "SPYFALL", displayName: "스파이폴", description: "3~8명, 질문 속에 숨은 스파이를 찾아라. 비밀 장소와 첩보 테이블에서 펼치는 대화 추리 게임." }),
   Object.freeze({ gameType: "AZUL", displayName: "아줄", description: "아름다운 타일로 나만의 벽을 완성하는 2~4인 전략 게임입니다." }),
   Object.freeze({ gameType: "VEGAS", displayName: "라스베이거스", description: "2~5명이 주사위로 카지노를 겨루는 게임. 동률의 반전과 4라운드의 승부!" }),

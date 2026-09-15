@@ -4,8 +4,10 @@ import { BurgundyScreen } from "./features/burgundy/BurgundyScreen.js";
 import "./features/burgundy/burgundy.css";
 import { LiarGameScreen } from "./features/liar-game/LiarGameScreen.js";
 import { SpyfallGameScreen } from "./features/spyfall/SpyfallGameScreen.js";
+import { AvalonGameScreen } from "./features/avalon/AvalonGameScreen.js";
 import "./features/liar-game/liar-game.css";
 import "./features/spyfall/spyfall.css";
+import "./features/avalon/avalon.css";
 import "./features/lobby/room-game-controls.css";
 import { RoomGameControls } from "./features/lobby/RoomGameControls.js";
 import { SplendorScreen } from "./features/splendor/SplendorScreen.js";
@@ -570,6 +572,13 @@ export function App() {
     if (roomView.kind === "SPYFALL") {
       return <ReconnectBoundary {...recovery}><SpyfallGameScreen snapshot={roomView.snapshot}
         connected={app.connectionState === "CONNECTED" && !app.sessionReplaced && !app.resumePending && !app.reconnectNeeded} onCommand={app.actSpyfall} onRematch={() => app.selectRoomGame("SPYFALL")}
+        onStart={app.startGame} onLeave={app.leaveRoom} onCopy={() => app.copyInvitation(invitationUrl)}
+        pending={app.operationLabel !== null || app.roomLeavePending || app.gameStartPending}
+        error={app.errorMessage} connectionLabel={connectionLabel}/></ReconnectBoundary>;
+    }
+    if (roomView.kind === "AVALON") {
+      return <ReconnectBoundary {...recovery}><AvalonGameScreen snapshot={roomView.snapshot}
+        connected={app.connectionState === "CONNECTED" && !app.sessionReplaced && !app.resumePending && !app.reconnectNeeded} onCommand={app.actAvalon} onRematch={() => app.selectRoomGame("AVALON")}
         onStart={app.startGame} onLeave={app.leaveRoom} onCopy={() => app.copyInvitation(invitationUrl)}
         pending={app.operationLabel !== null || app.roomLeavePending || app.gameStartPending}
         error={app.errorMessage} connectionLabel={connectionLabel}/></ReconnectBoundary>;

@@ -68,7 +68,7 @@ async function harness(t: TestContext, count = 3) {
 test("same room: every supported game can be selected and started by its host without ready commands", async t => {
   for (const gameType of SUPPORTED_GAME_TYPES) {
     await t.test(gameType, async t => {
-      const h = await harness(t, gameType === "ARK_NOVA" ? 1 : gameType === "LIAR_GAME" ? 4 : (gameType === "WORD_DUET" || gameType === "JAIPUR" || gameType === "GURYONGTU" || gameType === "LOST_CITIES") ? 2 : 3), before = await h.sync();
+      const h = await harness(t, gameType === "AVALON" ? 5 : gameType === "ARK_NOVA" ? 1 : gameType === "LIAR_GAME" ? 4 : (gameType === "WORD_DUET" || gameType === "JAIPUR" || gameType === "GURYONGTU" || gameType === "LOST_CITIES") ? 2 : 3), before = await h.sync();
       const selected = h.success(await h.send(h.host, h.selection(before, gameType)));
       assert.equal(selected.room.roomId, before.room.roomId); assert.equal(selected.room.roomCode, before.room.roomCode);
       assert.deepEqual(selected.room.players.map(p => [p.playerId, p.nickname, p.isHost]), before.room.players.map(p => [p.playerId, p.nickname, p.isHost]));
@@ -145,7 +145,7 @@ test("six players remain in a four-player game's lobby, start is blocked", async
 
 test("every game's finished roster returns only remaining members to the same room", async t => {
   for (const gameType of SUPPORTED_GAME_TYPES) await t.test(gameType, async t => {
-    const h = await harness(t, gameType === "ARK_NOVA" ? 1 : gameType === "LIAR_GAME" ? 4 : (gameType === "WORD_DUET" || gameType === "JAIPUR" || gameType === "GURYONGTU" || gameType === "LOST_CITIES") ? 2 : 3);
+    const h = await harness(t, gameType === "AVALON" ? 5 : gameType === "ARK_NOVA" ? 1 : gameType === "LIAR_GAME" ? 4 : (gameType === "WORD_DUET" || gameType === "JAIPUR" || gameType === "GURYONGTU" || gameType === "LOST_CITIES") ? 2 : 3);
     h.success(await h.send(h.host, h.selection(await h.sync(), gameType)));
     const prepared = await h.readyAll();
     h.success(await h.send(h.host, h.startCommand(prepared)));

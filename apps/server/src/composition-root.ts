@@ -30,6 +30,7 @@ import { HalliHostSuccession } from "./games/halli-galli/application/host-succes
 import { WolfHostSuccession } from "./games/wolf-night/application/host-succession.js";
 import { LiarHostSuccession } from "./games/liar-game/application/host-succession.js";
 import { SpyfallHostSuccession } from "./games/spyfall/application/host-succession.js";
+import { AvalonHostSuccession } from "./games/avalon/application/host-succession.js";
 import { IslandService } from "./games/island/application/service.js";
 import { SplendorService } from "./games/splendor/application/service.js";
 import { TrainService } from "./games/train/application/service.js";
@@ -53,6 +54,7 @@ import { HalliService } from "./games/halli-galli/application/service.js";
 import { WolfService } from "./games/wolf-night/application/service.js";
 import { LiarService } from "./games/liar-game/application/service.js";
 import { SpyfallService } from "./games/spyfall/application/service.js";
+import { AvalonService } from "./games/avalon/application/service.js";
 import { createIslandLifecycle } from "./games/island/application/lifecycle.js";
 import { createSplendorLifecycle } from "./games/splendor/application/lifecycle.js";
 import { createTrainLifecycle } from "./games/train/application/lifecycle.js";
@@ -76,6 +78,7 @@ import { createHalliLifecycle } from "./games/halli-galli/application/lifecycle.
 import { createWolfLifecycle } from "./games/wolf-night/application/lifecycle.js";
 import { createLiarLifecycle } from "./games/liar-game/application/lifecycle.js";
 import { createSpyfallLifecycle } from "./games/spyfall/application/lifecycle.js";
+import { createAvalonLifecycle } from "./games/avalon/application/lifecycle.js";
 import { SneakyLunchService } from "./games/sneaky-lunch/application/service.js";
 import { SneakyLunchPresence } from "./games/sneaky-lunch/application/presence.js";
 import { createSneakyLifecycle } from "./games/sneaky-lunch/application/lifecycle.js";
@@ -214,6 +217,7 @@ export type ApplicationRuntime = Readonly<{
   wolfService?: WolfService;
   liarService?: LiarService;
   spyfallService?: SpyfallService;
+  avalonService?: AvalonService;
   islandHostSuccession?: IslandHostSuccession;
   splendorHostSuccession?: SplendorHostSuccession;
   trainHostSuccession?: TrainHostSuccession;
@@ -238,6 +242,7 @@ export type ApplicationRuntime = Readonly<{
   wolfHostSuccession?: WolfHostSuccession;
   liarHostSuccession?: LiarHostSuccession;
   spyfallHostSuccession?: SpyfallHostSuccession;
+  avalonHostSuccession?: AvalonHostSuccession;
   sneakyLunchService?: SneakyLunchService;
   sneakyLunchPresence?: SneakyLunchPresence;
   drawRelayService?: DrawRelayService;
@@ -369,6 +374,7 @@ export function createApplicationRuntime(
       { gameType: "WOLF_NIGHT" },
       { gameType: "LIAR_GAME" },
       { gameType: "SPYFALL" },
+      { gameType: "AVALON" },
     ],
   );
   gameRegistry.getRequired(LEGACY_V1_DEFAULT_GAME_TYPE);
@@ -421,6 +427,7 @@ export function createApplicationRuntime(
     wolf: createWolfLifecycle(),
     liar: createLiarLifecycle(),
     spyfall: createSpyfallLifecycle(),
+    avalon: createAvalonLifecycle(),
     sneaky: createSneakyLifecycle(),
   });
   const roomCodeGenerator = new RandomRoomCodeGenerator(randomSource);
@@ -861,6 +868,13 @@ export function createApplicationRuntime(
     const room = await persistence.findById(roomId);
     if (room?.gameType === "SPYFALL" && room.phase === "FINISHED" && room.game) await onGameFinished({ roomId, gameId: room.game.gameId });
   });
+  const avalonService = new AvalonService({ roomRepository: persistence, roomUnitOfWork: persistence, idempotencyRepository: persistence,
+    roomMutationExecutor, presence: presenceReader, clock, ids: idGenerator, random: randomSource, turnScheduler });
+  const avalonHostSuccession = new AvalonHostSuccession(avalonService.deps, roomId => avalonService.notify(roomId));
+  avalonService.subscribe(async roomId => {
+    const room = await persistence.findById(roomId);
+    if (room?.gameType === "AVALON" && room.phase === "FINISHED" && room.game) await onGameFinished({ roomId, gameId: room.game.gameId });
+  });
   const liarService = new LiarService({ roomRepository: persistence, roomUnitOfWork: persistence, idempotencyRepository: persistence,
     roomMutationExecutor, presence: presenceReader, clock, ids: idGenerator, random: randomSource, turnScheduler, prompts: new CuratedLiarPrompts() });
   const liarHostSuccession = new LiarHostSuccession(liarService.deps, roomId => liarService.notify(roomId));
@@ -961,6 +975,7 @@ export function createApplicationRuntime(
     wolf: { gameType: "WOLF_NIGHT", start: input => wolfService.start(input) },
     liar: { gameType: "LIAR_GAME", start: input => liarService.start(input) },
     spyfall: { gameType: "SPYFALL", start: input => spyfallService.start(input) },
+    avalon: { gameType: "AVALON", start: input => avalonService.start(input) },
     sneaky: { gameType: "SNEAKY_LUNCH", start: input => sneakyLunchService.start(input) },
     cityRole: { gameType: "CITY_ROLE", start: input => cityRoleStartService.start(input) },
     gemCard: { gameType: "GEM_CARD", start: input => gemCardStartService.start(input) },
@@ -1184,6 +1199,7 @@ export function createApplicationRuntime(
     wolfService,
     liarService,
     spyfallService,
+    avalonService,
     islandHostSuccession,
     splendorHostSuccession,
     trainHostSuccession,
@@ -1208,6 +1224,7 @@ export function createApplicationRuntime(
     wolfHostSuccession,
     liarHostSuccession,
     spyfallHostSuccession,
+    avalonHostSuccession,
     sneakyLunchService,
     sneakyLunchPresence,
     subscribeCityRoleTimeoutApplied(listener) { return cityRoleTimeoutService.subscribeApplied(listener); },
@@ -1282,6 +1299,7 @@ export function createApplicationRuntime(
       wolfHostSuccession.start();
       liarHostSuccession.start();
       spyfallHostSuccession.start();
+      avalonHostSuccession.start();
       roomPolicyScheduler.start();
       turnScheduler.start();
       gameDeadlineScheduler.start();
@@ -1324,6 +1342,7 @@ export function createApplicationRuntime(
       wolfHostSuccession.stop();
       liarHostSuccession.stop();
       spyfallHostSuccession.stop();
+      avalonHostSuccession.stop();
       roomPolicyScheduler.stop();
       overdueTurnSweeper.stop();
       overdueGameDeadlineSweeper.stop();

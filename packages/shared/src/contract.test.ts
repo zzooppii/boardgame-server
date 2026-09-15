@@ -1225,8 +1225,8 @@ test("Room phase와 session replacement notification은 exhaustive shape를 가�
   );
 });
 
-test("GameType runtime contract는 정확히 31개의 구현된 게임을 지원한다", () => {
-  assert.deepEqual(SUPPORTED_GAME_TYPES, ["HANGUL_TILE", "NUMBER_TILE", "GEM_CARD", "CITY_ROLE", "DRAW_RELAY", "SNEAKY_LUNCH", "WOLF_NIGHT", "HALLI_GALLI", "ISLAND_SETTLERS", "SPLENDOR", "JAIPUR", "ARK_NOVA", "SPACE_CREW", "TRAIN", "CENTURY", "SPIRIT_ISLAND", "LOVE_LETTER", "GURYONGTU", "WORD_DUET", "LOST_CITIES", "SABOTEUR", "LIAR_GAME", "SPYFALL", "AZUL", "VEGAS", "BURGUNDY", "CARCASSONNE", "CLUE", "TERRORSCAPE", "PANDEMIC", "PERCH"]);
+test("GameType runtime contract는 정확히 32개의 구현된 게임을 지원한다", () => {
+  assert.deepEqual(SUPPORTED_GAME_TYPES, ["HANGUL_TILE", "NUMBER_TILE", "GEM_CARD", "CITY_ROLE", "DRAW_RELAY", "SNEAKY_LUNCH", "WOLF_NIGHT", "HALLI_GALLI", "ISLAND_SETTLERS", "SPLENDOR", "JAIPUR", "ARK_NOVA", "SPACE_CREW", "TRAIN", "CENTURY", "SPIRIT_ISLAND", "LOVE_LETTER", "GURYONGTU", "WORD_DUET", "LOST_CITIES", "SABOTEUR", "LIAR_GAME", "SPYFALL", "AVALON", "AZUL", "VEGAS", "BURGUNDY", "CARCASSONNE", "CLUE", "TERRORSCAPE", "PANDEMIC", "PERCH"]);
   assert.equal(Object.isFrozen(SUPPORTED_GAME_TYPES), true);
 
   const hangul = v.safeParse(GameTypeSchema, "HANGUL_TILE");
@@ -4679,6 +4679,13 @@ test("runtime Socket.IO map은 Number events를 additive하게 제공하고 lega
     | "draw:draftSave" | "draw:submitDrawing" | "draw:submitGuess" | "draw:revealNext" | "draw:rematch" | "draw:configure"
     | "splendor:configure" | "splendor:act" | "splendor:rematch"
     | "halli:flip" | "halli:bell" | "halli:rematch"
+    | "avalon:configure"
+    | "avalon:ready"
+    | "avalon:propose"
+    | "avalon:vote"
+    | "avalon:quest"
+    | "avalon:continue"
+    | "avalon:assassinate"
     | "spyfall:configure" | "spyfall:ask" | "spyfall:answer" | "spyfall:accuse" | "spyfall:vote" | "spyfall:skip" | "spyfall:reveal" | "spyfall:guess"
     | "liar:configure" | "liar:clue" | "liar:vote" | "liar:say" | "liar:guess"
     | "liar:nextRound"

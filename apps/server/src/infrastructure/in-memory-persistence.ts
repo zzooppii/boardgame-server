@@ -27,9 +27,11 @@ import { HalliGameStateAdapter, type HalliLifecycle } from "../games/halli-galli
 import { WolfGameStateAdapter, type WolfLifecycle } from "../games/wolf-night/compatibility/adapter.js";
 import { LiarGameStateAdapter, type LiarLifecycle } from "../games/liar-game/compatibility/adapter.js";
 import { SpyfallGameStateAdapter, type SpyfallLifecycle } from "../games/spyfall/compatibility/adapter.js";
+import { AvalonGameStateAdapter, type AvalonLifecycle } from "../games/avalon/compatibility/adapter.js";
 import { WolfSettingsSchema } from "@hangul-rummikub/shared";
 import { LiarSettingsSchema } from "@hangul-rummikub/shared";
 import { SpyfallSettingsSchema } from "@hangul-rummikub/shared";
+import { AvalonSettingsSchema } from "@hangul-rummikub/shared";
 import { GemCardGameStateAdapter, type GemCardGameStateStorage, type GemCardGameLifecycleInspection } from "../games/gem-card/compatibility/gem-card-game-state-adapter.js";
 import { CityRoleGameStateAdapter, type CityRoleGameStateStorage, type CityRoleGameLifecycleInspection } from "../games/city-role/compatibility/city-role-game-state-adapter.js";
 import type {
@@ -160,6 +162,7 @@ type RoomGameLifecycleInspection =
   | Readonly<{gameType:"WOLF_NIGHT";inspection:WolfLifecycle}>
   | Readonly<{gameType:"LIAR_GAME";inspection:LiarLifecycle}>
   | Readonly<{gameType:"SPYFALL";inspection:SpyfallLifecycle}>
+  | Readonly<{gameType:"AVALON";inspection:AvalonLifecycle}>
   | Readonly<{gameType:"SNEAKY_LUNCH";inspection:SneakyLunchLifecycle}>
   | Readonly<{gameType:"DRAW_RELAY";inspection:DrawRelayLifecycle}>
   | Readonly<{ gameType: "CITY_ROLE"; inspection: CityRoleGameLifecycleInspection }>
@@ -457,6 +460,15 @@ function cloneRoomWriteCandidate(
       if (game && JSON.stringify(settings) !== JSON.stringify(game.state.settings)) throw new Error("SPYFALL settings changed during game.");
       return Object.freeze({...shell, gameType:"SPYFALL", game, departedPlayerIds, settings});
     }
+    case "AVALON": {
+      const adapter = new AvalonGameStateAdapter(), game = candidate.game === null ? null : adapter.cloneAndValidate(candidate.game);
+      validateRoomGameCoherence(shell.phase, shell.players, game, () => game === null ? null : adapter.inspectLifecycle(game));
+      const departedPlayerIds = Object.freeze([...(candidate.departedPlayerIds ?? [])]);
+      if (new Set(departedPlayerIds).size !== departedPlayerIds.length || departedPlayerIds.some(id => !shell.players.some(p => p.playerId === id)) || shell.phase === "LOBBY" && departedPlayerIds.length > 0) throw new Error("Invalid departed AVALON roster.");
+      const settings = v.parse(AvalonSettingsSchema, candidate.settings ?? { roleSet: "INTRIGUE" });
+      if (game && JSON.stringify(settings) !== JSON.stringify(game.state.settings)) throw new Error("AVALON settings changed during game.");
+      return Object.freeze({...shell, gameType:"AVALON", game, departedPlayerIds, settings});
+    }
     case "LIAR_GAME": {
       const adapter = new LiarGameStateAdapter(), game = candidate.game === null ? null : adapter.cloneAndValidate(candidate.game);
       validateRoomGameCoherence(shell.phase, shell.players, game, () => game === null ? null : adapter.inspectLifecycle(game));
@@ -556,6 +568,7 @@ function validateRoomGameCoherence(
     | WolfLifecycle
     | LiarLifecycle
     | SpyfallLifecycle
+    | AvalonLifecycle
     | SneakyLunchLifecycle
     | NumberTileGameLifecycleInspection
     | null,
@@ -629,6 +642,7 @@ function persistRoom(
     case "WOLF_NIGHT":
     case "LIAR_GAME":
     case "SPYFALL":
+    case "AVALON":
     case "SNEAKY_LUNCH":
       return Object.freeze({ ...detached, storageRevision: revision });
   }
@@ -674,6 +688,7 @@ function inspectRoomGame(
     case "WOLF_NIGHT": return {gameType:"WOLF_NIGHT",inspection:new WolfGameStateAdapter().inspectLifecycle(room.game)};
     case "LIAR_GAME": return {gameType:"LIAR_GAME",inspection:new LiarGameStateAdapter().inspectLifecycle(room.game)};
     case "SPYFALL": return {gameType:"SPYFALL",inspection:new SpyfallGameStateAdapter().inspectLifecycle(room.game)};
+    case "AVALON": return {gameType:"AVALON",inspection:new AvalonGameStateAdapter().inspectLifecycle(room.game)};
     case "SNEAKY_LUNCH": return {gameType:"SNEAKY_LUNCH",inspection:new SneakyLunchGameStateAdapter().inspectLifecycle(room.game)};
     case "DRAW_RELAY": return {gameType:"DRAW_RELAY",inspection:new DrawRelayGameStateAdapter().inspectLifecycle(room.game)};
     case "HANGUL_TILE":

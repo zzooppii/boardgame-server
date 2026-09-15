@@ -23,6 +23,7 @@ import type { HalliStoredGame } from "../games/halli-galli/compatibility/adapter
 import type { WolfStoredGame } from "../games/wolf-night/compatibility/adapter.js";
 import type { LiarStoredGame } from "../games/liar-game/compatibility/adapter.js";
 import type { SpyfallStoredGame } from "../games/spyfall/compatibility/adapter.js";
+import type { AvalonStoredGame } from "../games/avalon/compatibility/adapter.js";
 import type { SneakyLunchStoredGame } from "../games/sneaky-lunch/compatibility/adapter.js";
 import type { DrawRelayStoredGame } from "../games/draw-relay/compatibility/adapter.js";
 import type { PlayingGemGameState } from "../games/gem-card/domain/game-state.js";
@@ -95,10 +96,11 @@ export function createNextTurn(
 
 export function toScheduledTurnDeadline(
   roomId: RoomId,
-  game: ArkNovaStoredGame | SpaceCrewStoredGame | TrainStoredGame | CenturyStoredGame | SpiritStoredGame | PlayingGameState | PlayingNumberTileGameState | PlayingGemGameState | CityRoleStoredGame | DrawRelayStoredGame | SneakyLunchStoredGame | WolfStoredGame | LiarStoredGame | SpyfallStoredGame | DuetStoredGame | JaipurStoredGame | LoveLetterStoredGame | GuryongtuStoredGame | AzulStoredGame | VegasStoredGame | BurgundyStoredGame | CarcassonneStoredGame | ClueStoredGame | TerrorscapeStoredGame | PandemicStoredGame | PerchStoredGame | SaboteurStoredGame | LostCitiesStoredGame | SplendorStoredGame | HalliStoredGame | IslandStoredGame,
+  game: ArkNovaStoredGame | SpaceCrewStoredGame | TrainStoredGame | CenturyStoredGame | SpiritStoredGame | PlayingGameState | PlayingNumberTileGameState | PlayingGemGameState | CityRoleStoredGame | DrawRelayStoredGame | SneakyLunchStoredGame | WolfStoredGame | LiarStoredGame | SpyfallStoredGame | AvalonStoredGame | DuetStoredGame | JaipurStoredGame | LoveLetterStoredGame | GuryongtuStoredGame | AzulStoredGame | VegasStoredGame | BurgundyStoredGame | CarcassonneStoredGame | ClueStoredGame | TerrorscapeStoredGame | PandemicStoredGame | PerchStoredGame | SaboteurStoredGame | LostCitiesStoredGame | SplendorStoredGame | HalliStoredGame | IslandStoredGame,
 ): ScheduledTurnDeadline {
   if ("state" in game && !("windowStartedAt" in game)) {
     if (!("rulesVersion" in game.state)) throw new Error("Space Crew has no turn deadline.");
+    if (game.state.rulesVersion === "avalon-base-v1") throw new Error("Avalon has no turn deadline.");
     if (game.state.rulesVersion === "duet-2025-ko-v1") throw new Error("Duet has no turn deadline.");
     if ((game.state.rulesVersion === "train-usa-classic-v1" || game.state.rulesVersion === "train-korea-original-v1" || game.state.rulesVersion === "train-japan-original-v1")) {
       if (game.state.deadlineAt === null) throw new Error("Train deadline missing.");
@@ -213,7 +215,8 @@ export async function scheduleCurrentTurnBestEffort(
 
     if ("state" in game && !("windowStartedAt" in game)) {
       if (!("rulesVersion" in game.state)) return false;
-      if (game.state.rulesVersion === "duet-2025-ko-v1") return false;
+      if (game.state.rulesVersion === "avalon-base-v1") throw new Error("Avalon has no turn deadline.");
+    if (game.state.rulesVersion === "duet-2025-ko-v1") return false;
       if (game.state.rulesVersion === "century-spice-road-v1") return false;
       if (game.state.rulesVersion === "spirit-island-core-v2") return false;
       if (game.state.rulesVersion === "jaipur-base-v1") return false;
