@@ -78,3 +78,62 @@ test('Duel draft projections hide the next wonder batch and board arrays use lay
  const base=fixture({pantheon:false,agora:false});assert.equal(view(base,0).wonders.length,4);assert.deepEqual(view(base,0).board,[]);
  let s=fixture();const unshown=s.wonders.slice(4).map(w=>w.id);for(const id of unshown)assert.ok(!view(s,0).wonders.some(w=>w.id===id));s=ready(s);assert.equal(view(s,0).wonders.length,8);const order=view(s,0).board.map(c=>c.slot!);assert.deepEqual(order,[...order].sort((a,b)=>a-b));s.tasks=[task('DISCARD_ANY',s.active)];assert.deepEqual(choices(s).map(c=>c.view.sourceId),view(s,s.active).board.map(c=>c.tileId));
 });
+
+test('Duel a turn-start conspiracy that consumes the last structure card completes the age after its effects', () => {
+ for (const pantheon of [false, true]) for (const age of [1, 3] as const) {
+  let s = ready(fixture({pantheon, agora:true}));
+  const p = s.active;
+  s.age = age;
+  const conspiracy = s.conspiracies.find(c => c.definitionId === 'turn-of-events')!;
+  assert.ok(conspiracy);
+  conspiracy.zone = 'HAND'; conspiracy.owner = p;
+  s.conspiracyOrder = s.conspiracyOrder.filter(id => id !== conspiracy.id);
+  const board = s.cards.filter(c => c.zone === 'BOARD');
+  const last = board.find(c => available(s,c))!;
+  for (const c of board.filter(c => c !== last)) { c.zone='DISCARD'; c.slot=null; }
+  const preparation = board.find(c => c !== last)!;
+  preparation.zone='PREPARED'; preparation.owner=p; preparation.under=conspiracy.id;
+  s = op(s,'TRIGGER',conspiracy.id);
+  s = op(s,'DISCARD_EFFECT',last.tileId);
+  while(s.tasks.length) s=op(s,'SKIP');
+  if(age===1) { assert.equal(s.age,2); assert.equal(s.stage,'NEXT_AGE'); assert.ok(choices(s).every(c=>c.operation.kind==='STARTER')); }
+  else { assert.equal(s.phase,'FINISHED'); assert.equal(s.result?.reason,'SCORED'); }
+ }
+});
+
+test('Duel Minerva destination descriptions follow the choosing player for both seats', () => {
+ const s=ready(fixture());
+ for(const p of [0,1] as const) {
+  s.tasks=[task('MINERVA',p)];
+  assert.match(choices(s).find(c=>c.operation.n===(p===0?9:-9))!.view.label,/상대 수도 방향 9칸/);
+  assert.match(choices(s).find(c=>c.operation.n===(p===0?-9:9))!.view.label,/내 수도 방향 9칸/);
+ }
+});
+
+test('Duel Coercion simultaneous science pairs resolve active player first and preserve existing progress', () => {
+ let s=ready(fixture()), p=s.active, opponent:DuelSeat=p===0?1:0;
+ const groups=[...new Set(DUEL_BASE_CARDS.flatMap(c=>c.science?[c.science]:[]))].map(symbol=>DUEL_BASE_CARDS.filter(c=>c.science===symbol));
+ const a=groups.find(g=>g.length>=2)!, b=groups.find(g=>g.length>=2&&g!==a)!;
+ city(s,a[0]!.id,p); const give=city(s,b[0]!.id,p);
+ city(s,b[1]!.id,opponent); const take=city(s,a[1]!.id,opponent);
+ s.tasks=[task('SWAP',p)];
+ s=act(s,choices(s).findIndex(c=>c.operation.a===take.tileId&&c.operation.b===give.tileId));
+ assert.deepEqual(s.tasks.map(t=>[t.kind,t.actor]),[['PROGRESS',p],['PROGRESS',opponent]]);
+ s=act(s); assert.equal(decisionActor(s),opponent);
+ s=act(s); assert.equal(s.progress.filter(t=>t.zone==='PLAYER').length,2);
+ s.tasks=[task('SWAP',p)];
+ s=act(s,choices(s).findIndex(c=>c.operation.a===give.tileId&&c.operation.b===take.tileId));
+ assert.equal(s.progress.filter(t=>t.zone==='PLAYER').length,2);
+ assert.equal(s.tasks.length,0);
+});
+
+test('Duel science supremacy ends before pending influence effects can be applied', () => {
+ let s=ready(fixture()),p=s.active;
+ const groups=[...new Set(DUEL_BASE_CARDS.flatMap(c=>c.science?[c.science]:[]))];
+ for(const symbol of groups.slice(0,5)) city(s,DUEL_BASE_CARDS.find(c=>c.science===symbol)!.id,p);
+ const last=s.cards.find(c=>duelCard(c.definitionId).science===groups[5])!;
+ last.zone='DISCARD';last.slot=null;last.owner=-1;
+ s.tasks=[task('RESURRECT',p),task('PLACE',p)];
+ s=op(s,'FREE_BUILD',last.tileId);
+ assert.equal(s.result?.reason,'SCIENCE');assert.deepEqual(s.tasks,[]);assert.deepEqual(choices(s),[]);
+});

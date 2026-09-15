@@ -99,7 +99,7 @@ export function choices(s: DuelState): DuelChoice[] {
                 break;
             case 'MINERVA':
                 for (let i = -9; i <= 9; i++)
-                    add('MINERVA', String(i), '', i, `군사 트랙 ${i === 0 ? '중앙' : i > 0 ? `상대 방향 +${i}` : `내 방향 ${i}`}`);
+                    add('MINERVA', String(i), '', i, `군사 트랙 ${i === 0 ? '중앙' : `${(p === 0 ? i : -i) > 0 ? '상대' : '내'} 수도 방향 ${Math.abs(i)}칸`}`);
                 break;
             case 'NEPTUNE_DISCARD':
             case 'NEPTUNE_APPLY':

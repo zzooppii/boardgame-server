@@ -267,6 +267,12 @@ function pump(s: DuelState, now: ServerTime, random: RandomSource) {
     for (let guard = 0; guard < 200 && s.phase === 'PLAYING'; guard++) {
         const t = s.tasks[0];
         if (!t) {
+            // A turn-start conspiracy can exhaust the structure before a main action.
+            // Finish its complete effect queue before advancing the age.
+            if (s.stage === 'ACTION' && !s.cards.some(c => c.zone === 'BOARD')) {
+                handoff(s, s.active, now, random);
+                return;
+            }
             if (s.stage === 'DRAFT') {
                 if (s.draftCount === 8) {
                     s.active = s.starter;
