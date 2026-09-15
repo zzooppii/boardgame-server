@@ -1,5 +1,7 @@
 # 시스템 아키텍처
 
+2026-09-15 패치워크 추가: [PATCHWORK_ARCHITECTURE.md](./PATCHWORK_ARCHITECTURE.md)의 2인 기본판·서버 판정·직물 SVG·배치 조작·효과음 경계를 따른다.
+
 2026-09-15 아발론 추가: [AVALON_GAME_RULES.md](./AVALON_GAME_RULES.md), [AVALON_ARCHITECTURE.md](./AVALON_ARCHITECTURE.md)의 5–10인 비밀 역할·동시 투표·원정·암살·개인별 정보 경계를 따른다. 기존 미확정 규칙은 유지한다.
 
 2026-09-15 하모니즈 추가: [HARMONIES_ARCHITECTURE.md](./HARMONIES_ARCHITECTURE.md)의 2–4인 A면, 순서 있는 턴 편집·서버 원자적 확정·자체 일러스트와 효과음 경계를 따른다.

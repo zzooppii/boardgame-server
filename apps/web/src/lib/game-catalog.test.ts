@@ -9,9 +9,9 @@ import {
   GAME_CATALOG,
 } from "../features/game-catalog/game-catalog.js";
 
-test("Web game catalog는 등록된 33개 게임을 같은 계층으로 공개한다", () => {
+test("Web game catalog는 등록된 34개 게임을 같은 계층으로 공개한다", () => {
   assert.equal(Object.isFrozen(GAME_CATALOG), true);
-  assert.equal(GAME_CATALOG.length, 33);
+  assert.equal(GAME_CATALOG.length, 34);
   assert.deepEqual(GAME_CATALOG, [
     {
       gameType: "HANGUL_TILE",
@@ -61,6 +61,7 @@ test("Web game catalog는 등록된 33개 게임을 같은 계층으로 공개�
     { gameType: "PANDEMIC", displayName: "팬데믹", description: "세계를 구하는 2~4인 협동 게임. 7가지 역할과 함께 네 가지 치료제를 발견하세요." },
     { gameType: "PERCH", displayName: "퍼치", description: "귀여운 새들의 치열한 자리 다툼. 2~5명이 새를 쌓고 숲속 동물을 조종하세요." },
     { gameType: "HARMONIES", displayName: "하모니즈", description: "토큰을 쌓아 나만의 풍경을 만들고 동물을 초대하세요. 2~4인 자연 전략 게임." },
+    { gameType: "PATCHWORK", displayName: "패치워크", description: "천 조각과 단추로 채워가는 나만의 퀼트. 시간과 공간을 겨루는 2인 퍼즐 보드게임." },
     { gameType: "TERRORSCAPE", displayName: "테러스케이프", description: "소리를 좇는 살인마와 탈출을 준비하는 생존자. 2~4인 비대칭 공포 게임 · 기본판 + Feral Instincts." },
   ]);
   assert.equal(Object.isFrozen(GAME_CATALOG[0]), true);
@@ -71,13 +72,13 @@ test("Web game catalog는 등록된 33개 게임을 같은 계층으로 공개�
   assert.doesNotMatch(JSON.stringify(GAME_CATALOG), /준비중|COMING_SOON/u);
 });
 
-test("Home renders exactly thirty-three selectable game choices including the approved CITY title and capacity", () => {
+test("Home renders exactly thirty-four selectable game choices including the approved CITY title and capacity", () => {
   const html = renderToStaticMarkup(createElement(HomeScreen, {
     nickname: "", roomCodeInput: "", invitationRoomCode: null, routeErrorMessage: null,
     busyLabel: null, connectionLabel: "연결됨", connectionTone: "connected", errorMessage: null,
     onNicknameChange() {}, onRoomCodeChange() {}, onCreateRoom() {}, onJoinRoom() {}, onGoHome() {},
   }));
-  assert.equal((html.match(/class="game-option(?: selected)?"/gu) ?? []).length, 33);
+  assert.equal((html.match(/class="game-option(?: selected)?"/gu) ?? []).length, 34);
   for (const game of GAME_CATALOG) assert.ok(html.includes(game.displayName));
   assert.match(html, /2~6명이 비밀 역할을 고르고/u);
   assert.doesNotMatch(html, /COMING_SOON|준비중/u);

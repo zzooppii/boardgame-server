@@ -17,6 +17,7 @@ import { TerrorscapeActionSchema } from "./games/terrorscape/actions.js";
 import { PandemicActionSchema } from "./games/pandemic/actions.js";
 import { PerchActionSchema } from "./games/perch/actions.js";
 import { HarmoniesActionSchema } from "./games/harmonies/actions.js";
+import { PatchworkActionSchema } from "./games/patchwork/actions.js";
 import { DuetActionSchema } from "./games/word-duet/actions.js";
 import { LostCitiesSettingsSchema, LostCitiesActionSchema } from "./games/lost-cities/actions.js";
 import { SplendorActionSchema, SplendorSettingsSchema } from "./games/splendor/actions.js";
@@ -375,6 +376,7 @@ const TerrorscapeIdentity = { protocolVersion: ProtocolVersionSchema, requestId:
 const PandemicIdentity = { protocolVersion: ProtocolVersionSchema, requestId: RequestIdSchema, gameId: GameIdSchema, expectedGameRevision: GameRevisionSchema };
 const PerchIdentity = { protocolVersion: ProtocolVersionSchema, requestId: RequestIdSchema, gameId: GameIdSchema, expectedGameRevision: GameRevisionSchema };
 const HarmoniesIdentity = { protocolVersion: ProtocolVersionSchema, requestId: RequestIdSchema, gameId: GameIdSchema, expectedGameRevision: GameRevisionSchema };
+const PatchworkIdentity = { protocolVersion: ProtocolVersionSchema, requestId: RequestIdSchema, gameId: GameIdSchema, expectedGameRevision: GameRevisionSchema };
 const DuetIdentity = { protocolVersion: ProtocolVersionSchema, requestId: RequestIdSchema, gameId: GameIdSchema, expectedGameRevision: GameRevisionSchema };
 const LostCitiesIdentity = { protocolVersion: ProtocolVersionSchema, requestId: RequestIdSchema, gameId: GameIdSchema, expectedGameRevision: GameRevisionSchema };
 export const JaipurActCommandSchema = v.strictObject({ ...JaipurIdentity, kind: v.literal("jaipur:act"), turnId: TurnIdSchema, payload: JaipurActionSchema });
@@ -389,6 +391,7 @@ export const TerrorscapeActCommandSchema = v.strictObject({ ...TerrorscapeIdenti
 export const PandemicActCommandSchema = v.strictObject({ ...PandemicIdentity, kind: v.literal("pandemic:act"), turnId: TurnIdSchema, payload: PandemicActionSchema });
 export const PerchActCommandSchema = v.strictObject({ ...PerchIdentity, kind: v.literal("perch:act"), turnId: TurnIdSchema, payload: PerchActionSchema });
 export const HarmoniesActCommandSchema = v.strictObject({ ...HarmoniesIdentity, kind: v.literal("harmonies:act"), turnId: TurnIdSchema, payload: HarmoniesActionSchema });
+export const PatchworkActCommandSchema = v.strictObject({ ...PatchworkIdentity, kind: v.literal("patchwork:act"), turnId: TurnIdSchema, payload: PatchworkActionSchema });
 export const DuetActCommandSchema = v.strictObject({ ...DuetIdentity, kind: v.literal("duet:act"), turnId: TurnIdSchema, payload: DuetActionSchema });
 export const LostCitiesActCommandSchema = v.strictObject({ ...LostCitiesIdentity, kind: v.literal("lostCities:act"), turnId: TurnIdSchema, payload: LostCitiesActionSchema });
 export const JaipurNextRoundCommandSchema = v.strictObject({ ...JaipurIdentity, kind: v.literal("jaipur:nextRound"), roundId: TurnIdSchema, payload: v.strictObject({}) });
@@ -413,6 +416,7 @@ export const TerrorscapeClientCommandSchema = TerrorscapeActCommandSchema;
 export const PandemicClientCommandSchema = PandemicActCommandSchema;
 export const PerchClientCommandSchema = PerchActCommandSchema;
 export const HarmoniesClientCommandSchema = HarmoniesActCommandSchema;
+export const PatchworkClientCommandSchema = PatchworkActCommandSchema;
 export type AzulClientCommand = v.InferOutput<typeof AzulClientCommandSchema>;
 export type VegasClientCommand = v.InferOutput<typeof VegasClientCommandSchema>;
 export type BurgundyClientCommand = v.InferOutput<typeof BurgundyClientCommandSchema>;
@@ -422,6 +426,7 @@ export type TerrorscapeClientCommand = v.InferOutput<typeof TerrorscapeClientCom
 export type PandemicClientCommand = v.InferOutput<typeof PandemicClientCommandSchema>;
 export type PerchClientCommand = v.InferOutput<typeof PerchClientCommandSchema>;
 export type HarmoniesClientCommand = v.InferOutput<typeof HarmoniesClientCommandSchema>;
+export type PatchworkClientCommand = v.InferOutput<typeof PatchworkClientCommandSchema>;
 export type LostCitiesClientCommand = v.InferOutput<typeof LostCitiesClientCommandSchema>;
 
 const SplendorIdentity = { protocolVersion: ProtocolVersionSchema, requestId: RequestIdSchema, gameId: GameIdSchema, expectedGameRevision: GameRevisionSchema };

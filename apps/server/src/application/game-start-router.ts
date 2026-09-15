@@ -6,7 +6,7 @@ import type {
   StartGameInput,
 } from "./game-start-service.js";
 
-type StartCapability<TGameType extends "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "AVALON" | "SPLENDOR" | "WORD_DUET" | "TRAIN" | "CENTURY" | "SPIRIT_ISLAND" | "ARK_NOVA" | "JAIPUR" | "SPACE_CREW" | "LOVE_LETTER" | "GURYONGTU" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE" | "CLUE" | "TERRORSCAPE" | "PANDEMIC" | "PERCH" | "HARMONIES" | "SABOTEUR" | "LOST_CITIES" | "HALLI_GALLI" | "ISLAND_SETTLERS"> =
+type StartCapability<TGameType extends "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "AVALON" | "SPLENDOR" | "WORD_DUET" | "TRAIN" | "CENTURY" | "SPIRIT_ISLAND" | "ARK_NOVA" | "JAIPUR" | "SPACE_CREW" | "LOVE_LETTER" | "GURYONGTU" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE" | "CLUE" | "TERRORSCAPE" | "PANDEMIC" | "PERCH" | "HARMONIES" | "PATCHWORK" | "SABOTEUR" | "LOST_CITIES" | "HALLI_GALLI" | "ISLAND_SETTLERS"> =
   Readonly<{
     gameType: TGameType;
     start(input: StartGameInput): Promise<GameStartResult>;
@@ -42,6 +42,7 @@ export type GameStartRouterDependencies = Readonly<{
   pandemic?: StartCapability<"PANDEMIC">;
   perch?: StartCapability<"PERCH">;
   harmonies?: StartCapability<"HARMONIES">;
+  patchwork?: StartCapability<"PATCHWORK">;
   duet?: StartCapability<"WORD_DUET">;
   saboteur?: StartCapability<"SABOTEUR">;
   lostCities?: StartCapability<"LOST_CITIES">;
@@ -75,7 +76,7 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 }
 
 function isStartCapability<
-  TGameType extends "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "AVALON" | "SPLENDOR" | "WORD_DUET" | "TRAIN" | "CENTURY" | "SPIRIT_ISLAND" | "ARK_NOVA" | "JAIPUR" | "SPACE_CREW" | "LOVE_LETTER" | "GURYONGTU" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE" | "CLUE" | "TERRORSCAPE" | "PANDEMIC" | "PERCH" | "HARMONIES" | "SABOTEUR" | "LOST_CITIES" | "HALLI_GALLI" | "ISLAND_SETTLERS",
+  TGameType extends "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "AVALON" | "SPLENDOR" | "WORD_DUET" | "TRAIN" | "CENTURY" | "SPIRIT_ISLAND" | "ARK_NOVA" | "JAIPUR" | "SPACE_CREW" | "LOVE_LETTER" | "GURYONGTU" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE" | "CLUE" | "TERRORSCAPE" | "PANDEMIC" | "PERCH" | "HARMONIES" | "PATCHWORK" | "SABOTEUR" | "LOST_CITIES" | "HALLI_GALLI" | "ISLAND_SETTLERS",
 >(
   value: unknown,
   gameType: TGameType,
@@ -87,7 +88,7 @@ function isStartCapability<
   );
 }
 
-function requireCapability<TGameType extends "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "AVALON" | "SPLENDOR" | "WORD_DUET" | "TRAIN" | "CENTURY" | "SPIRIT_ISLAND" | "ARK_NOVA" | "JAIPUR" | "SPACE_CREW" | "LOVE_LETTER" | "GURYONGTU" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE" | "CLUE" | "TERRORSCAPE" | "PANDEMIC" | "PERCH" | "HARMONIES" | "SABOTEUR" | "LOST_CITIES" | "HALLI_GALLI" | "ISLAND_SETTLERS">(
+function requireCapability<TGameType extends "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "AVALON" | "SPLENDOR" | "WORD_DUET" | "TRAIN" | "CENTURY" | "SPIRIT_ISLAND" | "ARK_NOVA" | "JAIPUR" | "SPACE_CREW" | "LOVE_LETTER" | "GURYONGTU" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE" | "CLUE" | "TERRORSCAPE" | "PANDEMIC" | "PERCH" | "HARMONIES" | "PATCHWORK" | "SABOTEUR" | "LOST_CITIES" | "HALLI_GALLI" | "ISLAND_SETTLERS">(
   value: unknown,
   gameType: TGameType,
 ): StartCapability<TGameType> {
@@ -127,6 +128,7 @@ export class GameStartRouter implements GameStartRouting {
   readonly #pandemic: StartCapability<"PANDEMIC"> | undefined;
   readonly #perch: StartCapability<"PERCH"> | undefined;
   readonly #harmonies: StartCapability<"HARMONIES"> | undefined;
+  readonly #patchwork: StartCapability<"PATCHWORK"> | undefined;
   readonly #duet: StartCapability<"WORD_DUET"> | undefined;
   readonly #saboteur: StartCapability<"SABOTEUR"> | undefined;
   readonly #lostCities: StartCapability<"LOST_CITIES"> | undefined;
@@ -159,6 +161,7 @@ export class GameStartRouter implements GameStartRouting {
     this.#pandemic = dependencies.pandemic;
     this.#perch = dependencies.perch;
     this.#harmonies = dependencies.harmonies;
+    this.#patchwork = dependencies.patchwork;
     this.#duet = dependencies.duet;
     this.#saboteur = dependencies.saboteur;
     this.#lostCities = dependencies.lostCities;
@@ -210,6 +213,7 @@ export class GameStartRouter implements GameStartRouting {
         case "PANDEMIC": return this.#pandemic ? await this.#pandemic.start(input) : {ok:false,error:INTERNAL_ERROR};
         case "PERCH": return this.#perch ? await this.#perch.start(input) : {ok:false,error:INTERNAL_ERROR};
         case "HARMONIES": return this.#harmonies ? await this.#harmonies.start(input) : {ok:false,error:INTERNAL_ERROR};
+        case "PATCHWORK": return this.#patchwork ? await this.#patchwork.start(input) : {ok:false,error:INTERNAL_ERROR};
         case "WORD_DUET": return this.#duet ? await this.#duet.start(input) : {ok:false,error:INTERNAL_ERROR};
         case "SABOTEUR": return this.#saboteur ? await this.#saboteur.start(input) : {ok:false,error:INTERNAL_ERROR};
         case "LOST_CITIES": return this.#lostCities ? await this.#lostCities.start(input) : {ok:false,error:INTERNAL_ERROR};

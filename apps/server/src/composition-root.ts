@@ -24,6 +24,7 @@ import { TerrorscapeHostSuccession } from "./games/terrorscape/application/host-
 import { PandemicHostSuccession } from "./games/pandemic/application/host-succession.js";
 import { PerchHostSuccession } from "./games/perch/application/host-succession.js";
 import { HarmoniesHostSuccession } from "./games/harmonies/application/host-succession.js";
+import { PatchworkHostSuccession } from "./games/patchwork/application/host-succession.js";
 import { DuetHostSuccession } from "./games/word-duet/application/host-succession.js";
 import { SaboteurHostSuccession } from "./games/saboteur/application/host-succession.js";
 import { LostCitiesHostSuccession } from "./games/lost-cities/application/host-succession.js";
@@ -49,6 +50,7 @@ import { TerrorscapeService } from "./games/terrorscape/application/service.js";
 import { PandemicService } from "./games/pandemic/application/service.js";
 import { PerchService } from "./games/perch/application/service.js";
 import { HarmoniesService } from "./games/harmonies/application/service.js";
+import { PatchworkService } from "./games/patchwork/application/service.js";
 import { DuetService } from "./games/word-duet/application/service.js";
 import { SaboteurService } from "./games/saboteur/application/service.js";
 import { LostCitiesService } from "./games/lost-cities/application/service.js";
@@ -74,6 +76,7 @@ import { createTerrorscapeLifecycle } from "./games/terrorscape/application/life
 import { createPandemicLifecycle } from "./games/pandemic/application/lifecycle.js";
 import { createPerchLifecycle } from "./games/perch/application/lifecycle.js";
 import { createHarmoniesLifecycle } from "./games/harmonies/application/lifecycle.js";
+import { createPatchworkLifecycle } from "./games/patchwork/application/lifecycle.js";
 import { createDuetLifecycle } from "./games/word-duet/application/lifecycle.js";
 import { createSaboteurLifecycle } from "./games/saboteur/application/lifecycle.js";
 import { createLostCitiesLifecycle } from "./games/lost-cities/application/lifecycle.js";
@@ -214,6 +217,7 @@ export type ApplicationRuntime = Readonly<{
   pandemicService?: PandemicService;
   perchService?: PerchService;
   harmoniesService?: HarmoniesService;
+  patchworkService?: PatchworkService;
   duetService?: DuetService;
   saboteurService?: SaboteurService;
   lostCitiesService?: LostCitiesService;
@@ -240,6 +244,7 @@ export type ApplicationRuntime = Readonly<{
   pandemicHostSuccession?: PandemicHostSuccession;
   perchHostSuccession?: PerchHostSuccession;
   harmoniesHostSuccession?: HarmoniesHostSuccession;
+  patchworkHostSuccession?: PatchworkHostSuccession;
   duetHostSuccession?: DuetHostSuccession;
   saboteurHostSuccession?: SaboteurHostSuccession;
   lostCitiesHostSuccession?: LostCitiesHostSuccession;
@@ -373,6 +378,7 @@ export function createApplicationRuntime(
       { gameType: "PANDEMIC" },
       { gameType: "PERCH" },
       { gameType: "HARMONIES" },
+      { gameType: "PATCHWORK" },
       { gameType: "WORD_DUET" },
       { gameType: "SABOTEUR" },
       { gameType: "LOST_CITIES" },
@@ -427,6 +433,7 @@ export function createApplicationRuntime(
     pandemic: createPandemicLifecycle(),
     perch: createPerchLifecycle(),
     harmonies: createHarmoniesLifecycle(),
+    patchwork: createPatchworkLifecycle(),
     duet: createDuetLifecycle(),
     saboteur: createSaboteurLifecycle(),
     lostCities: createLostCitiesLifecycle(),
@@ -839,6 +846,13 @@ export function createApplicationRuntime(
     const room = await persistence.findById(roomId);
     if (room?.gameType === "HARMONIES" && room.phase === "FINISHED" && room.game) await onGameFinished({ roomId, gameId: room.game.gameId });
   });
+  const patchworkService = new PatchworkService({ roomRepository: persistence, roomUnitOfWork: persistence, idempotencyRepository: persistence,
+    roomMutationExecutor, presence: presenceReader, clock, ids: idGenerator, random: randomSource });
+  const patchworkHostSuccession = new PatchworkHostSuccession(patchworkService.deps, roomId => patchworkService.notify(roomId));
+  patchworkService.subscribe(async roomId => {
+    const room = await persistence.findById(roomId);
+    if (room?.gameType === "PATCHWORK" && room.phase === "FINISHED" && room.game) await onGameFinished({ roomId, gameId: room.game.gameId });
+  });
   const duetService = new DuetService({ roomRepository: persistence, roomUnitOfWork: persistence, idempotencyRepository: persistence,
     roomMutationExecutor, presence: presenceReader, clock, ids: idGenerator, random: randomSource });
   const duetHostSuccession = new DuetHostSuccession(duetService.deps, roomId => duetService.notify(roomId));
@@ -983,6 +997,7 @@ export function createApplicationRuntime(
     pandemic: { gameType: "PANDEMIC", start: input => pandemicService.start(input) },
     perch: { gameType: "PERCH", start: input => perchService.start(input) },
     harmonies: { gameType: "HARMONIES", start: input => harmoniesService.start(input) },
+    patchwork: { gameType: "PATCHWORK", start: input => patchworkService.start(input) },
     duet: { gameType: "WORD_DUET", start: input => duetService.start(input) },
     saboteur: { gameType: "SABOTEUR", start: input => saboteurService.start(input) },
     lostCities: { gameType: "LOST_CITIES", start: input => lostCitiesService.start(input) },
@@ -1208,6 +1223,7 @@ export function createApplicationRuntime(
     pandemicService,
     perchService,
     harmoniesService,
+    patchworkService,
     duetService,
     saboteurService,
     lostCitiesService,
@@ -1234,6 +1250,7 @@ export function createApplicationRuntime(
     pandemicHostSuccession,
     perchHostSuccession,
     harmoniesHostSuccession,
+    patchworkHostSuccession,
     duetHostSuccession,
     saboteurHostSuccession,
     lostCitiesHostSuccession,
@@ -1310,6 +1327,7 @@ export function createApplicationRuntime(
       pandemicHostSuccession.start();
       perchHostSuccession.start();
       harmoniesHostSuccession.start();
+      patchworkHostSuccession.start();
       duetHostSuccession.start();
       saboteurHostSuccession.start();
       lostCitiesHostSuccession.start();
@@ -1354,6 +1372,7 @@ export function createApplicationRuntime(
       pandemicHostSuccession.stop();
       perchHostSuccession.stop();
       harmoniesHostSuccession.stop();
+      patchworkHostSuccession.stop();
       duetHostSuccession.stop();
       saboteurHostSuccession.stop();
       lostCitiesHostSuccession.stop();
