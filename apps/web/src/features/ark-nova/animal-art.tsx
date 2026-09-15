@@ -9,11 +9,13 @@ const atlasRows=[[0,256,512,768,1024],[0,245,492,748,1024],[0,250,495,742,1024],
 export function arkAnimalArt(key:string):CSSProperties|undefined {
   const card=ARK_CARDS.find(c=>c.key===key&&c.kind==='ANIMAL');
   if(!card)return undefined;
+  if(key==='516'||key==='518')return {backgroundImage:`url('/images/ark-nova/animals/${key}-v2.webp')`,backgroundSize:'100% 100%',backgroundPosition:'center'};
   const index=card.key==='487'?87:card.key==='488'?86:Number(card.key)-401;
   if(!Number.isInteger(index)||index<0||index>=128)return undefined;
   const sheet=Math.floor(index/16),row=Math.floor(index%16/4),bounds=atlasRows[sheet]!;
-  const centerY=(bounds[row]!+bounds[row+1]!)/2048,centerX=(index%4+.5)/4,scale=4.24;
-  return {backgroundImage:`url('/images/ark-nova/animals/species-${Math.floor(index/16)+1}.webp')`,backgroundSize:'424% 424%',backgroundPosition:`${(centerX*scale-.5)/(scale-1)*100}% ${(centerY*scale-.5)/(scale-1)*100}%`};
+  // Keep all but two source pixels at each edge: prevents atlas bleed without the old 6% zoom crop.
+  const left=index%4*384+2,top=bounds[row]!+2,width=380,height=bounds[row+1]!-bounds[row]!-4;
+  return {backgroundImage:`url('/images/ark-nova/animals/species-${sheet+1}.webp')`,backgroundSize:`${1536/width*100}% ${1024/height*100}%`,backgroundPosition:`${left/(1536-width)*100}% ${top/(1024-height)*100}%`};
 }
 export function ArkAnimalArt({cardKey,eager=false}:{cardKey:string;eager?:boolean}) {
   const card=ARK_CARDS.find(c=>c.key===cardKey),style=arkAnimalArt(cardKey);

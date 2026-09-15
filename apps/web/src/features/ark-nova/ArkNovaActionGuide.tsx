@@ -22,9 +22,11 @@ const descriptions:Record<ArkActionKind,readonly [string,string]>={
   ASSOCIATION:['직원을 배치합니다. 평판 +2: 행동력 2 · 제휴: 3 · 대학: 4 · 프로젝트: 기본 5.','행동력을 나눠 서로 다른 업무를 수행합니다. 업무 후 돈을 내고 보전 1을 얻는 기부가 가능합니다.'],
 };
 const symbols:Record<ArkActionKind,string>={ANIMALS:'♞',CARDS:'▤',BUILD:'⬡',SPONSORS:'@',ASSOCIATION:'♟'};
+export const ARK_ACTION_ART:Record<ArkActionKind,string>={ANIMALS:'animals',CARDS:'cards',BUILD:'build',SPONSORS:'sponsors',ASSOCIATION:'association'};
 export function ArkNovaActionGuide({kind,upgraded,strength}:{kind:ArkActionKind;upgraded:boolean;strength:number}){
   const referenceStrength=kind==='ANIMALS'||kind==='CARDS'?Math.min(5,strength):strength;
   return <div className="ark-action-guide">
+    <img className={`ark-action-illustration ark-action-illustration-${kind}`} src={`/images/ark-nova/actions/${ARK_ACTION_ART[kind]}-v1.webp`} alt="" loading="lazy" decoding="async" width="768" height="512"/>
     <div className={`ark-action-banner${upgraded?' is-upgraded':''}`}><span aria-hidden="true">{symbols[kind]}</span>{ARK_ACTION_LABELS[kind]} {upgraded?'II':'I'}</div>
     <p className="ark-action-current">현재 행동력 {strength} · {arkActionBenefits(kind,upgraded,strength)}</p>
     <p>{descriptions[kind][upgraded?1:0]}</p>

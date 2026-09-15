@@ -15,7 +15,7 @@ test('All 128 base animals have distinct species cells and existing local atlase
   for(const card of animals){
     const art=arkAnimalArt(card.key);assert.ok(art,card.key);
     cells.add(`${art.backgroundImage}:${art.backgroundPosition}`);
-    const file=String(art.backgroundImage).match(/species-\d\.webp/)?.[0];assert.ok(file);
+    const file=String(art.backgroundImage).match(/(?:species-\d|51[68]-v2)\.webp/)?.[0];assert.ok(file);
     assert.ok(existsSync(new URL(`../../public/images/ark-nova/animals/${file}`,import.meta.url)));
     const html=renderToStaticMarkup(createElement(ArkAnimalArt,{cardKey:card.key}));
     assert.ok(html.includes(`${card.name} 일러스트`));assert.ok(!html.includes('animal-families'));
@@ -25,6 +25,17 @@ test('All 128 base animals have distinct species cells and existing local atlase
   // The generated sheet deliberately places slow worm before grass snake.
   assert.ok(Number(String(arkAnimalArt('487')?.backgroundPosition).split('%')[0])>90);
   assert.ok(Number(String(arkAnimalArt('488')?.backgroundPosition).split('%')[0])<70);
+});
+test('Animal atlas framing preserves source edges without sampling neighboring cells',()=>{
+  for(const key of ['401','428','442','444','495','502']) {
+    const art=arkAnimalArt(key)!;
+    const [x,y]=String(art.backgroundSize).split(' ').map(parseFloat);
+    assert.ok(x!>=400&&x!<410);assert.ok(y!>350&&y!<430);
+    const positions=String(art.backgroundPosition).split(' ').map(parseFloat);
+    assert.ok(positions.every(p=>p>=0&&p<=100));
+  }
+  assert.match(String(arkAnimalArt('516')?.backgroundImage),/516-v2/);
+  assert.match(String(arkAnimalArt('518')?.backgroundImage),/518-v2/);
 });
 test('Move feedback uses accepted changes and suppresses duplicates, initial setup and reconnect gaps',()=>{
   const before=structuredClone(arkSoloSetupFixture);before.progress.stage='ACTION';

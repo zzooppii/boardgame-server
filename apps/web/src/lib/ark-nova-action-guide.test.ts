@@ -5,6 +5,14 @@ import {renderToStaticMarkup} from 'react-dom/server';
 import {arkActionBenefits,ArkNovaActionGuide} from '../features/ark-nova/ArkNovaActionGuide.js';
 import {ArkNovaTable} from '../features/ark-nova/ArkNovaTable.js';
 import {arkSoloSetupFixture} from '../features/ark-nova/test-fixture.js';
+import {existsSync} from 'node:fs';
+import {ARK_ACTION_ART} from '../features/ark-nova/ArkNovaActionGuide.js';
+test('Each action has its own local illustration while rule text stays accessible',()=>{
+  assert.equal(new Set(Object.values(ARK_ACTION_ART)).size,5);
+  for(const file of Object.values(ARK_ACTION_ART))assert.ok(existsSync(new URL(`../../public/images/ark-nova/actions/${file}-v1.webp`,import.meta.url)));
+  const html=renderToStaticMarkup(createElement(ArkNovaActionGuide,{kind:'BUILD',upgraded:true,strength:3}));
+  assert.match(html,/build-v1.webp/);assert.match(html,/건설 II/);assert.match(html,/건설 칸/);assert.match(html,/alt=""/);
+});
 test('Animal thresholds and upgraded reputation are distinct',()=>{
   assert.equal(arkActionBenefits('ANIMALS',false,1),'동물 최대 0장');
   assert.equal(arkActionBenefits('ANIMALS',false,2),'동물 최대 1장');

@@ -24,7 +24,8 @@ function LiveGame({game, ...props}:ArkNovaScreenProps&{game:NonNullable<ArkNovaS
   const [sound,setSound]=useState(()=>readArkSoundPreferences(soundStorage()));
   useEffect(()=>{mounted.current=true;audio.current=new ArkAudio();return()=>{mounted.current=false;audio.current?.dispose();};},[]);
   useEffect(()=>{audio.current?.setPreferences(sound);saveArkSoundPreferences(sound,soundStorage());},[sound]);
-  function cue(kind:ArkCue){audio.current?.play(kind);}
+  function cue(kind:ArkCue){if(document.visibilityState!=='hidden')audio.current?.play(kind);}
+  useEffect(()=>{const hidden=()=>{if(document.visibilityState==='hidden')audio.current?.stop();};document.addEventListener('visibilitychange',hidden);return()=>document.removeEventListener('visibilitychange',hidden);},[]);
   async function execute(command:ArkNovaActCommand) {
     if(busy.current||!props.connected)return;
     busy.current=true;setFlight(true);setMessage(null);
@@ -36,8 +37,8 @@ function LiveGame({game, ...props}:ArkNovaScreenProps&{game:NonNullable<ArkNovaS
     if(busy.current||retry||props.pending||!props.connected)return;
     void execute({kind:'arkNova:act',protocolVersion:PROTOCOL_VERSION,requestId:createRequestId(),gameId:game.gameId,expectedGameRevision:game.gameRevision,turnId:game.state.transitionId,payload});
   }
-  return <><div className="ark-live-audio"><label><input type="checkbox" checked={sound.enabled} onChange={e=>{const next={...sound,enabled:e.target.checked};audio.current?.setPreferences(next);audio.current?.unlock();setSound(next);}}/> 효과음</label><input aria-label="효과음 음량" type="range" min="0" max="1" step="0.05" value={sound.volume} onChange={e=>setSound({...sound,volume:Number(e.target.value)})}/></div>
+  return <div onPointerDownCapture={()=>audio.current?.unlock()} onKeyDownCapture={()=>audio.current?.unlock()}><div className="ark-live-audio"><label><input type="checkbox" checked={sound.enabled} onChange={e=>{const next={...sound,enabled:e.target.checked};audio.current?.setPreferences(next);audio.current?.unlock();setSound(next);}}/> 효과음</label><input aria-label="효과음 음량" type="range" min="0" max="1" step="0.05" value={sound.volume} onChange={e=>{const next={...sound,volume:Number(e.target.value)};audio.current?.setPreferences(next);setSound(next);}}/><span>{Math.round(sound.volume*100)}%</span><details><summary>효과음 미리 듣기</summary>{(['PLACE','ARRIVAL','CONSERVATION'] as const).map((kind,i)=><button type="button" key={kind} disabled={!sound.enabled||sound.volume===0} onClick={()=>cue(kind)}>{['건설','동물 입주','보전 달성'][i]}</button>)}</details></div>
     {message&&<p className="ark-live-error" role="alert">{message}</p>}{retry&&<div className="ark-live-error"><p>요청의 처리 결과를 확인해야 합니다. 같은 요청으로 다시 확인하세요.</p><button disabled={flight||!props.connected} onClick={()=>void execute(retry)}>처리 결과 다시 확인</button></div>}
     <ArkNovaTable state={game.state} disabled={props.pending||flight||!!retry||!props.connected} onCommand={send} onCue={cue} onRematch={props.onRematch}/>
-  </>;
+  </div>;
 }

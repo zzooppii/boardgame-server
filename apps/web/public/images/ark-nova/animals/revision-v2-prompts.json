@@ -1,0 +1,7 @@
+{
+  "tool": "built-in image_gen",
+  "prompts": {
+    "516": "Use case: scientific-educational. Original natural-history wildlife illustration for an individual zoo card: a NORTHERN CASSOWARY (Casuarius unappendiculatus). Full body, black shaggy feathers, tall brown casque, blue upper head and neck, rich orange lower neck, exactly ONE central hanging wattle at front of throat, thick grey legs. Clearly a northern single-wattled cassowary, NOT southern cassowary with two red wattles. Lush New Guinea rainforest, warm natural light, realistically painted fine detail, coherent anatomy. Single animal fully within frame, head, feet and long feathers have 8% clear margins. Landscape 3:2, animal recognizable at thumbnail size, no text, no badge, no borders, no logo.",
+    "518": "Use case: scientific-educational. Original natural-history wildlife illustration for an individual zoo card: an adult male LESSER BIRD OF PARADISE (Paradisaea minor) perched side-on. Pale straw YELLOW head and nape/back, dark iridescent emerald GREEN throat, rich chestnut BROWN wings/body, elegant yellow flank plumes fading to white tips, two long fine brown wire-like tail feathers. NOT a black-headed bird. Lush New Guinea rainforest, warm natural light, realistically painted fine detail, coherent anatomy. Single animal fully within frame, head, feet and long feathers have 8% clear margins. Landscape 3:2, animal recognizable at thumbnail size, no text, no badge, no borders, no logo."
+  }
+}
