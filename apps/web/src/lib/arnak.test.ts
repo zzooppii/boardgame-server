@@ -211,3 +211,58 @@ test('Arnak payment list exposes separate hand instances and selection without c
  assert.match(html,/공포 · 도보 · 손패 1/);assert.match(html,/공포 · 도보 · 손패 2/);
  assert.match(html,/자원 지불 없음/);assert.match(html,/지불 방법 2개/);assert.match(html,/aria-pressed="true"/);assert.doesNotMatch(html,/선택 확정/);
 });
+
+import { ArnakResearchDetail } from '../features/arnak/ArnakResearchDetail.js';
+test('Arnak research preview distinguishes token rewards and connected predecessor cells',()=>{
+ const html=renderToStaticMarkup(createElement(ArnakResearchDetail,{target:'2R',templeSupply:[]}));
+ assert.match(html,/1L · 1R/);assert.match(html,/돋보기 보상/);assert.match(html,/나침반 1/);
+ assert.match(html,/수첩 보상/);assert.match(html,/조수 1명 고용/);assert.match(html,/석판 1/);assert.match(html,/화살촉 1/);
+ assert.doesNotMatch(html,/<button|선택 확정/);
+});
+test('Arnak research endpoints do not show ordinary row rewards',()=>{
+ const render=(target:string)=>renderToStaticMarkup(createElement(ArnakResearchDetail,{target,templeSupply:[]}));
+ assert.match(render('0'),/연구 출발점/);assert.doesNotMatch(render('0'),/돋보기 보상|기본 비용/);
+ assert.match(render('8'),/수첩은 이 칸으로 이동할 수 없습니다/);assert.doesNotMatch(render('8'),/수첩 보상/);
+ assert.equal(render('unknown'),'');
+});
+test('Arnak temple preview shows public remaining supply including exhausted tiles',()=>{
+ const html=renderToStaticMarkup(createElement(ArnakResearchDetail,{target:'temple',templeSupply:[0,1,2,3,4,0]}));
+ assert.equal((html.match(/남은 타일 0개/g)??[]).length,2);
+ assert.equal((html.match(/기본 비용:/g)??[]).length,6);assert.match(html,/11점/);
+ assert.match(html,/실제 비용은 아래 실행 가능한 행동/);assert.doesNotMatch(html,/<button/);
+});
+
+import type { ArnakCard } from '@hangul-rummikub/shared';
+import { ArnakCleanup } from '../features/arnak/ArnakCleanup.js';
+test('Arnak cleanup separates confirmed keep choices by instance and preserves hand positions',()=>{
+ const hand=['first','second'].map(id=>({tileId:v.parse(TileIdSchema,id),definitionId:'fear'}));
+ const html=renderToStaticMarkup(createElement(ArnakCleanup,{hand,keep:['second','unknown'],selected:'first',disabled:false,onSelect(){}}));
+ assert.match(html,/보관할 손패 <span>1장/);assert.match(html,/내려놓을 손패 <span>1장/);
+ assert.match(html,/공포 · 손패 2 · 보관 해제 선택/);assert.match(html,/공포 · 손패 1 · 보관 선택/);
+ assert.equal((html.match(/aria-pressed="true"/g)??[]).length,1);
+ assert.ok(html.indexOf('손패 2')<html.indexOf('손패 1'));
+ assert.match(html,/확정된 선택만/);assert.doesNotMatch(html,/unknown/);
+});
+test('Arnak cleanup has explicit empty groups and prevents card selection while blocked',()=>{
+ const render=(hand:ArnakCard[])=>renderToStaticMarkup(createElement(ArnakCleanup,{hand,keep:[],selected:null,disabled:true,onSelect(){}}));
+ assert.equal((render([]).match(/없음/g)??[]).length,2);
+ const html=render([{tileId:v.parse(TileIdSchema,'one'),definitionId:'fear'}]);
+ assert.match(html,/disabled=""/);assert.match(html,/패스하면 이번 라운드에는 다시 행동할 수 없습니다/);
+});
+
+import { arnakActionTargets } from '../features/arnak/action-browser.js';
+import { ArnakActionBrowser } from '../features/arnak/ArnakActionBrowser.js';
+test('Arnak action browser counts destinations rather than payment choices and excludes turn controls',()=>{
+ const offers=[paymentOffer('a',['one']),paymentOffer('b',['two']),{...paymentOffer('buy',[]),kind:'BUY' as const,targetId:'market-card'}, {...paymentOffer('end',[]),kind:'END' as const}, {...paymentOffer('keep',[]),kind:'KEEP' as const}];
+ const groups=arnakActionTargets(offers);
+ assert.deepEqual(groups.map(g=>g.kind),['DIG','BUY']);
+ assert.equal(groups[0]?.targets.length,1);assert.equal(groups[0]?.targets[0]?.choices,2);
+ assert.equal(groups[1]?.targets[0]?.targetId,'market-card');assert.equal(offers.length,5);
+ assert.deepEqual(arnakActionTargets([]),[]);
+});
+test('Arnak action browser uses visible names, exposes only offered targets and disables navigation when blocked',()=>{
+ const html=renderToStaticMarkup(createElement(ArnakActionBrowser,{offers:[paymentOffer('a',[])],names:new Map([['base-0','해안 야영지'],['secret','비공개 카드']]),disabled:true,onSelect(){}}));
+ assert.match(html,/해안 야영지/);assert.match(html,/선택지 1개/);assert.match(html,/disabled=""/);
+ assert.doesNotMatch(html,/비공개 카드|선택 확정/);
+ assert.equal(renderToStaticMarkup(createElement(ArnakActionBrowser,{offers:[],names:new Map(),disabled:false,onSelect(){}})),'');
+});
