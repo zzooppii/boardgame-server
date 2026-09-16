@@ -167,3 +167,8 @@ test('Mars resource labels show fighters and distinguish one resource for two VP
  assert.equal(marsScoreLabel({...base,resource:'microbe',resourceScore:{per:4,points:1}}),'미생물 4개당 1 VP');
  assert.match(MARS_CORPORATE_ERA_RESOURCE_ACTIONS.SecurityFleet.map(marsEffectText).join(' · '),/티타늄 -1 · 이 카드에 전투기 \+1/);
 });
+
+test('Mars production attack guide explains mandatory choice, self targeting and production floors',()=>{
+ const g=game();g.privateState.offers=[{id:'reduce:mars-b',kind:'EFFECT',targetId:'mars-b',label:'M€ 생산 감소',detail:'-3 → -5',cost:0}];
+ const html=renderToStaticMarkup(createElement(ActionGuide,{game:g}));assert.match(html,/필수 효과로 생략할 수 없습니다/);assert.match(html,/자신도 선택/);assert.match(html,/보유 자원은 줄지 않으며/);assert.match(html,/서식지 보호로 막을 수 없습니다/);
+});

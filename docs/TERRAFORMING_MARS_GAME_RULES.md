@@ -66,3 +66,7 @@ Hired Raiders는 상대 한 명에게서 강철 최대 2 또는 M€ 최대 3을
 ## CONFIRMED — 카드 자원과 점수
 
 Security Fleet는 행동으로 티타늄 1개를 지불하고 자기 카드에 전투기 1개를 추가하며 전투기당 1점이다. Physics Complex는 에너지 6개를 지불하고 자기 카드에 과학 자원 1개를 추가하며 과학 자원당 2점이다. Tardigrades는 미생물 4개당 1점으로 남는 수량은 버림한다. 기존 카드와 마찬가지로 행동은 세대당 한 번이며 자기 카드에 적힌 종류의 자원만 추가한다. 근거: [Security Fleet](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/SecurityFleet.ts), [Physics Complex](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/PhysicsComplex.ts), 기존 기업시대 인쇄 데이터. 실제 확장 카드 등록은 후속 통합 단계다.
+
+## CONFIRMED — 기업시대 생산량 공격
+
+Hackers는 자신의 에너지 생산을 1 줄이고 한 플레이어의 M€ 생산을 2 줄이며 자신의 M€ 생산을 2 올린다. Asteroid Mining Consortium은 자기 티타늄 생산이 1 이상이어야 하며 한 플레이어의 티타늄 생산을 1 줄이고 자기 생산을 1 올린다. 자신을 대상으로 할 수 있다. 생산량 감소는 생략할 수 없으며 M€ 생산 하한 -5, 다른 생산 하한 0을 지킨다. 서식지 보호는 생산량 감소를 막지 않는다. 근거: [Hackers](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/Hackers.ts), [Asteroid Mining Consortium](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/AsteroidMiningConsortium.ts). 실제 카드의 조건·비용·점수 통합은 후속 단계다.

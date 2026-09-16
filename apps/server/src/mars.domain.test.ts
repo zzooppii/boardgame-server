@@ -462,3 +462,27 @@ test('Mars real card resource actions remain once per generation and final resou
  const snapshot=structuredClone(s);assert.equal(applyMarsAction(s,owner,{type:'TAKE',actionId:'action:'+fish.tileId},now,s.transitionId,random).ok,false);assert.deepEqual(s,snapshot);
  const saved=parseMarsState(JSON.parse(JSON.stringify(s)));assert.deepEqual(scoreMars(saved),scoreMars(s));
 });
+
+test('Mars Hackers applies its own energy cost and money gain while reducing a protected opponent exactly to -5',()=>{
+ let s=ready();const owner=s.activePlayerId,target=s.players[1]!;target.production.money=-3;target.protectedHabitats=true;
+ const before=structuredClone(s.players);s=peek(s,{kind:'choice',options:[{label:'Hackers effect',effects:MARS_CORPORATE_ERA_ATTACK_EFFECTS.Hackers}]});s=act(s,o=>o.id==='choice:0');
+ s=act(s,o=>o.label.includes('생산 −2'));const offers=marsOffers(s,owner);assert.ok(offers.some(o=>o.targetId===target.playerId));assert.ok(!offers.some(o=>o.id==='skip'));
+ assert.match(offers.find(o=>o.targetId===target.playerId)!.detail,/-3 → -5/);
+ const restored=parseMarsState(JSON.parse(JSON.stringify(s)));s=act(restored,o=>o.targetId===target.playerId);s=settle(s);
+ assert.equal(s.players[1]!.production.money,-5);assert.equal(s.players[0]!.production.energy,before[0]!.production.energy-1);assert.equal(s.players[0]!.production.money,before[0]!.production.money+2);
+ assert.deepEqual(s.players.map(p=>p.resources),before.map(p=>p.resources));assert.equal(s.actionsTaken,1);assert.ok(s.history.some(h=>h.kind==='ATTACK'));
+});
+test('Mars production attack rejects insufficient targets and missing mandatory energy cost atomically',()=>{
+ let s=ready();s.players[0]!.production.money=-4;s.players[1]!.production.money=-5;
+ const rule={...MARS_CARDS[0]!,requirements:[],cost:0,effects:MARS_CORPORATE_ERA_ATTACK_EFFECTS.Hackers};
+ assert.notEqual(marsCardReason(s,s.players[0]!,rule),null);
+ s.players[0]!.production.money=0;s.players[0]!.production.energy=0;assert.notEqual(marsCardReason(s,s.players[0]!,rule),null);
+ s.players[0]!.production.energy=1;s=peek(s,{kind:'attackProduction',resource:'money',amount:2});const before=structuredClone(s);
+ assert.equal(applyMarsAction(s,s.activePlayerId,{type:'TAKE',actionId:'reduce:'+s.players[1]!.playerId},now,s.transitionId,random).ok,false);assert.deepEqual(s,before);
+});
+test('Mars mining consortium can reduce its own titanium production and restore it within one action',()=>{
+ let s=ready();const owner=s.activePlayerId;s.players[0]!.production.titanium=1;s.players[1]!.production.titanium=0;
+ s=peek(s,{kind:'choice',options:[{label:'Consortium effect',effects:MARS_CORPORATE_ERA_ATTACK_EFFECTS.AsteroidMiningConsortium}]});s=act(s,o=>o.id==='choice:0');s=act(s,o=>o.label.includes('생산 −1'));
+ assert.deepEqual(marsOffers(s,owner).map(o=>o.targetId),[owner]);assert.match(marsOffers(s,owner)[0]!.detail,/내 생산량 감소/);
+ s=act(s,o=>o.targetId===owner);s=settle(s);assert.equal(s.players[0]!.production.titanium,1);assert.equal(s.players[1]!.production.titanium,0);assert.equal(s.actionsTaken,1);
+});

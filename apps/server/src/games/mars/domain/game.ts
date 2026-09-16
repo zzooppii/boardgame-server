@@ -1,3 +1,4 @@
+import { marsCanReduceProduction } from './production-attacks.js';
 import { marsCardResourcePoints, marsAddedCardResources } from './card-resources.js';
 import { marsLandClaimsAreConsistent } from '@hangul-rummikub/shared';
 import { marsProductionBox } from './production-copy.js';
@@ -161,7 +162,7 @@ function effectsPossible(s: MarsState, p: Person, effects: readonly MarsEffect[]
         return false;
     return effects.every(e => { switch (e.kind) {
         case 'place': return e.tile === 'ocean' && s.oceans >= 9 || marsSpaces(s, p.playerId, e.tile, e.rule).length > 0;
-        case 'attackProduction': return s.players.some(t => t.production[e.resource] - (e.resource === 'money' ? -5 : 0) >= e.amount);
+        case 'attackProduction': return s.players.some(t => marsCanReduceProduction(t.production, e.resource, e.amount));
         case 'pay': return amountAvailable(p, e.material) >= e.amount;
         case 'consumeSelf': return (ownCard(p, source)?.resources ?? 0) >= e.amount;
         case 'claimLand': return marsClaimableSpaces(s).length > 0;
@@ -601,8 +602,8 @@ function choices(s: MarsState, viewer: PlayerId, now: ServerTime, r: RandomSourc
         }
         if (e.kind === 'attackProduction') {
             for (const t of s.players)
-                if (t.production[e.resource] - (e.resource === 'money' ? -5 : 0) >= e.amount)
-                    offer(`reduce:${t.playerId}`, 'EFFECT', t.playerId, `${MARS_RESOURCE_NAMES[e.resource]} 생산 감소`, `${e.amount}단계 감소 · 현재 ${t.production[e.resource]}`, 0, resolve(() => { t.production[e.resource] -= e.amount; }));
+                if (marsCanReduceProduction(t.production, e.resource, e.amount))
+                    offer(`reduce:${t.playerId}`, 'EFFECT', t.playerId, `${MARS_RESOURCE_NAMES[e.resource]} 생산 감소`, `${t.playerId === p.playerId ? '내 생산량 감소 · ' : ''}${t.production[e.resource]} → ${t.production[e.resource] - e.amount} · 하한 ${e.resource === 'money' ? -5 : 0} · 보유 자원 변화 없음`, 0, resolve(() => { t.production[e.resource] -= e.amount; log(s, 'ATTACK', `${s.players.indexOf(t) + 1}번 기업 · ${MARS_RESOURCE_NAMES[e.resource]} 생산 −${e.amount}`); }));
         }
         if (e.kind === 'removePlants') {
             offer('skip', 'EFFECT', 'skip', '식물 제거하지 않기', '선택 효과 건너뛰기', 0, resolve(() => undefined));
