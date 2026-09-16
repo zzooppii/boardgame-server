@@ -122,3 +122,12 @@
 .du-wonder-built-badge>b{display:grid;place-items:center;width:19px;height:19px;flex:none;border-radius:50%;background:#f0cf77;color:#174831;font-size:14px}
 .du-wonder.built .du-wonder-caption{background:linear-gradient(transparent,#194e39 32%)}
 @media(max-width:1100px){.du-wonder-built-badge{gap:3px;font-size:10px}.du-wonder-built-badge>b{width:16px;height:16px;font-size:12px}}
+
+.du-agora{display:flex;gap:14px;align-items:stretch;padding:12px;margin-bottom:18px;border:1px solid #b6a078;border-radius:8px;background:linear-gradient(120deg,#f8f2e5,#e6dac3);color:#423c30}
+.du-agora-title{width:145px;flex:none;display:flex;flex-direction:column;justify-content:center;gap:8px;padding:0 8px}.du-agora-title>strong{font:700 19px Georgia,serif;letter-spacing:2px;color:#7c582f}.du-agora-title>span,.du-agora-title>small{font-size:10px;line-height:1.5}
+.du-agora-chambers{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;flex:1;min-width:0}
+.du-agora-chamber{min-width:0;display:flex;flex-direction:column;gap:6px;padding:9px;border:1px solid #bba581;border-top:3px solid #bba581;border-radius:7px;background:#fffaf0;color:#49402f;text-align:left;cursor:pointer}
+.du-agora-chamber.mine{border-color:#397559;background:#edf5e8}.du-agora-chamber.theirs{border-color:#a85440;background:#fff0e9}.du-agora-chamber:hover,.du-agora-chamber:focus-visible{outline:2px solid #947042;outline-offset:2px}
+.du-agora-chamber-heading,.du-agora-influence{display:flex;justify-content:space-between;gap:4px;font-size:11px}.du-agora-chamber-heading>b{color:#85602a}.du-agora-influence i{font-style:normal;color:#34775b}.du-agora-influence>span+span i{color:#b0523d}.du-agora-control{font-size:10px}.du-agora-law{font-size:10px;line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%}.du-agora-chamber>small{font-size:9px;color:#77603d}
+.du-agora-details{padding:26px;line-height:1.8}.du-agora-details h2{font-size:20px;margin:0 0 16px}.du-agora-details h3{font-size:15px}.du-agora-details ul{padding-left:20px}.du-agora-details li+li{margin-top:10px}.du-agora-note{font-size:12px;color:#766243}
+@media(max-width:1100px){.du-agora{flex-direction:column;gap:10px}.du-agora-title{width:auto;flex-direction:row;align-items:center;justify-content:flex-start;flex-wrap:wrap}.du-agora-title>small{margin-left:auto}.du-agora-chambers{overflow-x:auto;padding:3px;grid-template-columns:repeat(6,minmax(135px,1fr))}}

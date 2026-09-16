@@ -149,3 +149,19 @@ test('DUEL unlimited UI labels the mode without a countdown',async()=>{
  const html=renderToStaticMarkup(createElement(TurnTimer,{deadlineAt:null,serverTime:1000,connected:true}));
  assert.ok(html.includes('시간 제한 없음'));assert.equal(html.includes('role="timer"'),false);assert.equal(html.includes('자동 진행 대기'),false);
 });
+
+test('DUEL Agora board shows both perspectives and preserves unrevealed decrees',async()=>{
+ const {AgoraBoard,AgoraDetails}=await import('../features/seven-wonders-duel/AgoraBoard.js');
+ const {PlayerIdSchema,DuelCount}=await import('@hangul-rummikub/shared');
+ const alice=parse(PlayerIdSchema,'alice'),bob=parse(PlayerIdSchema,'bob');
+ const chambers=Array.from({length:6},(_,i)=>({chamber:parse(DuelCount,i),ids:[i===2?null:parse(DuelCount,1)],controller:i===0?alice:i===1?bob:null}));
+ const props={chambers,self:alice,mine:[2,0,0,0,0,0],theirs:[0,1,0,0,0,0],onInspect(){}};
+ const html=renderToStaticMarkup(createElement(AgoraBoard,props));
+ assert.equal((html.match(/aria-haspopup="dialog"/g)??[]).length,6);
+ assert.ok(html.includes('나 1/6 · 상대 1/6 지배'));
+ assert.ok(html.includes('1 의회 · 나 지배'));assert.ok(html.includes('2 의회 · 상대 지배'));
+ const reversed=renderToStaticMarkup(createElement(AgoraBoard,{...props,self:bob,mine:props.theirs,theirs:props.mine}));
+ assert.ok(reversed.includes('1 의회 · 상대 지배'));assert.ok(reversed.includes('2 의회 · 나 지배'));
+ const hidden=renderToStaticMarkup(createElement(AgoraDetails,{chamber:chambers[2]!,self:alice,mine:props.mine,theirs:props.theirs}));
+ assert.ok(hidden.includes('아직 공개되지 않은 법령'));assert.ok(!hidden.includes('파란 건물'));assert.ok(hidden.includes('승점 3점'));
+});
