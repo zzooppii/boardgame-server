@@ -1,3 +1,4 @@
+import { PatchworkSettingsSchema } from "@hangul-rummikub/shared";
 import {HarmoniesSettingsSchema,HARMONIES_DEFAULT_SETTINGS} from "@hangul-rummikub/shared";
 import { DuelSettingsSchema, DUEL_DEFAULT_SETTINGS } from "@hangul-rummikub/shared";
 import { ArkNovaGameStateAdapter, arkNovaPlayerIds, type ArkNovaLifecycle } from '../games/ark-nova/compatibility/adapter.js';
@@ -444,7 +445,9 @@ function cloneRoomWriteCandidate(
       validateRoomGameCoherence(shell.phase, shell.players, game, () => game === null ? null : adapter.inspectLifecycle(game));
       const departedPlayerIds = Object.freeze([...(candidate.departedPlayerIds ?? [])]);
       if (new Set(departedPlayerIds).size !== departedPlayerIds.length || departedPlayerIds.some(id => !shell.players.some(p => p.playerId === id)) || shell.phase === "LOBBY" && departedPlayerIds.length > 0) throw new Error("Invalid departed PATCHWORK roster.");
-      return Object.freeze({...shell, gameType:"PATCHWORK", game, departedPlayerIds});
+      const settings=v.parse(PatchworkSettingsSchema,candidate.settings??{turnDurationSeconds:60});
+      if(game&&game.state.settings.turnDurationSeconds!==settings.turnDurationSeconds)throw new Error("Patchwork settings mismatch.");
+      return Object.freeze({...shell, gameType:"PATCHWORK", settings, game, departedPlayerIds});
     }
 
     case "ARNAK": {

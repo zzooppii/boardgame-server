@@ -3174,7 +3174,7 @@ function registerHarmoniesHandlers(socket: RealtimeSocket, runtime: ApplicationR
 
 import { PatchworkClientCommandSchema } from "@hangul-rummikub/shared";
 function registerPatchworkHandlers(socket: RealtimeSocket, runtime: ApplicationRuntime): void {
-  for (const event of ["patchwork:act"] as const) socket.on(event, (raw: unknown, acknowledge: (ack: StateSyncWireAck) => void) => {
+  for (const event of ["patchwork:act", "patchwork:configure"] as const) socket.on(event, (raw: unknown, acknowledge: (ack: StateSyncWireAck) => void) => {
     const receivedAt = runtime.clock.now(), command = parseNumberRematch(PatchworkClientCommandSchema, raw);
     if (!command.success || command.output.kind !== event) { acknowledgeIfPresent(acknowledge, failureAck(raw, INVALID_PAYLOAD_ERROR, receivedAt)); return; }
     void (async () => {

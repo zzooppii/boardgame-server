@@ -1,3 +1,4 @@
+import { PatchworkSettingsSchema } from "../games/patchwork/actions.js";
 import {HarmoniesSettingsSchema,HARMONIES_DEFAULT_SETTINGS} from "../games/harmonies/actions.js";
 import { DuelSettingsSchema } from "../games/seven-wonders-duel/actions.js";
 import { ArkNovaPlayingProjectionSchema, ArkNovaFinishedProjectionSchema } from "../games/ark-nova/platform-contracts.js";
@@ -639,15 +640,15 @@ export const HarmoniesPlayingPlatformSnapshotV2Schema: v.GenericSchema<unknown, 
 export const HarmoniesFinishedPlatformSnapshotV2Schema: v.GenericSchema<unknown, HarmoniesFinishedPlatformSnapshotV2> = HarmoniesFinishedRaw;
 
 const PatchworkOuter = { snapshotVersion: PlatformSnapshotVersionSchema, versions: PlatformSnapshotVersionsV2Schema, serverTime: ServerTimeSchema, self: PlatformSelfViewV2Schema };
-const PatchworkRoom = { roomId: RoomIdSchema, roomCode: RoomCodeSchema, gameType: v.literal("PATCHWORK") };
+const PatchworkRoom = { settings:v.optional(PatchworkSettingsSchema,()=>({turnDurationSeconds:60})), roomId: RoomIdSchema, roomCode: RoomCodeSchema, gameType: v.literal("PATCHWORK") };
 const PatchworkPlayers = v.pipe(v.array(PlatformPlayerViewV2Schema), v.length(2));
 const PatchworkLobbyRaw = v.pipe(v.strictObject({ ...PatchworkOuter, room: v.strictObject({ ...PatchworkRoom, phase: v.literal("LOBBY"),
   players: v.pipe(v.array(PlatformPlayerViewV2Schema), v.maxLength(10)) }), game: v.null() }),
   v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)));
 const PatchworkPlayingRaw = v.pipe(v.strictObject({ ...PatchworkOuter, room: v.strictObject({ ...PatchworkRoom, phase: v.literal("PLAYING"), players: PatchworkPlayers }), game: PatchworkPlayingProjectionSchema }),
-  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)), v.check(s => hasMatchingGamePlayers(s)), v.check(s => patchworkProjectionIsConsistent(s.game)), v.check(s => s.game.privateState.playerId === s.self.playerId));
+  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)), v.check(s => hasMatchingGamePlayers(s)), v.check(s => patchworkProjectionIsConsistent(s.game)), v.check(s => s.room.settings.turnDurationSeconds === s.game.settings.turnDurationSeconds), v.check(s => s.game.privateState.playerId === s.self.playerId));
 const PatchworkFinishedRaw = v.pipe(v.strictObject({ ...PatchworkOuter, room: v.strictObject({ ...PatchworkRoom, phase: v.literal("FINISHED"), players: PatchworkPlayers }), game: PatchworkFinishedProjectionSchema }),
-  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)), v.check(s => hasMatchingGamePlayers(s)), v.check(s => patchworkProjectionIsConsistent(s.game)), v.check(s => s.game.privateState.playerId === s.self.playerId));
+  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)), v.check(s => hasMatchingGamePlayers(s)), v.check(s => patchworkProjectionIsConsistent(s.game)), v.check(s => s.room.settings.turnDurationSeconds === s.game.settings.turnDurationSeconds), v.check(s => s.game.privateState.playerId === s.self.playerId));
 export type PatchworkLobbyPlatformSnapshotV2 = v.InferOutput<typeof PatchworkLobbyRaw>;
 export type PatchworkPlayingPlatformSnapshotV2 = v.InferOutput<typeof PatchworkPlayingRaw>;
 export type PatchworkFinishedPlatformSnapshotV2 = v.InferOutput<typeof PatchworkFinishedRaw>;

@@ -4,8 +4,9 @@
 
 - `shared/games/patchwork`: 공개 구성품 데이터, 좌표 회전/반사·배치·점수·결과 미리보기의 순수 함수, 엄격한 DTO. 서버 저장 entity는 노출하지 않는다.
 - `server/games/patchwork/domain`: 타일 38개 보존, 구매 가능한 순서, 비용, 실제 이동, 수입, 가죽 대기열, 연속 차례, 7×7, 종료·동률. 보드 전체나 클라이언트 점수는 받지 않는다.
+- `patchwork:configure`: 대기실 방장만 30초/60초를 저장한다. 인증, phase, room revision, idempotency를 검증하며 room/game projection에 설정을 공개한다.
 - `patchwork:act`: BUY / ADVANCE / PLACE_LEATHER. `requestId`, `gameId`, `expectedGameRevision`, `turnId`와 현재 socket binding의 actor 검증. 방 단위 직렬화 → candidate 검증 → UoW 한 번 commit. 실패 시 state와 revision은 그대로. 중복 요청 영수증은 재사용한다.
-- `compatibility`: 정확한 PATCHWORK Room union, adapter, 참가자 전용 projection, lifecycle, 재시작. 게임은 `activeTurn:null`이며 자동 timeout 행동이 없다.
+- `compatibility`: 정확한 PATCHWORK Room union, adapter, 참가자 전용 projection, lifecycle, 재시작. 새 게임은 서버 `deadlineAt`과 `activeTurn`을 가진다. 공통 scheduler와 overdue recovery가 game/revision/turn/deadline을 검증한 뒤 자동 전진·가죽 배치를 하나의 UoW로 commit한다. 가죽 배치 중에는 기존 deadline을 유지하며 완료 시 새 deadline을 부여한다.
 - `web/features/patchwork`: 천 조각 선택·회전·반사·고정 미리보기, 클릭/탭/드래그/방향키, 확대, 구매와 전진 결과 미리보기. 불명확한 응답은 같은 requestId로 확인. 새 revision에서는 낡은 로컬 배치를 폐기한다.
 - 그림: 자체 SVG 직물 무늬·단추·바느질선, 분홍/청록 퀼트, 나선 시간판, 자체 표지. 사용자 스크린샷은 배치/분위기 참고이며 원본 이미지·로고를 제품 asset으로 복사하지 않았다.
 - 소리: Web Audio의 천 마찰·회전·반사·배치·단추 수입·가죽·보너스·승리. 최초 사용자 제스처 뒤 활성화, 음량·음소거 저장, 초기 snapshot/재접속/중복 revision은 완료음을 재생하지 않는다. reduced-motion을 따른다.
@@ -31,3 +32,13 @@
 - 루트 `npm run build`: 통과. 기존 웹 공통 번들의 500kB 초과 경고는 남는다 (최종 메인 JS 약 2.27MB, gzip 약 638kB).
 - 신규 패치워크 검증: domain 25개 (16개 seeded 완주 포함), 실제 Socket.IO 3개, web 3개. 공통 게임 선택/퇴장 검증에도 패치워크의 정확한 2인 인원을 반영했다.
 - 문서 로컬 링크 및 `git diff --check`: 통과. 공개 배포는 수행하지 않았다.
+
+## 차례 제한 시간 추가 · 2026-09-16
+
+- 방장이 대기실에서 30초/60초를 선택한다(기본 60초). 설정은 서버에 저장하고 두 참가자에게 동기화하며 같은 게임 재시작에도 유지한다.
+- 서버 마감 시각부터 사용자 행동을 거절한다. 자동 전진과 확보한 가죽 전체의 자동 배치를 하나의 후보 상태로 확정한다. 가죽 배치 중에는 기존 마감 시각을 유지하고, 모두 배치하면 다음 차례의 시간을 새로 부여한다.
+- 화면은 서버 시각을 기준으로 남은 초·진행 막대를 표시하고 10초 이하를 강조한다. 시간 초과 행동은 기록에서 자동 처리로 구분한다.
+- 실제 두 브라우저 참가자로 30초 설정 저장·동기화, 참가자의 설정 변경 차단, 30초 카운트다운, 미확정 구매 취소·자동 1칸 전진·다음 차례 시작을 확인했다. 브라우저 오류는 없었다.
+- 패치워크 서버 34개 및 웹 4개 테스트 통과. 경계 시각, 가죽 시간 공유, 중복 타이머, 서버 복구 sweeper, 오프라인·재접속, 설정 권한·검증·재시작을 포함한다.
+- 최종 루트 검증: typecheck, test, build 모두 통과. 전체 테스트 5,159개(shared 133, web 934, server 3,937, E2E 155), 실패·skip 0개. 기존 500kB 초과 웹 번들 경고는 남는다.
+- 문서 링크와 git diff --check 통과. 새 dependency 및 공개 배포는 없다.

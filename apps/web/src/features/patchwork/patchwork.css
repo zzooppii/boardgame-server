@@ -8,3 +8,16 @@
 @media(max-width:720px){.pw-table-layout{display:contents}.pw-my-area{margin-top:12px}.pw-time-panel{margin:20px 0}.pw-action-dock{position:relative;bottom:auto}.pw-sound>div{position:fixed;top:110px;left:12px;right:12px;width:auto;max-width:360px}}
 
 @media(max-width:720px){.pw-gameplay{display:flex;flex-direction:column}.pw-turn-banner{order:0}.pw-rulebook,.pw-alert{order:1}.pw-choice-section{order:2}.pw-my-area{order:3}.pw-action-dock{order:4}.pw-time-panel{order:5}.pw-opponent{order:6}.pw-results{order:7}.pw-market-all{order:8}.pw-last-action{order:9}}
+
+.patchwork-screen .pw-timer-settings{border:1px dashed #8b7049;border-radius:12px;padding:14px;margin:18px 0 8px}
+.patchwork-screen .pw-timer-settings legend{font-weight:700;padding:0 6px}
+.patchwork-screen .pw-timer-settings [role=group]{display:flex;gap:10px;margin-bottom:8px}
+.patchwork-screen .pw-timer-settings button{flex:1;padding:10px 20px}
+.patchwork-screen .pw-timer-settings button[aria-pressed=true]{background:#245567;color:#fff8e5;border-color:#245567}
+.patchwork-screen .pw-timer-settings small{color:#6f5c43}
+.patchwork-screen .pw-countdown{display:grid;gap:5px;min-width:130px;flex-shrink:0;color:#245567}
+.patchwork-screen .pw-countdown strong{font-size:24px;font-variant-numeric:tabular-nums}
+.patchwork-screen .pw-countdown progress{width:130px;height:8px;accent-color:#245567}
+.patchwork-screen .pw-countdown.urgent{color:#9f3859}
+.patchwork-screen .pw-countdown.urgent progress{accent-color:#9f3859}
+.patchwork-screen .pw-turn-banner{flex-wrap:wrap}

@@ -30,3 +30,14 @@ test('PATCHWORK sounds suppress initial/sync/reconnect/replayed snapshots; new i
  const next=parse(PatchworkPlayingPlatformSnapshotV2Schema,{...playing(),game:{...g,gameRevision:1,history:[{id:1,playerId:'a',kind:'ADVANCE',patchId:0,distance:1,income:3,bonus:false}]}}).game;
  assert.equal(patchworkNewCue({gameId:'g',revision:0},next,false),null);assert.equal(patchworkNewCue({gameId:'old',revision:0},next,true),null);assert.equal(patchworkNewCue({gameId:'g',revision:2},next,true),null);assert.equal(patchworkNewCue({gameId:'g',revision:0},next,true),'INCOME');next.history[0]!.bonus=true;assert.equal(patchworkNewCue({gameId:'g',revision:0},next,true),'BONUS');
 });
+
+test('PATCHWORK timer UI: host settings, guest read-only options, server-based countdown and expired actions',()=>{
+ const l=lobby();assert.equal(l.room.settings.turnDurationSeconds,60);assert.match(render(l),/한 차례 제한 시간/);assert.match(render(l),/aria-pressed="true">1분/);
+ const guest=parse(PatchworkLobbyPlatformSnapshotV2Schema,{...l,self:{playerId:players[1]!.playerId}});assert.match(render(guest),/<fieldset[^>]+disabled/);
+ const s=playing();s.game.deadlineAt=parse(PatchworkPlayingPlatformSnapshotV2Schema,{...s,game:{...s.game,deadlineAt:31000}}).game.deadlineAt;s.game.settings.turnDurationSeconds=30;s.room.settings.turnDurationSeconds=30;
+ assert.match(render(s),/남은 시간 30초/);
+ s.serverTime=parse(PatchworkPlayingPlatformSnapshotV2Schema,{...s,serverTime:31000}).serverTime;const expired=render(s);assert.match(expired,/서버 처리 중/);assert.doesNotMatch(expired,/aria-label="퀼트 배치 위치"/);
+ const c={protocolVersion:1,requestId:'config',kind:'patchwork:configure',expectedRoomRevision:1,payload:{turnDurationSeconds:30}};
+ assert.equal(safeParse(PatchworkClientCommandSchema,c).success,true);
+ for(const seconds of [0,45,90,'30'])assert.equal(safeParse(PatchworkClientCommandSchema,{...c,payload:{turnDurationSeconds:seconds}}).success,false);
+});

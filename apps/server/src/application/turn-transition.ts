@@ -139,7 +139,10 @@ export function toScheduledTurnDeadline(
       if(game.state.deadlineAt===null)throw new Error("Harmonies deadline missing.");
       return {roomId,gameId:game.gameId,expectedGameRevision:game.gameRevision,turnId:game.state.transitionId,deadlineAt:game.state.deadlineAt};
     }
-    if (game.state.rulesVersion === "patchwork-base-v1") throw new Error("Patchwork has no turn deadline.");
+    if (game.state.rulesVersion === "patchwork-base-v1") {
+      if(game.state.deadlineAt===null)throw new Error("Patchwork deadline missing.");
+      return {roomId,gameId:game.gameId,expectedGameRevision:game.gameRevision,turnId:game.state.transitionId,deadlineAt:game.state.deadlineAt};
+    }
     if (game.state.rulesVersion === "arnak-bird-v1") throw new Error("Arnak has no turn deadline.");
     if (game.state.rulesVersion === "mars-base-v1") throw new Error("Mars has no turn deadline.");
     if (game.state.rulesVersion === "seven-wonders-duel-v1") throw new Error("Duel has no turn deadline.");
@@ -238,12 +241,11 @@ export async function scheduleCurrentTurnBestEffort(
       if (game.state.rulesVersion === "clue-bonus-manor-v2") return false;
       if (game.state.rulesVersion === "pandemic-base-v1") throw new Error("Pandemic has no turn deadline.");
       if (game.state.rulesVersion === "perch-base-v1") throw new Error("Perch has no turn deadline.");
-      if (game.state.rulesVersion === "patchwork-base-v1") throw new Error("Patchwork has no turn deadline.");
       if (game.state.rulesVersion === "arnak-bird-v1") throw new Error("Arnak has no turn deadline.");
       if (game.state.rulesVersion === "mars-base-v1") throw new Error("Mars has no turn deadline.");
       if (game.state.rulesVersion === "seven-wonders-duel-v1") throw new Error("Duel has no turn deadline.");
     if ("killerRevision" in game.state) return false;
-      if ((game.state.rulesVersion === "train-usa-classic-v1" || game.state.rulesVersion === "train-korea-original-v1" || game.state.rulesVersion === "train-japan-original-v1") || game.state.rulesVersion === "saboteur-base-2025-v1" || game.state.rulesVersion === "harmonies-base-a-v1" || game.state.rulesVersion === "azul-base-v1" || game.state.rulesVersion === "vegas-base-v1" || game.state.rulesVersion === "carcassonne-base72-v1" || game.state.rulesVersion === "burgundy-anniversary-2019-v1") {
+      if (game.state.rulesVersion === "patchwork-base-v1" || (game.state.rulesVersion === "train-usa-classic-v1" || game.state.rulesVersion === "train-korea-original-v1" || game.state.rulesVersion === "train-japan-original-v1") || game.state.rulesVersion === "saboteur-base-2025-v1" || game.state.rulesVersion === "harmonies-base-a-v1" || game.state.rulesVersion === "azul-base-v1" || game.state.rulesVersion === "vegas-base-v1" || game.state.rulesVersion === "carcassonne-base72-v1" || game.state.rulesVersion === "burgundy-anniversary-2019-v1") {
         if (game.state.deadlineAt === null || game.state.transitionId !== identity.turnId) return false;
       } else if ("startingPlayerId" in game.state) return false;
       else if ("turnId" in game.state) {

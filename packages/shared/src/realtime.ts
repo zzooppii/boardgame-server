@@ -601,6 +601,7 @@ export interface SnapshotWireClientToServerEvents {
   "harmonies:configure": (command: Extract<HarmoniesClientCommand,{kind:"harmonies:configure"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "harmonies:draft": (command: Extract<HarmoniesClientCommand,{kind:"harmonies:draft"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "patchwork:act": (command: Extract<PatchworkClientCommand,{kind:"patchwork:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
+  "patchwork:configure": (command: Extract<PatchworkClientCommand,{kind:"patchwork:configure"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "arnak:act": (command: Extract<ArnakClientCommand,{kind:"arnak:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "mars:act": (command: Extract<MarsClientCommand,{kind:"mars:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "duel:configure": (command: Extract<DuelClientCommand,{kind:"duel:configure"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;

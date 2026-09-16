@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {parse} from 'valibot';
 import {GameIdSchema,PlayerIdSchema,TileIdSchema,TurnIdSchema,ServerTimeSchema,PatchworkActionSchema,PATCHWORK_PATCHES,PATCHWORK_LEATHER,patchworkPatch,patchworkCells,patchworkCanPlace,patchworkOccupied,patchworkFirstPlacement,patchworkSeven,patchworkScore,patchworkMovePreview,type PatchworkAction,type PatchworkPlayer,type PatchworkTile} from '@hangul-rummikub/shared';
-import {createPatchworkGame,applyPatchworkAction,parsePatchworkState,cancelPatchwork,type PatchworkState} from './games/patchwork/domain/game.js';
+import {timeoutPatchwork,createPatchworkGame,applyPatchworkAction,parsePatchworkState,cancelPatchwork,type PatchworkState} from './games/patchwork/domain/game.js';
 let serial=0;
 const id=()=>parse(TileIdSchema,`tile-${++serial}`),now=parse(ServerTimeSchema,1000);
 function fixture(seed=1){return createPatchworkGame({gameId:parse(GameIdSchema,'patchwork'),playerIds:[parse(PlayerIdSchema,'alice'),parse(PlayerIdSchema,'bob')],generateTileId:id,turnId:parse(TurnIdSchema,'first'),now,random:{nextInt(max){seed=(seed*1664525+1013904223)>>>0;return seed%max;}}});}
@@ -69,4 +69,40 @@ for(let seed=1;seed<=16;seed++)test(`PATCHWORK seeded complete game ${seed}: til
  }
  assert.equal(s.phase,'FINISHED');assert.equal(s.finishOrder.length,2);assert.ok(s.players.every(p=>p.position===53));assert.ok(s.result?.winnerPlayerIds.length===1);const winner=s.players.find(p=>p.playerId===s.result!.winnerPlayerIds[0])!;assert.equal(patchworkScore(winner,s.bonusOwner).total,Math.max(...s.players.map(p=>patchworkScore(p,s.bonusOwner).total)));
  const cancelled=cancelPatchwork(fixture(seed),now);assert.equal(cancelled.result?.reason,'CANCELLED');assert.deepEqual(cancelled.result?.winnerPlayerIds,[]);
+});
+
+test('PATCHWORK timer: default 60 seconds, exact deadline rejects atomically, early timeout does nothing',()=>{
+ const s=fixture(),before=structuredClone(s),turn=parse(TurnIdSchema,'timeout');
+ assert.equal(s.settings.turnDurationSeconds,60);assert.equal(s.deadlineAt,61000);
+ assert.deepEqual(timeoutPatchwork(s,parse(ServerTimeSchema,60999),turn),{ok:false});
+ assert.equal(applyPatchworkAction(s,s.activePlayerId,{type:'ADVANCE'},parse(ServerTimeSchema,60999),turn).ok,true);
+ assert.deepEqual(applyPatchworkAction(s,s.activePlayerId,{type:'ADVANCE'},parse(ServerTimeSchema,61000),turn),{ok:false,reason:'TURN_EXPIRED'});
+ const result=timeoutPatchwork(s,parse(ServerTimeSchema,61000),turn);assert.ok(result.ok);
+ assert.equal(result.state.history.at(-1)?.automatic,true);assert.equal(result.state.deadlineAt,121000);
+ assert.equal(result.state.players.find(p=>p.playerId===s.activePlayerId)!.position,1);
+ assert.deepEqual(s,before);
+});
+test('PATCHWORK timer: 30 seconds and a consecutive turn both get a fresh deadline',()=>{
+ const s=fixture();s.settings={turnDurationSeconds:30};s.deadlineAt=parse(ServerTimeSchema,31000);
+ other(s).position=4;const tile=promote(s,1);
+ const result=applyPatchworkAction(s,s.activePlayerId,{type:'BUY',tileId:tile.tileId,x:0,y:0,rotation:0,flipped:false},parse(ServerTimeSchema,2000),parse(TurnIdSchema,'next'));
+ assert.ok(result.ok);assert.equal(result.state.activePlayerId,s.activePlayerId);assert.equal(result.state.deadlineAt,32000);
+});
+test('PATCHWORK timer: leather shares the remaining deadline; timeout places all pending without advancing again',()=>{
+ let s=fixture();actor(s).position=24;other(s).position=25;
+ const advanced=applyPatchworkAction(s,s.activePlayerId,{type:'ADVANCE'},parse(ServerTimeSchema,60000),parse(TurnIdSchema,'leather'));
+ assert.ok(advanced.ok);s=advanced.state;assert.equal(s.pendingLeather.length,1);assert.equal(s.deadlineAt,61000);
+ const before=structuredClone(s),result=timeoutPatchwork(s,parse(ServerTimeSchema,61000),parse(TurnIdSchema,'automatic'));
+ assert.ok(result.ok);assert.equal(result.state.pendingLeather.length,0);assert.equal(result.state.deadlineAt,121000);
+ const placed=result.state.players.find(p=>p.playerId===s.activePlayerId)!;
+ assert.equal(placed.position,26);assert.equal(placed.placements[0]!.x,0);assert.equal(placed.placements[0]!.y,0);
+ assert.equal(result.state.history.at(-1)!.kind,'LEATHER');assert.deepEqual(s,before);
+});
+test('PATCHWORK timer: expired advance resolves all earned leather in its candidate and finished games stop ticking',()=>{
+ const s=fixture();actor(s).position=24;other(s).position=49;
+ const result=timeoutPatchwork(s,parse(ServerTimeSchema,61000),parse(TurnIdSchema,'automatic'));
+ assert.ok(result.ok);assert.equal(result.state.pendingLeather.length,0);assert.equal(result.state.players.find(p=>p.playerId===s.activePlayerId)!.placements.length,5);
+ assert.ok(result.state.history.every(h=>h.automatic));
+ const finished=cancelPatchwork(result.state,parse(ServerTimeSchema,62000));assert.equal(finished.deadlineAt,null);
+ assert.deepEqual(timeoutPatchwork(finished,parse(ServerTimeSchema,999999),parse(TurnIdSchema,'late')),{ok:false});
 });

@@ -891,6 +891,7 @@ export class RealtimeClient {
     if (!parseRematch(PatchworkClientCommandSchema, command).success) return Promise.reject(new RealtimeClientError("INVALID_COMMAND"));
     return this.#emitAcknowledged(command.kind, command.requestId, acknowledge => {
       switch (command.kind) {
+        case "patchwork:configure": this.#socket.emit("patchwork:configure", command, acknowledge); break;
         case "patchwork:act": this.#socket.emit("patchwork:act", command, acknowledge); break;
       }
     }, validateStateSyncWireAck, ack => hasConsistentSnapshotAcknowledgement(ack) && this.#acceptAcknowledgementSnapshotVersion(ack));

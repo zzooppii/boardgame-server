@@ -17,3 +17,6 @@ export type PatchworkPlacement=v.InferOutput<typeof PatchworkPlacementSchema>;
 export type PatchworkPlayer=v.InferOutput<typeof PatchworkPlayerSchema>;
 export type PatchworkTile=v.InferOutput<typeof PatchworkTileSchema>;
 export type PatchworkRotation=v.InferOutput<typeof PatchworkRotationSchema>;
+
+export const PatchworkSettingsSchema=v.strictObject({turnDurationSeconds:v.picklist([30,60])});
+export type PatchworkSettings=v.InferOutput<typeof PatchworkSettingsSchema>;

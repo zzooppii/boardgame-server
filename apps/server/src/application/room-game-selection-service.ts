@@ -64,7 +64,7 @@ export class RoomGameSelectionService {
               : command.payload.gameType === "PANDEMIC" ? {...lobby,gameType:"PANDEMIC"}
               : command.payload.gameType === "PERCH" ? {...lobby,gameType:"PERCH"}
               : command.payload.gameType === "HARMONIES" ? {...lobby,gameType:"HARMONIES"}
-              : command.payload.gameType === "PATCHWORK" ? {...lobby,gameType:"PATCHWORK"}
+              : command.payload.gameType === "PATCHWORK" ? {...lobby,gameType:"PATCHWORK",settings:room.gameType==="PATCHWORK"?room.settings??{turnDurationSeconds:60}:{turnDurationSeconds:60}}
               : command.payload.gameType === "ARNAK" ? {...lobby,gameType:"ARNAK"}
               : command.payload.gameType === "TERRAFORMING_MARS" ? {...lobby,gameType:"TERRAFORMING_MARS"}
               : command.payload.gameType === "SEVEN_WONDERS_DUEL" ? {...lobby,gameType:"SEVEN_WONDERS_DUEL", ...(room.gameType === "SEVEN_WONDERS_DUEL" && room.settings ? {settings:room.settings} : {})}

@@ -12,7 +12,7 @@ export type PatchworkLifecycle = Readonly<{
     lifecycle: 'RUNNING';
     gameId: GameId;
     gameRevision: GameRevision;
-    activeTurn: null;
+    activeTurn: {turnId: PatchworkState['transitionId']; deadlineAt: ServerTime} | null;
 }> | Readonly<{
     lifecycle: 'FINISHED';
     gameId: GameId;
@@ -31,6 +31,6 @@ export class PatchworkGameStateAdapter {
                 throw new Error('Patchwork finish time missing.');
             return { lifecycle: 'FINISHED', gameId: game.gameId, finishedAt: game.finishedAt };
         }
-        return { lifecycle: 'RUNNING', gameId: game.gameId, gameRevision: game.gameRevision, activeTurn: null };
+        return { lifecycle: 'RUNNING', gameId: game.gameId, gameRevision: game.gameRevision, activeTurn: game.state.deadlineAt===null?null:{turnId:game.state.transitionId,deadlineAt:game.state.deadlineAt} };
     }
 }

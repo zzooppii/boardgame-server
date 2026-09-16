@@ -1,14 +1,14 @@
 import * as v from "valibot";
-import { PatchworkClientCommandSchema, GameRevisionSchema, RoomRevisionSchema, ServerTimeSchema, type PatchworkClientCommand, type ErrorDto, type RoomId, type PlayerId, type ServerTime } from "@hangul-rummikub/shared";
+import { RequestIdSchema, PatchworkClientCommandSchema, GameRevisionSchema, RoomRevisionSchema, ServerTimeSchema, type PatchworkClientCommand, type ErrorDto, type RoomId, type PlayerId, type ServerTime } from "@hangul-rummikub/shared";
 import { GameStartSuccessDataSchema, type StartGameInput, type GameStartResult } from "../../../application/game-start-service.js";
 import type { RoomMutationSerialExecutor } from "../../../application/room-session-service.js";
 import type { RoomRepository } from "../../../ports/room-repository.js";
 import type { RoomUnitOfWork } from "../../../ports/room-unit-of-work.js";
 import type { IdempotencyRepository } from "../../../ports/idempotency-repository.js";
 import type { RoomPresencePolicyReader } from "../../../ports/room-presence-policy.js";
-import type { Clock, IdGenerator, RandomSource } from "../../../ports/system.js";
+import type { Clock, IdGenerator, RandomSource, TurnScheduler, ScheduledTurnDeadline } from "../../../ports/system.js";
 import type { PatchworkRoomRecord } from "../../../model/persistence.js";
-import { createPatchworkGame, applyPatchworkAction, type PatchworkState } from "../domain/game.js";
+import { timeoutPatchwork, createPatchworkGame, applyPatchworkAction, type PatchworkState } from "../domain/game.js";
 export type PatchworkDependencies = Readonly<{
     roomRepository: RoomRepository;
     roomUnitOfWork: RoomUnitOfWork;
@@ -18,6 +18,7 @@ export type PatchworkDependencies = Readonly<{
     clock: Clock;
     ids: IdGenerator;
     random: RandomSource;
+    turnScheduler: TurnScheduler;
 }>;
 const failure = (code: ErrorDto['code']) => ({ ok: false as const, error: { code, message: code === 'RULE_VIOLATION' ? '현재 단계, 행동 차례와 선택 가능한 대상을 확인해주세요.' : code === 'NOT_ENOUGH_PLAYERS' ? '패치워크는 2명이 플레이합니다.' : '현재 차례와 연결 상태를 확인해주세요.', recoverable: true } });
 const Receipt = v.strictObject({ outcome: v.literal('ACCEPTED') });
@@ -32,10 +33,37 @@ export class PatchworkService {
     constructor(readonly deps: PatchworkDependencies) { }
     subscribe(listener: (roomId: RoomId) => void | Promise<void>) { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; }
     async notify(roomId: RoomId) { await Promise.allSettled([...this.listeners].map(fn => Promise.resolve().then(() => fn(roomId)))); }
+  async schedule(roomId:RoomId) {
+    try {
+      const room=await this.deps.roomRepository.findById(roomId);
+      if(room?.gameType!=='PATCHWORK'||room.phase!=='PLAYING'||!room.game||room.game.state.phase!=='PLAYING'||room.game.state.deadlineAt===null)return;
+      await this.deps.turnScheduler.scheduleTimeout({roomId,gameId:room.game.gameId,expectedGameRevision:room.game.gameRevision,turnId:room.game.state.transitionId,deadlineAt:room.game.state.deadlineAt});
+    } catch { console.error('PATCHWORK scheduling failed; overdue recovery will retry.'); }
+  }
+  private async cancelTimer(turnId:PatchworkState['transitionId']) {
+    try { await this.deps.turnScheduler.cancelTimeout(turnId); }
+    catch { console.error('PATCHWORK timer cancellation failed; stale callbacks are guarded.'); }
+  }
+  async timeout(input:ScheduledTurnDeadline):Promise<{status:'NO_OP'|'APPLIED'|'FAILED'}> {
+    const d=this.deps;
+    try {
+      const applied=await d.roomMutationExecutor.run(input.roomId,async()=>{
+        const room=await d.roomRepository.findById(input.roomId),now=d.clock.now();
+        if(room?.gameType!=='PATCHWORK'||room.phase!=='PLAYING'||!room.game||room.game.gameId!==input.gameId||room.game.gameRevision!==input.expectedGameRevision||room.game.state.transitionId!==input.turnId||room.game.state.deadlineAt!==input.deadlineAt||now<input.deadlineAt)return false;
+        const outcome=timeoutPatchwork(room.game.state,now,d.ids.generateTurnId());
+        if(!outcome.ok)return false;
+        const committed=await d.roomUnitOfWork.commit({roomMutation:{kind:'REPLACE',candidate:transitionPatchwork(room,outcome.state,now),expectedRoomRevision:room.roomRevision,expectedStorageRevision:room.storageRevision},sessionMutation:{kind:'NONE'},idempotency:{scopeKey:`patchwork-timer:${room.roomId}:${room.game.gameId}`,requestId:v.parse(RequestIdSchema,`turn:${input.turnId}`),payloadFingerprint:JSON.stringify([input.turnId,input.deadlineAt]),terminalResult:{transitioned:true},createdAt:now}});
+        return committed.status==='COMMITTED';
+      });
+      if(applied){await this.cancelTimer(input.turnId);await this.schedule(input.roomId);await this.notify(input.roomId);}
+      return {status:applied?'APPLIED':'NO_OP'};
+    } catch { return {status:'FAILED'}; }
+  }
+
     async start(input: StartGameInput): Promise<GameStartResult> {
         const d = this.deps;
         try {
-            return await d.roomMutationExecutor.run(input.roomId, async (): Promise<GameStartResult> => {
+            const result = await d.roomMutationExecutor.run(input.roomId, async (): Promise<GameStartResult> => {
                 if (!input.authorization.isCurrent())
                     return failure('UNAUTHENTICATED');
                 const room = await d.roomRepository.findById(input.roomId);
@@ -59,12 +87,14 @@ export class PatchworkService {
                 if (!lease.isCurrent() || !room.players.every(p => lease.connectionStatusByPlayerId.get(p.playerId) === 'CONNECTED'))
                     return failure('PLAYERS_NOT_CONNECTED');
                 const now = d.clock.now(), gameId = d.ids.generateGameId(), turnId = d.ids.generateTurnId();
-                const state = createPatchworkGame({ generateTileId: () => d.ids.generateTileId(), gameId, playerIds: room.players.map(p => p.playerId), now, turnId, random: d.random });
+                const state = createPatchworkGame({ generateTileId: () => d.ids.generateTileId(), gameId, playerIds: room.players.map(p => p.playerId), now, turnId, random: d.random, settings: room.settings??{turnDurationSeconds:60} });
                 const roomRevision = v.parse(RoomRevisionSchema, room.roomRevision + 1), gameRevision = v.parse(GameRevisionSchema, 0);
                 const data = v.parse(GameStartSuccessDataSchema, { roomId: room.roomId, roomRevision, gameId, gameRevision, turnId });
                 const committed = await d.roomUnitOfWork.commit({ roomMutation: { kind: 'REPLACE', candidate: { ...room, phase: 'PLAYING', roomRevision, updatedAt: now, game: { gameId, gameRevision, startedAt: now, finishedAt: null, state } }, expectedRoomRevision: room.roomRevision, expectedStorageRevision: room.storageRevision }, sessionMutation: { kind: 'NONE' }, idempotency: { scopeKey, requestId: input.requestId, payloadFingerprint, terminalResult: data, createdAt: now } }, { isSatisfied: () => input.authorization.isCurrent() && lease.isCurrent() });
                 return committed.status === 'COMMITTED' ? { ok: true, data } : failure('STALE_ROOM_REVISION');
             });
+            if(result.ok)await this.schedule(input.roomId);
+            return result;
         }
         catch {
             return failure('INTERNAL_ERROR');
@@ -99,6 +129,16 @@ export class PatchworkService {
                     v.parse(Receipt, prior.record.terminalResult);
                     return { ok: true as const };
                 }
+        if(c.kind==='patchwork:configure') {
+          if(room.phase!=='LOBBY'||room.game!==null)return failure('INVALID_PHASE');
+          if(room.hostPlayerId!==input.actorPlayerId)return failure('HOST_ONLY');
+          if(room.roomRevision!==c.expectedRoomRevision)return failure('STALE_ROOM_REVISION');
+          const now=d.clock.now();
+          const committed=await d.roomUnitOfWork.commit({roomMutation:{kind:'REPLACE',candidate:{...room,settings:c.payload,roomRevision:v.parse(RoomRevisionSchema,room.roomRevision+1),updatedAt:now},expectedRoomRevision:room.roomRevision,expectedStorageRevision:room.storageRevision},sessionMutation:{kind:'NONE'},idempotency:{scopeKey,requestId:c.requestId,payloadFingerprint,terminalResult:{outcome:'ACCEPTED'},createdAt:now}},{isSatisfied:()=>input.authorization.isCurrent()});
+          if(committed.status!=='COMMITTED')return failure('STALE_ROOM_REVISION');
+          changed=true;return {ok:true as const};
+        }
+
                 if (!room.game || room.game.gameId !== c.gameId || room.game.state.revision !== c.expectedGameRevision)
                     return failure('STALE_GAME_REVISION');
                 if (room.phase !== 'PLAYING')
@@ -112,11 +152,14 @@ export class PatchworkService {
                 const committed = await d.roomUnitOfWork.commit({ roomMutation: { kind: 'REPLACE', candidate: transitionPatchwork(room, applied.state, now), expectedRoomRevision: room.roomRevision, expectedStorageRevision: room.storageRevision }, sessionMutation: { kind: 'NONE' }, idempotency: { scopeKey, requestId: c.requestId, payloadFingerprint, terminalResult: { outcome: 'ACCEPTED' }, createdAt: now } }, { isSatisfied: () => input.authorization.isCurrent() });
                 if (committed.status !== 'COMMITTED')
                     return failure('STALE_GAME_REVISION');
+                await this.cancelTimer(s.transitionId);
                 changed = true;
                 return { ok: true as const };
             });
-            if (changed)
+            if (changed) {
+                await this.schedule(input.roomId);
                 await this.notify(input.roomId);
+            }
             return result;
         }
         catch {

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test, { type TestContext } from "node:test";
 import { io, type Socket } from "socket.io-client";
 import * as v from "valibot";
-import { SUPPORTED_GAME_TYPES, PlatformSnapshotV2Schema, SessionBootstrapAckSchema, StateSyncWireAckSchema, RoomLeaveAckSchema, type GameType, type PlatformSnapshotV2, patchworkPatch, patchworkFirstPlacement, patchworkScore, } from "@hangul-rummikub/shared";
+import { ServerTimeSchema, SUPPORTED_GAME_TYPES, PlatformSnapshotV2Schema, SessionBootstrapAckSchema, StateSyncWireAckSchema, RoomLeaveAckSchema, type GameType, type PlatformSnapshotV2, patchworkPatch, patchworkFirstPlacement, patchworkScore, } from "@hangul-rummikub/shared";
 import { createHttpServer } from "./server.js";
 type Client = Socket<Record<string, (value: unknown) => void>, Record<string, (value: unknown, ack: (value: unknown) => void) => void>>;
 type Command = {
@@ -68,8 +68,8 @@ function payload(s:PlatformSnapshotV2){const g=patchwork(s),p=g.playerStates.fin
  if(g.pendingLeather.length)return {type:'PLACE_LEATHER',tileId:g.pendingLeather[0]!.tileId,x:patchworkFirstPlacement(p.placements,0)!.x,y:patchworkFirstPlacement(p.placements,0)!.y};
  for(const t of g.market.slice(0,3)){if(p.buttons<patchworkPatch(t.patchId).cost)continue;const place=patchworkFirstPlacement(p.placements,t.patchId);if(place)return {type:'BUY',tileId:t.tileId,...place};}return {type:'ADVANCE'};
 }
-test('PATCHWORK sockets: exact 2 players, full public state, no deadline, capability and authenticated actor',async t=>{
- const h=await harness(t),s=await start(h),g=patchwork(s);assert.equal(g.playerStates.length,2);assert.equal(g.market.length,33);assert.equal(g.leather.length,5);assert.equal((await h.server.runtime.persistence.listActiveTurnDeadlines()).some(d=>d.roomId===s.room.roomId),false);
+test('PATCHWORK sockets: exact 2 players, full public state, server deadline, capability and authenticated actor',async t=>{
+ const h=await harness(t),s=await start(h),g=patchwork(s);assert.equal(g.playerStates.length,2);assert.equal(g.market.length,33);assert.equal(g.leather.length,5);assert.equal((await h.server.runtime.persistence.listActiveTurnDeadlines()).some(d=>d.roomId===s.room.roomId),true);
  const owner=h.members.find(m=>m.playerId===g.activePlayerId)!,other=h.members.find(m=>m!==owner)!;assert.equal(h.failure(await h.send(other.client,action(h,s,payload(s)))),'NOT_YOUR_TURN');
  const unsupported=await h.connect(SUPPORTED_GAME_TYPES.filter(x=>x!=='PATCHWORK'));assert.equal(h.failure(await h.call(unsupported,'session:resume',{credential:{...other.credential,roomCode:s.room.roomCode},lastSeenVersions:null})),'INCOMPATIBLE_GAME_CAPABILITY');
  for(const member of h.members){const projection=patchwork(await h.sync(member.client));assert.equal(projection.privateState.playerId,member.playerId);assert.deepEqual(projection.market,g.market);assert.deepEqual(projection.playerStates,g.playerStates);assert.equal(JSON.stringify(projection).includes('sessionToken'),false);}
@@ -85,13 +85,56 @@ test('PATCHWORK sockets: atomic rejection, racing turns, idempotency, stale game
  const after=await h.server.runtime.persistence.findById(s.room.roomId);h.success(await h.send(owner.client,c));assert.deepEqual(await h.server.runtime.persistence.findById(s.room.roomId),after);assert.equal(h.failure(await h.send(owner.client,{...c,payload:{type:'BUY',tileId:g.market[0]!.tileId,x:0,y:0,rotation:0,flipped:false}})),'REQUEST_ID_REUSED');
 });
 test('PATCHWORK sockets: full game, pending leather reconnect, exact result, same-room rematch and switch',async t=>{
- const h=await harness(t);let s=await start(h),count=0,reconnected=false,buys=0,leathers=0;const originalId=patchwork(s).gameId;
+ const h=await harness(t);const lobby=await h.sync();h.success(await h.call(h.host,'patchwork:configure',{turnDurationSeconds:30},{expectedRoomRevision:lobby.versions.roomRevision}));let s=await start(h),count=0,reconnected=false,buys=0,leathers=0;const originalId=patchwork(s).gameId;
  while(patchwork(s).phase!=='FINISHED'&&count++<120){const g=patchwork(s),owner=h.members.find(m=>m.playerId===g.activePlayerId)!;
   if(g.pendingLeather.length&&!reconnected){owner.client.disconnect();const replacement=await h.connect(),resumed=h.success(await h.call(replacement,'session:resume',{credential:{...owner.credential,roomCode:s.room.roomCode},lastSeenVersions:null}));assert.deepEqual(patchwork(resumed).pendingLeather,g.pendingLeather);assert.deepEqual(patchwork(resumed).playerStates,g.playerStates);owner.client=replacement;s=resumed;reconnected=true;}
   const a=payload(s);if(a.type==='BUY')buys++;if(a.type==='PLACE_LEATHER')leathers++;s=h.success(await h.send(owner.client,action(h,s,a)));
  }
- const end=patchwork(s);assert.equal(end.phase,'FINISHED');assert.ok(buys>5);assert.ok(leathers>0&&reconnected);if(end.phase==='FINISHED'){assert.equal(end.result.reason,'SCORED');const winner=end.playerStates.find(p=>p.playerId===end.result.winnerPlayerIds[0])!;assert.equal(patchworkScore(winner,end.bonusOwner).total,Math.max(...end.playerStates.map(p=>patchworkScore(p,end.bonusOwner).total)));}
- const host=h.members[0]!.client;s=h.success(await h.send(host,h.selection(s,'PATCHWORK')));s=h.success(await h.call(host,'game:start',{}, {expectedRoomRevision:s.versions.roomRevision}));assert.notEqual(patchwork(s).gameId,originalId);assert.ok(patchwork(s).playerStates.every(p=>p.buttons===5&&p.placements.length===0));
+ const end=patchwork(s);assert.equal(end.phase,'FINISHED');assert.equal(end.deadlineAt,null);assert.ok(buys>5);assert.ok(leathers>0&&reconnected);if(end.phase==='FINISHED'){assert.equal(end.result.reason,'SCORED');const winner=end.playerStates.find(p=>p.playerId===end.result.winnerPlayerIds[0])!;assert.equal(patchworkScore(winner,end.bonusOwner).total,Math.max(...end.playerStates.map(p=>patchworkScore(p,end.bonusOwner).total)));}
+ const host=h.members[0]!.client;s=h.success(await h.send(host,h.selection(s,'PATCHWORK')));s=h.success(await h.call(host,'game:start',{}, {expectedRoomRevision:s.versions.roomRevision}));assert.notEqual(patchwork(s).gameId,originalId);assert.equal(patchwork(s).settings.turnDurationSeconds,30);assert.ok(patchwork(s).playerStates.every(p=>p.buttons===5&&p.placements.length===0));
  const guest=h.members[1]!.client,guestState=await h.sync(guest);const left=v.parse(RoomLeaveAckSchema,await h.call(guest,'room:leave',{}, {expectedRoomRevision:guestState.versions.roomRevision,expectedGameRevision:patchwork(guestState).gameRevision}));assert.ok(left.ok);s=await h.sync(host);const cancelled=patchwork(s);assert.equal(cancelled.phase,'FINISHED');if(cancelled.phase==='FINISHED')assert.equal(cancelled.result.reason,'CANCELLED');
  const switched=h.success(await h.send(host,h.selection(s,'NUMBER_TILE')));assert.equal(switched.room.phase,'LOBBY');assert.equal(switched.room.roomCode,s.room.roomCode);assert.equal(switched.room.gameType,'NUMBER_TILE');
+});
+
+test('PATCHWORK settings: host only, 30/60 validation, stale/idempotent configuration and game freeze',async t=>{
+ const h=await harness(t),lobby=await h.sync();
+ const config=h.request('patchwork:configure',{turnDurationSeconds:30},{expectedRoomRevision:lobby.versions.roomRevision});
+ assert.equal(h.failure(await h.send(h.members[1]!.client,config)),'HOST_ONLY');
+ assert.equal(h.failure(await h.send(h.host,{...config,payload:{turnDurationSeconds:45}})),'INVALID_PAYLOAD');
+ const configured=h.success(await h.send(h.host,config));assert.equal(configured.room.gameType,'PATCHWORK');
+ if(configured.room.gameType==='PATCHWORK')assert.equal(configured.room.settings.turnDurationSeconds,30);
+ h.success(await h.send(h.host,config));
+ assert.equal(h.failure(await h.send(h.host,{...config,requestId:'stale-config'})),'STALE_ROOM_REVISION');
+ const started=await start(h),g=patchwork(started);assert.equal(g.settings.turnDurationSeconds,30);assert.ok(g.deadlineAt!==null);
+ const stored=await h.server.runtime.persistence.findById(started.room.roomId);
+ assert.ok(stored?.gameType==='PATCHWORK'&&stored.game);assert.equal(g.deadlineAt-stored.game.startedAt,30000);
+ assert.equal(h.failure(await h.call(h.host,'patchwork:configure',{turnDurationSeconds:60},{expectedRoomRevision:started.versions.roomRevision})),'INVALID_PHASE');
+});
+test('PATCHWORK deadlines: server clock rejects late input, racing callbacks apply once and stale callbacks do nothing',async t=>{
+ const h=await harness(t);let time=100000;
+ t.mock.method(h.server.runtime.clock,'now',()=>v.parse(ServerTimeSchema,time));
+ const s=await start(h),g=patchwork(s),service=h.server.runtime.patchworkService!;
+ const deadline=(await h.server.runtime.persistence.listActiveTurnDeadlines()).find(d=>d.roomId===s.room.roomId)!;
+ assert.ok(deadline);assert.equal(deadline.deadlineAt,160000);
+ assert.deepEqual(await service.timeout(deadline),{status:'NO_OP'});
+ time=deadline.deadlineAt;
+ const owner=h.members.find(m=>m.playerId===g.activePlayerId)!;
+ assert.equal(h.failure(await h.send(owner.client,action(h,s,{type:'ADVANCE'}))),'TURN_EXPIRED');
+ const results=await Promise.all([service.timeout(deadline),service.timeout(deadline)]);
+ assert.equal(results.filter(r=>r.status==='APPLIED').length,1);
+ const next=patchwork(await h.sync());assert.equal(next.gameRevision,1);assert.equal(next.deadlineAt,220000);assert.equal(next.history[0]!.automatic,true);
+ assert.deepEqual(await service.timeout(deadline),{status:'NO_OP'});
+ const current=(await h.server.runtime.persistence.listActiveTurnDeadlines()).find(d=>d.roomId===s.room.roomId)!;
+ assert.equal(current.deadlineAt,220000);assert.notEqual(current.turnId,deadline.turnId);
+ // Exercise the production recovery -> router -> Patchwork path, while the actor is offline.
+ const offline=h.members.find(m=>m.playerId===next.activePlayerId)!;
+ offline.client.disconnect();time=current.deadlineAt;
+ await h.server.runtime.overdueTurnSweeper.sweepOnce();
+ const recovered=await h.server.runtime.persistence.findById(s.room.roomId);
+ assert.ok(recovered?.gameType==='PATCHWORK'&&recovered.game);
+ assert.equal(recovered.game.gameRevision,2);assert.equal(recovered.game.state.deadlineAt,280000);
+ const replacement=await h.connect();
+ const resumed=h.success(await h.call(replacement,'session:resume',{credential:{...offline.credential,roomCode:s.room.roomCode},lastSeenVersions:null}));
+ assert.equal(patchwork(resumed).deadlineAt,280000);
+
 });

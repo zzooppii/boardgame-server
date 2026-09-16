@@ -4650,6 +4650,7 @@ test("runtime Socket.IO map은 Number events를 additive하게 제공하고 lega
     | "harmonies:configure"
     | "harmonies:draft"
     | "patchwork:act"
+    | "patchwork:configure"
     | "arnak:act"
     | "mars:act"
     | "duel:act"

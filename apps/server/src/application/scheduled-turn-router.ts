@@ -7,7 +7,7 @@ export type ScheduledTurnDispatchResult =
   | Readonly<{ status: "FAILED" }>;
 
 type ScheduledTurnCapability<
-  TGameType extends "HARMONIES" | "TRAIN" | "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "SPLENDOR" | "HALLI_GALLI" | "ISLAND_SETTLERS" | "SABOTEUR" | "LOST_CITIES" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE",
+  TGameType extends "PATCHWORK" | "HARMONIES" | "TRAIN" | "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "SPLENDOR" | "HALLI_GALLI" | "ISLAND_SETTLERS" | "SABOTEUR" | "LOST_CITIES" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE",
 > = Readonly<{
   gameType: TGameType;
   handleTurnTimeout(
@@ -34,6 +34,7 @@ export type ScheduledTurnRouterDependencies = Readonly<{
   burgundy?: ScheduledTurnCapability<"BURGUNDY">;
   carcassonne?: ScheduledTurnCapability<"CARCASSONNE">;
   train?: ScheduledTurnCapability<"TRAIN">;
+  patchwork?: ScheduledTurnCapability<"PATCHWORK">;
   lostCities?: ScheduledTurnCapability<"LOST_CITIES">;
   saboteur?: ScheduledTurnCapability<"SABOTEUR">;
   island?: ScheduledTurnCapability<"ISLAND_SETTLERS">;
@@ -51,7 +52,7 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 }
 
 function isCapability<
-  TGameType extends "HARMONIES" | "TRAIN" | "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "SPLENDOR" | "HALLI_GALLI" | "ISLAND_SETTLERS" | "SABOTEUR" | "LOST_CITIES" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE",
+  TGameType extends "PATCHWORK" | "HARMONIES" | "TRAIN" | "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "SPLENDOR" | "HALLI_GALLI" | "ISLAND_SETTLERS" | "SABOTEUR" | "LOST_CITIES" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE",
 >(
   value: unknown,
   gameType: TGameType,
@@ -64,7 +65,7 @@ function isCapability<
 }
 
 function requireCapability<
-  TGameType extends "HARMONIES" | "TRAIN" | "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "SPLENDOR" | "HALLI_GALLI" | "ISLAND_SETTLERS" | "SABOTEUR" | "LOST_CITIES" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE",
+  TGameType extends "PATCHWORK" | "HARMONIES" | "TRAIN" | "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "SPLENDOR" | "HALLI_GALLI" | "ISLAND_SETTLERS" | "SABOTEUR" | "LOST_CITIES" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE",
 >(
   value: unknown,
   gameType: TGameType,
@@ -91,6 +92,7 @@ export class ScheduledTurnRouter {
   readonly #burgundy: ScheduledTurnCapability<"BURGUNDY"> | undefined;
   readonly #carcassonne: ScheduledTurnCapability<"CARCASSONNE"> | undefined;
   readonly #train: ScheduledTurnCapability<"TRAIN"> | undefined;
+  readonly #patchwork: ScheduledTurnCapability<"PATCHWORK"> | undefined;
   readonly #lostCities: ScheduledTurnCapability<"LOST_CITIES"> | undefined;
   readonly #saboteur: ScheduledTurnCapability<"SABOTEUR"> | undefined;
   readonly #island: ScheduledTurnCapability<"ISLAND_SETTLERS"> | undefined;
@@ -110,6 +112,7 @@ export class ScheduledTurnRouter {
     this.#burgundy = dependencies.burgundy;
     this.#carcassonne = dependencies.carcassonne;
     this.#train = dependencies.train;
+    this.#patchwork = dependencies.patchwork;
     this.#lostCities = dependencies.lostCities;
     this.#saboteur = dependencies.saboteur;
     this.#island = dependencies.island;
@@ -157,7 +160,7 @@ export class ScheduledTurnRouter {
         case "PANDEMIC": return { status: "NO_OP" };
         case "PERCH": return { status: "NO_OP" };
         case "HARMONIES": return this.#harmonies?await this.#harmonies.handleTurnTimeout(input):{status:"FAILED"};
-        case "PATCHWORK": return { status: "NO_OP" };
+        case "PATCHWORK": return this.#patchwork ? await this.#patchwork.handleTurnTimeout(input) : {status:"FAILED"};
         case "ARNAK": return { status: "NO_OP" };
         case "TERRAFORMING_MARS": return { status: "NO_OP" };
         case "SEVEN_WONDERS_DUEL": return { status: "NO_OP" };
