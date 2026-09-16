@@ -1,0 +1,73 @@
+import {safeParse} from 'valibot';
+import {SpeakeasyPlayerCommandSchema, type SpeakeasyPlayerCommand, type SpeakeasyBoardView,
+  type PlayerId, type TileId} from '@hangul-rummikub/shared';
+import {parseSpeakeasyGameFlow, placeSpeakeasyCapo, chooseSpeakeasyRestaurantAction,
+  finishSpeakeasyRestaurantAction, playSpeakeasyRestaurantCard, cookSpeakeasyRestaurantBook,
+  playSpeakeasyCityTile, finishSpeakeasyLocation, drawSpeakeasyTurnCard,
+  returnSpeakeasyTurnCityTiles, defendSpeakeasyGame, type SpeakeasyGameFlow} from '../domain/game-flow.js';
+import {type SpeakeasyRuleResult, ruleFailure} from '../domain/model.js';
+import type {OperationEffects, RestaurantBookGoal} from '../domain/restaurant-actions.js';
+import type {CityTileEffect} from '../domain/city-tiles.js';
+import {projectSpeakeasyBoard} from './board-projector.js';
+
+/** Validated server catalog only. Instance IDs resolve to server handlers, never client effects. */
+export type SpeakeasyCommandCatalog = Readonly<{
+  operations: ReadonlyMap<TileId, OperationEffects>;
+  city: readonly CityTileEffect[];
+  goals: readonly RestaurantBookGoal[];
+}>;
+export type PreparedSpeakeasyCommand =
+  | {ok: true; candidate: SpeakeasyGameFlow; actorView: SpeakeasyBoardView}
+  | {ok: false; reason: 'INVALID_ACTION'};
+
+/** Pure preparation, NOT persistence or authentication. Call within the existing room serializer,
+ * after session/room checks. Commit candidate + receipt atomically before sending actorView.
+ * candidate is private server state and must never be serialized to a client.
+ * Unexpected invariant/catalog failures propagate to the service's internal-error boundary.
+ */
+export function prepareSpeakeasyPlayerCommand(original: SpeakeasyGameFlow, actor: PlayerId,
+  input: unknown, catalog: SpeakeasyCommandCatalog): PreparedSpeakeasyCommand {
+  const parsed = safeParse(SpeakeasyPlayerCommandSchema, input);
+  const denied = {ok: false, reason: 'INVALID_ACTION'} as const;
+  if (!parsed.success || !original.round.clock.order.includes(actor)) return denied;
+  const {gameId, revision} = parsed.output.command;
+  if (original.round.gameId !== gameId || original.round.revision !== revision) return denied;
+  // Detached validated state protects live data even when a server handler mutates then fails.
+  const source = parseSpeakeasyGameFlow(original);
+  const result = dispatch(source, actor, parsed.output, catalog);
+  if (!result.ok) return denied;
+  const candidate = parseSpeakeasyGameFlow(result.value);
+  if (candidate.round.gameId !== gameId || candidate.round.revision !== revision + 1) {
+    throw new Error('Invalid Speakeasy command transition.');
+  }
+  const actorView = projectSpeakeasyBoard(candidate, actor);
+  if (!actorView) throw new Error('Missing Speakeasy command recipient.');
+  return {ok: true, candidate, actorView};
+}
+
+function dispatch(s: SpeakeasyGameFlow, actor: PlayerId, input: SpeakeasyPlayerCommand,
+  catalog: SpeakeasyCommandCatalog): SpeakeasyRuleResult<SpeakeasyGameFlow> {
+  switch (input.type) {
+    case 'PLACE_CAPO':
+      // Other locations have no verified effect queue yet. Do not strand a Capo or bypass effects.
+      if (s.spaces.find(space => space.id === input.command.spaceId)?.location !== 'RESTAURANT') return ruleFailure('INVALID_ACTION');
+      return placeSpeakeasyCapo(s, actor, input.command);
+    case 'CHOOSE_RESTAURANT_ACTION': return chooseSpeakeasyRestaurantAction(s, actor, input.command);
+    case 'FINISH_RESTAURANT_ACTION': return finishSpeakeasyRestaurantAction(s, actor, input.command);
+    case 'PLAY_OPERATION': {
+      const card = s.round.economy.players.find(p => p.playerId === actor)?.hand.find(c => c.tileId === input.command.cardId);
+      const effects = card && catalog.operations.get(card.tileId);
+      if (!effects) return ruleFailure('INVALID_ACTION');
+      return playSpeakeasyRestaurantCard(s, actor, input.command, effects);
+    }
+    case 'USE_CITY_TILE': return playSpeakeasyCityTile(s, actor, input.command, catalog.city);
+    case 'PLACE_BOOK': return cookSpeakeasyRestaurantBook(s, actor, input.command, catalog.goals);
+    case 'FINISH_RESTAURANT':
+      // finishSpeakeasyLocation is a server hook; authorize the actor and restrict its public use.
+      if (s.active?.playerId !== actor || !s.active.restaurant || s.round.phase !== 'PLAYING') return ruleFailure('INVALID_ACTION');
+      return finishSpeakeasyLocation(s, input.command);
+    case 'DRAW_OPERATION': return drawSpeakeasyTurnCard(s, actor, input.command);
+    case 'RETURN_CITY_TILES': return returnSpeakeasyTurnCityTiles(s, actor, input.command);
+    case 'DEFEND': return defendSpeakeasyGame(s, actor, input.command);
+  }
+}
