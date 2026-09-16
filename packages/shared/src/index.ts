@@ -187,3 +187,4 @@ export * from './games/speakeasy/contracts.js';
 export * from './games/mars/corporate-era-catalog.js';
 export * from './games/speakeasy/luciano.js';
 export * from './games/speakeasy/restaurant.js';
+export * from './games/speakeasy/locations.js';
