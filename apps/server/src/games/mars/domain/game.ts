@@ -364,7 +364,7 @@ function executeSimple(s: MarsState, j: JobType, r: RandomSource): boolean {
     }
 }
 function awardMetric(s: MarsState, p: Person, id: string): number { switch (id) {
-    case 'landlord': return s.tiles.filter(t => t.ownerId === p.playerId && MARS_BOARD.some(b => b.id === t.spaceId)).length;
+    case 'landlord': return s.tiles.filter(t => t.ownerId === p.playerId).length;
     case 'banker': return p.production.money;
     case 'scientist': return marsTags(p, 'science');
     case 'thermalist': return p.resources.heat;

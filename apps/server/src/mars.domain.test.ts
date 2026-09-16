@@ -97,3 +97,20 @@ test('Mars cancelling an unpaid card preserves resources, private cards, special
  const invalid=structuredClone(s);assert.equal(applyMarsAction(s,s.activePlayerId,{type:'PAY',payment:{money:0,steel:0,titanium:0,heat:0}},now,s.transitionId,random).ok,false);assert.deepEqual(s,invalid);
  s=act(s,o=>o.kind==='CANCEL');assert.equal(s.payment,null);assert.deepEqual(s.players,before.players);assert.deepEqual(s.history,before.history);assert.equal(s.actionsTaken,before.actionsTaken);assert.equal(s.activePlayerId,before.activePlayerId);assert.equal(s.revision,before.revision+2);
 });
+
+test('Mars Landlord includes Phobos and Ganymede ownership, special tiles and shared first place',()=>{
+ for(const count of [2,3]){
+  let s=ready(count);rich(s);const owner=s.activePlayerId,opponent=s.players[1]!.playerId;
+  s.tiles.push({spaceId:'1-3',kind:'special',ownerId:owner,source:'NaturalPreserve'},
+   {spaceId:'2-2',kind:'city',ownerId:opponent,source:'city'},
+   {spaceId:'3-3',kind:'greenery',ownerId:opponent,source:'greenery'});
+  s.awards=[{id:'landlord',playerId:opponent}];
+  const phobos=give(s,'PhobosSpaceHaven');s=act(s,o=>o.kind==='CARD'&&o.targetId===phobos.tileId);s=settle(s);
+  assert.deepEqual(scoreMars(s).map(p=>p.awards),count===2?[5,5]:[5,5,0]);
+  const ganymede=give(s,'GanymedeColony');s=act(s,o=>o.kind==='CARD'&&o.targetId===ganymede.tileId);s=settle(s);
+  assert.deepEqual(scoreMars(s).map(p=>p.awards),count===2?[5,0]:[5,2,0]);
+  // Ocean tiles have no owner and must not change this ranking.
+  s.tiles.push({spaceId:'1-4',kind:'ocean',ownerId:null,source:'ocean'});s.oceans=1;
+  assert.deepEqual(scoreMars(parseMarsState(s)).map(p=>p.awards),count===2?[5,0]:[5,2,0]);
+ }
+});
