@@ -81,15 +81,20 @@ test('DUEL sockets: authenticated choice, candidate rejection, request retry, ra
  assert.equal(h.failure(await h.send(owner.client,{...command,payload:{type:'SELECT',optionId:'option-1'}})),'REQUEST_ID_REUSED');
  const unsupported=await h.connect(SUPPORTED_GAME_TYPES.filter(x=>x!=='SEVEN_WONDERS_DUEL'));assert.equal(h.failure(await h.call(unsupported,'session:resume',{credential:{...opponent.credential,roomCode:s.room.roomCode},lastSeenVersions:null})),'INCOMPATIBLE_GAME_CAPABILITY');
 });
-test('DUEL sockets: complete combined game, reconnect an unresolved choice, leave cancellation and rematch retain settings',async t=>{
- const h=await harness(t);let s=await start(h),steps=0,reconnected=false;
+for (const settings of [{pantheon:true,agora:false},{pantheon:false,agora:true},{pantheon:true,agora:true}]) {
+test(`DUEL sockets: complete expansion game ${JSON.stringify(settings)}, reconnect an unresolved choice, leave cancellation and rematch retain settings`,async t=>{
+ const h=await harness(t),lobby=await h.sync();
+ h.success(await h.call(h.host,'duel:configure',{...settings,turnDurationSeconds:0},{expectedRoomRevision:lobby.versions.roomRevision}));
+ let s=await start(h),steps=0,reconnected=false;
+ assert.deepEqual(duel(s).settings,{...settings,turnDurationSeconds:0});
  while(duel(s).phase==='PLAYING'&&steps++<350){const g=duel(s),owner=h.members.find(m=>m.playerId===g.activePlayerId)!;s=await h.sync(owner.client);
   if(!reconnected&&steps===2){owner.client.disconnect();const next=await h.connect();const resumed=h.success(await h.call(next,'session:resume',{credential:{...owner.credential,roomCode:s.room.roomCode},lastSeenVersions:null}));assert.deepEqual(duel(resumed).privateState,duel(s).privateState);owner.client=next;s=resumed;reconnected=true;}
   const options=duel(s).privateState.options,o=options.find(o=>o.group==='DISCARD')??options.find(o=>o.group==='SKIP')??options[0]!;assert.ok(o);s=h.success(await h.send(owner.client,action(h,s,o.id)));
  }
- assert.ok(reconnected);assert.equal(duel(s).phase,'FINISHED');assert.equal(duel(s).gameRevision,steps);const host=h.members[0]!.client;s=h.success(await h.send(host,h.selection(s,'SEVEN_WONDERS_DUEL')));s=h.success(await h.call(host,'game:start',{}, {expectedRoomRevision:s.versions.roomRevision}));assert.equal(duel(s).gameRevision,0);
+ assert.ok(reconnected);assert.equal(duel(s).phase,'FINISHED');assert.equal(duel(s).gameRevision,steps);const host=h.members[0]!.client;s=h.success(await h.send(host,h.selection(s,'SEVEN_WONDERS_DUEL')));s=h.success(await h.call(host,'game:start',{}, {expectedRoomRevision:s.versions.roomRevision}));assert.equal(duel(s).gameRevision,0);assert.deepEqual(duel(s).settings,{...settings,turnDurationSeconds:0});
  const guest=h.members[1]!.client,gs=await h.sync(guest);const left=v.parse(RoomLeaveAckSchema,await h.call(guest,'room:leave',{}, {expectedRoomRevision:gs.versions.roomRevision,expectedGameRevision:duel(gs).gameRevision}));assert.ok(left.ok);const end=duel(await h.sync(host));assert.equal(end.phase,'FINISHED');if(end.phase==='FINISHED'){assert.equal(end.result.reason,'CANCELLED');assert.deepEqual(end.result.winnerPlayerIds,[]);}
 });
+}
 
 test('DUEL timer: settings wire validation, deadline recovery, late input and duplicate timeout race',async t=>{
  const {DuelService}=await import('./games/seven-wonders-duel/application/service.js');const {DuelClientCommandSchema,ServerTimeSchema}=await import('@hangul-rummikub/shared');

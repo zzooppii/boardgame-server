@@ -307,3 +307,95 @@ test('Duel unlimited: no deadline, no timeout, late manual choices and full game
  }
  assert.equal(s.phase,'FINISHED');assert.equal(s.result?.reason,'SCORED');
 });
+
+test('Duel Agora starts with chambers 1/3/5 public and 2/4/6 hidden for both viewers',()=>{
+ for(const pantheon of [false,true])for(let seed=1;seed<=12;seed++){
+  const s=fixture({pantheon,agora:true},seed);
+  assert.equal(s.stage,'DRAFT');assert.equal(s.draftCount,0);
+  assert.deepEqual(s.decrees.map(d=>d.revealed),[true,false,true,false,true,false]);
+  assert.equal(new Set(s.decrees.map(d=>d.id)).size,6);
+  for(const seat of [0,1] as const){
+   const projected=view(s,seat);
+   assert.deepEqual(projected.decrees.map(ch=>ch.ids[0]!==null),[true,false,true,false,true,false]);
+   for(const ch of projected.decrees)assert.deepEqual(ch.ids,[ch.chamber%2===0?s.decrees[ch.chamber]!.id:null]);
+  }
+ }
+ assert.deepEqual(fixture({pantheon:false,agora:false}).decrees,[]);
+});
+
+test('Duel expansion audit: Pantheon setup shows Age I and tokens during wonder selection',()=>{
+ for(const agora of [false,true]){
+  const s=fixture({pantheon:true,agora});
+  for(const p of [0,1] as const){
+   const v=view(s,p);assert.equal(v.board.length,agora?25:20);assert.equal(v.slots.filter(x=>x.mythology).length,5);
+   for(const c of v.board)assert.equal(c.definitionId===null,!s.slots[c.slot!]!.faceUp);
+  }
+ }
+ assert.equal(view(fixture({pantheon:false,agora:false}),0).board.length,0);
+});
+
+test('Duel expansion audit: Turn of Events requires first discard but allows skipping the second',()=>{
+ let s=ready(fixture()),p=s.active;const id=ownConspiracy(s,'turn-of-events',p,true);
+ s=op(s,'TRIGGER',id);assert.equal(s.tasks[0]!.kind,'DISCARD_TWO');
+ assert.equal(choices(s).some(c=>c.operation.kind==='SKIP'),false);
+ s=op(s,'DISCARD_EFFECT');while(s.tasks[0]?.kind==='GOD_PLACE'||s.tasks[0]?.kind==='GOD_SLOT')s=act(s);
+ assert.equal(s.tasks[0]?.kind,'DISCARD_TWO');assert.ok(choices(s).some(c=>c.operation.kind==='SKIP'));
+ s=op(s,'SKIP');assert.equal(s.tasks[0]?.kind,'MOVE');s=op(s,'SKIP');assert.equal(s.stage,'ACTION');assert.equal(s.active,p);
+});
+
+test('Duel expansion audit: age inventories, senator distribution, tokens and temple replacement',async()=>{
+ const {setupAge}=await import('./games/seven-wonders-duel/domain/setup.js');
+ for(const pantheon of [false,true])for(const agora of [false,true]){
+  const s=fixture({pantheon,agora});
+  assert.equal(s.progress.length,10+(pantheon?3:0)+(agora?2:0));assert.equal(s.progress.filter(t=>t.zone==='BOARD').length,5);
+  assert.equal(s.conspiracies.length,agora?16:0);
+  for(const age of [1,2,3] as const){
+   const cards=s.cards.filter(c=>c.age===age&&(c.zone==='DECK'||c.zone==='BOARD'));
+   assert.equal(cards.length,agora?(age===3?23:25):20);
+   assert.equal(cards.filter(c=>['WHITE','BLACK'].includes(duelCard(c.definitionId).color)).length,agora?(age===3?3:5):0);
+   assert.equal(s.cards.filter(c=>c.age===age&&c.zone==='BOX').length,3);
+  }
+  assert.equal(s.cards.filter(c=>c.zone==='DECK'&&duelCard(c.definitionId).color==='TEMPLE').length,pantheon?3:0);
+  assert.equal(s.cards.filter(c=>c.zone==='DECK'&&duelCard(c.definitionId).color==='PURPLE').length,pantheon?0:3);
+  assert.equal(s.slots.filter(t=>t.mythology).length,pantheon?5:0);
+  assert.ok(s.slots.filter(t=>t.mythology).every(t=>!t.faceUp));
+  s.cards.filter(c=>c.zone==='BOARD').forEach(c=>{c.zone='DISCARD';c.slot=null;});s.age=2;setupAge(s,random);
+  assert.deepEqual(s.slots.filter(t=>t.offering).map(t=>t.offering).sort(),pantheon?[2,3,4]:[]);
+  assert.ok(s.slots.filter(t=>t.offering).every(t=>!t.faceUp));
+ }
+});
+
+test('Duel expansion audit: invocation consumes offerings, not board cards; Sanctuary discounts Gate',async()=>{
+ const {godCost}=await import('./games/seven-wonders-duel/domain/economy.js');
+ for(const agora of [false,true]){
+  let s=ready(fixture({pantheon:true,agora})),p=s.active;installGod(s,'tanit');s.players[p]!.offerings=[2,3];
+  const before=s.players[p]!.coins,board=s.cards.filter(c=>c.zone==='BOARD').map(c=>c.tileId).sort();
+  const i=choices(s).findIndex(c=>c.operation.kind==='INVOKE'&&c.operation.n===3);const cost=choices(s)[i]!.view.cost!;
+  s=act(s,i);assert.equal(s.players[p]!.coins,before-cost+12);assert.deepEqual(s.players[p]!.offerings,[]);
+  assert.deepEqual(s.cards.filter(c=>c.zone==='BOARD').map(c=>c.tileId).sort(),board);assert.equal(s.active,p===0?1:0);assert.equal(s.pantheon[0],null);
+  s.wonders[0]={id:'wonder-sanctuary',owner:p,built:true,removed:false};s.pantheon[0]='gate';
+  assert.equal(godCost(s,p,0,0),(p===0?3:8)*2-2);assert.equal(godCost(s,p,0,99),0);
+ }
+});
+
+test('Duel expansion audit: temple chains and Mysticism scoring use retained tokens',async()=>{
+ const {DUEL_CARDS}=await import('@hangul-rummikub/shared');
+ let s=ready(fixture()),p=s.active;const temples=DUEL_CARDS.filter(c=>c.color==='TEMPLE');
+ s.players[p]!.mythology=[temples[0]!.mythology!];
+ assert.equal(quote(s,p,temples[0]!).method,'CHAIN');assert.equal(quote(s,p,temples[0]!).total,0);
+ for(let n=1;n<=3;n++){city(s,temples[n-1]!.id,p);assert.equal(scores(s)[p]!.temples,[5,12,21][n-1]);}
+ const mysticism=s.progress.find(t=>t.id==='mysticism')!;mysticism.zone='PLAYER';mysticism.owner=p;
+ s.players[p]!.offerings=[2,4];assert.equal(scores(s)[p]!.progress,6);s.players[p]!.offerings.pop();assert.equal(scores(s)[p]!.progress,4);
+});
+
+test('Duel expansion audit: Corruption and Organized Crime apply to both Senator categories',()=>{
+ let s=ready(fixture()),p=s.active;city(s,'politician-0',p);city(s,'conspirator-0',p);
+ for(const id of ['politician-1','conspirator-1'])assert.equal(quote(s,p,duelCard(id)).total,2);
+ const corruption=s.progress.find(t=>t.id==='corruption')!;corruption.zone='PLAYER';corruption.owner=p;
+ for(const id of ['politician-1','conspirator-1'])assert.equal(quote(s,p,duelCard(id)).total,0);
+ const organized=s.progress.find(t=>t.id==='organized-crime')!;organized.zone='PLAYER';organized.owner=p;
+ const ids=s.conspiracyOrder.slice(0,2);s.tasks=[task('CONSPIRE',p)];s=op(s,'DRAW_CONSPIRACY');
+ for(const id of ids)assert.equal(s.conspiracies.find(c=>c.id===id)!.zone,'HAND');
+ assert.equal(s.tasks.some(t=>t.kind==='CONSPIRACY_PICK'||t.kind==='CONSPIRACY_RETURN'),false);
+ assert.ok(view(s,p===0?1:0).playerStates[p]!.conspiracies.every(c=>c.definitionId===null));
+});

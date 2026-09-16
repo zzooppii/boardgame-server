@@ -130,7 +130,7 @@ function addEffect(s: DuelState, p: DuelSeat, effect: string, random: RandomSour
             s.tasks.unshift(task('PLACE', p), task('REMOVE', p), task('MOVE', p));
             break;
         case 'DISCARD_TWO':
-            s.tasks.unshift(task('DISCARD_TWO', p, [], 2, -1, true));
+            s.tasks.unshift(task('DISCARD_TWO', p, [], 2));
             break;
         default: {
             const kinds: readonly string[] = ['RESURRECT', 'DESTROY_BROWN', 'DESTROY_GREY', 'DESTROY_BLUE', 'DESTROY_YELLOW', 'STEAL_RESOURCE', 'STEAL_WONDER', 'UNPREPARED', 'LOCK_PROGRESS', 'SWAP', 'MOVE_DECREE', 'BOX_BUILD', 'TOP_BUILD', 'SABOTAGE'];
@@ -522,7 +522,7 @@ function execute(s: DuelState, p: DuelSeat, a: DuelOperation, now: ServerTime, r
             acquiredToken(s, p, c!);
             relocate(c!, 'DISCARD');
             if (s.phase === 'PLAYING' && pending!.remaining > 1)
-                s.tasks.unshift({ ...pending!, remaining: pending!.remaining - 1 });
+                s.tasks.unshift({ ...pending!, remaining: pending!.remaining - 1, optional: true });
             reveal(s, p);
             break;
         default: throw new Error('Unknown server-generated Duel operation.');
