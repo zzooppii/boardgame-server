@@ -3,10 +3,11 @@ import assert from 'node:assert/strict';
 import {parse} from 'valibot';
 import {GameIdSchema} from '@hangul-rummikub/shared';
 import {example, a, b, tile} from './speakeasy.fixture.js';
-import {type SpeakeasyRuleResult} from './games/speakeasy/domain/model.js';
+import {type SpeakeasyEconomy, type SpeakeasyRuleResult} from './games/speakeasy/domain/model.js';
 import {startSpeakeasyRoundLifecycle} from './games/speakeasy/domain/round-lifecycle.js';
 import {speakeasyDefenseActor} from './games/speakeasy/domain/luciano.js';
-import {startSpeakeasyGameFlow, parseSpeakeasyGameFlow, placeSpeakeasyCapo, finishSpeakeasyLocation,
+import {type RestaurantBookGoal, type OperationEffects} from './games/speakeasy/domain/restaurant-actions.js';
+import {chooseSpeakeasyRestaurantAction, finishSpeakeasyRestaurantAction, playSpeakeasyRestaurantCard, cookSpeakeasyRestaurantBook, startSpeakeasyGameFlow, parseSpeakeasyGameFlow, placeSpeakeasyCapo, finishSpeakeasyLocation,
   drawSpeakeasyTurnCard, settleSpeakeasyGameRound, beginSpeakeasyMobWar, advanceSpeakeasyMobWar,
   defendSpeakeasyGame, beginSpeakeasyNextAct, commitSpeakeasyLocationEconomy, type SpeakeasyGameFlow} from './games/speakeasy/domain/game-flow.js';
 const value = <T>(r: SpeakeasyRuleResult<T>): T => {assert.ok(r.ok); return r.value;};
@@ -32,6 +33,12 @@ function place(s:SpeakeasyGameFlow, restaurant = false, position = 0) {
 }
 function end(s:SpeakeasyGameFlow) {
   const actor=s.round.clock.order[s.round.clock.seat]!;
+  if(s.active?.restaurant) {
+    for(const action of ['CITY_TILES','BOOKS'] as const) {
+      s=value(chooseSpeakeasyRestaurantAction(s,actor,{...guard(s),action}));
+      s=value(finishSpeakeasyRestaurantAction(s,actor,guard(s)));
+    }
+  }
   s=value(finishSpeakeasyLocation(s,guard(s)));
   const deck=(['VIP','PARTY','STILLS','FLEET'] as const).find(d=>s.round.decks[d].length)!;
   return value(drawSpeakeasyTurnCard(s,actor,{...guard(s),deck}));
@@ -166,4 +173,100 @@ test('Mob War pauses for the owner defense and police/payout cannot be skipped b
   assert.equal(advanceSpeakeasyMobWar(s,guard(s)).ok,false);
   s=value(beginSpeakeasyNextAct(s,guard(s)));
   assert.deepEqual(s.round.economy.players.map(p=>p.safe),money);
+});
+
+
+const unchanged = (s: SpeakeasyEconomy): SpeakeasyRuleResult<SpeakeasyEconomy> => ({ok:true,value:s});
+const noEffects: OperationEffects = {benefit:unchanged,action:unchanged};
+const goals: RestaurantBookGoal[] = Array.from({length:4},(_,i)=>({id:`goal-${i}`,requirement:{kind:'INFAMY',minimum:1},payout:5,bonus:unchanged}));
+function choose(s:SpeakeasyGameFlow,action:'OPERATION'|'CITY_TILES'|'BOOKS') {
+  return value(chooseSpeakeasyRestaurantAction(s,a,{...guard(s),action}));
+}
+function close(s:SpeakeasyGameFlow) {return value(finishSpeakeasyRestaurantAction(s,a,guard(s)));}
+
+test('Restaurant chooses two distinct actions in either order and explicitly closes optional actions',()=>{
+  for(const actions of [['BOOKS','OPERATION'],['OPERATION','CITY_TILES'],['CITY_TILES','BOOKS']] as const) {
+    let s=place(setup(),true);
+    assert.equal(finishSpeakeasyLocation(s,guard(s)).ok,false);
+    for(const action of actions) {
+      s=choose(s,action);
+      assert.equal(finishSpeakeasyLocation(s,guard(s)).ok,false);
+      assert.equal(chooseSpeakeasyRestaurantAction(s,a,{...guard(s),action:'BOOKS'}).ok,false);
+      s=close(s); // All location actions except the entry payment/order change are optional (rules p13).
+      assert.equal(chooseSpeakeasyRestaurantAction(s,a,{...guard(s),action}).ok,false);
+    }
+    assert.equal(chooseSpeakeasyRestaurantAction(s,a,{...guard(s),action:'OPERATION'}).ok,false);
+    const ready=value(finishSpeakeasyLocation(s,guard(s)));
+    assert.equal(ready.round.phase,'DRAW_OPERATION');
+    assert.equal(drawSpeakeasyTurnCard(ready,a,{...guard(ready),deck:'VIP'}).ok,true);
+  }
+});
+test('Restaurant action commands reject outsiders, stale revisions, forged fields and other locations',()=>{
+  const s=place(setup(),true), original=structuredClone(s);
+  const command={...guard(s),action:'BOOKS'};
+  assert.equal(chooseSpeakeasyRestaurantAction(s,b,command).ok,false);
+  for(const c of [{...command,revision:0},{...command,gameId:'other'},{...command,action:'UNKNOWN'},{...command,actor:a}]) assert.equal(chooseSpeakeasyRestaurantAction(s,a,c).ok,false);
+  assert.equal(chooseSpeakeasyRestaurantAction(place(setup()),a,command).ok,false);
+  assert.equal(commitSpeakeasyLocationEconomy(s,guard(s),unchanged(s.round.economy)).ok,false);
+  assert.deepEqual(s,original);
+});
+test('Operations replacement returns the old card to its deck and resolves benefit before action once',()=>{
+  let s=setup();s.round.economy.players[0]!.hand[1]!.operation='VIP';
+  s=choose(place(s,true),'OPERATION');const before=structuredClone(s), order:string[]=[];
+  const effects:OperationEffects={benefit:(state,actor,card)=>{
+    order.push('benefit');const p=state.players.find(p=>p.playerId===actor)!;
+    assert.equal(card.operation,'VIP');assert.equal(p.operations[0]!.tileId,card.tileId);
+    p.cash+=2;return unchanged(state);
+  },action:(state,actor)=>{order.push('action');assert.equal(state.players.find(p=>p.playerId===actor)!.cash,17);return unchanged(state);}};
+  const command={...guard(s),cardId:tile('hand-0-1')};
+  const next=value(playSpeakeasyRestaurantCard(s,a,command,effects));
+  assert.deepEqual(order,['benefit','action']);assert.equal(next.round.revision,s.round.revision+1);
+  assert.equal(next.round.decks.VIP.at(-1)!.tileId,tile('installed-0'));
+  assert.equal(next.active!.restaurant!.current!.used,1);
+  assert.equal(playSpeakeasyRestaurantCard(next,a,{...guard(next),cardId:tile('hand-0-2')},effects).ok,false);
+  assert.equal(playSpeakeasyRestaurantCard(next,a,command,effects).ok,false);assert.deepEqual(s,before);
+});
+test('Failed operation effects roll back replacement, benefit and action allowance',()=>{
+  const s=choose(place(setup(),true),'OPERATION'), before=structuredClone(s);
+  const effects:OperationEffects={benefit:state=>{state.players[0]!.cash+=100;return unchanged(state);},action:()=>({ok:false,reason:'INVALID_ACTION'})};
+  assert.equal(playSpeakeasyRestaurantCard(s,a,{...guard(s),cardId:tile('hand-0-1')},effects).ok,false);
+  assert.deepEqual(s,before);
+  assert.equal(playSpeakeasyRestaurantCard(s,a,{...guard(s),cardId:tile('hand-1-1')},noEffects).ok,false);
+  assert.equal(playSpeakeasyRestaurantCard(s,a,{...guard(s),cardId:tile('installed-0')},noEffects).ok,false);
+});
+test('Restaurant books apply sequential bonuses, pay safe money and stop at three',()=>{
+  let s=choose(place(setup(),true),'BOOKS');
+  const catalog:RestaurantBookGoal[]=goals.map(g=>({...g,bonus:state=>{
+    const p=state.players[0]!;p.bookReserve--;p.books++;return unchanged(state);
+  }}));
+  for(let i=0;i<3;i++) s=value(cookSpeakeasyRestaurantBook(s,a,{...guard(s),goalId:`goal-${i}`,space:0},catalog));
+  assert.equal(s.round.economy.players[0]!.safe,45);assert.equal(s.round.economy.players[0]!.cash,15);
+  assert.equal(s.round.economy.players[0]!.books,3);assert.equal(s.round.economy.placedBooks.length,3);
+  assert.equal(cookSpeakeasyRestaurantBook(s,a,{...guard(s),goalId:'goal-3',space:0},catalog).ok,false);
+  s=close(s);assert.equal(cookSpeakeasyRestaurantBook(s,a,{...guard(s),goalId:'goal-3',space:0},catalog).ok,false);
+});
+test('Book failures preserve placement count and funds; later books use the updated goal requirements',()=>{
+  let s=choose(place(setup(),true),'BOOKS');const before=structuredClone(s);
+  const blocked:RestaurantBookGoal[]=[{...goals[0]!,requirement:{kind:'CRATES',minimum:1}}];
+  assert.equal(cookSpeakeasyRestaurantBook(s,a,{...guard(s),goalId:'goal-0',space:0},blocked).ok,false);
+  assert.equal(cookSpeakeasyRestaurantBook(s,b,{...guard(s),goalId:'goal-0',space:0},goals).ok,false);
+  assert.equal(cookSpeakeasyRestaurantBook(s,a,{...guard(s),goalId:'missing',space:0},goals).ok,false);
+  assert.equal(cookSpeakeasyRestaurantBook(s,a,{...guard(s),goalId:'goal-0',space:0,payout:100},goals).ok,false);
+  assert.equal(cookSpeakeasyRestaurantBook(s,a,{...guard(s),goalId:'goal-0',space:0},[{...goals[0]!,bonus:()=>({ok:false,reason:'INVALID_ACTION'})}]).ok,false);
+  assert.deepEqual(s,before);
+  const sequential:RestaurantBookGoal[]=[{...goals[0]!,bonus:state=>{state.players[0]!.crates.push(1);return unchanged(state);}},
+    {...goals[1]!,requirement:{kind:'CRATES',minimum:1}}];
+  assert.equal(cookSpeakeasyRestaurantBook(s,a,{...guard(s),goalId:'goal-1',space:0},sequential).ok,false);
+  s=value(cookSpeakeasyRestaurantBook(s,a,{...guard(s),goalId:'goal-0',space:0},sequential));
+  assert.equal(cookSpeakeasyRestaurantBook(s,a,{...guard(s),goalId:'goal-0',space:1},goals).ok,false);
+  s=value(cookSpeakeasyRestaurantBook(s,a,{...guard(s),goalId:'goal-1',space:0},sequential));
+  assert.equal(s.round.economy.placedBooks.length,2);
+});
+test('Restaurant restore preserves in-progress allowance and rejects impossible or prematurely finished choices',()=>{
+  let s=choose(place(setup(),true),'BOOKS');
+  s=value(cookSpeakeasyRestaurantBook(s,a,{...guard(s),goalId:'goal-0',space:0},goals));
+  assert.deepEqual(parseSpeakeasyGameFlow(JSON.parse(JSON.stringify(s))),s);
+  const bad=structuredClone(s);bad.active!.restaurant!.current!.used=4;assert.throws(()=>parseSpeakeasyGameFlow(bad));
+  const duplicate=structuredClone(s);duplicate.active!.restaurant!.completed=['BOOKS'];assert.throws(()=>parseSpeakeasyGameFlow(duplicate));
+  const premature=structuredClone(s);premature.round.phase='DRAW_OPERATION';assert.throws(()=>parseSpeakeasyGameFlow(premature));
 });

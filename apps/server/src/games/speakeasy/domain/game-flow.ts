@@ -6,13 +6,15 @@ import {parseSpeakeasyRoundLifecycle, startSpeakeasyRoundLifecycle, chooseSpeake
   type SpeakeasyRoundLifecycle} from './round-lifecycle.js';
 import {parseSpeakeasyLuciano, startSpeakeasyLuciano, advanceSpeakeasyLuciano, resolveSpeakeasyDefense,
   type SpeakeasyLuciano, type SpeakeasyPhaseGuard} from './luciano.js';
+import {RestaurantChoicesSchema, parseRestaurantChoices, playRestaurantOperation, cookRestaurantBook, type OperationEffects, type RestaurantBookGoal} from './restaurant-actions.js';
+import {SpeakeasyRestaurantActionCommandSchema, SpeakeasyRestaurantFinishCommandSchema, SpeakeasyRestaurantBookCommandSchema, SpeakeasyRestaurantCardCommandSchema} from '@hangul-rummikub/shared';
 import {ruleFailure, speakeasyInventory, type SpeakeasyEconomy, type SpeakeasyRuleResult} from './model.js';
 
 const Space = v.strictObject({id: v.pipe(v.string(), v.minLength(1), v.maxLength(100)), location: SpeakeasyLocationSchema});
 const Capos = v.strictObject({playerId: PlayerIdSchema, available: v.array(TileIdSchema), retired: v.array(TileIdSchema),
   placed: v.array(v.strictObject({tileId: TileIdSchema, spaceId: Space.entries.id}))});
 const State = v.strictObject({round: v.unknown(), spaces: v.array(Space), capos: v.array(Capos),
-  active: v.nullable(v.strictObject({playerId: PlayerIdSchema, capoId: TileIdSchema, spaceId: Space.entries.id})),
+  active: v.nullable(v.strictObject({playerId: PlayerIdSchema, capoId: TileIdSchema, spaceId: Space.entries.id, restaurant: v.nullable(RestaurantChoicesSchema)})),
   luciano: v.nullable(v.unknown()), history: v.array(v.unknown())});
 export type SpeakeasyGameFlow = Omit<v.InferOutput<typeof State>, 'round' | 'luciano' | 'history'> & {
   round: SpeakeasyRoundLifecycle; luciano: SpeakeasyLuciano | null; history: SpeakeasyLuciano[];
@@ -42,6 +44,14 @@ export function parseSpeakeasyGameFlow(input: unknown): SpeakeasyGameFlow {
   }
   if (s.active && (terminal || s.active.playerId !== order[r.clock.seat] ||
     !s.capos.find(p => p.playerId === s.active!.playerId)?.placed.slice(-1).some(c => c.tileId === s.active!.capoId && c.spaceId === s.active!.spaceId))) throw new Error('Invalid active Capo.');
+  if (s.active) {
+    const restaurant = s.spaces.find(t => t.id === s.active!.spaceId)?.location === 'RESTAURANT';
+    if (restaurant !== (s.active.restaurant !== null)) throw new Error('Missing Restaurant choices.');
+    if (s.active.restaurant) {
+      const choices = parseRestaurantChoices(s.active.restaurant);
+      if (r.phase === 'DRAW_OPERATION' && (choices.current || choices.completed.length !== 2)) throw new Error('Unfinished Restaurant choices.');
+    }
+  }
   if (r.phase === 'DRAW_OPERATION' && !s.active) throw new Error('Missing active Capo.');
   const currentVisited = r.lowerRow.includes(order[r.clock.seat]!);
   if (!terminal && currentVisited !== (s.active !== null && s.spaces.find(t => t.id === s.active!.spaceId)?.location === 'RESTAURANT')) throw new Error('Invalid Restaurant progress.');
@@ -91,14 +101,14 @@ export function placeSpeakeasyCapo(original: SpeakeasyGameFlow, actor: PlayerId,
   } else s.round.revision++;
   owner.available.splice(owner.available.indexOf(c.capoId), 1);
   owner.placed.push({tileId: c.capoId, spaceId: space.id});
-  s.active = {playerId: actor, capoId: c.capoId, spaceId: space.id};
+  s.active = {playerId: actor, capoId: c.capoId, spaceId: space.id, restaurant: space.location === 'RESTAURANT' ? {completed: [], current: null} : null};
   return success(s);
 }
 
 /** Server-only: resolve an authorized location effect, including its bonuses, before committing it. */
 export function commitSpeakeasyLocationEconomy(original: SpeakeasyGameFlow, guard: SpeakeasyPhaseGuard,
   outcome: SpeakeasyRuleResult<SpeakeasyEconomy>): SpeakeasyRuleResult<SpeakeasyGameFlow> {
-  if (!matches(original, guard) || !original.active) return ruleFailure('INVALID_ACTION');
+  if (!matches(original, guard) || !original.active || original.active.restaurant) return ruleFailure('INVALID_ACTION');
   const result = commitSpeakeasyRoundEconomy(original.round, guard, outcome);
   if (!result.ok) return result;
   return success({...original, round: result.value});
@@ -106,6 +116,8 @@ export function commitSpeakeasyLocationEconomy(original: SpeakeasyGameFlow, guar
 /** Internal completion hook, only after the server location handler has resolved ALL choices. */
 export function finishSpeakeasyLocation(original: SpeakeasyGameFlow, guard: SpeakeasyPhaseGuard): SpeakeasyRuleResult<SpeakeasyGameFlow> {
   if (!matches(original, guard) || !original.active) return ruleFailure('INVALID_ACTION');
+  const choices = original.active.restaurant;
+  if (choices && (choices.current || choices.completed.length !== 2)) return ruleFailure('INVALID_ACTION');
   const result = finishSpeakeasyTurnActions(original.round, guard);
   if (!result.ok) return result;
   return success({...original, round: result.value});
@@ -161,4 +173,44 @@ export function beginSpeakeasyNextAct(original: SpeakeasyGameFlow, guard: Speake
   s.history.push(parseSpeakeasyLuciano(s.luciano));
   s.luciano = null;
   return success(s);
+}
+
+function restaurantActor(s: SpeakeasyGameFlow, actor: PlayerId, guard: SpeakeasyPhaseGuard): boolean {
+  return matches(s, guard) && s.round.phase === 'PLAYING' && s.active?.playerId === actor && s.active.restaurant !== null;
+}
+export function chooseSpeakeasyRestaurantAction(original: SpeakeasyGameFlow, actor: PlayerId, input: unknown): SpeakeasyRuleResult<SpeakeasyGameFlow> {
+  const parsed = v.safeParse(SpeakeasyRestaurantActionCommandSchema, input);
+  if (!parsed.success || !restaurantActor(original, actor, parsed.output)) return ruleFailure('INVALID_ACTION');
+  const s = parseSpeakeasyGameFlow(original), choices = s.active!.restaurant!;
+  if (choices.current || choices.completed.length === 2 || choices.completed.includes(parsed.output.action)) return ruleFailure('INVALID_ACTION');
+  choices.current = {action: parsed.output.action, used: 0}; s.round.revision++;
+  return success(s);
+}
+export function finishSpeakeasyRestaurantAction(original: SpeakeasyGameFlow, actor: PlayerId, input: unknown): SpeakeasyRuleResult<SpeakeasyGameFlow> {
+  const parsed = v.safeParse(SpeakeasyRestaurantFinishCommandSchema, input);
+  if (!parsed.success || !restaurantActor(original, actor, parsed.output)) return ruleFailure('INVALID_ACTION');
+  const s = parseSpeakeasyGameFlow(original), choices = s.active!.restaurant!, current = choices.current;
+  if (!current) return ruleFailure('INVALID_ACTION');
+  choices.completed.push(current.action); choices.current = null; s.round.revision++;
+  return success(s);
+}
+function restaurantEffect(original: SpeakeasyGameFlow, outcome: SpeakeasyRuleResult<SpeakeasyEconomy>): SpeakeasyRuleResult<SpeakeasyGameFlow> {
+  const result = commitSpeakeasyRoundEconomy(original.round, original.round, outcome);
+  if (!result.ok) return result;
+  const s = parseSpeakeasyGameFlow(original); s.round = result.value;
+  s.active!.restaurant!.current!.used++;
+  return success(s);
+}
+/** Catalog and effect handlers are server-only; all choices in those effects must already be resolved. */
+export function playSpeakeasyRestaurantCard(original: SpeakeasyGameFlow, actor: PlayerId, input: unknown,
+  effects: OperationEffects): SpeakeasyRuleResult<SpeakeasyGameFlow> {
+  const parsed = v.safeParse(SpeakeasyRestaurantCardCommandSchema, input), current = original.active?.restaurant?.current;
+  if (!parsed.success || !restaurantActor(original, actor, parsed.output) || current?.action !== 'OPERATION' || current.used !== 0) return ruleFailure('INVALID_ACTION');
+  return restaurantEffect(original, playRestaurantOperation(original.round.economy, actor, parsed.output.cardId, effects));
+}
+export function cookSpeakeasyRestaurantBook(original: SpeakeasyGameFlow, actor: PlayerId, input: unknown,
+  goals: readonly RestaurantBookGoal[]): SpeakeasyRuleResult<SpeakeasyGameFlow> {
+  const parsed = v.safeParse(SpeakeasyRestaurantBookCommandSchema, input), current = original.active?.restaurant?.current;
+  if (!parsed.success || !restaurantActor(original, actor, parsed.output) || current?.action !== 'BOOKS' || current.used >= 3) return ruleFailure('INVALID_ACTION');
+  return restaurantEffect(original, cookRestaurantBook(original.round.economy, actor, parsed.output.goalId, parsed.output.space, goals));
 }

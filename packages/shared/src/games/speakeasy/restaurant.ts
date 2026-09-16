@@ -20,3 +20,19 @@ export const SpeakeasyDrawCommandSchema = v.strictObject({
   gameId: GameIdSchema, revision: v.pipe(v.number(), v.safeInteger(), v.minValue(0)),
   deck: SpeakeasyDeckSchema,
 });
+
+export const SpeakeasyRestaurantActionSchema = v.picklist(['OPERATION', 'CITY_TILES', 'BOOKS']);
+export const SpeakeasyRestaurantActionCommandSchema = v.strictObject({
+  gameId: GameIdSchema, revision: v.pipe(v.number(), v.safeInteger(), v.minValue(0)),
+  action: SpeakeasyRestaurantActionSchema,
+});
+export const SpeakeasyRestaurantFinishCommandSchema = v.strictObject({
+  gameId: GameIdSchema, revision: v.pipe(v.number(), v.safeInteger(), v.minValue(0)),
+});
+export const SpeakeasyRestaurantBookCommandSchema = v.strictObject({
+  ...SpeakeasyRestaurantFinishCommandSchema.entries,
+  goalId: v.pipe(v.string(), v.minLength(1), v.maxLength(100)), space: v.picklist([0, 1]),
+});
+export const SpeakeasyRestaurantCardCommandSchema = v.strictObject({
+  ...SpeakeasyRestaurantFinishCommandSchema.entries, cardId: TileIdSchema,
+});
