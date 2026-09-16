@@ -1,5 +1,9 @@
 import type { ArnakOffer } from '@hangul-rummikub/shared';
 export type ArnakOfferGroup = { key: string; label: string; offers: ArnakOffer[] };
+export type ArnakIdolContext = { remaining: number; slotPoints: number };
+export function arnakOfferLabel(offer: ArnakOffer, idol?: ArnakIdolContext): string {
+    return offer.kind === 'END' && idol ? '우상 보관하고 차례 마치기' : offer.label;
+}
 /** Presentation only: retain every server-issued choice and its original ID. */
 export function groupArnakOffers(offers: readonly ArnakOffer[], preservedCards: ReadonlySet<string>): ArnakOfferGroup[] {
     const groups = new Map<string, ArnakOfferGroup>();

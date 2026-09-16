@@ -86,3 +86,71 @@ test('Arnak final round applies guardian fear before scoring and leaves unused g
  assert.equal(s.players[0]!.workers,2);assert.equal(s.sites[5]!.occupants[0],null);
  assert.equal(score.total,score.research+score.temple+score.guardians+score.idols+score.slots+score.cards-score.fear);
 });
+
+import { ARNAK_GUARDIANS } from '@hangul-rummikub/shared';
+for(const compasses of [3,6])test(`Arnak navigator and giant toad boats combine but level II still needs six compasses (${compasses})`,()=>{
+ let s=create();const p=s.players[0]!;
+ const stack=s.assistantSupply.find(ids=>ids.includes('assistant-8'))!;stack.splice(stack.indexOf('assistant-8'),1);
+ p.assistants.push({definitionId:'assistant-8',gold:false,ready:true});
+ const toad=ARNAK_GUARDIANS.find(g=>g.name==='거대 두꺼비')!;
+ s.guardianDeck.splice(s.guardianDeck.indexOf(toad.id),1);p.guardians.push({definitionId:toad.id,used:false});
+ p.resources=arnakResources({compass:compasses});
+ s=act(s,o=>o.kind==='ASSISTANT'&&o.targetId==='assistant-8');
+ s=act(s,o=>o.kind==='EFFECT'&&o.label==='이동 수단');
+ s=act(s,o=>o.kind==='BOON'&&o.targetId===toad.id);
+ assert.deepEqual(s.players[0]!.travel,['boat','boat']);assert.equal(s.mainActionUsed,false);
+ const discover=arnakOffers(s,s.activePlayerId).find(o=>o.kind==='DISCOVER'&&o.targetId==='region-2-2'&&o.cards.length===0&&o.cost.coin===0);
+ assert.equal(Boolean(discover),compasses===6);
+ if(compasses===6){
+  s=act(s,o=>o.id===discover!.id);assert.equal(s.players[0]!.resources.compass,0);assert.deepEqual(s.players[0]!.travel,[]);assert.equal(s.players[0]!.workers,1);
+ }else{
+  s=act(s,o=>o.kind==='PASS');s=act(s,o=>o.kind==='PASS');assert.deepEqual(s.players[0]!.travel,[]);
+ }
+});
+
+import { arnakActionHints } from './games/arnak/domain/action-hints.js';
+import { arnakPayments } from './games/arnak/domain/game.js';
+test('Arnak action hints explain resources, workers, occupancy, research path, main action and turn without mutating state',()=>{
+ const s=create(),p=s.players[0]!;
+ p.resources=arnakResources({compass:3,jewel:2});p.travel=['boat','boat'];
+ const hints=()=>arnakActionHints(s,p.playerId,arnakOffers(s,p.playerId));
+ const reasons=(target:string,label:string)=>hints().find(h=>h.targetId===target&&h.label===label)?.reasons??[];
+ const before=structuredClone(s);
+ assert.ok(reasons('region-2-2','발견').includes('나침반 3개 부족'));
+ assert.deepEqual(s,before);
+ p.magnifier='1R';assert.ok(reasons('2L','돋보기').some(r=>r.includes('연결된 바로 윗칸')));
+ assert.ok(reasons('2R','돋보기').includes('석판 1개 부족'));
+ p.workers=0;assert.ok(reasons('region-2-2','발견').includes('남은 탐험가가 없습니다.'));
+ s.sites.find(site=>site.id==='region-2-2')!.occupants[0]=s.players[1]!.playerId;
+ assert.ok(reasons('region-2-2','발견').includes('배치할 수 있는 빈칸이 없습니다.'));
+ s.mainActionUsed=true;assert.deepEqual(reasons('region-2-2','발견'),['이번 차례 주 행동을 이미 사용했습니다.']);
+ s.activePlayerId=s.players[1]!.playerId;assert.deepEqual(reasons('region-2-2','발견'),['내 차례가 아닙니다.']);
+});
+test('Arnak acquired travel projection is viewer scoped and offer payment metadata matches consumed stock',()=>{
+ let s=create();const actor=s.players[0]!.playerId;
+ s.players[0]!.resources=arnakResources({compass:6});s.players[0]!.travel=['boat','boat'];
+ const project=(viewer:typeof actor)=>projectArnak({gameId:s.gameId,gameRevision:s.revision,startedAt:s.startedAt,finishedAt:null,state:s},viewer)!;
+ assert.deepEqual(project(actor).privateState.travel,['boat','boat']);
+ assert.deepEqual(project(s.players[1]!.playerId).privateState.travel,[]);
+ assert.equal('travel' in project(s.players[1]!.playerId).playerStates[0]!,false);
+ const offer=arnakOffers(s,actor).find(o=>o.kind==='DISCOVER'&&o.targetId==='region-2-2'&&!o.cards.length&&!o.cost.coin)!;
+ assert.deepEqual(offer.travelUsed,['boat','boat']);
+ assert.equal(project(actor).privateState.blockedActions?.some(h=>h.targetId===offer.targetId&&h.label==='발견'),false);
+ s=act(s,o=>o.id===offer.id);assert.deepEqual(project(actor).privateState.travel,[]);
+});
+test('Arnak travel metadata distinguishes acquired icons from card icons and coin substitutions',()=>{
+ const p=create().players[0]!;p.travel=['boat'];p.resources=arnakResources({coin:2});
+ const choices=arnakPayments(p,['boat']);
+ assert.ok(choices.some(c=>c.cards.length===0&&c.coins===0&&c.travelUsed?.join()==='boat'));
+ assert.ok(choices.some(c=>c.cards.length===0&&c.coins===2&&c.travelUsed?.length===0&&c.remaining.includes('boat')));
+ assert.ok(choices.some(c=>c.cards.length===1&&c.travelUsed?.length===0&&c.remaining.includes('boat')));
+});
+test('Arnak pending effects do not report misleading ordinary action costs and spent abilities explain readiness',()=>{
+ let s=create();const p=s.players[0]!;
+ const stack=s.assistantSupply.find(ids=>ids.includes('assistant-8'))!;stack.splice(stack.indexOf('assistant-8'),1);
+ p.assistants.push({definitionId:'assistant-8',ready:true,gold:false});
+ s=act(s,o=>o.kind==='ASSISTANT'&&o.targetId==='assistant-8');
+ const hints=arnakActionHints(s,p.playerId,arnakOffers(s,p.playerId));
+ assert.deepEqual(hints.find(h=>h.targetId==='region-2-2')!.reasons,['진행 중인 효과 선택을 먼저 마치세요.']);
+ assert.match(hints.find(h=>h.targetId==='assistant-8')!.reasons.join(),/다시 준비/);
+});

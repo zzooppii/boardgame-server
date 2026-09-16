@@ -1,5 +1,5 @@
 import * as v from 'valibot';
-import { GameIdSchema, GameRevisionSchema, ServerTimeSchema, TurnIdSchema, ArnakPublicFields, ArnakResultSchema, ArnakPlayerPublicSchema, ArnakCardSchema, ArnakTravelSchema, ArnakActionSchema, ArnakRefSchema, ARNAK_CARDS, ARNAK_RESOURCES, ARNAK_SITES, ARNAK_GUARDIANS, ARNAK_ASSISTANTS, ARNAK_IDOLS, ARNAK_IDOL_REWARDS, ARNAK_RESEARCH, ARNAK_RESEARCH_EFFECTS, ARNAK_REWARD_EFFECTS, ARNAK_IDOL_EFFECTS, ARNAK_TEMPLE_COSTS, arnakResources, arnakCard, arnakEffect, arnakSite, arnakGuardian, arnakAssistant, arnakResearch, arnakCostText, type ArnakResources, type ArnakTravel, type ArnakOffer, type ArnakAction, type GameId, type PlayerId, type TileId, type ServerTime, type TurnId } from '@hangul-rummikub/shared';
+import { GameIdSchema, GameRevisionSchema, ServerTimeSchema, TurnIdSchema, ArnakPublicFields, ArnakResultSchema, ArnakPlayerPublicSchema, ArnakCardSchema, ArnakTravelSchema, ArnakActionSchema, ArnakRefSchema, ARNAK_CARDS, ARNAK_RESOURCES, ARNAK_RESOURCE_NAMES, ARNAK_SITES, ARNAK_GUARDIANS, ARNAK_ASSISTANTS, ARNAK_IDOLS, ARNAK_IDOL_REWARDS, ARNAK_RESEARCH, ARNAK_RESEARCH_EFFECTS, ARNAK_REWARD_EFFECTS, ARNAK_IDOL_EFFECTS, ARNAK_TEMPLE_COSTS, arnakResources, arnakCard, arnakEffect, arnakSite, arnakGuardian, arnakAssistant, arnakResearch, arnakCostText, type ArnakResources, type ArnakTravel, type ArnakOffer, type ArnakAction, type GameId, type PlayerId, type TileId, type ServerTime, type TurnId } from '@hangul-rummikub/shared';
 import type { RandomSource } from '../../../ports/system.js';
 const Player = v.strictObject({ ...ArnakPlayerPublicSchema.entries, hand: v.array(ArnakCardSchema), deck: v.array(ArnakCardSchema), keep: v.array(ArnakRefSchema), travel: v.array(ArnakTravelSchema), planeRound: v.boolean(), noFear: v.boolean() });
 const Job = v.strictObject({ effect: ArnakRefSchema, label: ArnakRefSchema, context: v.string() });
@@ -149,33 +149,34 @@ type Payment = {
     cards: TileId[];
     coins: number;
     remaining: ArnakTravel[];
+    travelUsed?: ArnakTravel[];
 };
-function payments(p: Person, needs: readonly ArnakTravel[], extra: readonly ArnakTravel[] = []): Payment[] {
+export function arnakPayments(p: Person, needs: readonly ArnakTravel[], extra: readonly ArnakTravel[] = []): Payment[] {
     const out: Payment[] = [], seen = new Set<string>();
-    function search(left: readonly ArnakTravel[], pool: ArnakTravel[], used: TileId[], coins: number) {
+    function search(left: readonly ArnakTravel[], pool: { travel: ArnakTravel; acquired: boolean }[], used: TileId[], coins: number, travelUsed: ArnakTravel[]) {
         if (!left.length) {
-            const key = [...used].sort().join() + ':' + coins + ':' + [...pool].sort().join();
+            const key = [...used].sort().join() + ':' + coins + ':' + pool.map(t => t.travel).sort().join() + ':' + [...travelUsed].sort().join();
             if (!seen.has(key)) {
                 seen.add(key);
-                out.push({ cards: used, coins, remaining: pool });
+                out.push({ cards: used, coins, remaining: pool.map(t => t.travel), travelUsed });
             }
             return;
         }
         const need = left[0]!;
         for (let i = 0; i < pool.length; i++)
-            if (pool[i] === 'plane' || pool[i] === need || need === 'foot')
-                search(left.slice(1), pool.filter((_, j) => i !== j), used, coins);
+            if (pool[i]!.travel === 'plane' || pool[i]!.travel === need || need === 'foot')
+                search(left.slice(1), pool.filter((_, j) => i !== j), used, coins, pool[i]!.acquired ? [...travelUsed, pool[i]!.travel] : travelUsed);
         for (const card of p.hand)
             if (!used.includes(card.tileId)) {
                 const icons = arnakCard(card.definitionId).travel.map(t => p.planeRound ? 'plane' as const : t);
                 for (let i = 0; i < icons.length; i++)
                     if (icons[i] === 'plane' || icons[i] === need || need === 'foot')
-                        search(left.slice(1), [...pool, ...icons.filter((_, j) => j !== i)], [...used, card.tileId], coins);
+                        search(left.slice(1), [...pool, ...icons.filter((_, j) => j !== i).map(travel => ({ travel, acquired: false }))], [...used, card.tileId], coins, travelUsed);
             }
         if (coins + 2 <= p.resources.coin)
-            search(left.slice(1), pool, used, coins + 2);
+            search(left.slice(1), pool, used, coins + 2, travelUsed);
     }
-    search(needs, [...p.travel, ...extra], [], 0);
+    search(needs, [...p.travel.map(travel => ({ travel, acquired: true })), ...extra.map(travel => ({ travel, acquired: false }))], [], 0, []);
     return out;
 }
 function spendTravel(p: Person, payment: Payment) { p.resources.coin -= payment.coins; p.travel = payment.remaining; for (const id of payment.cards) {
@@ -188,10 +189,10 @@ function choices(s: ArnakState, now: ServerTime, r: RandomSource): Choice[] {
     if (s.phase !== 'PLAYING')
         return [];
     const p = s.players.find(p => p.playerId === s.activePlayerId)!, out: Choice[] = [];
-    function add(kind: ArnakOffer['kind'], targetId: string, label: string, fn: () => void, cost = arnakResources(), cards: TileId[] = [], free = true, detail = '') {
+    function add(kind: ArnakOffer['kind'], targetId: string, label: string, fn: () => void, cost = arnakResources(), cards: TileId[] = [], free = true, detail = '', travelUsed: ArnakTravel[] = []) {
         if (!canPay(p, cost))
             return;
-        out.push({ offer: { id: 'action-' + out.length, kind, targetId, label, detail, cost, cards, free }, apply: () => { pay(p, cost); fn(); } });
+        out.push({ offer: { id: 'action-' + out.length, kind, targetId, label, detail, cost, cards, free, travelUsed }, apply: () => { pay(p, cost); fn(); } });
     }
     function effects(ids: readonly string[], label: string, context = '') { enqueue(s, ids, label, context, true); }
     function buyCards(mode: string, discount: number, done: () => void, kind: ArnakOffer['kind'] = 'BUY', free = false) {
@@ -228,7 +229,7 @@ function choices(s: ArnakState, now: ServerTime, r: RandomSource): Choice[] {
                 if (site.occupants[slot] || site.blocked[slot])
                     continue;
                 const cost = arnakResources({ compass: site.definitionId ? 0 : Math.max(0, (site.level === 1 ? 3 : 6) - discount) });
-                for (const payment of payments(p, site.travel[slot]!, extra)) {
+                for (const payment of arnakPayments(p, site.travel[slot]!, extra)) {
                     const total = { ...cost, coin: cost.coin + payment.coins };
                     add(site.definitionId ? 'DIG' : 'DISCOVER', site.id, site.definitionId ? arnakSite(site.definitionId).name + ' 발굴' : `${site.level}단계 유적 발견`, () => { done(site.id); spendTravel(p, { ...payment, coins: 0 }); p.workers--; site.occupants[slot] = p.playerId; if (!site.definitionId) {
                         site.definitionId = (site.level === 1 ? s.siteDeck1 : s.siteDeck2).shift()!;
@@ -242,7 +243,7 @@ function choices(s: ArnakState, now: ServerTime, r: RandomSource): Choice[] {
                             effects(ARNAK_IDOL_REWARDS[reward] ?? [], '우상 보상');
                     }
                     else
-                        effects(arnakSite(site.definitionId).effects, '장소 효과'); }, total, payment.cards, false, `이동: ${site.travel[slot]!.join(' · ')}${payment.coins ? ' · 비행기 대체 금화 ' + payment.coins : ''}`);
+                        effects(arnakSite(site.definitionId).effects, '장소 효과'); }, total, payment.cards, false, `이동: ${site.travel[slot]!.join(' · ')}${payment.coins ? ' · 비행기 대체 금화 ' + payment.coins : ''}`, payment.travelUsed);
                 }
             }
         }
@@ -283,14 +284,14 @@ function choices(s: ArnakState, now: ServerTime, r: RandomSource): Choice[] {
             if (!site.guardianId || mode !== 'no-opponent' && !site.occupants.includes(p.playerId) || mode === 'no-opponent' && site.occupants.some(id => id !== null && id !== p.playerId))
                 continue;
             const g = arnakGuardian(site.guardianId);
-            for (const payment of free ? [{ cards: [], coins: 0, remaining: p.travel }] : payments(p, g.travel)) {
+            for (const payment of free ? [{ cards: [], coins: 0, remaining: p.travel, travelUsed: [] }] : arnakPayments(p, g.travel)) {
                 const cost = free ? arnakResources() : { ...g.cost, coin: g.cost.coin + payment.coins };
                 if (!free && g.discard) {
                     for (const card of p.hand.filter(c => !payment.cards.includes(c.tileId)))
-                        add('GUARDIAN', site.id, g.name + ' 극복 · ' + arnakCard(card.definitionId).name + ' 버리기', () => { done(); spendTravel(p, { ...payment, coins: 0 }); p.played.push(...p.hand.splice(p.hand.findIndex(c => c.tileId === card.tileId), 1)); p.guardians.push({ definitionId: g.id, used: false }); site.guardianId = null; }, cost, [...payment.cards, card.tileId], false, '수호자 5점과 축복');
+                        add('GUARDIAN', site.id, g.name + ' 극복 · ' + arnakCard(card.definitionId).name + ' 버리기', () => { done(); spendTravel(p, { ...payment, coins: 0 }); p.played.push(...p.hand.splice(p.hand.findIndex(c => c.tileId === card.tileId), 1)); p.guardians.push({ definitionId: g.id, used: false }); site.guardianId = null; }, cost, [...payment.cards, card.tileId], false, '수호자 5점과 축복', payment.travelUsed);
                 }
                 else
-                    add('GUARDIAN', site.id, g.name + ' 극복', () => { done(); spendTravel(p, { ...payment, coins: 0 }); p.guardians.push({ definitionId: g.id, used: false }); site.guardianId = null; }, cost, payment.cards, false, '수호자 5점과 축복');
+                    add('GUARDIAN', site.id, g.name + ' 극복', () => { done(); spendTravel(p, { ...payment, coins: 0 }); p.guardians.push({ definitionId: g.id, used: false }); site.guardianId = null; }, cost, payment.cards, false, '수호자 5점과 축복', payment.travelUsed);
             }
         }
     }
@@ -378,8 +379,8 @@ function choices(s: ArnakState, now: ServerTime, r: RandomSource): Choice[] {
                     add('EFFECT', 'trade', '비용 지불하고 교환', after, arnakResources(e.cost));
                     break;
                 case 'payTravel':
-                    for (const payment of payments(p, e.travel ?? []))
-                        add('EFFECT', 'travel', '이동 비용 지불', () => { after(); spendTravel(p, { ...payment, coins: 0 }); }, arnakResources({ coin: payment.coins }), payment.cards);
+                    for (const payment of arnakPayments(p, e.travel ?? []))
+                        add('EFFECT', 'travel', '이동 비용 지불', () => { after(); spendTravel(p, { ...payment, coins: 0 }); }, arnakResources({ coin: payment.coins }), payment.cards, true, '', payment.travelUsed);
                     break;
                 case 'discard':
                 case 'exile': {
@@ -631,7 +632,16 @@ export function applyArnakAction(s: ArnakState, actor: PlayerId, input: ArnakAct
     sync(next);
     next.revision = v.parse(GameRevisionSchema, s.revision + 1);
     next.transitionId = turnId;
-    next.history.push({ id: next.revision, playerId: actor, kind: selected.offer.kind, text: selected.offer.kind==='EFFECT'&&['@peek','@return'].includes(s.jobs[0]?.effect??'')?'확인한 카드의 배치를 마쳤습니다':selected.offer.label, round: s.round });
+    const researchStep = selected.offer.kind === 'RESEARCH' || selected.offer.kind === 'EFFECT' && ['연구 보상 순서', '연구 보상', '선착순 보너스'].includes(s.jobs[0]?.label ?? '');
+    const beforePlayer = s.players.find(p => p.playerId === actor)!, afterPlayer = next.players.find(p => p.playerId === actor)!;
+    const received = researchStep ? ARNAK_RESOURCES.flatMap(key => {
+        const amount = afterPlayer.resources[key] - beforePlayer.resources[key];
+        return amount > 0 ? [`${ARNAK_RESOURCE_NAMES[key]} ${amount}개`] : [];
+    }) : [];
+    const drawn = selected.offer.kind === 'EFFECT' && selected.offer.targetId === 'draw' ? afterPlayer.hand.length - beforePlayer.hand.length : 0;
+    if (researchStep && drawn > 0) received.unshift(`카드 ${drawn}장`);
+    const rewardReceipt = received.length ? ` · 연구 보상 획득: ${received.join(' + ')} (자동 반영 완료)` : '';
+    next.history.push({ id: next.revision, playerId: actor, kind: selected.offer.kind, text: (selected.offer.kind==='EFFECT'&&['@peek','@return'].includes(s.jobs[0]?.effect??'')?'확인한 카드의 배치를 마쳤습니다':selected.offer.label) + rewardReceipt, round: s.round });
     next.history = next.history.slice(-120);
     return { ok: true, state: parseArnakState(next) };
 }

@@ -96,3 +96,33 @@ for (const count of [2, 3, 4]) test(`Arnak ${count} players research to the temp
         assert.equal(score.total, score.research + score.temple + score.guardians + score.idols + score.slots + score.cards - score.fear);
     }
 });
+
+for (const first of ['선착순 보너스 먼저', '연구 보상 먼저']) test(`Arnak research receipt records actual draw and automatic compass: ${first}`, () => {
+    const game = scenario(2), p = game.state.players[0]!;
+    p.magnifier = '1L'; p.resources = arnakResources({ jewel: 1 });
+    game.state.researchBonuses['2L'] = 'draw';
+    const hand = p.hand.length;
+    game.take(o => o.kind === 'RESEARCH' && o.targetId === '2L' && o.label.startsWith('돋보기'));
+    game.take(o => o.label === first);
+    if (first === '선착순 보너스 먼저') {
+        assert.equal(game.state.players[0]!.resources.compass, 0);
+        assert.doesNotMatch(game.state.history.at(-1)!.text, /획득:/);
+    } else {
+        assert.match(game.state.history.at(-1)!.text, /연구 보상 획득: 나침반 1개/);
+    }
+    game.take(o => o.kind === 'EFFECT' && o.targetId === 'draw');
+    assert.equal(game.state.players[0]!.hand.length, hand + 1);
+    assert.equal(game.state.players[0]!.resources.compass, 1);
+    assert.equal(game.state.jobs.length, 0);
+    assert.match(game.state.history.at(-1)!.text, first === '선착순 보너스 먼저' ? /카드 1장 \+ 나침반 1개 \(자동 반영 완료\)/ : /카드 1장 \(자동 반영 완료\)/);
+    const s = game.state;
+    const projection = projectArnak({ gameId: s.gameId, gameRevision: s.revision, startedAt: s.startedAt, finishedAt: null, state: s }, p.playerId)!;
+    assert.equal(projection.history.at(-1)!.text, s.history.at(-1)!.text);
+});
+
+for (const source of ['1L','1R']) test(`Arnak research enforces the connected path from ${source} despite sufficient resources`,()=>{
+ const game=scenario(2),p=game.state.players[0]!;
+ p.magnifier=source;p.resources=arnakResources({coin:10,compass:10,tablet:10,arrow:10,jewel:10});
+ const targets=arnakOffers(game.state,p.playerId).filter(o=>o.kind==='RESEARCH'&&o.label.startsWith('돋보기')).map(o=>o.targetId);
+ assert.deepEqual(targets,source==='1L'?['2L','2R']:['2R']);
+});

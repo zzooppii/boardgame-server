@@ -1,5 +1,6 @@
 import { ARNAK_RESEARCH, ARNAK_RESEARCH_EFFECTS, ARNAK_REWARD_EFFECTS, ARNAK_RESOURCE_NAMES, ARNAK_RESOURCES, arnakCostText, arnakEffect, type ArnakProjection } from '@hangul-rummikub/shared';
 import { describeArnakEffect } from './effect-description.js';
+import { ArnakResearchPaths, researchPosition } from './ArnakResearchPaths.js';
 import { ArnakResourceChips } from './ArnakResourceChips.js';
 
 function Reward({ id }: { id: string }) {
@@ -19,13 +20,13 @@ export function ArnakResearchTrack({ game, target, available, name, onSelect }: 
             <span className="ar-art" aria-hidden="true" style={{ backgroundPosition: '66.6667% 100%' }}/>
             <strong>사원의 비밀</strong><span>도착 순서 점수 · 23 / 21 / 20 / 19</span><small>사원 타일 2 / 6 / 11점 · 눌러서 비용 확인</small>
         </button>
-        <p className="ar-track-guide">칸의 <b>지불</b> 자원을 내고 이동 → 말에 맞는 <b>보상</b> 획득</p>
+        <p className="ar-track-guide"><b>화살표로 연결된 바로 윗칸</b>으로만 이동합니다. 같은 단계의 옆 칸으로는 이동할 수 없습니다.</p>
         <div className="ar-track-legend">{ARNAK_RESOURCES.map(k => <span key={k}><ArnakResourceChips value={{ [k]: 1 }}/>{ARNAK_RESOURCE_NAMES[k]}</span>)}</div>
         <p className="ar-track-guide">점수는 최종 위치 기준 · ✦ 선착순 보너스는 별도</p>
         {Array.from({ length: 9 }, (_, i) => 8 - i).map(row => <section className="ar-track-level" key={row} aria-label={`${row}단계 연구`}>
-            <div className="ar-research-row"><span className="ar-row-number">{row}</span>{ARNAK_RESEARCH.filter(n => n.row === row).map(node =>
+            <ArnakResearchPaths row={row} target={target}/><div className="ar-research-row"><span className="ar-row-number">{row}</span>{ARNAK_RESEARCH.filter(n => n.row === row).map(node =>
                 <button key={node.id} className={`${available.has(node.id) ? 'available' : ''} ${target === node.id ? 'selected' : ''}`} onClick={() => onSelect(node.id)} aria-pressed={target === node.id} aria-label={`연구 ${node.id} · ${arnakCostText(node.cost)}`}>
-                    <span className="ar-node-caption">{row === 0 ? '출발' : row === 8 ? '사원 도착 · 지불' : '지불'}</span>
+                    <span className="ar-node-position">{researchPosition(node.id)}</span><span className="ar-node-caption">{row === 0 ? '출발' : row === 8 ? '사원 도착 · 지불' : '지불'}</span>
                     {row > 0 && <ArnakResourceChips value={node.cost}/>}
                     <span className="ar-node-occupants">{game.playerStates.flatMap((p, i) => (['magnifier', 'notebook'] as const).filter(t => p[t] === node.id).map(t =>
                         <span className={'ar-research-token seat-' + i} key={p.playerId + t} title={name(p.playerId) + (t === 'magnifier' ? ' 돋보기' : ' 수첩')}>{t === 'magnifier' ? '⌕' : '▣'}</span>))}</span>

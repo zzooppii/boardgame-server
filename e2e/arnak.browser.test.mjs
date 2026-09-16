@@ -62,6 +62,13 @@ test('Arnak desktop/mobile: cards, dig, cleanup, five rounds, resume, results, r
  for(const page of pages){
   const research=page.locator('.ar-research-visual');
   assert.equal(await research.locator('.ar-track-level').count(),9);
+  assert.equal(await research.locator('.ar-research-paths').count(),8);
+  assert.equal(await research.locator('path[data-from="1R"][data-to="2L"]').count(),0);
+  assert.equal(await research.locator('path[data-from="1R"][data-to="2R"]').count(),1);
+  await research.getByRole('button',{name:/^연구 2L ·/}).click();
+  assert.equal(await research.locator('path[data-from="1L"][data-to="2L"].selected').count(),1);
+  assert.match(await page.getByRole('region',{name:'연구 칸 안내'}).innerText(),/이 칸으로 오는 경로: 1단계 왼쪽/);
+  await page.locator('#ar-actions').getByRole('button',{name:'전체',exact:true}).click();
   assert.equal(await research.locator('.ar-track-reward').count(),14);
   const first=research.getByRole('button',{name:/^연구 1L ·/});
   assert.equal(await first.locator('.ar-resource-chip[aria-label="나침반 1"]').count(),1);
@@ -79,6 +86,12 @@ test('Arnak desktop/mobile: cards, dig, cleanup, five rounds, resume, results, r
    assert.ok(await travel.locator('svg').count());
   }
  }
+ for(const peer of pages){
+  const resources=peer.locator('.ar-camp-resources');
+  assert.equal(await resources.locator('svg').count(),5);
+  assert.equal(await resources.locator('small').allTextContents().then(v=>v.join(',')),'금화,나침반,석판,화살촉,보석');
+ }
+ await guest.locator('.ar-camp-heading').screenshot({path:join(output,'mobile-camp-resources.png')});
  await guest.locator('.ar-hand').screenshot({path:join(output,'mobile-travel-hand.png')});
  for(const page of pages){
   const prices=page.locator('.ar-market .ar-purchase-price');assert.equal(await prices.count(),6);
@@ -109,6 +122,14 @@ test('Arnak desktop/mobile: cards, dig, cleanup, five rounds, resume, results, r
  }
  // Inspect and play a free starting card via the actual hand and confirmation panel.
  let page=await active();
+ await page.locator('.ar-sites.level-2 .hidden-site').last().click();
+ assert.match(await page.getByRole('region',{name:'행동 불가 이유'}).innerText(),/나침반 [56]개 부족/);
+ await page.getByRole('region',{name:'행동 불가 이유'}).screenshot({path:join(output,'discovery-blocked-reasons.png')});
+ assert.match(await page.getByRole('region',{name:'이번 차례 획득 이동'}).innerText(),/보관 중인 이동 없음/);
+ await page.reload();await page.locator('.ar-hand').waitFor();
+ await page.locator('.ar-sites.level-2 .hidden-site').last().click();
+ assert.match(await page.getByRole('region',{name:'행동 불가 이유'}).innerText(),/나침반 [56]개 부족/);
+ await all(page).click();
  await page.bringToFront();await page.locator('.ar-sound-controls summary').click();
  const audioBefore=await page.evaluate(()=>window.arnakAudioStarts);
  await page.locator('.ar-sound-controls').getByRole('button',{name:'발굴',exact:true}).click();
@@ -146,8 +167,8 @@ test('Arnak desktop/mobile: cards, dig, cleanup, five rounds, resume, results, r
    await choose(page,/^패스 확정$/);commands++;continue;
   }
   await all(page).click();
-  const end=page.locator('.ar-offer-group legend').filter({hasText:/^차례 마치기$/});
-  if(await end.count()){await choose(page,/^차례 마치기$/);commands++;continue;}
+  const end=page.locator('.ar-offer-group legend').filter({hasText:/^(?:우상 보관하고 )?차례 마치기$/});
+  if(await end.count()){await choose(page,/^(?:우상 보관하고 )?차례 마치기$/);commands++;continue;}
   if(!dug.has(key)){
    const dig=page.locator('.ar-action-browser details').filter({has:page.locator('summary').filter({hasText:/^발굴/})});
    if(await dig.count()){
@@ -189,7 +210,7 @@ test('Arnak desktop/mobile: cards, dig, cleanup, five rounds, resume, results, r
   await payment.getByRole('button').filter({hasText:'자원 지불 없음'}).first().click();await confirm(researcher);
  }
  await digAt('고대 제단');assert.equal(await resource('arrow'),1);
- await choose(researcher,/^차례 마치기$/);assert.equal(await active(),other);
+ await choose(researcher,/^(?:우상 보관하고 )?차례 마치기$/);assert.equal(await active(),other);
  await choose(other,/^이번 라운드 패스$/);await choose(other,/^패스 확정$/);
  assert.equal(await active(),researcher);
  const researchCoin=await resource('coin'),researchCompass=await resource('compass');
@@ -204,7 +225,9 @@ test('Arnak desktop/mobile: cards, dig, cleanup, five rounds, resume, results, r
  for(const peer of pages)assert.equal(await peer.getByRole('button',{name:/^연구 1L ·/}).getByTitle(tokenTitle,{exact:true}).count(),1);
  await researcher.reload();await researcher.locator('.ar-hand').waitFor();
  assert.equal(await researcher.getByRole('button',{name:/^연구 1L ·/}).getByTitle(tokenTitle,{exact:true}).count(),1);
- await choose(researcher,/^차례 마치기$/);await digAt('해안 야영지');await choose(researcher,/^차례 마치기$/);
+ assert.match(await researcher.locator('.ar-research-receipt').innerText(),/금화 1개.*자동 반영 완료/);
+ await researcher.locator('.ar-research-receipt').screenshot({path:join(output,'research-reward-receipt.png')});
+ await choose(researcher,/^(?:우상 보관하고 )?차례 마치기$/);await digAt('해안 야영지');await choose(researcher,/^(?:우상 보관하고 )?차례 마치기$/);
  assert.ok(await resource('coin')>=6,'The scenario earns enough for every base-game item.');
  const item=researcher.locator('.ar-market .ar-card.item.available').first();assert.ok(await item.count());
  const itemName=await item.locator('.ar-card-title strong').innerText(),price=Number((await item.locator('.ar-purchase-price strong').innerText()).replace('◉','').trim());
@@ -219,7 +242,7 @@ test('Arnak desktop/mobile: cards, dig, cleanup, five rounds, resume, results, r
  await researcher.reload();await researcher.locator('.ar-hand').waitFor();
  assert.equal(await resource('coin'),coinsBefore-price);
  assert.match(await researcher.locator('.ar-camp-heading p').innerText(),new RegExp(`덱 ${deckBefore+1}장`));
- await choose(researcher,/^차례 마치기$/);
+ await choose(researcher,/^(?:우상 보관하고 )?차례 마치기$/);
  for(const peer of pages)assert.equal(await peer.locator('.ar-market .ar-card').count(),marketBefore);
  await host.screenshot({path:join(output,'desktop-research-purchase.png'),fullPage:true});
  await guest.screenshot({path:join(output,'mobile-research-purchase.png'),fullPage:true});
@@ -231,7 +254,7 @@ test('Arnak desktop/mobile: cards, dig, cleanup, five rounds, resume, results, r
  await other.locator('.ar-hand').getByRole('button',{name:/^탐험,/}).first().click();await confirm(other);
  await other.locator('.ar-sites.level-0').getByRole('button',{name:/탐험가의 길/}).click();
  await other.locator('.ar-offer-group').filter({has:other.locator('legend').filter({hasText:/발굴/})}).getByRole('button').filter({hasText:'자원 지불 없음'}).first().click();await confirm(other);
- await choose(other,/^차례 마치기$/);
+ await choose(other,/^(?:우상 보관하고 )?차례 마치기$/);
  await choose(researcher,/^이번 라운드 패스$/);await choose(researcher,/^패스 확정$/);
  assert.equal(await active(),other);
  const discovery=other.locator('.ar-sites.level-1 .hidden-site.available').first();assert.ok(await discovery.count(),'A level-one discovery must be affordable.');
@@ -244,7 +267,7 @@ test('Arnak desktop/mobile: cards, dig, cleanup, five rounds, resume, results, r
  let choices=0;
  for(;choices<12;choices++){
   await all(other).click();
-  if(await other.locator('.ar-offer-group legend').filter({hasText:/^차례 마치기$/}).count())break;
+  if(await other.locator('.ar-offer-group legend').filter({hasText:/^(?:우상 보관하고 )?차례 마치기$/}).count())break;
   assert.equal(await other.locator('.ar-action-help').innerText(),'추가 효과를 처리하세요.');
   const pendingLabel=await other.locator('.ar-roundbar small').innerText();
   await other.reload();await other.locator('.ar-hand').waitFor();
@@ -255,7 +278,7 @@ test('Arnak desktop/mobile: cards, dig, cleanup, five rounds, resume, results, r
  const revealed=peer=>peer.locator('.ar-sites.level-1 .ar-site.revealed');
  const siteName=await revealed(other).locator('strong').innerText();
  const guardianName=await revealed(other).locator('.ar-site-guardian').getAttribute('title');assert.ok(guardianName);
- let guardianDetails;
+ let guardianDetails, guardianCost, previewBoon;
  for(const peer of pages){
   assert.equal(await revealed(peer).count(),1);assert.equal(await revealed(peer).locator('strong').innerText(),siteName);
   assert.equal(await revealed(peer).locator('.ar-site-guardian').getAttribute('title'),guardianName);
@@ -263,6 +286,10 @@ test('Arnak desktop/mobile: cards, dig, cleanup, five rounds, resume, results, r
   await revealed(peer).click();
   const inspector=peer.locator('.ar-card-inspector');assert.ok((await inspector.innerText()).includes(guardianName+' · 5점'));
   const details=await inspector.innerText();assert.match(details,/극복 비용:/);
+  assert.match(details,/극복 후 축복 · 한 번 사용/);
+  guardianCost=await inspector.locator(".ar-guardian-cost").innerText();
+  previewBoon=await inspector.locator(".ar-guardian-boon .ar-ability-effect").innerText();
+  assert.ok(previewBoon.trim());
   if(guardianDetails===undefined)guardianDetails=details;else assert.equal(details,guardianDetails);
  }
  await other.reload();await other.locator('.ar-hand').waitFor();
@@ -277,7 +304,20 @@ test('Arnak desktop/mobile: cards, dig, cleanup, five rounds, resume, results, r
  for(const peer of pages)await revealed(peer).click();
  await host.screenshot({path:join(output,'desktop-discovery.png'),fullPage:true});
  await guest.screenshot({path:join(output,'mobile-discovery.png'),fullPage:true});
- await choose(other,/^차례 마치기$/);await choose(other,/^이번 라운드 패스$/);await choose(other,/^패스 확정$/);
+ await all(other).click();
+ const idolGuide=other.getByRole('region',{name:'우상 사용 선택'});
+ assert.match(await idolGuide.innerText(),/꼭 사용할 필요는 없습니다/);
+ assert.match(await idolGuide.innerText(),/이번 사용 시 빈 슬롯 1점/);
+ const savedIdols=await other.locator('.ar-idol-slots').innerText(),savedResources=await other.locator('.ar-camp-heading .ar-resources').innerText();
+ const store=other.locator('.ar-offer-group[data-offer-kind="END"]');
+ assert.match(await store.innerText(),/우상 보관하고 차례 마치기/);
+ await store.getByRole('button').click();
+ assert.match(await other.locator('.ar-confirm').innerText(),/우상은 사용하지 않고 보관/);
+ await other.locator('#ar-actions').screenshot({path:join(output,'idol-store-choice.png')});
+ await confirm(other);
+ assert.equal(await other.locator('.ar-idol-slots').innerText(),savedIdols);
+ assert.equal(await other.locator('.ar-camp-heading .ar-resources').innerText(),savedResources);
+ await choose(other,/^이번 라운드 패스$/);await choose(other,/^패스 확정$/);
  for(const peer of pages){
   assert.equal(await peer.locator('.ar-roundbar li.current').innerText(),'III');
   assert.equal(await revealed(peer).locator('.ar-site-guardian').getAttribute('title'),guardianName);
@@ -294,7 +334,7 @@ test('Arnak desktop/mobile: cards, dig, cleanup, five rounds, resume, results, r
  async function settleEffects(){
   for(let step=0;step<16;step++){
    await all(other).click();
-   if(await other.locator('.ar-offer-group legend').filter({hasText:/^차례 마치기$/}).count())return;
+   if(await other.locator('.ar-offer-group legend').filter({hasText:/^(?:우상 보관하고 )?차례 마치기$/}).count())return;
    assert.equal(await other.locator('.ar-action-help').innerText(),'추가 효과를 처리하세요.');
    const skip=other.locator('.ar-offer-group').filter({has:other.locator('legend').filter({hasText:/이 효과 건너뛰기|획득하지 않기|구매하지 않기|두 번째 배치 생략/})});
    await (await skip.count()?skip.first().getByRole('button'):other.locator('.ar-offer-group button').first()).click();await confirm(other);
@@ -302,7 +342,7 @@ test('Arnak desktop/mobile: cards, dig, cleanup, five rounds, resume, results, r
   assert.fail('Follow-up effects did not settle.');
  }
  async function finishTurn(){
-  await choose(other,/^차례 마치기$/);
+  await choose(other,/^(?:우상 보관하고 )?차례 마치기$/);
   if(await active()===researcher){await choose(researcher,/^이번 라운드 패스$/);await choose(researcher,/^패스 확정$/);}
  }
  async function playStarters(name){
@@ -322,13 +362,15 @@ test('Arnak desktop/mobile: cards, dig, cleanup, five rounds, resume, results, r
  await choose(researcher,/^이번 라운드 패스$/);await choose(researcher,/^패스 확정$/);
  assert.equal(await active(),other);
  await playStarters(/^자금 지원,/);
- const required=parseCost(guardianDetails.split('극복 비용:')[1]);
+ const required=parseCost(guardianCost);
  let stock=await readResources();
  if(stock.compass<required.compass)await playStarters(/^탐험,/);
  stock=await readResources();
  const idolLabel=stock.jewel<required.jewel?/금화 1 → 보석 1/:stock.arrow<required.arrow?/화살촉 1/:stock.tablet<required.tablet?/석판 2/:/금화 1.*나침반 1/;
  await other.locator('.ar-idol-slots > button').click();
- await other.locator('.ar-offer-group').filter({has:other.locator('legend').filter({hasText:idolLabel})}).getByRole('button').click();await confirm(other);
+ await other.locator('.ar-offer-group').filter({has:other.locator('legend').filter({hasText:idolLabel})}).getByRole('button').click();
+ assert.match(await other.locator('.ar-confirm').innerText(),/빈 슬롯 1점은 포기/);
+ await confirm(other);assert.equal(await other.locator('.ar-idol-slots .used').count(),1);
  stock=await readResources();
  await payDig(other.locator('.ar-sites.level-0').getByRole('button',{name:stock.tablet<required.tablet?/석판 채석장/:/해안 야영지/}));
  await payDig(revealed(other));
@@ -346,9 +388,19 @@ test('Arnak desktop/mobile: cards, dig, cleanup, five rounds, resume, results, r
  const ownedGuardian=()=>other.locator('.ar-assistants[aria-label="내 조수와 수호자"]').getByRole('button').filter({hasText:guardianName});
  assert.match(await ownedGuardian().innerText(),/축복 사용 가능.*5 VP/);await assertCampControlContrast(ownedGuardian());
  await other.reload();await other.locator('.ar-hand').waitFor();assert.match(await ownedGuardian().innerText(),/축복 사용 가능.*5 VP/);
- const boonText=await ownedGuardian().locator('.ar-ability-effect').innerText();assert.ok(boonText.trim());
+ const boonText=await ownedGuardian().locator('.ar-ability-effect').innerText();assert.ok(boonText.trim());assert.equal(boonText,previewBoon);
  await ownedGuardian().click();assert.equal(await ownedGuardian().getAttribute('aria-pressed'),'true');
  assert.ok((await other.locator('.ar-card-inspector').innerText()).includes(boonText));await confirm(other);await settleEffects();assert.match(await ownedGuardian().innerText(),/축복 사용 완료.*5 VP/);await assertCampControlContrast(ownedGuardian());
+ if(boonText.includes('이동 획득')){
+  const stock=other.getByRole('region',{name:'이번 차례 획득 이동'});
+  assert.ok(await stock.locator('svg').count());assert.match(await stock.innerText(),/이번 차례까지/);
+  await stock.screenshot({path:join(output,'acquired-travel-stock.png')});
+  await all(other).click();
+  await other.locator('.ar-offer-group').filter({has:other.locator('legend').filter({hasText:/^(?:우상 보관하고 )?차례 마치기$/})}).getByRole('button').click();
+  assert.match(await other.locator('.ar-confirm .ar-travel-expiry').innerText(),/사용하지 않은 이동이 사라집니다/);
+  await all(other).click();
+ }
+
  const beforeSafeReturn=await cardTotal(other);
  await finishTurn();await choose(other,/^이번 라운드 패스$/);await choose(other,/^패스 확정$/);
  assert.equal(await other.locator('.ar-roundbar li.current').innerText(),'IV');
@@ -469,7 +521,7 @@ for(const playerCount of [3,4]){
     await page.locator('.ar-sites.level-0').getByRole('button',{name:new RegExp(researchTurn?'고대 제단':sites[index])}).click();
     await page.locator('.ar-offer-group').filter({has:page.locator('legend').filter({hasText:/발굴/})}).getByRole('button').filter({hasText:'자원 지불 없음'}).first().click();await confirm(page);
     assert.match(await page.locator('.ar-camp-heading p').innerText(),/탐험가 1\/2/);
-    await choose(page,/^차례 마치기$/);assert.equal(await active(),(index+1)%playerCount);
+    await choose(page,/^(?:우상 보관하고 )?차례 마치기$/);assert.equal(await active(),(index+1)%playerCount);
     if(round===2&&offset===0){
      const hand=await page.locator('.ar-hand .ar-card').allTextContents(),camp=await page.locator('.ar-camp-heading').innerText();
      await page.reload();await page.locator('.ar-hand').waitFor();
@@ -516,7 +568,7 @@ for(const playerCount of [3,4]){
       await page.locator('#ar-actions').getByRole('button',{name:'전체',exact:true}).click();
       assert.deepEqual(await hiring().locator('legend').allTextContents(),choices);
 
-      assert.equal(await page.locator('.ar-offer-group legend').filter({hasText:/^차례 마치기$/}).count(),0,'Hiring must resolve before ending the turn.');
+      assert.equal(await page.locator('.ar-offer-group legend').filter({hasText:/^(?:우상 보관하고 )?차례 마치기$/}).count(),0,'Hiring must resolve before ending the turn.');
       await page.reload();await page.locator('.ar-hand').waitFor();
       assert.deepEqual(await hiring().locator('legend').allTextContents(),choices,'Same public hiring choices survive reload.');
       const assistant=choices[0].replace(/^ϟ\s*/,'').replace(/ 고용$/,'');
@@ -541,7 +593,7 @@ for(const playerCount of [3,4]){
       await page.locator('.ar-owned-abilities').screenshot({path:join(output,'mobile-abilities.png')});
       await page.screenshot({path:join(output,'mobile-hired-assistant.png'),fullPage:true});
      }
-     await choose(page,/^차례 마치기$/);
+     await choose(page,/^(?:우상 보관하고 )?차례 마치기$/);
      continue;
     }
     await choose(page,/^이번 라운드 패스$/);assert.equal(await active(),index,'Cleanup belongs to the passing player until confirmed.');

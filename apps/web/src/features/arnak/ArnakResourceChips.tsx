@@ -1,7 +1,7 @@
 import { ARNAK_RESOURCES, ARNAK_RESOURCE_NAMES, type ArnakResources } from '@hangul-rummikub/shared';
 
-export function ArnakResourceChips({ value, names = false }: { value: Partial<ArnakResources>; names?: boolean }) {
-    return <span className="ar-resource-chips">{ARNAK_RESOURCES.filter(k => (value[k] ?? 0) > 0).map(k =>
+export function ArnakResourceChips({ value, names = false, showZero = false }: { value: Partial<ArnakResources>; names?: boolean; showZero?: boolean }) {
+    return <span className="ar-resource-chips">{ARNAK_RESOURCES.filter(k => showZero ? value[k] !== undefined : (value[k] ?? 0) > 0).map(k =>
         <span className={'ar-resource-chip ' + k} key={k} title={ARNAK_RESOURCE_NAMES[k]} aria-label={`${ARNAK_RESOURCE_NAMES[k]} ${value[k]}`}>
             <svg viewBox="0 0 32 32" aria-hidden="true" focusable="false">
                 {k === 'coin' && <><circle cx="16" cy="16" r="13"/><circle cx="16" cy="16" r="9"/><path d="m16 9 2 4 5 1-4 3 1 5-4-2-4 2 1-5-4-3 5-1Z"/></>}

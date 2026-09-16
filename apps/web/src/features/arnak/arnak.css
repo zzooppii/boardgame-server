@@ -117,3 +117,44 @@
 @media(min-width:1101px){.ar-table{grid-template-columns:minmax(420px,1.6fr) minmax(330px,1fr) minmax(250px,1fr)}}
 @media(min-width:681px) and (max-width:1100px){.ar-table{grid-template-columns:minmax(300px,1fr) 330px}}
 @media(max-width:680px){.ar-research-visual{display:block}.ar-track-rewards{gap:5px}.ar-research-visual .ar-section-title,.ar-research-visual .ar-temple{grid-column:auto}.ar-research-visual .ar-temple{max-height:none}.ar-research-visual .ar-temple .ar-art{position:static;height:78px;opacity:1}.ar-research-visual .ar-research-row{min-height:0}}
+
+.ar-idol-choices{padding:12px;border:1px solid #ad8c4f;border-radius:9px;background:#e8d5a7}
+.ar-idol-choices h3{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 8px;color:#44351e;font-size:17px}
+.ar-idol-choices h3 small{padding:3px 6px;border-radius:4px;background:#355843;color:#fff2cb;font:11px sans-serif}
+.ar-idol-choices p,.ar-idol-confirm{font:12px/1.7 sans-serif;color:#463c2b;margin:7px 0}
+.ar-idol-choices .ar-offer-group{background:#f5e8c8;margin-top:12px}
+.ar-idol-choices .ar-offer-group button small{color:#655031}
+.ar-offer-group[data-offer-kind="END"]{border:2px solid #56735d;background:#e0e7d8;margin-top:12px}
+.ar-offer-group[data-offer-kind="END"] button{background:#f1f3e8;color:#2d4734}
+.ar-offer-group[data-offer-kind="END"] button small{color:#405442}
+.ar-idol-confirm{padding:10px 12px;border-left:3px solid #9e7737;background:#e8d5a766}
+
+/* Camp uses the same illustrated resources as research, including empty stocks. */
+.ar-camp-heading>.ar-camp-resources{padding:8px;background:#123025c9}
+.ar-camp-resources .ar-resource-chips{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;width:100%}
+.ar-camp-resources .ar-resource-chip{display:grid;grid-template-columns:auto auto;justify-content:center;gap:2px 4px;padding:8px 9px;background:#f3e6c5;border:1px solid #c4ac76;border-radius:6px;font-size:23px;box-shadow:0 2px 3px #0003}
+.ar-camp-resources .ar-resource-chip svg{width:28px;height:32px}
+.ar-camp-resources .ar-resource-chip small{grid-column:1/-1;text-align:center;color:#58462c;font-size:11px}
+.ar-guardian-boon{padding:14px;background:#e1e8cf;border:1px solid #7e9671;border-left:4px solid #416850;border-radius:6px;color:#233f30}
+.ar-guardian-boon>strong{font:700 13px sans-serif}
+.ar-guardian-boon .ar-ability-effect{font:700 16px/1.6 sans-serif;margin:10px 0}
+.ar-guardian-boon>small{display:block;font:12px/1.7 sans-serif}
+@media(max-width:680px){.ar-camp-resources .ar-resource-chip{padding:7px 2px;gap:2px;font-size:20px}.ar-camp-resources .ar-resource-chip svg{width:24px;height:29px}}
+
+.ar-research-receipt{padding:12px 14px;background:#e2ebd5;border:1px solid #8ca076;border-radius:7px;color:#294432;font:13px/1.7 sans-serif}
+
+.ar-research-paths{margin:0 0 9px 24px;padding:7px 0;background:#f4e7c488;border-radius:6px}
+.ar-path-endpoints{display:flex;align-items:center;color:#55452d;font:700 10px/1.4 sans-serif;text-align:center}
+.ar-path-endpoints>span{flex:1;min-width:0}
+.ar-path-endpoints>.selected{color:#245f3f;text-decoration:underline;text-underline-offset:3px}
+.ar-research-paths svg{display:block;width:100%;height:40px;overflow:visible}
+.ar-research-paths svg>path{fill:none;stroke:#897347;stroke-width:1.7;vector-effect:non-scaling-stroke}
+.ar-research-paths svg>path.selected{stroke:#26734d;stroke-width:3}
+.ar-node-position{font:700 11px/1.3 sans-serif;color:#355441}
+
+.ar-action-reasons{margin:12px 0;padding:12px 14px;background:#f8e5c7;border:1px solid #ba8550;border-radius:7px;color:#5a381c;font:13px/1.6 sans-serif}
+.ar-action-reasons h3{font-size:14px;margin:0 0 10px}.ar-action-reasons ul{margin:4px 0 10px;padding-left:20px}
+.ar-travel-stock{padding:12px;margin:12px 0;background:#f3e6c5;color:#293e31;border:1px solid #ab955b;border-radius:7px;font:13px/1.6 sans-serif}
+.ar-travel-stock>small{display:block}.ar-travel-stock .ar-travel,.ar-travel-payment .ar-travel,.ar-travel-expiry .ar-travel{height:auto;min-height:32px;flex-wrap:wrap;border:0;background:none;padding:5px 0}
+.ar-travel-payment{display:block;font:12px/1.6 sans-serif;color:#245333;margin-top:8px;padding:6px;border:1px solid #88a27b;border-radius:5px;background:#eef2dd}
+.ar-travel-expiry{padding:10px;border:1px solid #b47743;border-radius:5px;background:#fae5c6;color:#633b20;font:12px/1.6 sans-serif}

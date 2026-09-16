@@ -35,7 +35,7 @@ test('Arnak resource feedback shows signed changes once and stays silent on resy
  assert.deepEqual(arnakResourceChanges(previous,{...next,gameId:'new'}),[]);
 });
 
-import { ARNAK_CARDS, ARNAK_ASSISTANTS, ARNAK_GUARDIANS, ARNAK_SITES, arnakCard, arnakAssistant, TileIdSchema } from '@hangul-rummikub/shared';
+import { ARNAK_RESEARCH, ARNAK_CARDS, ARNAK_ASSISTANTS, ARNAK_GUARDIANS, ARNAK_SITES, arnakCard, arnakAssistant, TileIdSchema } from '@hangul-rummikub/shared';
 import { describeArnakEffect } from '../features/arnak/effect-description.js';
 import { ArnakCardDetail } from '../features/arnak/ArnakCardDetail.js';
 import { createElement } from 'react';
@@ -211,6 +211,18 @@ test('Arnak empty opponent camp gives explicit empty states',()=>{
 import { ArnakOfferSchema } from '@hangul-rummikub/shared';
 import { groupArnakOffers } from '../features/arnak/offer-list.js';
 import { ArnakOfferList } from '../features/arnak/ArnakOfferList.js';
+test('Arnak idol choices explain optional use, slot cost and storing before ending the turn',()=>{
+ const make=(kind:'IDOL'|'END',label:string,coin=0)=>v.parse(ArnakOfferSchema,{id:kind,kind,targetId:kind==='IDOL'?'idol':'end',label,detail:'',cost:arnakResources({coin}),cards:[],free:kind==='IDOL'});
+ const offers=[make('IDOL','금화 1 → 보석 1',1),make('END','차례 마치기')];
+ const render=(withIdol:boolean)=>renderToStaticMarkup(createElement(ArnakOfferList,{offers:withIdol?offers:[offers[1]!],hand:[],selected:null,disabled:false,onSelect(){},idol:withIdol?{remaining:2,slotPoints:3}:undefined}));
+ const html=render(true);
+ assert.match(html,/우상 사용/);assert.match(html,/꼭 사용할 필요는 없습니다/);assert.match(html,/우상 1개 사용 \+ 금화 1/);
+ assert.match(html,/빈 슬롯 3점 포기/);assert.match(html,/우상 자체의 3점은 유지/);
+ assert.match(html,/우상 보관하고 차례 마치기/);assert.match(html,/이번 차례를 마칩니다/);
+ assert.doesNotMatch(html,/자원 지불 없음|카드 지불 없음/);
+ assert.equal((html.match(/<button/g)??[]).length,2);
+ assert.doesNotMatch(render(false),/우상 보관하고/);assert.match(render(false),/차례 마치기/);
+});
 const paymentOffer=(id:string,cards:string[],coin=0)=>v.parse(ArnakOfferSchema,{id,kind:'DIG',targetId:'base-0',label:'해안 야영지 발굴',detail:'장소 보상',cost:arnakResources({coin}),cards,free:false});
 test('Arnak payment grouping preserves distinct server IDs, cost choices and input order',()=>{
  const a=paymentOffer('a',['card-a']),b=paymentOffer('b',['card-b']),coins=paymentOffer('coins',[],2);
@@ -248,7 +260,7 @@ test('Arnak assistant effect choices show both public abilities without adding c
 });
 test('Arnak research preview distinguishes token rewards and connected predecessor cells',()=>{
  const html=renderToStaticMarkup(createElement(ArnakResearchDetail,{target:'2R',templeSupply:[]}));
- assert.match(html,/1L · 1R/);assert.match(html,/돋보기 보상/);assert.match(html,/나침반 1/);
+ assert.match(html,/1단계 왼쪽 · 1단계 오른쪽/);assert.match(html,/돋보기 보상/);assert.match(html,/나침반 1/);
  assert.match(html,/수첩 보상/);assert.match(html,/조수 1명 고용/);assert.match(html,/석판 1/);assert.match(html,/화살촉 1/);
  assert.doesNotMatch(html,/<button|선택 확정/);
 });
@@ -344,4 +356,60 @@ test('Arnak results display shared winners and disable host rematch while discon
 test('Arnak cancelled results do not present winners or a final scoring comparison',()=>{
  const html=renderToStaticMarkup(createElement(ArnakResults,{result:{...resultFixture(),reason:'CANCELLED'},players:resultPlayers,self:'alice',isHost:true,disabled:false,onRematch(){}}));
  assert.match(html,/탐험이 중단되었습니다/);assert.doesNotMatch(html,/의 승리|<table|ar-result-winner/);
+});
+
+import { ArnakGuardianPreview } from '../features/arnak/ArnakGuardianPreview.js';
+test('Arnak camp resources show named illustrated stocks including zero',()=>{
+ const html=renderToStaticMarkup(createElement(ArnakResourceChips,{value:{coin:1,compass:0,tablet:3,arrow:0,jewel:1},names:true,showZero:true}));
+ assert.equal((html.match(/<svg/g)??[]).length,5);
+ assert.match(html,/aria-label="나침반 0"/);assert.match(html,/<small>화살촉<\/small>/);
+});
+test('Arnak revealed guardian previews expose the catalog boon before overcoming',()=>{
+ for(const guardian of ARNAK_GUARDIANS){
+  const html=renderToStaticMarkup(createElement(ArnakGuardianPreview,{definitionId:guardian.id}));
+  assert.match(html,/극복 후 축복 · 한 번 사용/);assert.match(html,/극복 비용:/);
+  assert.ok(html.includes(guardian.boon.map(describeArnakEffect).join(' · ')));
+  assert.match(html,/사용 후에도 수호자 점수 5점은 유지/);
+ }
+});
+
+test('Arnak research order choices explain that both rewards are granted',()=>{
+ const offer=v.parse(ArnakOfferSchema,{id:'order',kind:'EFFECT',targetId:'research-reward',label:'선착순 보너스 먼저',detail:'',cost:arnakResources(),cards:[],free:true});
+ const render=(offers:typeof offer[])=>renderToStaticMarkup(createElement(ArnakOfferList,{offers,hand:[],selected:null,disabled:false,onSelect(){}}));
+ assert.match(render([offer]),/선착순 보너스와 연구 보상을 모두 받습니다/);
+ assert.match(render([offer]),/받는 순서만 고릅니다/);
+ assert.match(render([offer]),/자원 보상은 자동 반영/);
+ assert.doesNotMatch(render([]),/받는 순서만/);
+});
+
+import { ArnakResearchPaths, researchPosition } from '../features/arnak/ArnakResearchPaths.js';
+test('Arnak research paths display only catalog connections including asymmetric first fork',()=>{
+ const html=renderToStaticMarkup(createElement(ArnakResearchPaths,{row:1,target:'2L'}));
+ assert.match(html,/data-from="1L" data-to="2L" class="selected"/);
+ assert.match(html,/data-from="1L" data-to="2R"/);
+ assert.match(html,/data-from="1R" data-to="2R"/);
+ assert.doesNotMatch(html,/data-from="1R" data-to="2L"/);
+ assert.equal(researchPosition('4M'),'4단계 가운데');
+ assert.match(html,/1단계 왼쪽에서 2단계 왼쪽까지 연결/);
+ for(let row=0;row<8;row++){
+  const paths=renderToStaticMarkup(createElement(ArnakResearchPaths,{row,target:null}));
+  for(const node of ARNAK_RESEARCH.filter(n=>n.row===row+1))for(const from of node.from)assert.ok(paths.includes(`data-from="${from}" data-to="${node.id}"`));
+ }
+});
+
+import { ArnakActionHints, ArnakTravelStock, ArnakTravelExpiry } from '../features/arnak/ArnakActionHints.js';
+test('Arnak server reasons are scoped to the inspected target and preserve action labels',()=>{
+ const hints=[{targetId:'region-2-2',label:'발견',reasons:['나침반 3개 부족','남은 탐험가가 없습니다.']},{targetId:'2L',label:'돋보기',reasons:['현재 연구 칸에서 연결된 바로 윗칸이 아닙니다.']}];
+ const html=renderToStaticMarkup(createElement(ArnakActionHints,{hints,target:'region-2-2'}));
+ assert.match(html,/나침반 3개 부족/);assert.match(html,/남은 탐험가/);assert.doesNotMatch(html,/돋보기/);
+ assert.equal(renderToStaticMarkup(createElement(ArnakActionHints,{hints,target:null})), '');
+});
+test('Arnak travel stock and expiry explain counts and turn lifetime without consuming anything',()=>{
+ const html=renderToStaticMarkup(createElement(ArnakTravelStock,{travel:['boat','boat']}));
+ assert.match(html,/이번 차례까지/);assert.match(html,/×2/);assert.match(html,/차례가 끝나면/);
+ assert.match(renderToStaticMarkup(createElement(ArnakTravelExpiry,{travel:['plane']})),/사용하지 않은 이동이 사라집니다/);
+ assert.equal(renderToStaticMarkup(createElement(ArnakTravelExpiry,{travel:[]})), '');
+ const offer=v.parse(ArnakOfferSchema,{id:'travel-paid',kind:'DISCOVER',targetId:'region-2-2',label:'발견',detail:'',cost:arnakResources({compass:6}),cards:[],free:false,travelUsed:['boat','boat']});
+ const payment=renderToStaticMarkup(createElement(ArnakOfferList,{offers:[offer],hand:[],selected:null,disabled:false,onSelect(){}}));
+ assert.match(payment,/획득 이동 사용/);assert.match(payment,/×2/);
 });
