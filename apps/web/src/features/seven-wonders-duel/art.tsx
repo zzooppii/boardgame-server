@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { DUEL_RESOURCES, DUEL_GODS, DUEL_CARDS, DUEL_WONDERS, DUEL_PROGRESS, DUEL_CONSPIRACIES, type DuelCost, type DuelCardDefinition } from '@hangul-rummikub/shared';
-export const resourceNames = { wood: '나무', clay: '점토', stone: '돌', glass: '유리', papyrus: '파피루스' };
+import { resourceNames, buildingBenefits } from './building-info.js';
+import { useCardTooltip } from './CardTooltip.js';
+export { resourceNames } from './building-info.js';
 const resourceGlyph = { wood: '♣', clay: '◒', stone: '⬟', glass: '◈', papyrus: '▤' };
 export function Atlas({ index, gods = false, buildings = false, className = '' }: {
     index: number;
@@ -19,7 +21,8 @@ export function definition(id: string) { return DUEL_CARDS.find(d => d.id === id
 export function DetailArt({ id }: {
     id: string;
 }) { const d = definition(id), godIndex = DUEL_GODS.findIndex(d => d.id === id); return <div className="du-detail-art">{godIndex >= 0 ? <Atlas index={godIndex} gods/> : d && 'art' in d ? <Atlas index={d.art} buildings={'color' in d}/> : <div className="du-medallion">{DUEL_PROGRESS.some(d => d.id === id) ? '❧' : '◈'}</div>}<h2>{d?.name ?? '비공개 카드'}</h2></div>; }
-export function Card({ id, back = 'AGE', onClick, available = false, selected = false, style, tag }: {
+export function Card({ id, back = 'AGE', onClick, available = false, selected = false, style, tag, tooltip }: {
+    tooltip?: ReactNode;
     id: string | null;
     back?: 'AGE' | 'SENATOR';
     onClick(): void;
@@ -28,6 +31,7 @@ export function Card({ id, back = 'AGE', onClick, available = false, selected = 
     style?: CSSProperties;
     tag?: string | undefined;
 }) {
+    const preview = useCardTooltip(id && tooltip ? id : null, tooltip, 'du-building-tooltip');
     const previous = useRef(id), [revealing, setRevealing] = useState(false);
     useEffect(() => {
         const revealed = previous.current === null && id !== null;
@@ -39,8 +43,8 @@ export function Card({ id, back = 'AGE', onClick, available = false, selected = 
         return () => clearTimeout(timer);
     }, [id]);
     const d = id ? DUEL_CARDS.find(d => d.id === id) : undefined;
-    return <button type="button" className={`du-card ${d ? `du-${d.color}` : `du-back ${back === 'SENATOR' ? 'senator' : ''}`} ${available ? 'available' : ''} ${selected ? 'selected' : ''} ${revealing ? 'revealing' : ''}`} style={style} onClick={onClick} aria-label={d ? `${d.name} · ${effectText(d)}${available ? ' · 선택 가능' : ''}` : `비공개 ${back === 'SENATOR' ? '의원' : '시대'} 카드`}>
- {d ? <><Atlas index={d.art} buildings={'color' in d}/><span className="du-card-top"><Cost cost={d.cost} coins={d.coins}/><b>{d.shields ? '⚔'.repeat(d.shields) : d.science ? '✧' : d.points ? `${d.points}❧` : d.color === 'WHITE' ? '♜' : d.color === 'BLACK' ? '◈' : ''}</b></span><span className="du-card-name">{d.name}</span><span className="du-card-benefit">{d.production ? DUEL_RESOURCES.filter(r => d.production?.[r]).map(r => resourceGlyph[r].repeat(d.production![r]!)).join('') : d.income ? `${d.income} ●` : d.science ? scienceName[d.science] : d.chainOut ? '⛓' : d.guild ? '❧' : d.flex ? '↔' : ''}</span></> : <><span className="du-back-symbol">{back === 'SENATOR' ? '♜' : 'VII'}</span><small>{back === 'SENATOR' ? 'SENATE' : 'WONDERS'}</small></>}{tag && <span className="du-card-tag">{tag}</span>}
- </button>;
+    return <><button {...preview.trigger} type="button" className={`du-card ${d ? `du-${d.color}` : `du-back ${back === 'SENATOR' ? 'senator' : ''}`} ${available ? 'available' : ''} ${selected ? 'selected' : ''} ${revealing ? 'revealing' : ''}`} style={style} onClick={() => { preview.hide(); onClick(); }} aria-label={d ? `${d.name} · ${effectText(d)}${available ? ' · 선택 가능' : ''}` : `비공개 ${back === 'SENATOR' ? '의원' : '시대'} 카드`}>
+ {d ? <><Atlas index={d.art} buildings={'color' in d}/><span className="du-card-top"><Cost cost={d.cost} coins={d.coins}/><b>{d.shields ? '⚔'.repeat(d.shields) : d.science ? '✧' : d.points ? `${d.points}❧` : d.color === 'WHITE' ? '♜' : d.color === 'BLACK' ? '◈' : ''}</b></span><span className="du-card-name">{d.name}</span><span className="du-card-benefit">{buildingBenefits(d).badges[0]}</span></> : <><span className="du-back-symbol">{back === 'SENATOR' ? '♜' : 'VII'}</span><small>{back === 'SENATOR' ? 'SENATE' : 'WONDERS'}</small></>}{tag && <span className="du-card-tag">{tag}</span>}
+ </button>{preview.tooltip}</>;
 }
 export function wonderText(d: (typeof DUEL_WONDERS)[number]): string { const effects: Record<string, string> = { DESTROY_GREY: '상대 회색 건물 제거', DESTROY_BROWN: '상대 갈색 건물 제거', LIBRARY: '상자 속 진보 토큰 3개 중 1개 선택', RESURRECT: '버린 카드 1장 무료 건설', THEATER: '신화 덱에서 신 1명 무료 활성화', UNPREPARED: '준비하지 않은 음모 1장 발동', KNOSSOS: '영향력 배치 후 이동' }; return [`${d.points}점`, d.coins ? `${d.coins}코인 획득` : '', d.loss ? `상대 ${d.loss}코인 상실` : '', d.shields ? `방패 ${d.shields}` : '', d.replay ? '추가 턴' : '', d.flex ? `${d.flex.map(r => resourceNames[r]).join('/')} 선택 생산` : '', d.effect ? effects[d.effect] ?? '' : d.id === 'wonder-sanctuary' ? '신 활성화 비용 2코인 할인' : ''].filter(Boolean).join(' · '); }
