@@ -95,5 +95,17 @@ test('Mars Prelude: independent lobby option, private 2-of-4 choice, keyboard, r
  await payer.locator('.tm-detail .tm-requirements').getByText('기온 -20°C 이하',{exact:false}).waitFor();
  assert.equal(await payer.evaluate(()=>document.documentElement.scrollWidth),320);
  await psychrophiles.screenshot({path:join(output,'printed-condition-mobile.png')});
+ // Browsing another corporation must discard a previously selected action.
+ await payer.getByRole('button',{name:'행동 확정',exact:true}).waitFor();
+ const beforeInspect=(await room()).game.state.revision;
+ const peerIndex=state.players.findIndex(p=>p.playerId!==player.playerId);
+ await payer.locator('.tm-player').nth(peerIndex).click();
+ const publicCard=payer.locator('.tm-engine .tm-card').first();
+ await publicCard.focus();await publicCard.press('Enter');
+ assert.equal(await payer.locator('.tm-confirm').count(),0,'Inspecting a public card must clear the old action confirmation');
+ assert.equal((await room()).game.state.revision,beforeInspect,'Inspection is read-only');
+ await payer.getByRole('button',{name:'낸 카드',exact:true}).click();
+ await psychrophiles.click();await payer.getByRole('button',{name:'행동 확정',exact:true}).waitFor();
+ assert.equal((await room()).game.state.revision,beforeInspect,'Reselecting also waits for explicit confirmation');
  assert.deepEqual(errors,[]);console.log('Prelude screenshots:',output);
 });
