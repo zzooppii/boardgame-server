@@ -22,6 +22,10 @@ export function ResourceReceipt({receipt}:{receipt:MarsResourceReceipt|null}){
 }
 export function ActionGuide({game:g}:{game:MarsProjection}){
  if(g.phase==='FINISHED'||g.stage==='SETUP'||g.stage==='RESEARCH'||g.activePlayerId!==g.privateState.playerId)return null;
+ if(g.privateState.cardChoice)return null;
+ if(g.privateState.offers.some(o=>o.id.startsWith('attack-stock:')||o.id.startsWith('attack-card:')))return <div className="tm-action-guide" role="status"><strong>대상과 자원 수량을 확인하세요</strong><p>한 대상의 수량 하나를 선택한 뒤 확정하세요. 제거는 자원을 없애고, 탈취는 같은 수량을 가져옵니다. 생략할 수도 있습니다.</p></div>;
+ if(g.privateState.offers.some(o=>o.id.startsWith('claim-land:')))return <div className="tm-action-guide" role="status"><strong>예약할 육지를 선택하세요</strong><p>선택 후 예약 확정을 누르세요. 예약자만 타일을 놓을 수 있지만 배치 조건은 그대로 적용됩니다. 지금은 보너스나 점수를 받지 않습니다.</p></div>;
+ if(g.privateState.offers.some(o=>o.id.startsWith('copy-production:')))return <div className="tm-action-guide" role="status"><strong>복제할 생산량 상자를 선택하세요</strong><p>생산량 감소도 다시 적용됩니다. 자원 수령·타일 배치·전역 지표·태그는 복제하지 않습니다. 대상을 선택한 뒤 확정하세요.</p></div>;
  const payment=g.privateState.payment,placing=g.privateState.offers.some(o=>o.kind==='PLACE'),effect=g.privateState.offers.some(o=>o.kind==='EFFECT');
  if(!payment&&!placing&&!effect)return null;
  return <div className="tm-action-guide" role="status"><strong>{payment?'지불할 자원을 확인하세요':placing?'배치할 위치를 선택하세요':'남은 효과를 해결하세요'}</strong><p>{payment?(payment.cancelable?'아직 지불하지 않았습니다. 자원을 조합한 뒤 확정하거나 선택을 취소할 수 있습니다.':'사용할 자원을 확인하고 확정하세요. 지불이 반영되면 행동의 다음 효과로 이어집니다.'):placing?'밝은 후보 칸을 선택하고 배치 확정을 누르세요. 선택만으로 타일이 놓이지 않습니다.':'아래에서 해결할 효과나 대상을 선택하고 확정하세요. 남은 선택이 있으면 다음 안내가 이어집니다.'}</p></div>;

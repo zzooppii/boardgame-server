@@ -73,3 +73,54 @@ test('Mars economy production counts the newly played card, floors pairs and iso
     assert.deepEqual(marsTagProduction(owner, opponents, 'opponentsSpaceIncome'), marsResources({ money: 3 }));
     assert.deepEqual(marsTagProduction(owner, [], 'opponentsSpaceIncome'), marsResources());
 });
+
+
+import { marsScienceExchangeEffects } from './games/mars/domain/science.js';
+test('Mars University reacts once per played science tag, including its own, without reacting for other owners',()=>{
+ const owner=player('Beginner','MarsUniversity');
+ assert.deepEqual(marsScienceExchangeEffects(owner,printed('MarsUniversity')),[{kind:'exchangeCard'}]);
+ assert.deepEqual(marsScienceExchangeEffects(owner,printed('Research')),[{kind:'exchangeCard'},{kind:'exchangeCard'}]);
+ assert.deepEqual(marsScienceExchangeEffects(owner,marsCard('PowerPlant')),[]);
+ assert.deepEqual(marsScienceExchangeEffects(player('Beginner'),printed('Research')),[]);
+});
+
+import { marsCanRemoveResource } from './games/mars/domain/protection.js';
+import { PlayerIdSchema } from '@hangul-rummikub/shared';
+import { parse } from 'valibot';
+test('Mars habitat protection applies only to opponents removing plants, animals or microbes',()=>{
+ const owner={playerId:parse(PlayerIdSchema,'habitat-owner'),protectedHabitats:true},other=parse(PlayerIdSchema,'habitat-other');
+ for(const resource of ['plants','animal','microbe'] as const){assert.equal(marsCanRemoveResource(other,owner,resource),false);assert.equal(marsCanRemoveResource(owner.playerId,owner,resource),true);}
+ for(const resource of ['money','steel','titanium','heat','energy','science'] as const)assert.equal(marsCanRemoveResource(other,owner,resource),true);
+ assert.equal(marsCanRemoveResource(owner.playerId,owner,'animal','Pets'),false);
+ assert.equal(marsCanRemoveResource(other,{...owner,protectedHabitats:false},'microbe'),true);
+});
+
+import { marsProductionBox } from './games/mars/domain/production-copy.js';
+test('Mars production box extraction excludes actions, tags, instant plants and TR but includes opponent production reductions',()=>{
+ assert.deepEqual(marsProductionBox(marsCard('Greenhouses'),[]),[]);
+ assert.deepEqual(marsProductionBox(marsCard('Ironworks'),[]),[]);
+ assert.deepEqual(marsProductionBox(marsCard('RadChemFactory'),[]),[{kind:'production',resource:'energy',amount:-1}]);
+ assert.deepEqual(marsProductionBox(marsCard('BiomassCombustors'),[]),[{kind:'attackProduction',resource:'plants',amount:1},{kind:'production',resource:'energy',amount:2}]);
+ assert.deepEqual(marsProductionBox({...marsCard('PowerPlant'),effects:[{kind:'dynamic',rule:'buildingIncome'}]},[]),[{kind:'dynamic',rule:'buildingIncome'}]);
+});
+
+import { MARS_CARDS, MARS_CORPORATE_ERA_RESOURCE_ACTIONS } from '@hangul-rummikub/shared';
+import { marsCardResourcePoints, marsAddedCardResources } from './games/mars/domain/card-resources.js';
+test('Mars resource scoring separates complete groups from points per group for every base and corporate resource card',()=>{
+ for(const card of MARS_CARDS.filter(c=>c.score==='resources')){
+  assert.ok(card.resourceScore);for(const count of [0,1,2,3,4,7,11])assert.equal(marsCardResourcePoints(count,card.resourceScore),Math.floor(count/card.points),card.id);
+ }
+ for(const [id,counts] of [['PhysicsComplex',[0,2,4,6,8]],['SecurityFleet',[0,1,2,3,4]],['Tardigrades',[0,0,0,0,1]]] as const){
+  const rule=printed(id).score;assert.equal(rule.kind,'resources');if(rule.kind!=='resources')throw new Error('Expected resource score');
+  for(let n=0;n<counts.length;n++)assert.equal(marsCardResourcePoints(n,rule),counts[n],id);
+ }
+ assert.equal(marsCardResourcePoints(7,{per:4,points:1}),1);assert.equal(marsCardResourcePoints(8,{per:4,points:1}),2);
+ assert.throws(()=>marsCardResourcePoints(2,{per:0,points:1}));
+});
+test('Mars resource actions use printed costs and never mix fighters with science, animals or microbes',()=>{
+ assert.deepEqual(MARS_CORPORATE_ERA_RESOURCE_ACTIONS.SecurityFleet,[{kind:'stock',resource:'titanium',amount:-1},{kind:'add',resource:'fighter',amount:1,self:true}]);
+ assert.deepEqual(MARS_CORPORATE_ERA_RESOURCE_ACTIONS.PhysicsComplex,[{kind:'stock',resource:'energy',amount:-6},{kind:'add',resource:'science',amount:1,self:true}]);
+ assert.equal(marsAddedCardResources(2,'fighter','fighter',1),3);
+ for(const resource of ['animal','microbe','science',null])assert.throws(()=>marsAddedCardResources(2,resource,'fighter',1));
+ assert.equal(marsAddedCardResources(0,'science','science',1),1);
+});

@@ -21,3 +21,11 @@
 
 .tm-mobile-nav{display:none}.tm-center,.tm-action-panel,.tm-hand{scroll-margin-top:12px}.tm-center:focus-visible,.tm-action-panel:focus-visible,.tm-hand:focus-visible{outline:2px solid #f4cf95;outline-offset:3px}
 @media(max-width:760px){.mars-screen:has(.tm-mobile-nav){padding-bottom:calc(80px + env(safe-area-inset-bottom,0px))}.tm-mobile-nav{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;position:fixed;inset:auto 0 0;z-index:40;background:#1c272bf5;border-top:1px solid #8e7959;padding:8px 12px calc(8px + env(safe-area-inset-bottom,0px));box-shadow:0 -4px 16px #0004}.tm-mobile-nav button{min-height:48px;display:grid;align-content:center;gap:3px;font-size:14px}.tm-mobile-nav button small{font-size:10px;color:#d7cbb8}.tm-mobile-nav button:nth-child(2){border-color:#aa8b58;background:#49402f}.tm-map-tools select{min-height:44px;font-size:16px}.tm-sound input{min-height:44px}.tm-offers.placement .tm-offer{min-height:44px}.tm-hand-tools input,.tm-hand-tools select{font-size:16px}}
+
+.tm-card-choice{min-width:0}.tm-card-choice h3{margin-top:0}.tm-choice-cards{display:flex;gap:12px;overflow-x:auto;padding:8px 2px 16px;scroll-snap-type:x proximity}.tm-choice-cards .tm-card{flex:0 0 220px;scroll-snap-align:start}.tm-choice-cards .tm-card:disabled{opacity:.7}.tm-card-choice input{width:72px;max-width:100%;min-height:44px;margin:6px 4px;padding:8px;font-size:16px;border:1px solid var(--tm-border);border-radius:6px;background:var(--tm-bg);color:var(--tm-text)}.tm-card-choice>.tm-primary{width:100%;min-height:44px}
+
+.tm-next-discount{margin:12px 0;padding:12px;border:1px solid var(--tm-gold);border-radius:8px;background:#eac07c12}.tm-next-discount strong{color:var(--tm-gold)}.tm-next-discount p{margin:8px 0;line-height:1.6}.tm-next-discount small{display:block;color:var(--tm-muted);line-height:1.6}
+
+.tm-card-choice .tm-exchange-search{display:grid;gap:6px}.tm-card-choice .tm-exchange-search input{width:100%;margin:0}.tm-card-choice>p>button{margin-left:8px;min-height:44px}
+
+.tm-protection{padding:12px;border:1px solid var(--tm-green);border-radius:8px;line-height:1.6}.tm-protection-badge{color:var(--tm-green);font-size:12px}

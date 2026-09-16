@@ -177,3 +177,9 @@ export * from './games/mars/corporate-era-economy.js';
 export * from './games/mars/board.js';
 
 export * from './games/ark-nova/maps.js';
+
+export * from './games/mars/corporate-era-selection.js';
+export * from './games/mars/corporate-era-protection.js';
+export * from './games/mars/corporate-era-board.js';
+export * from './games/mars/corporate-era-attacks.js';
+export * from './games/mars/corporate-era-resource-actions.js';

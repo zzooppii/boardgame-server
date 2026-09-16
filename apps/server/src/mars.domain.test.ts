@@ -2,8 +2,8 @@ import { marsCorporationStart } from './games/mars/domain/corporation-start.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import * as v from 'valibot';
-import {GameIdSchema,PlayerIdSchema,TileIdSchema,TurnIdSchema,ServerTimeSchema,MARS_CARDS,MARS_BOARD,MARS_CORPORATIONS,marsResources,MarsPlayingProjectionSchema,type MarsAction,type MarsOffer,type MarsCard} from '@hangul-rummikub/shared';
-import {createMarsGame,applyMarsAction,marsOffers,parseMarsState,marsSpaces,marsCardReason,scoreMars,type MarsState} from './games/mars/domain/game.js';
+import {GameIdSchema,PlayerIdSchema,TileIdSchema,TurnIdSchema,ServerTimeSchema,MARS_CARDS,MARS_CORPORATE_ERA_PROTECTION_EFFECTS,MARS_CORPORATE_ERA_ECONOMIC_EFFECTS,MARS_BOARD,MARS_CORPORATIONS,marsResources,MarsPlayingProjectionSchema,type MarsAction,type MarsOffer,type MarsCard,type MarsEffect} from '@hangul-rummikub/shared';
+import {createMarsGame,applyMarsAction,marsOffers,parseMarsState,marsSpaces,marsCardReason,scoreMars,cancelMars,type MarsState} from './games/mars/domain/game.js';
 import {projectMars} from './games/mars/compatibility/projector.js';
 let serial=0;const now=v.parse(ServerTimeSchema,1000);
 function rng(seed=42){return {nextInt(max:number){seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed%max;}};}
@@ -172,4 +172,293 @@ test('Mars payment projection exposes canonical metal values and rejects client-
  assert.deepEqual(s,before);
  s=command(s,{type:'PAY',payment:{money:2,steel:0,titanium:3,heat:0}});s=settle(s);
  assert.equal(s.players[0]!.resources.money,498);assert.equal(s.players[0]!.resources.titanium,19);
+});
+
+function peek(s:MarsState,effect:MarsEffect){s.frames=[[{id:s.nextJob++,source:'비공개 열람 검증',effect}]];s.actionInProgress=true;return act(s,o=>o.kind==='EFFECT');}
+test('Mars keep-card effects hold private cards outside the hand and restore the same pending choice',()=>{
+ let s=peek(ready(3),{kind:'keepCards',count:4,keep:2});const choice=s.cardChoice!.view,owner=s.activePlayerId,other=s.players[1]!.playerId;
+ assert.equal(choice.kind,'KEEP');assert.equal(choice.cards.length,4);assert.equal(s.deck.length,103);assert.equal(s.players[0]!.hand.length,10);
+ assert.deepEqual(marsOffers(s,owner),[]);assert.deepEqual(projection(parseMarsState(structuredClone(s)),owner),projection(s,owner));
+ const wire=JSON.stringify(projection(s,other));assert.equal(projection(s,other).privateState.cardChoice,null);
+ for(const c of choice.cards){assert.equal(wire.includes(c.tileId),false);assert.equal(wire.includes(c.definitionId),false);}
+ const kept=choice.cards.slice(0,2).map(c=>c.tileId),before=structuredClone(s);
+ for(const payload of [
+  {type:'CHOOSE_CARDS',choiceId:choice.id,cardIds:[]},
+  {type:'CHOOSE_CARDS',choiceId:choice.id,cardIds:[kept[0],kept[0]]},
+  {type:'CHOOSE_CARDS',choiceId:choice.id,cardIds:[kept[0],s.players[1]!.hand[0]!.tileId]},
+  {type:'CHOOSE_CARDS',choiceId:choice.id+1,cardIds:kept},
+  {type:'CHOOSE_CARDS',choiceId:choice.id,cardIds:kept,heat:1},
+  {type:'TAKE',actionId:'pass'},
+  {type:'SELL',cardIds:[s.players[0]!.hand[0]!.tileId]},
+ ]){assert.equal(applyMarsAction(s,owner,payload,now,s.transitionId,random).ok,false);assert.deepEqual(s,before);}
+ assert.equal(applyMarsAction(s,other,{type:'CHOOSE_CARDS',choiceId:choice.id,cardIds:kept},now,s.transitionId,random).ok,false);
+ s=command(s,{type:'CHOOSE_CARDS',choiceId:choice.id,cardIds:kept});
+ assert.equal(s.cardChoice,null);assert.equal(s.players[0]!.hand.length,12);assert.equal(s.discard.length,2);assert.equal(s.players[0]!.resources.money,42);assert.equal(s.actionsTaken,1);
+ const publicHistory=JSON.stringify(s.history);for(const c of choice.cards){assert.equal(publicHistory.includes(c.tileId),false);assert.equal(publicHistory.includes(c.definitionId),false);}
+ assert.equal(applyMarsAction(s,owner,{type:'CHOOSE_CARDS',choiceId:choice.id,cardIds:kept},now,s.transitionId,random).ok,false);
+});
+
+test('Mars buying a viewed card costs three without card discounts and Helion can pay with heat',()=>{
+ let s=ready();s.players[0]!.corporationId='Helion';give(s,'ResearchOutpost',s.activePlayerId,true);s.players[0]!.resources.money=1;s.players[0]!.resources.heat=2;
+ s=peek(s,{kind:'buyCard'});const choice=s.cardChoice!.view;assert.equal(choice.kind,'BUY');assert.equal(projection(s).privateState.cardChoice?.kind,'BUY');
+ const cards=[choice.cards[0]!.tileId],before=structuredClone(s);
+ for(const heat of [0,1,3]){assert.equal(applyMarsAction(s,s.activePlayerId,{type:'CHOOSE_CARDS',choiceId:choice.id,cardIds:cards,heat},now,s.transitionId,random).ok,false);assert.deepEqual(s,before);}
+ s=command(s,{type:'CHOOSE_CARDS',choiceId:choice.id,cardIds:cards,heat:2});assert.equal(s.players[0]!.resources.money,0);assert.equal(s.players[0]!.resources.heat,0);assert.ok(s.players[0]!.hand.some(c=>c.tileId===cards[0]));assert.equal(s.cardChoice,null);
+ let other=ready();other.players[0]!.resources.money=0;other.players[0]!.resources.heat=3;other=peek(other,{kind:'buyCard'});const c=other.cardChoice!.view;
+ assert.equal(applyMarsAction(other,other.activePlayerId,{type:'CHOOSE_CARDS',choiceId:c.id,cardIds:[c.cards[0]!.tileId],heat:3},now,other.transitionId,random).ok,false);
+ other=command(other,{type:'CHOOSE_CARDS',choiceId:c.id,cardIds:[]});assert.equal(other.players[0]!.resources.heat,3);assert.equal(other.discard[0]!.tileId,c.cards[0]!.tileId);assert.equal(other.actionsTaken,1);
+});
+
+test('Mars viewed cards stay conserved when the deck reshuffles or has fewer cards than requested',()=>{
+ let s=ready();s.discard.push(...s.deck.splice(1));s=peek(s,{kind:'keepCards',count:4,keep:2});assert.equal(new Set(s.cardChoice!.view.cards.map(c=>c.tileId)).size,4);parseMarsState(s);
+ for(const available of [0,1]){
+  let short=ready();short.players[1]!.hand.push(...short.deck.splice(available));short.players[1]!.handCount=short.players[1]!.hand.length;
+  short=peek(short,{kind:'keepCards',count:4,keep:2});
+  if(available){const c=short.cardChoice!.view;assert.ok(c.kind==='KEEP');assert.equal(c.keepCount,1);short=command(short,{type:'CHOOSE_CARDS',choiceId:c.id,cardIds:c.cards.map(c=>c.tileId)});assert.equal(short.players[0]!.hand.length,11);}
+  assert.equal(short.cardChoice,null);assert.equal(short.actionsTaken,1);parseMarsState(short);
+ }
+});
+
+test('Mars cancelling while viewing cards clears the choice without losing cards or leaking them',()=>{
+ const s=peek(ready(),{kind:'keepCards',count:3,keep:1}),cards=s.cardChoice!.view.cards;
+ const invalid=structuredClone(s);invalid.cardChoice!.ownerId=s.players[1]!.playerId;assert.throws(()=>parseMarsState(invalid),/private card choice/);
+ const duplicate=structuredClone(s);duplicate.deck.push(duplicate.cardChoice!.view.cards[0]!);assert.throws(()=>parseMarsState(duplicate),/inventory/);
+ const ended=cancelMars(s,now);assert.equal(ended.phase,'FINISHED');assert.equal(ended.cardChoice,null);for(const c of cards)assert.ok(ended.discard.some(d=>d.tileId===c.tileId));
+ assert.equal(projection(ended).privateState.cardChoice,null);parseMarsState(ended);
+});
+
+
+test('Mars next-card discount combines with permanent discounts and is consumed only by successful card payment',()=>{
+ let s=peek(ready(),MARS_CORPORATE_ERA_ECONOMIC_EFFECTS.IndenturedWorkers[0]);
+ const id=s.activePlayerId;
+ give(s,'ResearchOutpost',id,true);
+ const card=give(s,'PowerGrid');
+ assert.equal(projection(s).privateState.nextCardDiscount,8);
+ assert.equal(projection(s).privateState.cardStatus.find(c=>c.tileId===card.tileId)!.cost,9);
+ s=act(s,o=>o.id==='card:'+card.tileId);
+ assert.equal(s.payment!.cost,9);
+ const before=structuredClone(s);
+ assert.equal(applyMarsAction(s,id,{type:'PAY',payment:{money:8,steel:0,titanium:0,heat:0}},now,s.transitionId,random).ok,false);
+ assert.deepEqual(s,before);
+ s=act(s,o=>o.id==='cancel');assert.equal(s.players.find(p=>p.playerId===id)!.nextCardDiscount,8);
+ s=act(s,o=>o.id==='card:'+card.tileId);
+ s=command(s,{type:'PAY',payment:{money:9,steel:0,titanium:0,heat:0}});
+ assert.equal(s.players.find(p=>p.playerId===id)!.nextCardDiscount,0);
+ assert.equal(s.players.find(p=>p.playerId===id)!.resources.money,33);
+ assert.equal(projection(s,id).privateState.nextCardDiscount,0);
+});
+
+test('Mars unused next-card discount survives standard projects, selling and turn changes but expires at production',()=>{
+ let s=peek(ready(),MARS_CORPORATE_ERA_ECONOMIC_EFFECTS.IndenturedWorkers[0]);
+ const id=s.activePlayerId;
+ s=act(s,o=>o.id==='project:power');assert.equal(s.payment!.cost,11);
+ s=command(s,{type:'PAY',payment:{money:11,steel:0,titanium:0,heat:0}});
+ assert.notEqual(s.activePlayerId,id);assert.equal(s.players.find(p=>p.playerId===id)!.nextCardDiscount,8);
+ s=act(s,o=>o.id==='pass');assert.equal(s.activePlayerId,id);
+ const sold=s.players.find(p=>p.playerId===id)!.hand[0]!;
+ s=command(s,{type:'SELL',cardIds:[sold.tileId]});assert.equal(s.players.find(p=>p.playerId===id)!.nextCardDiscount,8);
+ s=act(s,o=>o.id==='end');s=act(s,o=>o.id==='pass');assert.equal(s.stage,'RESEARCH');assert.equal(s.players.find(p=>p.playerId===id)!.nextCardDiscount,0);
+});
+
+test('Mars next-card discount is not a card-purchase discount and never carries a surplus to a second project',()=>{
+ let s=peek(ready(),MARS_CORPORATE_ERA_ECONOMIC_EFFECTS.IndenturedWorkers[0]);
+ const id=s.activePlayerId;
+ s=peek(s,{kind:'buyCard'});const choice=s.cardChoice!.view;
+ s=command(s,{type:'CHOOSE_CARDS',choiceId:choice.id,cardIds:[choice.cards[0]!.tileId]});
+ assert.equal(s.players.find(p=>p.playerId===id)!.resources.money,39);
+ assert.equal(s.players.find(p=>p.playerId===id)!.nextCardDiscount,8);
+ s=act(s,o=>o.id==='pass');assert.equal(s.activePlayerId,id);
+ const cheap=give(s,'SearchForLife');
+ s=act(s,o=>o.id==='card:'+cheap.tileId);assert.equal(s.payment!.cost,0);
+ s=command(s,{type:'PAY',payment:{money:0,steel:0,titanium:0,heat:0}});
+ assert.equal(s.players.find(p=>p.playerId===id)!.nextCardDiscount,0);
+ const next=give(s,'PowerPlant');assert.equal(projection(s,id).privateState.cardStatus.find(c=>c.tileId===next.tileId)!.cost,4);
+});
+
+
+test('Mars optional hand exchange preserves privacy, rejects invalid discards and draws only after confirmation',()=>{
+ let s=peek(ready(3),{kind:'exchangeCard'});const owner=s.activePlayerId,p=s.players.find(p=>p.playerId===owner)!,choice=s.cardChoice!.view;
+ assert.equal(choice.kind,'EXCHANGE');assert.deepEqual(choice.cards,[]);assert.equal(p.hand.length,10);
+ const card=p.hand[0]!,next=s.deck[0]!,before=structuredClone(s);
+ for(const cards of [[s.players[1]!.hand[0]!.tileId],[card.tileId,card.tileId],[card.tileId,p.hand[1]!.tileId]])assert.equal(applyMarsAction(s,owner,{type:'CHOOSE_CARDS',choiceId:choice.id,cardIds:cards},now,s.transitionId,random).ok,false);
+ assert.equal(applyMarsAction(s,owner,{type:'CHOOSE_CARDS',choiceId:choice.id,cardIds:[card.tileId],heat:1},now,s.transitionId,random).ok,false);
+ assert.deepEqual(s,before);assert.equal(projection(s,s.players[1]!.playerId).privateState.cardChoice,null);
+ assert.deepEqual(projection(parseMarsState(structuredClone(s))).privateState,projection(s).privateState);
+ s=command(s,{type:'CHOOSE_CARDS',choiceId:choice.id,cardIds:[card.tileId]});const after=s.players.find(p=>p.playerId===owner)!;
+ assert.equal(after.hand.length,10);assert.ok(after.hand.some(c=>c.tileId===next.tileId));assert.ok(!after.hand.some(c=>c.tileId===card.tileId));assert.ok(s.discard.some(c=>c.tileId===card.tileId));
+ assert.equal(s.actionsTaken,1);assert.equal(after.resources.money,42);assert.equal(s.cardChoice,null);
+ for(const c of [card,next])assert.equal(JSON.stringify(s.history).includes(c.tileId),false);
+ const cancelled=cancelMars(before,now);assert.deepEqual(cancelled.players.find(p=>p.playerId===owner)!.hand,p.hand);parseMarsState(cancelled);
+});
+
+test('Mars repeated exchanges rebuild choices from the updated hand and may be skipped independently',()=>{
+ let s=ready();s.frames=[[{id:s.nextJob++,source:'Mars University',effect:{kind:'exchangeCard'}},{id:s.nextJob++,source:'Mars University',effect:{kind:'exchangeCard'}}]];s.actionInProgress=true;
+ s=act(s,o=>o.kind==='EFFECT');const first=s.cardChoice!.view,hand=s.players[0]!.hand.map(c=>c.tileId);
+ s=command(s,{type:'CHOOSE_CARDS',choiceId:first.id,cardIds:[]});assert.equal(s.actionsTaken,0);assert.notEqual(s.cardChoice!.view.id,first.id);assert.deepEqual(s.players[0]!.hand.map(c=>c.tileId),hand);
+ const second=s.cardChoice!.view;s=command(s,{type:'CHOOSE_CARDS',choiceId:second.id,cardIds:[hand[0]!]});assert.equal(s.cardChoice,null);assert.equal(s.actionsTaken,1);
+ let twice=ready();twice.frames=[[{id:twice.nextJob++,source:'Mars University',effect:{kind:'exchangeCard'}},{id:twice.nextJob++,source:'Mars University',effect:{kind:'exchangeCard'}}]];twice.actionInProgress=true;
+ twice=act(twice,o=>o.kind==='EFFECT');const firstId=twice.cardChoice!.view.id,drawn=twice.deck[0]!;
+ twice=command(twice,{type:'CHOOSE_CARDS',choiceId:firstId,cardIds:[twice.players[0]!.hand[0]!.tileId]});
+ assert.ok(twice.players[0]!.hand.some(c=>c.tileId===drawn.tileId));
+ assert.equal(applyMarsAction(twice,twice.activePlayerId,{type:'CHOOSE_CARDS',choiceId:firstId,cardIds:[drawn.tileId]},now,twice.transitionId,random).ok,false);
+ twice=command(twice,{type:'CHOOSE_CARDS',choiceId:twice.cardChoice!.view.id,cardIds:[drawn.tileId]});assert.ok(twice.discard.some(c=>c.tileId===drawn.tileId));assert.equal(twice.actionsTaken,1);
+ const empty=ready();empty.deck.push(...empty.players[0]!.hand.splice(0));empty.players[0]!.handCount=0;
+ const skipped=peek(empty,{kind:'exchangeCard'});assert.equal(skipped.cardChoice,null);assert.equal(skipped.actionsTaken,1);
+});
+
+test('Mars hand exchange discards before reshuffling an exhausted deck and conserves all cards',()=>{
+ let s=ready();s.players[1]!.hand.push(...s.deck.splice(0));s.players[1]!.handCount=s.players[1]!.hand.length;
+ s=peek(s,{kind:'exchangeCard'});const card=s.players[0]!.hand[0]!,choice=s.cardChoice!.view;
+ s=command(s,{type:'CHOOSE_CARDS',choiceId:choice.id,cardIds:[card.tileId]});
+ assert.ok(s.players[0]!.hand.some(c=>c.tileId===card.tileId),'The only discarded card is available when the empty deck reshuffles.');
+ assert.equal(s.players[0]!.hand.length,10);assert.equal(s.discard.length,0);parseMarsState(s);
+});
+
+test('Mars protected habitats blocks opposing plant removal but permits own removal and production reduction',()=>{
+ let s=peek(ready(),MARS_CORPORATE_ERA_PROTECTION_EFFECTS.ProtectedHabitats[0]);
+ const owner=s.activePlayerId;assert.equal(s.players[0]!.protectedHabitats,true);assert.equal(projection(s,s.players[1]!.playerId).playerStates[0]!.protectedHabitats,true);
+ s.players[0]!.resources.plants=6;s=act(s,o=>o.id==='end');
+ s=peek(s,{kind:'removePlants',amount:4});
+ assert.equal(marsOffers(s,s.activePlayerId).some(o=>o.id.startsWith('burn:'+owner)),false);
+ const before=structuredClone(s);assert.equal(applyMarsAction(s,s.activePlayerId,{type:'TAKE',actionId:`burn:${owner}:4`},now,s.transitionId,random).ok,false);assert.deepEqual(s,before);
+ s=act(s,o=>o.id==='skip');assert.equal(s.players[0]!.resources.plants,6);
+ s=peek(s,{kind:'attackProduction',resource:'plants',amount:1});s=act(s,o=>o.targetId===owner);assert.equal(s.players[0]!.production.plants,0);
+ assert.equal(s.activePlayerId,owner);
+ s=peek(s,{kind:'removePlants',amount:2});s=act(s,o=>o.id===`burn:${owner}:2`);assert.equal(s.players[0]!.resources.plants,4);
+ while(s.stage==='ACTION')s=act(s,o=>o.id===(s.actionsTaken===1?'end':'pass'));
+ assert.equal(s.generation,2);assert.equal(s.players.find(p=>p.playerId===owner)!.protectedHabitats,true);
+});
+
+test('Mars protected animal and microbe targets are excluded from both action eligibility and authoritative offers',()=>{
+ for(const [attacker,prey] of [['Predators','Fish'],['Ants','NitriteReducingBacteria']]){
+  let s=ready();const actor=s.activePlayerId,opponent=s.players[1]!;
+  const source=give(s,attacker!,actor,true),target=give(s,prey!,opponent.playerId,true);target.resources=2;opponent.protectedHabitats=true;
+  const pets=give(s,'Pets',actor,true);pets.resources=3;
+  assert.equal(marsOffers(s,actor).some(o=>o.id==='action:'+source.tileId),false);
+  const own=give(s,attacker==='Predators'?'Birds':'GHGProducingBacteria',actor,true);own.resources=1;s.players[0]!.protectedHabitats=true;
+  s=act(s,o=>o.id==='action:'+source.tileId);
+  const offers=marsOffers(s,actor);assert.ok(offers.some(o=>o.id==='steal:'+own.tileId));assert.equal(offers.some(o=>o.id==='steal:'+target.tileId),false);assert.equal(offers.some(o=>o.id==='steal:'+pets.tileId),false);
+  const before=structuredClone(s);assert.equal(applyMarsAction(s,actor,{type:'TAKE',actionId:'steal:'+target.tileId},now,s.transitionId,random).ok,false);assert.deepEqual(s,before);
+  s=act(s,o=>o.id==='steal:'+own.tileId);
+  assert.equal(s.players[0]!.played.find(c=>c.tileId===source.tileId)!.resources,1);assert.equal(s.players[1]!.played.find(c=>c.tileId===target.tileId)!.resources,2);parseMarsState(s);
+ }
+});
+
+test('Mars production copy excludes placement, immediate resources and global bonuses while reapplying production costs',()=>{
+ let s=ready();const owner=s.activePlayerId,p=s.players[0]!;p.production.energy=2;
+ const card=give(s,'DomedCrater',owner,true);give(s,'ResearchOutpost',owner,true);give(s,'Asteroid',owner,true);const foreign=give(s,'PowerPlant',s.players[1]!.playerId,true);
+ s=peek(s,MARS_CORPORATE_ERA_ECONOMIC_EFFECTS.RoboticWorkforce[0]);const before=structuredClone(s),offers=marsOffers(s,owner);
+ assert.ok(offers.some(o=>o.id==='copy-production:'+card.tileId));assert.equal(offers.length,1);
+ assert.equal(applyMarsAction(s,owner,{type:'TAKE',actionId:'copy-production:'+foreign.tileId},now,s.transitionId,random).ok,false);assert.deepEqual(s,before);
+ assert.deepEqual(projection(parseMarsState(structuredClone(s))).privateState,projection(s).privateState);
+ s=settle(act(s,o=>o.id==='copy-production:'+card.tileId));
+ assert.equal(s.players[0]!.production.energy,1);assert.equal(s.players[0]!.production.money,4);
+ assert.deepEqual(s.players[0]!.resources,before.players[0]!.resources);assert.deepEqual(s.tiles,before.tiles);assert.equal(s.oxygen,before.oxygen);assert.equal(s.actionsTaken,1);
+});
+
+test('Mars production copy rejects unaffordable decreases and applies the money production floor',()=>{
+ let s=ready();const owner=s.activePlayerId,city=give(s,'Capital',owner,true),plant=give(s,'PowerPlant',owner,true),power=give(s,'NuclearPower',owner,true);
+ s.players[0]!.production.energy=1;s.players[0]!.production.money=-4;
+ s=peek(s,{kind:'copyProduction'});let offers=marsOffers(s,owner);
+ assert.equal(offers.some(o=>o.targetId===city.tileId||o.targetId===power.tileId),false);assert.ok(offers.some(o=>o.targetId===plant.tileId));
+ const before=structuredClone(s);assert.equal(applyMarsAction(s,owner,{type:'TAKE',actionId:'copy-production:'+power.tileId},now,s.transitionId,random).ok,false);assert.deepEqual(s,before);
+ s.players[0]!.production.money=-3;offers=marsOffers(s,owner);assert.ok(offers.some(o=>o.targetId===power.tileId));
+ s=settle(act(s,o=>o.targetId===power.tileId));assert.equal(s.players[0]!.production.money,-5);assert.equal(s.players[0]!.production.energy,4);
+});
+
+test('Mars copied mining production follows its original metal without placing another tile',()=>{
+ let s=ready();const owner=s.activePlayerId,card=give(s,'MiningRights',owner,true),space=MARS_BOARD.find(b=>!b.ocean&&b.bonus.includes('titanium'))!;
+ s.tiles.push({spaceId:space.id,kind:'special',ownerId:owner,source:'MiningRights'});
+ s=peek(s,{kind:'copyProduction'});const before=structuredClone(s);
+ s=settle(act(s,o=>o.targetId===card.tileId));assert.equal(s.players[0]!.production.titanium,2);assert.deepEqual(s.tiles,before.tiles);assert.deepEqual(s.players[0]!.resources,before.players[0]!.resources);
+});
+
+import { MARS_CORPORATE_ERA_BOARD_EFFECTS, marsLandClaimsAreConsistent } from '@hangul-rummikub/shared';
+import { marsClaimableSpaces } from './games/mars/domain/game.js';
+test('Mars land claim is public but grants no tile, bonus, score or adjacency ownership',()=>{
+ let s=ready();const owner=s.activePlayerId,other=s.players[1]!.playerId,before=structuredClone(s);
+ s=peek(s,MARS_CORPORATE_ERA_BOARD_EFFECTS.LandClaim[0]);
+ const offers=marsOffers(s,owner);assert.ok(offers.length>0);
+ assert.ok(offers.every(o=>MARS_BOARD.some(b=>b.id===o.targetId&&!b.ocean&&!b.reserved)));
+ s=act(s,o=>o.targetId==='4-4');
+ assert.deepEqual(s.landClaims,[{spaceId:'4-4',ownerId:owner}]);assert.equal(s.actionsTaken,1);
+ assert.deepEqual(s.tiles,before.tiles);assert.deepEqual(s.players[0]!.resources,before.players[0]!.resources);assert.deepEqual(scoreMars(s),scoreMars(before));
+ assert.deepEqual(marsSpaces(s,owner,'greenery'),marsSpaces(before,owner,'greenery'));
+ assert.equal(marsSpaces(s,other,'special').includes('4-4'),false);assert.equal(marsSpaces(s,owner,'special').includes('4-4'),true);
+ for(const p of s.players){const g=projection(s,p.playerId);assert.deepEqual(g.landClaims,s.landClaims);assert.ok(marsLandClaimsAreConsistent(g,s.players.map(p=>p.playerId)));}
+ assert.deepEqual(parseMarsState(JSON.parse(JSON.stringify(s))).landClaims,s.landClaims);
+});
+test('Mars land claim rejects reserved, occupied and repeated spaces atomically',()=>{
+ let s=ready();s.tiles.push({spaceId:'4-4',kind:'special',ownerId:s.activePlayerId,source:'test'});
+ s.landClaims.push({spaceId:'4-5',ownerId:s.players[1]!.playerId});s=peek(s,{kind:'claimLand'});const before=structuredClone(s);
+ for(const id of ['4-4','4-5','5-3','phobos',MARS_BOARD.find(b=>b.ocean)!.id]){
+  assert.equal(applyMarsAction(s,s.activePlayerId,{type:'TAKE',actionId:'claim-land:'+id},now,s.transitionId,random).ok,false);assert.deepEqual(s,before);
+ }
+ for(const mutation of [
+  (x:MarsState)=>x.landClaims.push({...x.landClaims[0]!}),
+  (x:MarsState)=>{x.landClaims[0]!.spaceId='5-3';},
+  (x:MarsState)=>{x.landClaims[0]!.spaceId='4-4';},
+  (x:MarsState)=>{x.landClaims[0]!.ownerId=v.parse(PlayerIdSchema,'outsider');},
+ ]){const corrupt=structuredClone(s);mutation(corrupt);assert.throws(()=>parseMarsState(corrupt));}
+});
+test('Mars placement consumes only the owner reservation and grants the normal bonus once',()=>{
+ let s=ready();const owner=s.activePlayerId,other=s.players[1]!.playerId;
+ const b=MARS_BOARD.find(b=>!b.ocean&&!b.reserved&&b.bonus.length>0&&!b.bonus.includes('card'))!;
+ s.landClaims=[{spaceId:b.id,ownerId:owner}];const before=structuredClone(s.players[0]!.resources);
+ s.activePlayerId=other;s=peek(s,{kind:'place',tile:'special',rule:'normal'});const blocked=structuredClone(s);
+ assert.equal(applyMarsAction(s,other,{type:'TAKE',actionId:'place:'+b.id},now,s.transitionId,random).ok,false);assert.deepEqual(s,blocked);
+ s.activePlayerId=owner;s=act(s,o=>o.targetId===b.id);
+ assert.equal(s.landClaims.length,0);assert.equal(s.tiles[0]!.ownerId,owner);
+ for(const resource of ['money','steel','titanium','plants','energy','heat'] as const)assert.equal(s.players[0]!.resources[resource],before[resource]+b.bonus.filter(k=>k===resource).length);
+ assert.ok(!marsClaimableSpaces(s).includes(b.id));
+});
+test('Mars reservations retain city adjacency and final greenery rules and survive generation change',()=>{
+ let s=ready();const owner=s.activePlayerId;s.landClaims=[{spaceId:'4-5',ownerId:owner}];
+ s.tiles.push({spaceId:'4-4',kind:'city',ownerId:owner,source:'city'});
+ assert.equal(marsSpaces(s,owner,'city').includes('4-5'),false);assert.equal(marsSpaces(s,owner,'greenery').includes('4-5'),true);
+ s=act(s,o=>o.id==='pass');s=act(s,o=>o.id==='pass');assert.deepEqual(s.landClaims,[{spaceId:'4-5',ownerId:owner}]);
+ s.stage='FINAL_GREENERY';s.activePlayerId=owner;s.players[0]!.resources.plants=8;
+ s=act(s,o=>o.id==='final-greenery');s=act(s,o=>o.targetId==='4-5');assert.equal(s.landClaims.length,0);assert.equal(s.tiles.at(-1)?.kind,'greenery');
+});
+
+import {MARS_CORPORATE_ERA_ATTACK_EFFECTS} from '@hangul-rummikub/shared';
+test('Mars Hired Raiders transfers only the chosen available amount from one opponent for one action',()=>{
+ let s=ready(3);const owner=s.activePlayerId,target=s.players[1]!,other=s.players[2]!;target.resources.steel=1;other.resources.steel=3;
+ const before=structuredClone(s);s=peek(s,MARS_CORPORATE_ERA_ATTACK_EFFECTS.HiredRaiders[0]);s=act(s,o=>o.id==='choice:0');
+ const offers=marsOffers(s,owner);assert.ok(offers.some(o=>o.id===`attack-stock:${target.playerId}:steel:1`));
+ assert.ok(!offers.some(o=>o.id===`attack-stock:${target.playerId}:steel:2`));assert.ok(!offers.some(o=>o.targetId===owner));
+ const pending=structuredClone(s);assert.equal(applyMarsAction(s,owner,{type:'TAKE',actionId:`attack-stock:${target.playerId}:steel:2`},now,s.transitionId,random).ok,false);assert.deepEqual(s,pending);
+ s=parseMarsState(JSON.parse(JSON.stringify(s)));s=act(s,o=>o.id===`attack-stock:${target.playerId}:steel:1`);
+ assert.equal(s.players[0]!.resources.steel,before.players[0]!.resources.steel+1);assert.equal(s.players[1]!.resources.steel,0);assert.equal(s.players[2]!.resources.steel,3);assert.equal(s.actionsTaken,1);
+ assert.deepEqual(s.players.map(p=>p.production),before.players.map(p=>p.production));assert.equal(s.history.at(-1)?.kind,'ATTACK');
+});
+test('Mars Sabotage removes partial amounts without income, and protected habitats do not protect metals or money',()=>{
+ for(const [branch,resource] of [[0,'titanium'],[1,'steel'],[2,'money']] as const){
+  let s=ready();const owner=s.activePlayerId,target=s.players[1]!;target.protectedHabitats=true;target.resources[resource]=9;
+  const before=structuredClone(s.players[0]!.resources);s=peek(s,MARS_CORPORATE_ERA_ATTACK_EFFECTS.Sabotage[0]);s=act(s,o=>o.id==='choice:'+branch);
+  s=act(s,o=>o.id===`attack-stock:${target.playerId}:${resource}:2`);assert.equal(s.players[1]!.resources[resource],7);assert.deepEqual(s.players[0]!.resources,before);assert.equal(s.activePlayerId,owner);
+ }
+});
+test('Mars Virus animal removal honors protected habitats and Pets, never transfers animals and allows skip',()=>{
+ let s=ready();const owner=s.activePlayerId,target=s.players[1]!,animal=give(s,'Birds',target.playerId,true),pet=give(s,'Pets',target.playerId,true),own=give(s,'Fish',owner,true);animal.resources=3;pet.resources=4;own.resources=2;
+ target.protectedHabitats=true;s=peek(s,MARS_CORPORATE_ERA_ATTACK_EFFECTS.Virus[0]);s=act(s,o=>o.id==='choice:0');
+ assert.ok(!marsOffers(s,owner).some(o=>o.id.startsWith('attack-card:'+animal.tileId)||o.id.startsWith('attack-card:'+pet.tileId)));
+ const before=structuredClone(s);assert.equal(applyMarsAction(s,owner,{type:'TAKE',actionId:`attack-card:${animal.tileId}:2`},now,s.transitionId,random).ok,false);assert.deepEqual(s,before);
+ s.players[1]!.protectedHabitats=false;s=act(s,o=>o.id===`attack-card:${animal.tileId}:1`);
+ assert.equal(s.players[1]!.played.find(c=>c.tileId===animal.tileId)!.resources,2);assert.equal(s.players[0]!.played.find(c=>c.tileId===own.tileId)!.resources,2);
+ s.actionsTaken=0;s=peek(s,{kind:'removeCardResource',resource:'animal',amount:2});const untouched=s.players.map(p=>structuredClone(p.played));s=act(s,o=>o.id==='skip');assert.deepEqual(s.players.map(p=>p.played),untouched);
+});
+test('Mars optional attacks with no resources always allow completing the action without creating resources',()=>{
+ for(const effect of [{kind:'attackStock',resource:'steel',amount:2,steal:true},{kind:'removeCardResource',resource:'animal',amount:2}] as const){
+  let s=ready();s.players.forEach(p=>p.resources=marsResources());s=peek(s,effect);assert.deepEqual(marsOffers(s,s.activePlayerId).map(o=>o.id),['skip']);s=act(s,o=>o.id==='skip');assert.equal(s.actionsTaken,1);assert.ok(s.players.every(p=>Object.values(p.resources).every(n=>n===0)));
+ }
+});
+
+test('Mars real card resource actions remain once per generation and final resource scoring stays card-local',()=>{
+ let s=ready();const owner=s.activePlayerId,fish=give(s,'Fish',owner,true),animals=give(s,'SmallAnimals',owner,true);fish.resources=1;animals.resources=3;
+ const before=scoreMars(s)[0]!.cards;s=act(s,o=>o.id==='action:'+fish.tileId);
+ assert.equal(s.players[0]!.played.find(c=>c.tileId===fish.tileId)!.resources,2);
+ assert.equal(scoreMars(s)[0]!.cards,before+1);assert.equal(s.actionsTaken,1);
+ const snapshot=structuredClone(s);assert.equal(applyMarsAction(s,owner,{type:'TAKE',actionId:'action:'+fish.tileId},now,s.transitionId,random).ok,false);assert.deepEqual(s,snapshot);
+ const saved=parseMarsState(JSON.parse(JSON.stringify(s)));assert.deepEqual(scoreMars(saved),scoreMars(s));
 });

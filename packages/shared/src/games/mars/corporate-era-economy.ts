@@ -4,6 +4,8 @@ type CorporateCardId = typeof MARS_CORPORATE_ERA_CARD_FACTS[number]['id'];
 
 // Implemented effect descriptions for the next catalog assembly step. This is not a deck.
 export const MARS_CORPORATE_ERA_ECONOMIC_EFFECTS = {
+    RoboticWorkforce: [{ kind: 'copyProduction' }],
+    IndenturedWorkers: [{ kind: 'nextCardDiscount', amount: 8 }],
     AcquiredCompany: [{ kind: 'production', resource: 'money', amount: 3 }],
     BuildingIndustries: [{ kind: 'production', resource: 'energy', amount: -1 }, { kind: 'production', resource: 'steel', amount: 2 }],
     CallistoPenalMines: [{ kind: 'production', resource: 'money', amount: 3 }],

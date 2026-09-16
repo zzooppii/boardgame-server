@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { MARS_RESOURCES, type MarsProjection, type MarsResource } from '@hangul-rummikub/shared';
-export type MarsCue = 'SELECT' | 'CARD' | 'PLACE' | 'WATER' | 'GREENERY' | 'HEAT' | 'PRODUCTION' | 'TURN' | 'CLAIM' | 'FINISH' | 'ERROR';
+export type MarsCue = 'SELECT' | 'CARD' | 'PLACE' | 'WATER' | 'GREENERY' | 'HEAT' | 'PRODUCTION' | 'TURN' | 'CLAIM' | 'ATTACK' | 'FINISH' | 'ERROR';
 export function marsFeedback(previous: MarsProjection | null, current: MarsProjection, continuous: boolean): {
     cue: MarsCue | null;
     deltas: Partial<Record<MarsResource, number>>;
@@ -15,7 +15,7 @@ export function marsFeedback(previous: MarsProjection | null, current: MarsProje
                 deltas[k] = n;
         }
     const event = current.history.at(-1), newEvent = event && event.id > (previous.history.at(-1)?.id ?? 0);
-    const cue: MarsCue | null = current.phase === 'FINISHED' && previous.phase !== 'FINISHED' ? (current.result.reason === 'SCORED' ? 'FINISH' : null) : current.generation !== previous.generation || newEvent && event.kind === 'PRODUCTION' ? 'PRODUCTION' : current.oceans > previous.oceans ? 'WATER' : current.tiles.length > previous.tiles.length ? (current.tiles.at(-1)?.kind === 'greenery' ? 'GREENERY' : 'PLACE') : current.temperature > previous.temperature ? 'HEAT' : newEvent && event.kind === 'CARD' ? 'CARD' : newEvent && event.kind === 'CLAIM' ? 'CLAIM' : current.activePlayerId !== previous.activePlayerId && current.activePlayerId === current.privateState.playerId ? 'TURN' : null;
+    const cue: MarsCue | null = current.phase === 'FINISHED' && previous.phase !== 'FINISHED' ? (current.result.reason === 'SCORED' ? 'FINISH' : null) : current.generation !== previous.generation || newEvent && event.kind === 'PRODUCTION' ? 'PRODUCTION' : current.oceans > previous.oceans ? 'WATER' : current.tiles.length > previous.tiles.length ? (current.tiles.at(-1)?.kind === 'greenery' ? 'GREENERY' : 'PLACE') : current.temperature > previous.temperature ? 'HEAT' : newEvent && event.kind === 'CARD' || previous.privateState.cardChoice !== null && previous.privateState.cardChoice.id !== current.privateState.cardChoice?.id && current.privateState.hand.some(c => !previous.privateState.hand.some(old => old.tileId === c.tileId)) ? 'CARD' : newEvent && event.kind === 'ATTACK' ? 'ATTACK' : newEvent && event.kind === 'CLAIM' ? 'CLAIM' : current.activePlayerId !== previous.activePlayerId && current.activePlayerId === current.privateState.playerId ? 'TURN' : null;
     return { cue, deltas };
 }
 export function useMarsSound(g: MarsProjection | null, connected: boolean) {
@@ -49,6 +49,10 @@ export function useMarsSound(g: MarsProjection | null, connected: boolean) {
         }
         else if (cue === 'FINISH' || cue === 'CLAIM') {
             (cue === 'FINISH' ? [262, 330, 392, 523, 659] : [523, 659, 784]).forEach((f, i) => tone(f, i * .11, .4, f, 'triangle'));
+        }
+        else if (cue === 'ATTACK') {
+            tone(280, 0, .15, 140, 'triangle');
+            tone(180, .08, .15, 90);
         }
         else if (cue === 'PLACE') {
             tone(150, 0, .12, 65, 'triangle');

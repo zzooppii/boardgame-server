@@ -2,8 +2,10 @@ import { MARS_CARD_FACTS } from './card-facts.js';
 import { MARS_RESOURCE_NAMES, type MarsResource } from './actions.js';
 import type { MarsPlacementRule, MarsTileKind } from './board.js';
 export type MarsCardId = typeof MARS_CARD_FACTS[number]['id'];
-export type MarsCardResource = 'animal' | 'microbe' | 'science';
-export type MarsEffect = {
+export type MarsCardResource = 'animal' | 'microbe' | 'science' | 'fighter';
+export const MARS_CARD_RESOURCE_NAMES: Readonly<Record<string, string>> = { animal: '동물', microbe: '미생물', science: '과학', fighter: '전투기' };
+export type MarsResourceScore = Readonly<{ per: number; points: number }>;
+export type MarsEffect = {kind:'attackStock';resource:MarsResource;amount:number;steal:boolean} | {kind:'removeCardResource';resource:MarsCardResource;amount:number} | {kind:'claimLand'} | {kind:'copyProduction'} | {kind:'protectHabitats'} | {kind:'exchangeCard'} | {kind:'nextCardDiscount';amount:8} | { kind: 'keepCards'; count: number; keep: number } | { kind: 'buyCard' } | {
     kind: 'stock' | 'production';
     resource: MarsResource;
     amount: number;
@@ -225,24 +227,34 @@ export type MarsDefinition = {
     type: string;
     score: string;
     points: number;
+    resourceScore: MarsResourceScore | null;
     resource: string | null;
     art: number;
 } & MarsRule;
-export const MARS_CARDS: readonly MarsDefinition[] = MARS_CARD_FACTS.map(f => { const tags: readonly string[] = f.id === 'MiningRights' ? ['building'] : f.tags; return { ...f, ...RULES[f.id], englishName: f.name, tags, art: tags.includes('animal') ? 9 : tags.includes('microbe') ? 8 : tags.includes('plant') ? 1 : tags.includes('city') ? 0 : tags.includes('power') ? 6 : tags.includes('space') ? (f.type === 'event' ? 3 : 5) : tags.includes('science') ? 11 : tags.includes('building') ? 4 : 2 }; });
+export const MARS_CARDS: readonly MarsDefinition[] = MARS_CARD_FACTS.map(f => { const tags: readonly string[] = f.id === 'MiningRights' ? ['building'] : f.tags; return { ...f, resourceScore: f.score === 'resources' ? { per: f.points, points: 1 } : null, ...RULES[f.id], englishName: f.name, tags, art: tags.includes('animal') ? 9 : tags.includes('microbe') ? 8 : tags.includes('plant') ? 1 : tags.includes('city') ? 0 : tags.includes('power') ? 6 : tags.includes('space') ? (f.type === 'event' ? 3 : 5) : tags.includes('science') ? 11 : tags.includes('building') ? 4 : 2 }; });
 export function marsCard(id: string): MarsDefinition { const c = MARS_CARDS.find(c => c.id === id); if (!c)
     throw new Error('Unknown Mars card'); return c; }
 export const MARS_TAG_NAMES: Record<string, string> = { building: '건물', space: '우주', science: '과학', plant: '식물', animal: '동물', microbe: '미생물', earth: '지구', jovian: '목성', power: '에너지', city: '도시' };
 export function marsEffectText(e: MarsEffect): string {
     switch (e.kind) {
+        case 'attackStock': return `${e.steal?'상대 자원 탈취':'자원 제거'} · ${MARS_RESOURCE_NAMES[e.resource]} 최대 ${e.amount} (선택)`;
+        case 'removeCardResource': return `카드 1장의 ${MARS_CARD_RESOURCE_NAMES[e.resource]} 최대 ${e.amount} 제거 (선택)`;
+        case 'claimLand': return '빈 육지 1칸 예약 · 나만 타일 배치 가능';
+        case 'copyProduction': return '내 건물 카드 1장의 생산량 상자만 복제 (감소 포함)';
+        case 'protectHabitats': return '상대의 식물·동물·미생물 제거로부터 보호';
+        case 'exchangeCard': return '손패 1장을 버리고 1장 뽑기 (선택)';
+        case 'nextCardDiscount': return '이번 세대 다음 프로젝트 카드 비용 8 M€ 할인';
         case 'stock':
         case 'production': return `${MARS_RESOURCE_NAMES[e.resource]}${e.kind === 'production' ? ' 생산' : ''} ${e.amount >= 0 ? '+' : ''}${e.amount}`;
         case 'global': return `${{ oxygen: '산소', temperature: '기온', tr: 'TR' }[e.track]} +${e.amount}${e.track === 'tr' ? '' : '단계'}`;
         case 'place': return `${{ city: '도시', greenery: '녹지', ocean: '해양', special: '특수 타일' }[e.tile]} 배치${e.rule === 'normal' ? '' : ` · ${{ oceanLand: '육지 칸', greeneryOcean: '해양 예약 칸', oceanSpecial: '해양 예약 칸', isolated: '다른 타일과 비인접', nextGreenery: '녹지 인접', twoCities: '도시 2개 이상 인접', volcano: '화산', mining: '강철·티타늄 보너스 칸', noctis: '녹티스 예약 칸', phobos: '포보스', ganymede: '가니메데' }[e.rule]}`}`;
+        case 'keepCards': return `카드 ${e.count}장 열람 후 ${e.keep}장 선택`;
+        case 'buyCard': return '카드 1장 열람 후 3 M€로 구매하거나 버리기';
         case 'draw': return `카드 ${e.amount}장 획득`;
         case 'removePlants': return `한 플레이어 식물 최대 ${e.amount} 제거(선택)`;
         case 'attackProduction': return `플레이어 1명의 ${MARS_RESOURCE_NAMES[e.resource]} 생산 −${e.amount}`;
-        case 'add': return `${e.self ? '이 카드' : '다른 내 카드'}에 ${{ animal: '동물', microbe: '미생물', science: '과학' }[e.resource]} +${e.amount}`;
-        case 'steal': return `카드에서 ${e.resource === 'animal' ? '동물' : '미생물'} 1 제거 → 이 카드에 1 추가`;
+        case 'add': return `${e.self ? '이 카드' : '다른 내 카드'}에 ${MARS_CARD_RESOURCE_NAMES[e.resource]} +${e.amount}`;
+        case 'steal': return `카드에서 ${MARS_CARD_RESOURCE_NAMES[e.resource]} 1 제거 → 이 카드에 1 추가`;
         case 'consumeSelf': return `이 카드 자원 ${e.amount} 사용`;
         case 'pay': return `${e.amount} M€ 지불${e.material === 'none' ? '' : `(${MARS_RESOURCE_NAMES[e.material]} 사용 가능)`}`;
         case 'choice': return e.options.map(o => o.label).join(' 또는 ');

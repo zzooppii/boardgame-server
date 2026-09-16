@@ -21,8 +21,9 @@ export const MarsActionSchema = v.variant('type', [
     v.strictObject({ type: v.literal('SETUP'), corporationId: MarsRefSchema, cardIds: v.pipe(v.array(TileIdSchema), v.maxLength(10)) }),
     v.strictObject({ type: v.literal('RESEARCH'), cardIds: v.pipe(v.array(TileIdSchema), v.maxLength(4)), heat: v.optional(MarsCountSchema) }),
     v.strictObject({ type: v.literal('SELL'), cardIds: v.pipe(v.array(TileIdSchema), v.minLength(1), v.maxLength(137)) }),
+    v.strictObject({ type: v.literal('CHOOSE_CARDS'), choiceId: v.pipe(MarsCountSchema, v.minValue(1)), cardIds: v.pipe(v.array(TileIdSchema), v.maxLength(4)), heat: v.optional(MarsCountSchema) }),
     v.strictObject({ type: v.literal('PAY'), payment: MarsPaymentSchema }),
 ]);
 export type MarsAction = v.InferOutput<typeof MarsActionSchema>;
-export const MarsPlayerPublicSchema = v.strictObject({ playerId: PlayerIdSchema, corporationId: v.nullable(MarsRefSchema), resources: MarsResourcesSchema, production: MarsProductionSchema, tr: MarsCountSchema, handCount: MarsCountSchema, played: v.array(MarsCardSchema), passed: v.boolean(), ready: v.boolean(), generationStartTr: MarsCountSchema, corporationUsedGeneration: MarsCountSchema });
+export const MarsPlayerPublicSchema = v.strictObject({ protectedHabitats: v.boolean(), playerId: PlayerIdSchema, corporationId: v.nullable(MarsRefSchema), resources: MarsResourcesSchema, production: MarsProductionSchema, tr: MarsCountSchema, handCount: MarsCountSchema, played: v.array(MarsCardSchema), passed: v.boolean(), ready: v.boolean(), generationStartTr: MarsCountSchema, corporationUsedGeneration: MarsCountSchema });
 export type MarsPlayerPublic = v.InferOutput<typeof MarsPlayerPublicSchema>;

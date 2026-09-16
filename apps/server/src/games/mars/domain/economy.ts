@@ -20,12 +20,12 @@ export function marsMetalValues(p: MarsEconomyPlayer): { steelValue: 2 | 3; tita
     return { steelValue: alloys ? 3 : 2, titaniumValue: p.corporationId === 'PhoboLog' ? (alloys ? 5 : 4) : (alloys ? 4 : 3) };
 }
 
-export function marsDiscountedCost(p: MarsEconomyPlayer, card: Pick<PrintedProject, 'cost' | 'tags'>): number {
+export function marsDiscountedCost(p: MarsEconomyPlayer, card: Pick<PrintedProject, 'cost' | 'tags'>, nextCardDiscount: 0 | 8 = 0): number {
     let discount = (has(p, 'ResearchOutpost') ? 1 : 0) + (has(p, 'EarthCatapult') ? 2 : 0) + (has(p, 'AntiGravityTechnology') ? 2 : 0);
     if (card.tags.includes('space')) for (const id of ['Shuttles', 'SpaceStation', 'QuantumExtractor', 'MassConverter']) if (has(p, id)) discount += 2;
     if (card.tags.includes('earth')) discount += (has(p, 'EarthOffice') ? 3 : 0) + (p.corporationId === 'Teractor' ? 3 : 0);
     if (card.tags.includes('power') && p.corporationId === 'Thorgate') discount += 3;
-    return Math.max(0, card.cost - discount);
+    return Math.max(0, card.cost - discount - nextCardDiscount);
 }
 
 /** Paid-card rewards use printed cost and the event's tags, before it is turned face down. */

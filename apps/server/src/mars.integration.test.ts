@@ -3,6 +3,8 @@ import test, { type TestContext } from "node:test";
 import { io, type Socket } from "socket.io-client";
 import * as v from "valibot";
 import { SUPPORTED_GAME_TYPES, PlatformSnapshotV2Schema, SessionBootstrapAckSchema, StateSyncWireAckSchema, type GameType, type PlatformSnapshotV2, } from "@hangul-rummikub/shared";
+import { parseMarsState, applyMarsAction, marsOffers } from "./games/mars/domain/game.js";
+import { transitionMars } from "./games/mars/application/service.js";
 import { createHttpServer } from "./server.js";
 type Client = Socket<Record<string, (value: unknown) => void>, Record<string, (value: unknown, ack: (value: unknown) => void) => void>>;
 type Command = {
@@ -136,4 +138,55 @@ for(const count of [3,4,5])test(`Mars ${count}-player simultaneous research, rec
  assert.equal(current.oceans,9);assert.equal(current.oxygen,14);assert.equal(current.temperature,8);assert.equal(current.result.reason,'SCORED');assert.equal(current.result.scores.length,count);assert.ok(current.result.winnerPlayerIds.length>0);
  for(const member of h.members){const final=mars(await h.sync(member.client));assert.equal(final.phase,'FINISHED');if(final.phase==='FINISHED')assert.deepEqual(final.result,current.result);}
 
+});
+
+
+test('Mars private card choice sockets restore candidates and commit only once', async t => {
+ const h = await harness(t, 3);
+ let snapshot = await h.sync();
+ h.success(await h.call(h.host, 'game:start', {}, {expectedRoomRevision:snapshot.versions.roomRevision}));
+ const commandFor = (g:ReturnType<typeof mars>, payload:unknown) => {
+  assert.ok(g.phase === 'PLAYING');
+  return h.request('mars:act', payload, {gameId:g.gameId,expectedGameRevision:g.gameRevision,turnId:g.turnId});
+ };
+ for (const member of h.members) h.success(await h.send(member.client, commandFor(mars(await h.sync(member.client)), {type:'SETUP',corporationId:'Beginner',cardIds:[]})));
+ snapshot = await h.sync();
+ const room = await h.server.runtime.persistence.findById(snapshot.room.roomId);
+ assert.ok(room?.gameType === 'TERRAFORMING_MARS' && room.game);
+ const service = h.server.runtime.marsService;
+ assert.ok(service);
+ // Trusted fixture queues an expansion effect without enabling unfinished expansion cards.
+ const state = parseMarsState(room.game.state);
+ state.frames = [[{id:state.nextJob++,source:'Business Contacts',effect:{kind:'keepCards',count:4,keep:2}}]];
+ state.actionInProgress = true;
+ const offer = marsOffers(state,state.activePlayerId).find(o=>o.kind === 'EFFECT');
+ assert.ok(offer);
+ const opened = applyMarsAction(state,state.activePlayerId,{type:'TAKE',actionId:offer.id},service.deps.clock.now(),service.deps.ids.generateTurnId(),service.deps.random);
+ assert.ok(opened.ok);
+ const replaced = await h.server.runtime.persistence.replace({candidate:transitionMars(room,opened.state,service.deps.clock.now()),expectedRoomRevision:room.roomRevision,expectedStorageRevision:room.storageRevision});
+ assert.equal(replaced.status,'REPLACED');
+ const owner = h.members.find(m=>m.playerId === state.activePlayerId)!;
+ const other = h.members.find(m=>m !== owner)!;
+ const before = mars(await h.sync(owner.client)), pending = before.privateState.cardChoice;
+ assert.ok(pending?.kind === 'KEEP');
+ for(const member of h.members.filter(m=>m !== owner)) {
+  const publicView = mars(await h.sync(member.client));
+  assert.equal(publicView.privateState.cardChoice,null);
+  for(const card of pending.cards) assert.equal(JSON.stringify(publicView).includes(card.tileId),false);
+ }
+ const command = commandFor(before,{type:'CHOOSE_CARDS',choiceId:pending.id,cardIds:pending.cards.slice(0,2).map(c=>c.tileId)});
+ assert.equal(h.failure(await h.send(other.client,command)),'NOT_YOUR_TURN');
+ const invalid = commandFor(before,{type:'CHOOSE_CARDS',choiceId:pending.id,cardIds:[pending.cards[0]!.tileId,pending.cards[0]!.tileId]});
+ assert.equal(h.failure(await h.send(owner.client,invalid)),'RULE_VIOLATION');
+ assert.deepEqual(mars(await h.sync(owner.client)).privateState,before.privateState);
+ owner.client.disconnect();
+ const resumed = await h.connect();
+ const restored = mars(h.success(await h.call(resumed,'session:resume',{credential:{...owner.credential,roomCode:snapshot.room.roomCode},lastSeenVersions:null})));
+ assert.deepEqual(restored.privateState.cardChoice,pending);
+ const accepted = mars(h.success(await h.send(resumed,command)));
+ assert.equal(accepted.privateState.cardChoice,null);
+ assert.equal(accepted.privateState.hand.length,before.privateState.hand.length+2);
+ const replay = mars(h.success(await h.send(resumed,command)));
+ assert.deepEqual(replay,accepted);
+ assert.equal(h.failure(await h.send(resumed,{...command,requestId:'private-choice-stale'})),'STALE_GAME_REVISION');
 });

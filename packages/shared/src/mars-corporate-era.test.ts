@@ -81,7 +81,7 @@ test('Mars metal payment contract accepts supported values and rejects missing o
 });
 
 test('Mars prepared economic effects have readable descriptions and remain outside the live base deck', () => {
-    assert.equal(Object.keys(MARS_CORPORATE_ERA_ECONOMIC_EFFECTS).length, 24);
+    assert.equal(Object.keys(MARS_CORPORATE_ERA_ECONOMIC_EFFECTS).length, 26);
     for (const [id, effects] of Object.entries(MARS_CORPORATE_ERA_ECONOMIC_EFFECTS)) {
         fact(id);
         assert.throws(() => marsCard(id), /Unknown Mars card/);
@@ -92,4 +92,17 @@ test('Mars prepared economic effects have readable descriptions and remain outsi
         { kind: 'production', resource: 'money', amount: 1 },
         { kind: 'production', resource: 'titanium', amount: 1 },
     ]);
+});
+
+import { MarsCardChoiceSchema } from './games/mars/contracts.js';
+import { MarsActionSchema } from './games/mars/actions.js';
+test('Mars private card choices enforce count bounds and commands identify the pending choice',()=>{
+ const card={tileId:'private-card',definitionId:'PowerPlant',resources:0,usedGeneration:0};
+ assert.equal(v.safeParse(MarsCardChoiceSchema,{id:1,label:'교환',kind:'EXCHANGE',cards:[]}).success,true);
+ assert.equal(v.safeParse(MarsCardChoiceSchema,{id:1,label:'교환',kind:'EXCHANGE',cards:[card]}).success,false);
+ assert.equal(v.safeParse(MarsCardChoiceSchema,{id:1,label:'선택',kind:'KEEP',cards:[card],keepCount:2}).success,false);
+ assert.equal(v.safeParse(MarsCardChoiceSchema,{id:1,label:'선택',kind:'BUY',cards:[card],cost:2,canUseHeat:false}).success,false);
+ assert.equal(v.safeParse(MarsActionSchema,{type:'CHOOSE_CARDS',cardIds:[]}).success,false);
+ assert.equal(v.safeParse(MarsActionSchema,{type:'CHOOSE_CARDS',choiceId:1,cardIds:[],heat:0}).success,true);
+ assert.equal(v.safeParse(MarsActionSchema,{type:'CHOOSE_CARDS',choiceId:1,cardIds:['private-card'],heat:1.5}).success,false);
 });
