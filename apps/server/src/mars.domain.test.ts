@@ -1,3 +1,4 @@
+import { marsCorporationStart } from './games/mars/domain/corporation-start.js';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import * as v from 'valibot';
@@ -113,4 +114,37 @@ test('Mars Landlord includes Phobos and Ganymede ownership, special tiles and sh
   s.tiles.push({spaceId:'1-4',kind:'ocean',ownerId:null,source:'ocean'});s.oceans=1;
   assert.deepEqual(scoreMars(parseMarsState(s)).map(p=>p.awards),count===2?[5,0]:[5,2,0]);
  }
+});
+
+
+test('Mars Corporate Era setup omits only the base production bonus and keeps each corporation starting resources',()=>{
+ for(const id of ['Beginner',...MARS_CORPORATIONS.map(c=>c.id)]){
+  const base=marsCorporationStart(id,'base'),corporate=marsCorporationStart(id,'corporate-era');
+  assert.deepEqual(corporate.resources,base.resources,id);
+  for(const resource of ['money','steel','titanium','plants','energy','heat'] as const) assert.equal(corporate.production[resource],base.production[resource]-1,id+' '+resource);
+ }
+ const starts=[
+  ['Beginner',42,{},{}],['CrediCor',57,{},{}],['EcoLine',36,{plants:3},{plants:2}],
+  ['Helion',42,{},{heat:3}],['InterplanetaryCinematics',30,{steel:20},{}],['Inventrix',45,{},{}],
+  ['MiningGuild',30,{steel:5},{steel:1}],['PhoboLog',23,{titanium:10},{}],
+  ['TharsisRepublic',40,{},{}],['Thorgate',48,{},{energy:1}],['UnitedNationsMarsInitiative',40,{},{}],
+ ] as const;
+ for(const [id,money,stock,production] of starts) assert.deepEqual(marsCorporationStart(id,'corporate-era'),{resources:marsResources({money,...stock}),production:marsResources(production)},id);
+ assert.deepEqual(marsCorporationStart('EcoLine','corporate-era').production,marsResources({plants:2}));
+ assert.deepEqual(marsCorporationStart('Helion','corporate-era').production,marsResources({heat:3}));
+ assert.deepEqual(marsCorporationStart('SaturnSystems','corporate-era'),{resources:marsResources({money:42}),production:marsResources({money:1,titanium:1})});
+ assert.deepEqual(marsCorporationStart('Teractor','corporate-era'),{resources:marsResources({money:60}),production:marsResources()});
+ assert.throws(()=>marsCorporationStart('SaturnSystems','base'),/Unknown Mars corporation/);
+ assert.throws(()=>marsCorporationStart('Teractor','base'),/Unknown Mars corporation/);
+ assert.throws(()=>marsCorporationStart('unknown','corporate-era'),/Unknown Mars corporation/);
+});
+
+test('Mars live base setup rejects unimplemented Corporate Era corporations without changing the game',()=>{
+ const s=create(5),before=structuredClone(s);
+ for(const corporationId of ['SaturnSystems','Teractor']){
+  const result=applyMarsAction(s,s.players[0]!.playerId,{type:'SETUP',corporationId,cardIds:[]},now,s.transitionId,random);
+  assert.equal(result.ok,false);assert.deepEqual(s,before);
+ }
+ assert.equal(s.inventory.length,137);
+ assert.equal(new Set(s.players.flatMap(p=>p.corporations)).size,10);
 });

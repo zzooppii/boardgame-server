@@ -1,3 +1,4 @@
+import { marsCorporationStart } from './corporation-start.js';
 import * as v from 'valibot';
 import { GameIdSchema, GameRevisionSchema, ServerTimeSchema, TurnIdSchema, MARS_CARDS, MARS_RESOURCES, MARS_BOARD, MARS_MILESTONES, MARS_AWARDS, MARS_CORPORATIONS, MarsPublicFields, MarsPlayerPublicSchema, MarsCardSchema, MarsRefSchema, MarsCountSchema, MarsResultSchema, MarsActionSchema, marsResources, marsCard, marsCorporation, marsAdjacent, marsEffectText, MARS_RESOURCE_NAMES, MARS_TAG_NAMES, type MarsEffect, type MarsDefinition, type MarsOffer, type MarsPlacementRule, type MarsTileKind, type GameId, type PlayerId, type TileId, type ServerTime, type TurnId } from '@hangul-rummikub/shared';
 import type { RandomSource } from '../../../ports/system.js';
@@ -647,27 +648,12 @@ function selectCards(s: MarsState, p: Person, ids: readonly TileId[], corporatio
     if (corporationId !== undefined) {
         if (corporationId !== 'Beginner' && !p.corporations.includes(corporationId))
             return false;
-        const corp = marsCorporation(corporationId);
+        const start = marsCorporationStart(corporationId, 'base');
         p.corporationId = corporationId;
-        p.resources.money = corp.money;
+        p.resources = start.resources;
+        p.production = start.production;
         if (corporationId === 'Beginner')
             kept = p.research.map(c => c.tileId);
-        if (corporationId === 'EcoLine') {
-            p.production.plants += 2;
-            p.resources.plants += 3;
-        }
-        if (corporationId === 'Helion')
-            p.production.heat += 3;
-        if (corporationId === 'InterplanetaryCinematics')
-            p.resources.steel += 20;
-        if (corporationId === 'MiningGuild') {
-            p.production.steel++;
-            p.resources.steel += 5;
-        }
-        if (corporationId === 'PhoboLog')
-            p.resources.titanium += 10;
-        if (corporationId === 'Thorgate')
-            p.production.energy++;
         p.initialActionDone = !['Inventrix', 'TharsisRepublic'].includes(corporationId);
     }
     const cost = corporationId === 'Beginner' ? 0 : kept.length * 3;

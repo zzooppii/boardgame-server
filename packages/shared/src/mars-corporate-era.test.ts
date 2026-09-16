@@ -1,0 +1,66 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { MARS_CARD_FACTS } from './games/mars/card-facts.js';
+import { MARS_CARDS, MARS_CORPORATIONS, marsCard, marsCorporation } from './games/mars/catalog.js';
+import { MARS_CORPORATE_ERA_CARD_FACTS, MARS_CORPORATE_ERA_CORPORATION_FACTS, type MarsCorporateCardFact } from './games/mars/corporate-era-facts.js';
+
+function fact(id: string): MarsCorporateCardFact {
+    const found = MARS_CORPORATE_ERA_CARD_FACTS.find(c => c.id === id);
+    assert.ok(found, id);
+    return found;
+}
+
+test('Mars Corporate Era printed inventory completes 208 unique numbered projects without changing the playable base set', () => {
+    assert.equal(MARS_CORPORATE_ERA_CARD_FACTS.length, 71);
+    const all = [...MARS_CARD_FACTS, ...MARS_CORPORATE_ERA_CARD_FACTS];
+    assert.equal(new Set(all.map(c => c.id)).size, 208);
+    assert.equal(new Set(all.map(c => c.number)).size, 208);
+    assert.deepEqual(all.map(c => Number(c.number)).sort((a, b) => a - b), Array.from({ length: 208 }, (_, i) => i + 1));
+    assert.equal(MARS_CARDS.length, 137);
+    assert.equal(fact('CEOsFavoriteProject').englishName, "CEO's Favorite Project");
+    assert.equal(fact('InventorsGuild').englishName, "Inventors' Guild");
+    for (const c of MARS_CORPORATE_ERA_CARD_FACTS) {
+        assert.throws(() => marsCard(c.id), /Unknown Mars card/);
+        assert.ok(Number.isSafeInteger(c.cost) && c.cost >= 0, c.id);
+        assert.match(c.number, /^\d{3}$/);
+        assert.ok(c.englishName.length > 0);
+        assert.equal(c.englishName.includes("\\"), false, c.id);
+    }
+});
+
+test('Mars Corporate Era retains production, global, tag and all-player city requirements separately', () => {
+    assert.deepEqual(fact('AsteroidMiningConsortium').requirements, [{ kind: 'production', resource: 'titanium', amount: 1 }]);
+    assert.deepEqual(fact('GreatEscarpmentConsortium').requirements, [{ kind: 'production', resource: 'steel', amount: 1 }]);
+    assert.deepEqual(fact('ElectroCatapult').requirements, [{ kind: 'global', track: 'oxygen', amount: 8, max: true }]);
+    assert.deepEqual(fact('CaretakerContract').requirements, [{ kind: 'global', track: 'temperature', amount: 0, max: false }]);
+    assert.deepEqual(fact('AntiGravityTechnology').requirements, [{ kind: 'tag', tag: 'science', amount: 7 }]);
+    assert.deepEqual(fact('PowerSupplyConsortium').requirements, [{ kind: 'tag', tag: 'power', amount: 2 }]);
+    assert.deepEqual(fact('RadSuits').requirements, [{ kind: 'cities', scope: 'all', amount: 2 }]);
+});
+
+test('Mars Corporate Era preserves resource score multipliers, science tag multiplicity and inherited mining facts', () => {
+    assert.deepEqual(fact('PhysicsComplex').score, { kind: 'resources', per: 1, points: 2 });
+    assert.deepEqual(fact('Tardigrades').score, { kind: 'resources', per: 4, points: 1 });
+    assert.deepEqual(fact('SecurityFleet').score, { kind: 'resources', per: 1, points: 1 });
+    assert.equal(fact('SecurityFleet').resource, 'fighter');
+    assert.deepEqual(fact('CommercialDistrict').score, { kind: 'adjacentCities', points: 1 });
+    assert.deepEqual(fact('IoMiningIndustries').score, { kind: 'tag', tag: 'jovian', points: 1 });
+    assert.deepEqual(fact('BribedCommittee').score, { kind: 'fixed', points: -2 });
+    assert.deepEqual(fact('Research').tags, ['science', 'science']);
+    assert.deepEqual(fact('MiningArea').tags, ['building']);
+    assert.equal(fact('MiningArea').cost, 4);
+    assert.equal(fact('MiningArea').type, 'automated');
+});
+
+test('Mars Corporate Era corporations record printed starts and passives but remain unavailable until implemented', () => {
+    assert.equal(MARS_CORPORATE_ERA_CORPORATION_FACTS.length, 2);
+    assert.equal(MARS_CORPORATIONS.length, 10);
+    for (const c of MARS_CORPORATE_ERA_CORPORATION_FACTS) assert.throws(() => marsCorporation(c.id), /Unknown Mars corporation/);
+    const [saturn, teractor] = MARS_CORPORATE_ERA_CORPORATION_FACTS;
+    assert.equal(saturn.money, 42);
+    assert.deepEqual(saturn.production, { titanium: 1 });
+    assert.deepEqual(saturn.passive, { kind: 'jovianProduction', resource: 'money', amount: 1, scope: 'allPlayers', includesSelf: true });
+    assert.equal(teractor.money, 60);
+    assert.deepEqual(teractor.tags, ['earth']);
+    assert.deepEqual(teractor.passive, { kind: 'cardDiscount', tag: 'earth', amount: 3 });
+});

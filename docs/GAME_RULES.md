@@ -1,5 +1,9 @@
 # 한글 루미큐브 게임 규칙
 
+## CONFIRMED — 테라포밍 마스 기업시대
+
+사용자의 기본판 검증 이후 기업시대 추가 선택에 따라 [테라포밍 마스 규칙](./TERRAFORMING_MARS_GAME_RULES.md)과 [기업시대 구현 단계](./TERRAFORMING_MARS_CORPORATE_ERA.md)를 적용한다. 기업시대는 데이터·시작 자원 계산 단계이며 아직 플레이 옵션으로 제공하지 않는다. 기존 한글 게임의 미확정 규칙은 변경하지 않는다.
+
 ## CONFIRMED — 7 원더스 듀얼
 
 사용자의 기본판 및 Pantheon·Agora 개발 요청에 따라 [SEVEN_WONDERS_DUEL_GAME_RULES.md](./SEVEN_WONDERS_DUEL_GAME_RULES.md)의 공식 규칙과 온라인 친선전 정책을 적용한다. 기존 게임의 TO_BE_CONFIRMED 항목은 변경하지 않는다.

@@ -1,3 +1,4 @@
+import './mars-corporate-era.test.js';
 import './train-maps.test.js';
 import "./space-crew-contract.test.js";
 import "./spyfall.test.js";
