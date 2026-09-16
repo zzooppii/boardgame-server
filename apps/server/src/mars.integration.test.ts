@@ -71,5 +71,69 @@ test('Mars sockets preserve private state, pending payment and idempotency acros
  const replay=h.success(await h.send(owner.client,command));assert.equal(mars(replay).gameRevision,g.gameRevision+1);assert.equal(h.failure(await h.send(owner.client,{...command,requestId:'mars-stale'})),'STALE_GAME_REVISION');
  const wire=JSON.stringify(await h.sync(other.client));for(const c of mars(after).privateState.hand)assert.equal(wire.includes(c.tileId),false);assert.equal(mars(await h.sync(other.client)).privateState.payment,null);
  owner.client.disconnect();const resumed=await h.connect();const restored=h.success(await h.call(resumed,'session:resume',{credential:{...owner.credential,roomCode:s.room.roomCode},lastSeenVersions:null}));assert.deepEqual(mars(restored).privateState,mars(after).privateState);
- s=h.success(await act(resumed,{type:'PAY',payment:{money:18,steel:0,titanium:0,heat:0}}));g=mars(s);const place=g.privateState.offers.find(o=>o.kind==='PLACE');assert.ok(place);s=h.success(await act(resumed,{type:'TAKE',actionId:place.id}));assert.equal(mars(s).oceans,1);
+ s=h.success(await act(resumed,{type:'PAY',payment:{money:18,steel:0,titanium:0,heat:0}}));g=mars(s);const place=g.privateState.offers.find(o=>o.kind==='PLACE');assert.ok(place);
+ const paid=structuredClone(g);resumed.disconnect();const placingClient=await h.connect();
+ const restoredPlacement=mars(h.success(await h.call(placingClient,'session:resume',{credential:{...owner.credential,roomCode:s.room.roomCode},lastSeenVersions:null})));
+ assert.deepEqual(restoredPlacement.privateState,paid.privateState);assert.deepEqual(restoredPlacement.playerStates,paid.playerStates);assert.equal(restoredPlacement.oceans,0);
+ assert.equal(mars(await h.sync(other.client)).privateState.offers.some(o=>o.kind==='PLACE'),false);
+ assert.ok(restoredPlacement.phase==='PLAYING');
+ const placement=h.request('mars:act',{type:'TAKE',actionId:place.id},{gameId:restoredPlacement.gameId,expectedGameRevision:restoredPlacement.gameRevision,turnId:restoredPlacement.turnId});
+ const first=mars(h.success(await h.send(placingClient,placement))),second=mars(h.success(await h.send(placingClient,placement)));
+ assert.equal(first.oceans,1);assert.deepEqual(second,first,'Repeated placement must not charge or reward twice');
+});
+
+for(const count of [3,4,5])test(`Mars ${count}-player simultaneous research, reconnect and full game through scoring`,{timeout:180000},async t=>{
+ const h=await harness(t,count);let s=await h.sync();
+ s=h.success(await h.call(h.host,'game:start',{}, {expectedRoomRevision:s.versions.roomRevision}));
+ const commandFor=(g:ReturnType<typeof mars>,payload:unknown)=>{assert.equal(g.phase,'PLAYING');if(g.phase!=='PLAYING')throw new Error('Expected playing game');return h.request('mars:act',payload,{gameId:g.gameId,expectedGameRevision:g.gameRevision,turnId:g.turnId});};
+ const freshAct=async(client:Client,payload:unknown)=>h.success(await h.send(client,commandFor(mars(await h.sync(client)),payload)));
+ const setup=mars(s);
+ const replies=await Promise.all(h.members.map(m=>h.send(m.client,commandFor(setup,{type:'SETUP',corporationId:'Beginner',cardIds:[]}))));
+ assert.equal(replies.filter(raw=>v.parse(StateSyncWireAckSchema,raw).ok).length,1,'Exactly one command may commit the shared revision.');
+ for(const [i,raw] of replies.entries())if(!v.parse(StateSyncWireAckSchema,raw).ok){assert.equal(h.failure(raw),'STALE_GAME_REVISION');await freshAct(h.members[i]!.client,{type:'SETUP',corporationId:'Beginner',cardIds:[]});}
+ s=await h.sync();assert.equal(mars(s).stage,'ACTION');assert.equal(mars(s).gameRevision,setup.gameRevision+count);
+ for(const m of h.members){const g=mars(await h.sync(m.client)),me=g.playerStates.find(p=>p.playerId===m.playerId)!;assert.equal(me.resources.money,42);assert.equal(g.privateState.hand.length,10);}
+ for(let i=0;i<count;i++){const g=mars(await h.sync()),owner=h.members.find(m=>m.playerId===g.activePlayerId)!;await freshAct(owner.client,{type:'TAKE',actionId:'pass'});}
+ const views=await Promise.all(h.members.map(async m=>mars(await h.sync(m.client))));
+ assert.ok(views.every(g=>g.stage==='RESEARCH'&&g.generation===2&&g.privateState.research.length===4));
+ const revision=views[0]!.gameRevision;
+ const purchases=views.map(g=>commandFor(g,{type:'RESEARCH',cardIds:g.privateState.research.slice(0,2).map(c=>c.tileId)}));
+ const results=await Promise.all(h.members.map((m,i)=>h.send(m.client,purchases[i]!)));
+ assert.equal(results.filter(raw=>v.parse(StateSyncWireAckSchema,raw).ok).length,1);
+ for(const [i,raw] of results.entries()){
+  const member=h.members[i]!;
+  if(!v.parse(StateSyncWireAckSchema,raw).ok){assert.equal(h.failure(raw),'STALE_GAME_REVISION');const latest=mars(await h.sync(member.client));purchases[i]=commandFor(latest,{type:'RESEARCH',cardIds:views[i]!.privateState.research.slice(0,2).map(c=>c.tileId)});h.success(await h.send(member.client,purchases[i]!));}
+  const before=mars(await h.sync(member.client));
+  const replay=mars(h.success(await h.send(member.client,purchases[i]!)));
+  assert.equal(replay.gameRevision,before.gameRevision);assert.deepEqual(replay.privateState,before.privateState,'Replay must not buy or draw again.');
+ }
+ for(const [i,member] of h.members.entries()){
+  const current=await h.sync(member.client),g=mars(current),before=views[i]!,me=g.playerStates.find(p=>p.playerId===member.playerId)!;
+  assert.equal(g.stage,'ACTION');assert.equal(g.gameRevision,revision+count);assert.equal(g.privateState.hand.length,12);assert.equal(me.resources.money,before.playerStates.find(p=>p.playerId===member.playerId)!.resources.money-6);
+  for(const [j,other] of views.entries())if(i!==j)for(const card of [...other.privateState.hand,...other.privateState.research])assert.equal(JSON.stringify(current).includes(card.tileId),false,'Other hand and research identities remain private.');
+ }
+ const owner=h.members.find(m=>m.playerId===mars(s).startingPlayerId)!;
+ owner.client.disconnect();const resumed=await h.connect();
+ const restored=h.success(await h.call(resumed,'session:resume',{credential:{...owner.credential,roomCode:s.room.roomCode},lastSeenVersions:null}));
+ assert.equal(mars(restored).privateState.hand.length,12);assert.equal(mars(restored).privateState.research.length,0);assert.equal(mars(restored).stage,'ACTION');
+ owner.client=resumed;
+ let current=mars(restored),steps=0;
+ while(current.phase==='PLAYING'&&steps++<2500){
+  if(current.stage==='RESEARCH'){
+   for(const member of h.members)current=mars(await freshAct(member.client,{type:'RESEARCH',cardIds:[]}));
+   continue;
+  }
+  const active=h.members.find(m=>m.playerId===current.activePlayerId)!;
+  current=mars(await h.sync(active.client));
+  if(current.privateState.payment){current=mars(await freshAct(active.client,{type:'PAY',payment:{money:current.privateState.payment.cost,steel:0,titanium:0,heat:0}}));continue;}
+  const offers=current.privateState.offers;
+  const choice=offers.find(o=>o.kind==='PLACE'||o.kind==='EFFECT')||offers.find(o=>o.id==='plants'&&current.oxygen<14)||offers.find(o=>o.id==='heat')||offers.find(o=>o.id==='project:aquifer')||offers.find(o=>o.id==='project:greenery'&&current.oxygen<14)||offers.find(o=>o.id==='project:asteroid')||offers.find(o=>o.id==='final-greenery')||offers.find(o=>o.kind==='END'||o.kind==='PASS');
+  assert.ok(choice,`${count} players must not deadlock at generation ${current.generation}`);
+  current=mars(await freshAct(active.client,{type:'TAKE',actionId:choice.id}));
+ }
+ assert.equal(current.phase,'FINISHED',`${count} players should complete within the action bound`);
+ if(current.phase!=='FINISHED')throw new Error('Expected finished game');
+ assert.equal(current.oceans,9);assert.equal(current.oxygen,14);assert.equal(current.temperature,8);assert.equal(current.result.reason,'SCORED');assert.equal(current.result.scores.length,count);assert.ok(current.result.winnerPlayerIds.length>0);
+ for(const member of h.members){const final=mars(await h.sync(member.client));assert.equal(final.phase,'FINISHED');if(final.phase==='FINISHED')assert.deepEqual(final.result,current.result);}
+
 });
