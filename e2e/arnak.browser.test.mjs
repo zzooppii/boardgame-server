@@ -19,7 +19,7 @@ async function assertCampControlContrast(button){
    return channels[0]*0.2126+channels[1]*0.7152+channels[2]*0.0722;
   };
   const background=luminance(getComputedStyle(element).backgroundColor);
-  return [element,element.querySelector('small')].filter(Boolean).map(node=>{
+  return [element,...element.querySelectorAll('small')].map(node=>{
    const foreground=luminance(getComputedStyle(node).color);
    return (Math.max(background,foreground)+0.05)/(Math.min(background,foreground)+0.05);
   });
@@ -316,7 +316,9 @@ test('Arnak desktop/mobile: cards, dig, cleanup, five rounds, resume, results, r
  const ownedGuardian=()=>other.locator('.ar-assistants[aria-label="내 조수와 수호자"]').getByRole('button').filter({hasText:guardianName});
  assert.match(await ownedGuardian().innerText(),/축복 사용 가능.*5 VP/);await assertCampControlContrast(ownedGuardian());
  await other.reload();await other.locator('.ar-hand').waitFor();assert.match(await ownedGuardian().innerText(),/축복 사용 가능.*5 VP/);
- await ownedGuardian().click();await confirm(other);await settleEffects();assert.match(await ownedGuardian().innerText(),/축복 사용 완료.*5 VP/);await assertCampControlContrast(ownedGuardian());
+ const boonText=await ownedGuardian().locator('.ar-ability-effect').innerText();assert.ok(boonText.trim());
+ await ownedGuardian().click();assert.equal(await ownedGuardian().getAttribute('aria-pressed'),'true');
+ assert.ok((await other.locator('.ar-card-inspector').innerText()).includes(boonText));await confirm(other);await settleEffects();assert.match(await ownedGuardian().innerText(),/축복 사용 완료.*5 VP/);await assertCampControlContrast(ownedGuardian());
  const beforeSafeReturn=await cardTotal(other);
  await finishTurn();await choose(other,/^이번 라운드 패스$/);await choose(other,/^패스 확정$/);
  assert.equal(await other.locator('.ar-roundbar li.current').innerText(),'IV');
@@ -460,7 +462,14 @@ for(const playerCount of [3,4]){
         assert.equal(await opponent.locator('.ar-public-ability strong').filter({hasText:assistant}).count(),1);
        }
       }
+      const abilityText=await owned().locator('.ar-ability-effect').innerText();assert.ok(abilityText.trim());
+      assert.match(await owned().innerText(),/자유 행동|주 행동/);
+      await owned().click();assert.equal(await owned().getAttribute('aria-pressed'),'true');
+      const silver=page.locator('.ar-card-inspector h4').filter({hasText:'은색 능력'});assert.equal(await silver.locator('xpath=following-sibling::p[1]').innerText(),abilityText);
       await page.reload();await page.locator('.ar-hand').waitFor();assert.equal(await owned().count(),1);
+      assert.equal(await owned().locator('.ar-ability-effect').innerText(),abilityText);
+      assert.equal(await owned().evaluate(button=>button.scrollWidth<=button.clientWidth),true,'Ability text fits the mobile card.');
+      await page.locator('.ar-owned-abilities').screenshot({path:join(output,'mobile-abilities.png')});
       await page.screenshot({path:join(output,'mobile-hired-assistant.png'),fullPage:true});
      }
      await choose(page,/^차례 마치기$/);

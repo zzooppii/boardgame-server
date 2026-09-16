@@ -38,3 +38,8 @@
 .arnak-screen .ar-assistants button.ready:hover{background:#fff3d8}
 .arnak-screen .ar-assistants button.spent:hover{background:#e3e5d7}
 .arnak-screen .ar-assistants button:focus-visible{outline:3px solid #f4d58a;outline-offset:4px}
+
+.arnak-screen .ar-owned-abilities>button{width:min(100%,300px);align-items:flex-start}
+.ar-owned-abilities>button>span:last-child{flex:1;min-width:0}
+.ar-owned-abilities .ar-ability-effect{border-top:1px solid #8a795d66;padding-top:6px;margin-top:6px;line-height:1.6}
+.arnak-screen .ar-owned-abilities>button[aria-pressed="true"]{box-shadow:inset 0 0 0 2px #38664d}
