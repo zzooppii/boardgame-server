@@ -30,8 +30,8 @@ export function WonderCard({ wonder: w, draft = false, built = false, removed = 
     const preview = useCardTooltip(w.id, <><div className="du-wonder-tooltip-art"><Atlas index={w.art} /><strong>{w.name}</strong></div><WonderDetails wonder={w} draft={draft} /><p className="du-wonder-tooltip-hint">카드를 누르면 상세 창이 열립니다 · Esc로 닫기</p></>);
     const status = removed ? '제거됨' : built ? '건설 완료' : '미건설';
     return <>
-        <button {...preview.trigger} type="button" className={`${draft ? 'du-draft-wonder' : 'du-wonder'} ${built ? 'built' : ''} ${removed ? 'removed' : ''}`}
-            aria-label={`${w.name} · 비용과 효과 보기`} aria-haspopup="dialog"
+        <button {...preview.trigger} type="button" className={`${draft ? 'du-draft-wonder' : 'du-wonder'} ${built && !removed ? 'built' : ''} ${removed ? 'removed' : ''}`}
+            aria-label={`${w.name}${draft ? '' : ` · ${status}`} · 비용과 효과 보기`} aria-haspopup="dialog"
             onClick={() => { preview.hide(); onInspect(); }}>
             <Atlas index={w.art} />
             {draft ? <span className="du-draft-info">
@@ -41,7 +41,7 @@ export function WonderCard({ wonder: w, draft = false, built = false, removed = 
                 <span className="du-wonder-benefits">{wonderEffects(w).map(e => <span key={e.short}>{e.short}</span>)}</span>
                 {w.onSelect && <span className="du-draft-bonus">선택 즉시 · {w.onSelect === 'CONSPIRE' ? '음모 획득' : '영향력 1개 배치'}</span>}
                 <span className="du-wonder-open">ⓘ 비용·효과 상세 보기</span>
-            </span> : <><span className="du-wonder-caption"><strong>{w.name}</strong><small>{status} · ⓘ 효과 보기</small></span>{!built && !removed && <Cost cost={w.cost} />}</>}
+            </span> : <>{built && !removed && <span className="du-wonder-built-badge"><b aria-hidden="true">✓</b><span>건설 완료</span></span>}<span className="du-wonder-caption"><strong>{w.name}</strong><small>{status} · ⓘ 효과 보기</small></span>{!built && !removed && <Cost cost={w.cost} />}</>}
         </button>
         {preview.tooltip}
     </>;
