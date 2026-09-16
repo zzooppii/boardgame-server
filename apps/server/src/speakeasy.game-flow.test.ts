@@ -1,3 +1,5 @@
+import {emptyCityTiles, takeAvailableCityTile, cityTileInventory, type CityTileEffect} from './games/speakeasy/domain/city-tiles.js';
+import {playSpeakeasyCityTile, returnSpeakeasyTurnCityTiles} from './games/speakeasy/domain/game-flow.js';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse} from 'valibot';
@@ -269,4 +271,120 @@ test('Restaurant restore preserves in-progress allowance and rejects impossible 
   const bad=structuredClone(s);bad.active!.restaurant!.current!.used=4;assert.throws(()=>parseSpeakeasyGameFlow(bad));
   const duplicate=structuredClone(s);duplicate.active!.restaurant!.completed=['BOOKS'];assert.throws(()=>parseSpeakeasyGameFlow(duplicate));
   const premature=structuredClone(s);premature.round.phase='DRAW_OPERATION';assert.throws(()=>parseSpeakeasyGameFlow(premature));
+});
+
+
+function cityGame(count=2) {
+  const s=setup();
+  s.city=emptyCityTiles(s.round.clock.order);
+  s.city.held[0]!.tiles=Array.from({length:count},(_,i)=>({tileId:tile(`city-${i}`),effectId:'reward'}));
+  s.round.economy.players[0]!.cityTileCount=count;
+  s.city.middle=[[{tileId:tile('market-first'),effectId:'gain'}],[{tileId:tile('market-second'),effectId:'reward'}],[]];
+  s.city.right=[{tileId:tile('right-visible'),effectId:'reward'},null,null];
+  s.city.supply=[[{tileId:tile('hidden-city'),effectId:'reward'}],[],[]];
+  return parseSpeakeasyGameFlow(s);
+}
+const cityReward:CityTileEffect={effectId:'reward',resolve:(s,actor)=>{
+  s.economy.players.find(p=>p.playerId===actor)!.cash+=2;return {ok:true,value:s};
+}};
+function playCity(s:SpeakeasyGameFlow,id:string,catalog:readonly CityTileEffect[]=[cityReward]) {
+  return value(playSpeakeasyCityTile(s,a,{...guard(s),tileId:tile(id)},catalog));
+}
+function readyAfterCities(s:SpeakeasyGameFlow) {
+  s=close(s);s=close(choose(s,'BOOKS'));return value(finishSpeakeasyLocation(s,guard(s)));
+}
+test('City tiles are individually owned, used once, and unavailable in the display until turn end',()=>{
+  let s=choose(place(cityGame(),true),'CITY_TILES');const before=structuredClone(s);
+  s=playCity(s,'city-0');assert.equal(s.round.economy.players[0]!.cash,17);
+  assert.equal(s.round.economy.players[0]!.cityTileCount,2);
+  assert.deepEqual(s.city.played,[tile('city-0')]);assert.ok(!s.city.middle.flat().some(t=>t.tileId===tile('city-0')));
+  assert.equal(playSpeakeasyCityTile(s,a,{...guard(s),tileId:tile('city-0')},[cityReward]).ok,false);
+  s=playCity(s,'city-1');assert.equal(s.round.economy.players[0]!.cash,19);
+  assert.equal(s.active!.restaurant!.current!.used,2);
+  assert.equal(before.round.economy.players[0]!.cash,15);assert.equal(before.city.played.length,0);
+});
+test('City action may use a newly gained tile, but cannot exceed two plays',()=>{
+  let s=cityGame();s.city.held[0]!.tiles[0]!.effectId='gain';
+  s=choose(place(s,true),'CITY_TILES');
+  const gain:CityTileEffect={effectId:'gain',resolve:(state,actor)=>{
+    const result=takeAvailableCityTile(state.city,actor,'MIDDLE',1);
+    return result.ok?{ok:true,value:{...state,city:result.value}}:result;
+  }};
+  s=playCity(s,'city-0',[gain]);s=playCity(s,'market-second');
+  assert.equal(s.round.economy.players[0]!.cityTileCount,3);
+  assert.equal(playSpeakeasyCityTile(s,a,{...guard(s),tileId:tile('city-1')},[cityReward]).ok,false);
+});
+test('City failures, unknown effects, foreign/hidden IDs and forged commands preserve the entire state',()=>{
+  const s=choose(place(cityGame(),true),'CITY_TILES'), before=structuredClone(s);
+  for(const id of ['hidden-city','right-visible','missing']) assert.equal(playSpeakeasyCityTile(s,a,{...guard(s),tileId:tile(id)},[cityReward]).ok,false);
+  assert.equal(playSpeakeasyCityTile(s,b,{...guard(s),tileId:tile('city-0')},[cityReward]).ok,false);
+  assert.equal(playSpeakeasyCityTile(s,a,{...guard(s),tileId:tile('city-0'),effectId:'reward'},[cityReward]).ok,false);
+  assert.equal(playSpeakeasyCityTile(s,a,{...guard(s),tileId:tile('city-0')},[]).ok,false);
+  const fail:CityTileEffect={effectId:'reward',resolve:state=>{state.economy.players[0]!.cash+=99;state.city.held[0]!.tiles.pop();return {ok:false,reason:'INVALID_ACTION'};}};
+  assert.equal(playSpeakeasyCityTile(s,a,{...guard(s),tileId:tile('city-0')},[fail]).ok,false);assert.deepEqual(s,before);
+  const corrupt:CityTileEffect={effectId:'reward',resolve:state=>{state.city.played=[];return {ok:true,value:state};}};
+  assert.throws(()=>playSpeakeasyCityTile(s,a,{...guard(s),tileId:tile('city-0')},[corrupt]));assert.deepEqual(s,before);
+});
+test('City returns follow the mandatory draw and delay the next player until empty/shortest piles are filled',()=>{
+  let s=choose(place(cityGame(),true),'CITY_TILES');s=playCity(s,'city-0');s=playCity(s,'city-1');s=readyAfterCities(s);
+  const beforeDraw=s;
+  assert.equal(returnSpeakeasyTurnCityTiles(s,a,{...guard(s),placements:[{tileId:tile('city-0'),row:2},{tileId:tile('city-1'),row:0}]}).ok,false);
+  s=value(drawSpeakeasyTurnCard(s,a,{...guard(s),deck:'VIP'}));
+  assert.equal(s.round.economy.players[0]!.hand.length,beforeDraw.round.economy.players[0]!.hand.length+1);
+  assert.equal(s.round.clock.seat,0);assert.equal(s.awaitingCityReturn,true);
+  assert.deepEqual(parseSpeakeasyGameFlow(JSON.parse(JSON.stringify(s))),s);
+  assert.equal(drawSpeakeasyTurnCard(s,a,{...guard(s),deck:'VIP'}).ok,false);
+  const wrong={...guard(s),placements:[{tileId:tile('city-0'),row:0},{tileId:tile('city-1'),row:1}]};
+  assert.equal(returnSpeakeasyTurnCityTiles(s,a,wrong).ok,false);
+  const before=structuredClone(s);
+  s=value(returnSpeakeasyTurnCityTiles(s,a,{...guard(s),placements:[{tileId:tile('city-0'),row:2},{tileId:tile('city-1'),row:0}]}));
+  assert.equal(s.city.middle[0]![0]!.tileId,tile('city-1'));
+  assert.equal(s.round.economy.players[0]!.cityTileCount,0);assert.equal(s.city.played.length,0);
+  assert.deepEqual(cityTileInventory(s.city),cityTileInventory(before.city));
+  assert.equal(returnSpeakeasyTurnCityTiles(s,a,wrong).ok,false);
+  assert.equal(s.round.clock.seat,1);assert.equal(s.active,null);assert.equal(s.awaitingCityReturn,false);
+});
+test('Overflow returns only the chosen excess plus played tiles, preserving four unused tiles',()=>{
+  // Gain during a turn: exceeding four is legal until end of turn, not during initial setup.
+  let s=place(cityGame(4),true);
+  s.city.held[0]!.tiles.push(s.city.middle[0]!.shift()!,s.city.middle[1]!.shift()!);
+  s.round.economy.players[0]!.cityTileCount=6;
+  s=choose(parseSpeakeasyGameFlow(s),'CITY_TILES');s=playCity(s,'city-0');s=readyAfterCities(s);s=value(drawSpeakeasyTurnCard(s,a,{...guard(s),deck:'VIP'}));
+  const placements=[{tileId:tile('city-0'),row:0},{tileId:tile('market-first'),row:1}];
+  assert.equal(returnSpeakeasyTurnCityTiles(s,a,{...guard(s),placements:placements.slice(0,1)}).ok,false);
+  assert.equal(returnSpeakeasyTurnCityTiles(s,a,{...guard(s),placements:[placements[0],placements[0]]}).ok,false);
+  s=value(returnSpeakeasyTurnCityTiles(s,a,{...guard(s),placements}));
+  assert.equal(s.city.held[0]!.tiles.length,4);assert.equal(s.round.economy.players[0]!.cityTileCount,4);
+});
+test('City display draws expose only top tiles, refill the right column and never refill middle piles',()=>{
+  const s=cityGame().city, original=structuredClone(s);
+  const middle=value(takeAvailableCityTile(s,a,'MIDDLE',0));assert.equal(middle.middle[0]!.length,0);assert.deepEqual(middle.supply,s.supply);
+  assert.equal(takeAvailableCityTile(s,a,'RIGHT',0).ok,false);
+  assert.equal(takeAvailableCityTile(s,a,'RIGHT',0,1).ok,false);
+  const right=value(takeAvailableCityTile(s,a,'RIGHT',0,0));assert.equal(right.right[0]!.tileId,tile('hidden-city'));
+  assert.equal(right.held[0]!.tiles.at(-1)!.tileId,tile('right-visible'));assert.deepEqual(s,original);
+});
+test('City restore preserves pending returns and rejects duplicated identities, counts and ownership',()=>{
+  let s=choose(place(cityGame(),true),'CITY_TILES');s=readyAfterCities(playCity(s,'city-0'));
+  assert.deepEqual(parseSpeakeasyGameFlow(JSON.parse(JSON.stringify(s))),s);
+  const count=structuredClone(s);count.round.economy.players[0]!.cityTileCount++;assert.throws(()=>parseSpeakeasyGameFlow(count));
+  const duplicate=structuredClone(s);duplicate.city.middle[0]!.push(duplicate.city.held[0]!.tiles[0]!);assert.throws(()=>parseSpeakeasyGameFlow(duplicate));
+  const foreign=structuredClone(s);foreign.city.played=[tile('right-visible')];assert.throws(()=>parseSpeakeasyGameFlow(foreign));
+});
+
+test('Last-player city cleanup delays round settlement until after the draw and tile return',()=>{
+  let s=end(place(cityGame()));
+  s.city.held[1]!.tiles.push(s.city.middle[1]!.shift()!);s.round.economy.players[1]!.cityTileCount=1;
+  s=place(parseSpeakeasyGameFlow(s),true);
+  s=value(chooseSpeakeasyRestaurantAction(s,b,{...guard(s),action:'CITY_TILES'}));
+  s=value(playSpeakeasyCityTile(s,b,{...guard(s),tileId:tile('market-second')},[cityReward]));
+  s=value(finishSpeakeasyRestaurantAction(s,b,guard(s)));
+  s=value(chooseSpeakeasyRestaurantAction(s,b,{...guard(s),action:'BOOKS'}));
+  s=value(finishSpeakeasyRestaurantAction(s,b,guard(s)));s=value(finishSpeakeasyLocation(s,guard(s)));
+  s=value(drawSpeakeasyTurnCard(s,b,{...guard(s),deck:'VIP'}));
+  assert.equal(s.round.clock.seat,1);assert.equal(s.awaitingCityReturn,true);
+  assert.equal(settleSpeakeasyGameRound(s,guard(s)).ok,false);
+  s=value(returnSpeakeasyTurnCityTiles(s,b,{...guard(s),placements:[{tileId:tile('market-second'),row:2}]}));
+  assert.equal(s.round.phase,'ROUND_END');assert.equal(s.awaitingCityReturn,false);
+  s=value(settleSpeakeasyGameRound(s,guard(s)));assert.equal(s.round.clock.round,2);
 });

@@ -36,3 +36,11 @@ export const SpeakeasyRestaurantBookCommandSchema = v.strictObject({
 export const SpeakeasyRestaurantCardCommandSchema = v.strictObject({
   ...SpeakeasyRestaurantFinishCommandSchema.entries, cardId: TileIdSchema,
 });
+
+export const SpeakeasyCityTileCommandSchema = v.strictObject({
+  ...SpeakeasyRestaurantFinishCommandSchema.entries, tileId: TileIdSchema,
+});
+export const SpeakeasyCityReturnCommandSchema = v.strictObject({
+  ...SpeakeasyRestaurantFinishCommandSchema.entries,
+  placements: v.pipe(v.array(v.strictObject({tileId: TileIdSchema, row: v.picklist([0, 1, 2])})),v.maxLength(54)),
+});

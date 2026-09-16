@@ -1,4 +1,7 @@
 import * as v from 'valibot';
+import {nextSpeakeasyTurn} from './rounds.js';
+import {CityTilesSchema, parseCityTiles, emptyCityTiles, cityTileInventory, cityTileDefinitions, cityReturnsNeeded, returnCityTiles, type CityTileEffect} from './city-tiles.js';
+import {SpeakeasyCityTileCommandSchema, SpeakeasyCityReturnCommandSchema} from '@hangul-rummikub/shared';
 import {PlayerIdSchema, TileIdSchema, SpeakeasyLocationSchema, SpeakeasyPlaceCapoCommandSchema,
   SPEAKEASY_ROUNDS, type PlayerId} from '@hangul-rummikub/shared';
 import {parseSpeakeasyRoundLifecycle, startSpeakeasyRoundLifecycle, chooseSpeakeasyRestaurantPosition,
@@ -13,7 +16,7 @@ import {ruleFailure, speakeasyInventory, type SpeakeasyEconomy, type SpeakeasyRu
 const Space = v.strictObject({id: v.pipe(v.string(), v.minLength(1), v.maxLength(100)), location: SpeakeasyLocationSchema});
 const Capos = v.strictObject({playerId: PlayerIdSchema, available: v.array(TileIdSchema), retired: v.array(TileIdSchema),
   placed: v.array(v.strictObject({tileId: TileIdSchema, spaceId: Space.entries.id}))});
-const State = v.strictObject({round: v.unknown(), spaces: v.array(Space), capos: v.array(Capos),
+const State = v.strictObject({awaitingCityReturn: v.boolean(), city: CityTilesSchema, round: v.unknown(), spaces: v.array(Space), capos: v.array(Capos),
   active: v.nullable(v.strictObject({playerId: PlayerIdSchema, capoId: TileIdSchema, spaceId: Space.entries.id, restaurant: v.nullable(RestaurantChoicesSchema)})),
   luciano: v.nullable(v.unknown()), history: v.array(v.unknown())});
 export type SpeakeasyGameFlow = Omit<v.InferOutput<typeof State>, 'round' | 'luciano' | 'history'> & {
@@ -29,6 +32,17 @@ export function parseSpeakeasyGameFlow(input: unknown): SpeakeasyGameFlow {
   if (s.capos.length !== order.length || new Set(s.capos.map(p => p.playerId)).size !== order.length ||
     s.capos.some(p => !order.includes(p.playerId)) || new Set(s.spaces.map(p => p.id)).size !== s.spaces.length) throw new Error('Invalid Capo setup.');
   const ids = [...speakeasyInventory(r.economy), ...Object.values(r.decks).flatMap(cards => cards.map(c => c.tileId))];
+  s.city = parseCityTiles(s.city);
+  ids.push(...cityTileInventory(s.city));
+  if(s.city.held.length!==order.length || s.city.held.some(p=>!order.includes(p.playerId) ||
+    r.economy.players.find(owner=>owner.playerId===p.playerId)!.cityTileCount!==p.tiles.length)) throw new Error('City ownership mismatch.');
+  if(s.city.played.length && (!s.active || s.city.played.some(id=>!s.city.held.find(p=>p.playerId===s.active!.playerId)!.tiles.some(t=>t.tileId===id)))) throw new Error('Invalid played city tiles.');
+  if(s.city.played.length>2 || (s.city.played.length && !s.active?.restaurant)) throw new Error('Invalid city action.');
+  const cityChoice=s.active?.restaurant;
+  if(cityChoice?.current?.action==='CITY_TILES' && cityChoice.current.used!==s.city.played.length) throw new Error('City action count mismatch.');
+  if(s.city.played.length && cityChoice?.current?.action!=='CITY_TILES' && !cityChoice?.completed.includes('CITY_TILES')) throw new Error('Unrecorded city action.');
+  if(s.awaitingCityReturn && (r.phase!=='DRAW_OPERATION' || !s.active || cityReturnsNeeded(s.city,s.active.playerId)===0)) throw new Error('Invalid city return phase.');
+  if(!s.active && s.city.held.some(p=>p.tiles.length>4)) throw new Error('Unresolved city limit.');
   const occupied: string[] = [];
   for (const p of s.capos) {
     const expected = terminal ? r.clock.round : r.clock.round - 1 +
@@ -73,9 +87,9 @@ export function parseSpeakeasyGameFlow(input: unknown): SpeakeasyGameFlow {
 }
 
 /** Verified initial economy/decks, player Capo identities, and per-player-count action spaces. */
-export function startSpeakeasyGameFlow(round: SpeakeasyRoundLifecycle, spaces: unknown, capos: unknown): SpeakeasyGameFlow {
+export function startSpeakeasyGameFlow(round: SpeakeasyRoundLifecycle, spaces: unknown, capos: unknown, city: unknown = emptyCityTiles(round.clock.order)): SpeakeasyGameFlow {
   if (round.clock.act !== 1 || round.clock.round !== 1 || round.clock.seat !== 0 || round.phase !== 'PLAYING' || round.lowerRow.some(Boolean)) throw new Error('Invalid initial game flow.');
-  return parseSpeakeasyGameFlow({round, spaces, capos, active: null, luciano: null, history: []});
+  return parseSpeakeasyGameFlow({awaitingCityReturn: false, city, round, spaces, capos, active: null, luciano: null, history: []});
 }
 function matches(s: SpeakeasyGameFlow, g: SpeakeasyPhaseGuard): boolean {
   return s.round.gameId === g.gameId && s.round.revision === g.revision;
@@ -123,9 +137,13 @@ export function finishSpeakeasyLocation(original: SpeakeasyGameFlow, guard: Spea
   return success({...original, round: result.value});
 }
 export function drawSpeakeasyTurnCard(original: SpeakeasyGameFlow, actor: PlayerId, input: unknown): SpeakeasyRuleResult<SpeakeasyGameFlow> {
-  if (!original.active) return ruleFailure('INVALID_ACTION');
+  if (!original.active || original.awaitingCityReturn) return ruleFailure('INVALID_ACTION');
   const result = drawSpeakeasyOperation(original.round, actor, input);
   if (!result.ok) return result;
+  if(cityReturnsNeeded(original.city,actor)>0) {
+    // Draw is visible before the player chooses discards; retain the acting seat until cleanup.
+    return success({...original, awaitingCityReturn:true, round:{...result.value,clock:original.round.clock,phase:'DRAW_OPERATION'}});
+  }
   return success({...original, round: result.value, active: null});
 }
 export function settleSpeakeasyGameRound(original: SpeakeasyGameFlow, guard: SpeakeasyPhaseGuard): SpeakeasyRuleResult<SpeakeasyGameFlow> {
@@ -213,4 +231,43 @@ export function cookSpeakeasyRestaurantBook(original: SpeakeasyGameFlow, actor: 
   const parsed = v.safeParse(SpeakeasyRestaurantBookCommandSchema, input), current = original.active?.restaurant?.current;
   if (!parsed.success || !restaurantActor(original, actor, parsed.output) || current?.action !== 'BOOKS' || current.used >= 3) return ruleFailure('INVALID_ACTION');
   return restaurantEffect(original, cookRestaurantBook(original.round.economy, actor, parsed.output.goalId, parsed.output.space, goals));
+}
+
+/** Resolved city effects are catalog-selected server code. Unknown effects cannot consume a tile. */
+export function playSpeakeasyCityTile(original: SpeakeasyGameFlow, actor: PlayerId, input: unknown,
+  catalog: readonly CityTileEffect[]): SpeakeasyRuleResult<SpeakeasyGameFlow> {
+  const parsed=v.safeParse(SpeakeasyCityTileCommandSchema,input), current=original.active?.restaurant?.current;
+  if(!parsed.success || !restaurantActor(original,actor,parsed.output) || current?.action!=='CITY_TILES' || current.used>=2) return ruleFailure('INVALID_ACTION');
+  if(new Set(catalog.map(e=>e.effectId)).size!==catalog.length) throw new Error('Duplicate city effects.');
+  const s=parseSpeakeasyGameFlow(original), tile=s.city.held.find(p=>p.playerId===actor)!.tiles.find(t=>t.tileId===parsed.output.tileId);
+  if(!tile || s.city.played.includes(tile.tileId)) return ruleFailure('INVALID_ACTION');
+  const effect=catalog.find(e=>e.effectId===tile.effectId);
+  if(!effect) return ruleFailure('INVALID_ACTION');
+  s.city.played.push(tile.tileId);
+  const expectedPlayed=[...s.city.played];
+  const result=effect.resolve({economy:s.round.economy,city:s.city},actor);
+  if(!result.ok) return result;
+  if(cityTileDefinitions(original.city)!==cityTileDefinitions(result.value.city) ||
+    JSON.stringify(result.value.city.played)!==JSON.stringify(expectedPlayed)) throw new Error('City effect conservation.');
+  s.city=parseCityTiles(result.value.city);
+  for(const p of result.value.economy.players) p.cityTileCount=s.city.held.find(owner=>owner.playerId===p.playerId)!.tiles.length;
+  const round=commitSpeakeasyRoundEconomy(original.round,original.round,{ok:true,value:result.value.economy});
+  if(!round.ok) return round;
+  s.round=round.value;s.active!.restaurant!.current!.used++;
+  return success(s);
+}
+/** Return played tiles and chosen excess AFTER the mandatory draw, before the next player. */
+export function returnSpeakeasyTurnCityTiles(original: SpeakeasyGameFlow, actor: PlayerId, input: unknown): SpeakeasyRuleResult<SpeakeasyGameFlow> {
+  const parsed=v.safeParse(SpeakeasyCityReturnCommandSchema,input);
+  if(!parsed.success || !matches(original,parsed.output) || original.round.phase!=='DRAW_OPERATION' || !original.awaitingCityReturn || original.active?.playerId!==actor ||
+    cityReturnsNeeded(original.city,actor)===0) return ruleFailure('INVALID_ACTION');
+  const returned=returnCityTiles(original.city,actor,parsed.output.placements);
+  if(!returned.ok) return returned;
+  const s=parseSpeakeasyGameFlow(original);s.city=returned.value;
+  for(const p of s.round.economy.players) p.cityTileCount=s.city.held.find(owner=>owner.playerId===p.playerId)!.tiles.length;
+  s.round.revision++;s.awaitingCityReturn=false;s.active=null;
+  const next=nextSpeakeasyTurn(s.round.clock);
+  if(next.kind==='NEXT_PLAYER') {s.round.clock.seat=next.clock.seat;s.round.phase='PLAYING';}
+  else s.round.phase='ROUND_END';
+  return success(s);
 }
