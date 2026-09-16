@@ -30,7 +30,7 @@
 
 ## 다음 개발 단계
 
-1. **카드 정의 통합:** 준비된 효과를 인쇄 정보와 묶은 58장 정의를 기반으로 미조립 13장과 실행 카탈로그 어댑터를 완성한다. 미조립 목록에는 일부 계산만 구현된 카드도 포함된다.
+1. **카드 정의 통합:** 준비된 효과를 인쇄 정보와 묶은 60장 정의를 기반으로 미조립 11장과 실행 카탈로그 어댑터를 완성한다. 미조립 목록에는 일부 계산만 구현된 카드도 포함된다.
 2. **선택 효과 통합:** 구현한 비공개 열람·선택·구매를 실제 기업시대 카드의 조건·행동·사용 횟수와 연결한다. Mars University의 과학 태그별 손패 교환 엔진·트리거 계산을 추가했으며 실제 확장 카드 통합은 남아 있다.
 3. **특수 규칙:** 구현한 생산량 복제·서식지 보호·토지 예약을 실제 확장 카드와 통합한다. 자원 공격 효과를 실제 카드와 연결하고 과학 태그 중복 반응과 남은 점수 규칙을 구현한다. 전투기·자원별 점수 배율은 아래 단계에서 기반을 추가했으며 실제 카드 통합이 남아 있다.
 4. **시작 전 설정:** 방장 권한·room revision·중복 요청·동시 시작 검증, 참가자 표시, 208장 재고 검증과 시작 생산량 0 적용. 기업시대 기업 선택과 초기 효과 적용.
@@ -211,3 +211,17 @@
 - 서버 실패로 루트 실행에서 미실행된 공통 E2E를 별도 실행해 155개 모두 통과했다. 이번 변경에서 Chrome UI 테스트는 재실행하지 않았다. `git diff --check` 통과.
 
 근거: [AICentral](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/AICentral.ts), [DevelopmentCenter](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/DevelopmentCenter.ts), [CaretakerContract](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/CaretakerContract.ts), [SpaceElevator](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/SpaceElevator.ts), [BribedCommittee](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/BribedCommittee.ts), [RadSuits](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/RadSuits.ts), [CorporateStronghold](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/CorporateStronghold.ts), [GreatEscarpmentConsortium](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/GreatEscarpmentConsortium.ts), [InterstellarColonyShip](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/InterstellarColonyShip.ts), [TransNeptuneProbe](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/TransNeptuneProbe.ts).
+
+## 에너지 생산 이전 카드 2장
+
+- Energy Tapping과 Power Supply Consortium을 준비 목록에 추가했다. 준비 60장·미조립 11장이다. 실제 확장 덱과 로비 옵션은 아직 활성화하지 않았다.
+- `transferEnergyProduction` 효과는 서버에서 합법적인 생산자를 계산하고 대상 감소·자기 증가를 원자적으로 확정한다. 모두의 생산량이 0이면 자기 대상만 허용해 순변화 0으로 완료한다. 자기 생산이 0이고 상대 생산이 있다면 그 상대만 선택할 수 있다.
+- 대상 선택에 생산 변화·자기 대상 상쇄·전체 0 예외를 표시하고 별도 확인과 기존 ATTACK 효과음을 사용한다. 재접속과 320px 화면을 기존 브라우저 회귀에 추가했다.
+- Power Supply Consortium의 기존 에너지 태그 2개 조건은 전역 조건 완화의 영향을 받지 않는다. 실제 카드의 플레이·점수·전체 덱 연결은 후속 통합 범위다.
+
+### 에너지 생산 이전 단계 검증 (2026-09-16)
+
+- 마스 도메인·경제 83개 테스트 통과. 전체 0에서 자기 대상만 허용, 양의 생산자가 있으면 0 생산자 제외, 보호된 상대 허용, 자기 대상 상쇄, 자원 보존, 위조 대상·중복 명령의 원자적 거절을 확인했다.
+- Chrome 두 세션 회귀 통과. 새로고침 후 선택 복원과 320px의 전체 0·상대 2→1/자기 0→1 확인창을 검증하고 스크린샷을 확인했다. 기존 카드 열람·지불·교환·보호·복제·예약·공격 흐름도 통과했다.
+- 최초 루트 타입 검사·테스트는 병행 작업 중인 `arnak.research.test.ts`의 미사용 `ArnakState` 오류로 서버 컴파일이 중단됐다. 해당 작업에서 오류가 수정된 것을 확인한 뒤 재실행한 타입 검사는 통과했다. 빌드도 통과했으며 기존 공통 번들 500 kB 경고는 유지된다.
+- 루트 `test` 재실행 전체 통과: 공유 144개·웹 981개·서버 4,085개·공통 E2E 155개. 재실행에서는 실패가 없었다. `git diff --check` 통과. 실제 확장 덱 대국 검증은 아직 남아 있다.

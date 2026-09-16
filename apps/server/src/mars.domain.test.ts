@@ -489,6 +489,28 @@ test('Mars mining consortium can reduce its own titanium production and restore 
 
 import {MARS_PREPARED_CORPORATE_CARDS} from '@hangul-rummikub/shared';
 function preparedCorporate(id:string){const c=MARS_PREPARED_CORPORATE_CARDS.find(c=>c.id===id);assert.ok(c,id);return c;}
+test('Mars energy transfer handles all-zero production without granting a free production step or accepting an empty opponent',()=>{
+ for(const id of ['EnergyTapping','PowerSupplyConsortium']){
+  let s=ready(3);s.players.forEach(p=>p.production.energy=0);const owner=s.activePlayerId,stocks=s.players.map(p=>({...p.resources}));
+  s=peek(s,preparedCorporate(id).effects[0]!);assert.deepEqual(marsOffers(s,owner).map(o=>o.targetId),[owner]);assert.match(marsOffers(s,owner)[0]!.detail,/모두의 생산이 0/);
+  const before=structuredClone(s);assert.equal(applyMarsAction(s,owner,{type:'TAKE',actionId:'transfer-energy:'+s.players[1]!.playerId},now,s.transitionId,random).ok,false);assert.deepEqual(s,before);
+  s=parseMarsState(JSON.parse(JSON.stringify(s)));s=act(s,o=>o.targetId===owner);
+  assert.deepEqual(s.players.map(p=>p.production.energy),[0,0,0]);assert.deepEqual(s.players.map(p=>p.resources),stocks);assert.equal(s.actionsTaken,1);assert.equal(s.current,null);
+ }
+});
+test('Mars energy transfer atomically moves production from protected producers and rejects duplicate commands',()=>{
+ for(const self of [false,true]){
+  let s=ready(3);const owner=s.activePlayerId;s.players[0]!.production.energy=1;s.players[1]!.production.energy=2;s.players[1]!.protectedHabitats=true;s.players[2]!.production.energy=0;
+  const stocks=s.players.map(p=>({...p.resources}));s=peek(s,{kind:'transferEnergyProduction'});assert.deepEqual(marsOffers(s,owner).map(o=>o.targetId).sort(),[owner,s.players[1]!.playerId].sort());
+  const target=self?owner:s.players[1]!.playerId,payload={type:'TAKE' as const,actionId:'transfer-energy:'+target};s=command(s,payload);
+  assert.deepEqual(s.players.map(p=>p.production.energy),self?[1,2,0]:[2,1,0]);assert.deepEqual(s.players.map(p=>p.resources),stocks);assert.equal(s.history.at(-1)!.kind,'ATTACK');
+  const after=structuredClone(s);assert.equal(applyMarsAction(s,owner,payload,now,s.transitionId,random).ok,false);assert.deepEqual(s,after);
+ }
+});
+test('Mars energy transfer cannot select a zero-producing actor while an opponent produces energy',()=>{
+ let s=ready();s.players[0]!.production.energy=0;s.players[1]!.production.energy=1;s=peek(s,{kind:'transferEnergyProduction'});
+ assert.deepEqual(marsOffers(s,s.activePlayerId).map(o=>o.targetId),[s.players[1]!.playerId]);
+});
 function corporateSequence(s:MarsState,effects:readonly MarsEffect[]){return peek(s,{kind:'choice',options:[{label:'기업시대 효과 검증',effects}]});}
 test('Mars prepared draw and conversion actions reserve costs, reject underfunded choices atomically, and pay rewards once',()=>{
  for(const [id,resource,cost] of [['DevelopmentCenter','energy',1],['CaretakerContract','heat',8],['SpaceElevator','steel',1]] as const){

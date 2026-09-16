@@ -120,7 +120,7 @@ test('Mars prepared corporate definitions preserve all printed metadata and expl
  assert.equal(new Set(all).size,71);assert.deepEqual([...all].sort(),MARS_CORPORATE_ERA_CARD_FACTS.map(c=>c.id).sort());
  for(const card of MARS_PREPARED_CORPORATE_CARDS){const {effects,actions,passive,...printed}=card;assert.deepEqual(printed,fact(card.id));if(!['InterstellarColonyShip','TransNeptuneProbe'].includes(card.id))assert.ok(effects.length||actions?.length||passive,card.id);assert.throws(()=>marsCard(card.id));}
  assert.equal(MARS_CARDS.length,137);assert.ok(MARS_PENDING_CORPORATE_CARD_IDS.includes('OlympusConference'));assert.ok(MARS_PENDING_CORPORATE_CARD_IDS.includes('ViralEnhancers'));
- assert.equal(ids.length,58);assert.equal(MARS_PENDING_CORPORATE_CARD_IDS.length,13);
+ assert.equal(ids.length,60);assert.equal(MARS_PENDING_CORPORATE_CARD_IDS.length,11);
 });
 test('Mars assembled cards retain mandatory costs, active actions, passive discounts and printed resource scoring',()=>{
  const prepared=(id:string)=>{const card=MARS_PREPARED_CORPORATE_CARDS.find(c=>c.id===id);assert.ok(card,id);return card;};

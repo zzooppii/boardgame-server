@@ -5,7 +5,7 @@ export type MarsCardId = typeof MARS_CARD_FACTS[number]['id'];
 export type MarsCardResource = 'animal' | 'microbe' | 'science' | 'fighter';
 export const MARS_CARD_RESOURCE_NAMES: Readonly<Record<string, string>> = { animal: '동물', microbe: '미생물', science: '과학', fighter: '전투기' };
 export type MarsResourceScore = Readonly<{ per: number; points: number }>;
-export type MarsEffect = {kind:'attackStock';resource:MarsResource;amount:number;steal:boolean} | {kind:'removeCardResource';resource:MarsCardResource;amount:number} | {kind:'claimLand'} | {kind:'copyProduction'} | {kind:'protectHabitats'} | {kind:'exchangeCard'} | {kind:'nextCardDiscount';amount:8} | { kind: 'keepCards'; count: number; keep: number } | { kind: 'buyCard' } | {
+export type MarsEffect = {kind:'transferEnergyProduction'} | {kind:'attackStock';resource:MarsResource;amount:number;steal:boolean} | {kind:'removeCardResource';resource:MarsCardResource;amount:number} | {kind:'claimLand'} | {kind:'copyProduction'} | {kind:'protectHabitats'} | {kind:'exchangeCard'} | {kind:'nextCardDiscount';amount:8} | { kind: 'keepCards'; count: number; keep: number } | { kind: 'buyCard' } | {
     kind: 'stock' | 'production';
     resource: MarsResource;
     amount: number;
@@ -253,6 +253,7 @@ export function marsEffectText(e: MarsEffect): string {
         case 'draw': return `카드 ${e.amount}장 획득`;
         case 'removePlants': return `한 플레이어 식물 최대 ${e.amount} 제거(선택)`;
         case 'attackProduction': return `플레이어 1명의 ${MARS_RESOURCE_NAMES[e.resource]} 생산 −${e.amount}`;
+        case 'transferEnergyProduction': return '에너지 생산 1 이전 · 모두 0이면 내 생산 0 유지';
         case 'add': return `${e.self ? '이 카드' : '다른 내 카드'}에 ${MARS_CARD_RESOURCE_NAMES[e.resource]} +${e.amount}`;
         case 'steal': return `카드에서 ${MARS_CARD_RESOURCE_NAMES[e.resource]} 1 제거 → 이 카드에 1 추가`;
         case 'consumeSelf': return `이 카드 자원 ${e.amount} 사용`;

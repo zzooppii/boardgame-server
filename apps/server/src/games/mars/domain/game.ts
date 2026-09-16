@@ -1,5 +1,5 @@
 import { marsBaseRequirements, marsRequirementReason } from './requirements.js';
-import { marsCanReduceProduction } from './production-attacks.js';
+import { marsCanReduceProduction, marsEnergyProductionTargets } from './production-attacks.js';
 import { marsCardResourcePoints, marsAddedCardResources } from './card-resources.js';
 import { marsLandClaimsAreConsistent } from '@hangul-rummikub/shared';
 import { marsProductionBox } from './production-copy.js';
@@ -22,6 +22,7 @@ const Effect: v.GenericSchema<MarsEffect> = v.lazy(() => v.variant('kind', [
     v.strictObject({ kind: v.literal('protectHabitats') }),
     v.strictObject({ kind: v.literal('copyProduction') }),
     v.strictObject({ kind: v.literal('claimLand') }),
+    v.strictObject({ kind: v.literal('transferEnergyProduction') }),
     v.strictObject({ kind: v.literal('attackStock'), resource: Resource, amount: MarsCountSchema, steal: v.boolean() }),
     v.strictObject({ kind: v.literal('removeCardResource'), resource: CardResource, amount: MarsCountSchema }),
     v.strictObject({ kind: v.literal('nextCardDiscount'), amount: v.literal(8) }),
@@ -584,6 +585,19 @@ function choices(s: MarsState, viewer: PlayerId, now: ServerTime, r: RandomSourc
                     const n = amount;
                     offer(`attack-card:${card.tileId}:${n}`, 'EFFECT', target.playerId, `${marsCard(card.definitionId).name} 자원 ${n} 제거`, `카드 자원 ${card.resources} → ${card.resources - n} · 내 자원 획득 없음`, 0, resolve(() => { card.resources -= n; log(s, 'ATTACK', `${s.players.indexOf(target) + 1}번 기업 · ${marsCard(card.definitionId).name} 자원 ${n} 제거`); }));
                 }
+            }
+        }
+        if (e.kind === 'transferEnergyProduction') {
+            for (const targetId of marsEnergyProductionTargets(s.players, p.playerId)) {
+                const target = s.players.find(t => t.playerId === targetId)!;
+                const self = targetId === p.playerId;
+                const detail = self
+                    ? `${p.production.energy === 0 ? '모두의 생산이 0 · ' : ''}내 생산 증가·감소 상쇄 · ${p.production.energy} → ${p.production.energy} · 보유 에너지 변화 없음`
+                    : `대상 생산 ${target.production.energy} → ${target.production.energy - 1} · 내 생산 ${p.production.energy} → ${p.production.energy + 1} · 보유 에너지 변화 없음`;
+                offer(`transfer-energy:${targetId}`, 'EFFECT', targetId, self ? '내 에너지 생산 유지' : '에너지 생산 1 이전', detail, 0, resolve(() => {
+                    if (!self) { target.production.energy--; p.production.energy++; }
+                    log(s, 'ATTACK', self ? '내 에너지 생산 증가·감소 상쇄' : `${s.players.indexOf(target) + 1}번 기업 에너지 생산 −1 · 내 생산 +1`);
+                }));
             }
         }
         if (e.kind === 'attackProduction') {

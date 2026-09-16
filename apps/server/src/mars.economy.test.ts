@@ -159,6 +159,8 @@ test('Mars base requirement adaptation preserves own greenery and exact tag mini
 import {MARS_PREPARED_CORPORATE_CARDS} from '@hangul-rummikub/shared';
 test('Mars prepared standard cards preserve science, steel production and temperature requirement boundaries',()=>{
  const requirements=(id:string)=>{const c=MARS_PREPARED_CORPORATE_CARDS.find(c=>c.id===id);assert.ok(c);return c.requirements;};
+ assert.notEqual(marsRequirementReason(requirements('PowerSupplyConsortium'),requirementContext({globalAllowance:6,tagCount:()=>1})),null);
+ assert.equal(marsRequirementReason(requirements('PowerSupplyConsortium'),requirementContext({tagCount:tag=>tag==='power'?2:0})),null);
  for(const [id,count] of [['AICentral',3],['InterstellarColonyShip',5]] as const){
   assert.notEqual(marsRequirementReason(requirements(id),requirementContext({tagCount:()=>count-1,globalAllowance:6})),null);
   assert.equal(marsRequirementReason(requirements(id),requirementContext({tagCount:tag=>tag==='science'?count:0})),null);

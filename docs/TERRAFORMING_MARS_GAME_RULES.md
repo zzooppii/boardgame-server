@@ -84,3 +84,9 @@ Business Network의 카드 실행 시 자신의 M€ 생산을 1 줄인다. 이�
 - Interstellar Colony Ship: 과학 태그 5개 필요, 최종 점수 +4. Trans-Neptune Probe: 최종 점수 +1. 두 카드는 별도 즉시 효과·행동이 없다.
 
 근거는 각 카드의 인쇄 설명이며 링크는 `TERRAFORMING_MARS_CORPORATE_ERA.md`의 기본 효과·행동 조립 절에 기록했다. 실제 카드 등록과 세대당 행동 횟수 연결은 전체 확장 통합 단계다.
+
+## CONFIRMED — 에너지 생산 이전
+
+Energy Tapping과 Power Supply Consortium은 에너지 생산이 있는 한 플레이어의 생산을 1 줄이고 자기 생산을 1 올린다. 자신도 대상으로 선택할 수 있으며 이때 최종 생산량은 변하지 않는다. 모두의 에너지 생산이 0이면 자기 생산을 올렸다가 줄이는 결과로 자기 생산 0을 유지한다. 이 예외는 빈 생산량의 상대방을 대상으로 선택하는 권한을 주지 않는다. 서식지 보호와 보유 에너지 자원은 영향을 받지 않는다. Power Supply Consortium의 기존 에너지 태그 2개 조건은 이 예외와 별도로 적용한다.
+
+근거: [Energy Tapping](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/EnergyTapping.ts), [Power Supply Consortium](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/PowerSupplyConsortium.ts). 서버는 두 생산량 변화를 한 번에 확정한다.

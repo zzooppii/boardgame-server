@@ -2,6 +2,8 @@ import type { MarsEffect } from './catalog.js';
 
 // Effect data only; full card registration remains part of expansion integration.
 export const MARS_CORPORATE_ERA_ATTACK_EFFECTS = {
+    EnergyTapping: [{ kind: 'transferEnergyProduction' }],
+    PowerSupplyConsortium: [{ kind: 'transferEnergyProduction' }],
     Hackers: [{ kind: 'production', resource: 'energy', amount: -1 }, { kind: 'attackProduction', resource: 'money', amount: 2 }, { kind: 'production', resource: 'money', amount: 2 }],
     AsteroidMiningConsortium: [{ kind: 'attackProduction', resource: 'titanium', amount: 1 }, { kind: 'production', resource: 'titanium', amount: 1 }],
     HiredRaiders: [{ kind: 'choice', options: [
