@@ -92,3 +92,39 @@ test('city selection cancel and rejected repeated clicks never use or return a t
   s=cityPreviewStep(s,{type:'SELECT',id:'produce'});s=cityPreviewStep(s,{type:'USE'});
   assert.equal(cityPreviewStep(s,{type:'USE'}),s);assert.equal(cityPreviewStep(s,{type:'SELECT',id:'produce'}),s);
 });
+
+import {createElement} from 'react';
+import {renderToStaticMarkup} from 'react-dom/server';
+import {createSpeakeasyBoardPreview} from '../features/speakeasy/board-preview.js';
+import {readSpeakeasyBoardView,speakeasyBoardFocus} from '../features/speakeasy/board-view.js';
+import {SpeakeasyBoardPanel} from '../features/speakeasy/SpeakeasyBoardPanel.js';
+test('Board reader refuses malformed snapshots and another game or private recipient',()=>{
+  const sample=createSpeakeasyBoardPreview(),{gameId,viewerId}=sample.turn;
+  assert.deepEqual(readSpeakeasyBoardView(sample,gameId,viewerId),sample);
+  assert.equal(readSpeakeasyBoardView(sample,'other-game',viewerId),null);
+  assert.equal(readSpeakeasyBoardView(sample,gameId,'other-viewer'),null);
+  assert.equal(readSpeakeasyBoardView({...sample,secret:'unexpected'},gameId,viewerId),null);
+  const corrupt=structuredClone(sample);corrupt.districts[0]!.id=2;
+  assert.equal(readSpeakeasyBoardView(corrupt,gameId,viewerId),null);
+  const premature=structuredClone(sample);premature.result={winners:[viewerId],scores:[]};
+  assert.equal(readSpeakeasyBoardView(premature,gameId,viewerId),null);
+});
+test('Board render preserves police, closed building and private vault masking without acting controls',()=>{
+  const sample=createSpeakeasyBoardPreview(),before=structuredClone(sample);
+  const html=renderToStaticMarkup(createElement(SpeakeasyBoardPanel,{view:sample,onCue:()=>{}}));
+  assert.match(html,/지도와 개인 경영판/);assert.match(html,/12구역 · 경찰/);assert.match(html,/영업 중단/);
+  assert.match(html,/금고 보기/);assert.match(html,/•••/);assert.ok(!html.includes(`$${sample.turn.self.safe}`));
+  assert.match(html,/내 손패 · 4장/);assert.match(html,/주류 2\/2/);
+  assert.ok(!html.includes('카드 사용하기'));assert.ok(!html.includes('최종 결과'));
+  assert.deepEqual(sample,before);
+});
+test('Board keyboard focus follows four-column and mobile two-column geometry without wrapping',()=>{
+  assert.equal(speakeasyBoardFocus(4,'ArrowRight',4),null);
+  assert.equal(speakeasyBoardFocus(5,'ArrowLeft',4),null);
+  assert.equal(speakeasyBoardFocus(3,'ArrowDown',4),7);
+  assert.equal(speakeasyBoardFocus(3,'ArrowDown',2),5);
+  assert.equal(speakeasyBoardFocus(2,'ArrowRight',2),null);
+  assert.equal(speakeasyBoardFocus(15,'ArrowDown',2),null);
+  assert.equal(speakeasyBoardFocus(1,'ArrowUp',4),null);
+  assert.equal(speakeasyBoardFocus(0,'ArrowRight',4),null);
+});
