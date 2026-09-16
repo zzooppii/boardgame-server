@@ -11,20 +11,27 @@ import {
   carcassonneFrontier,
   carcassonneRegionKey,
   legalCarcassonnePlacements,
+  rotateCarcassonnePoint,
   type CarcassonneBoardTile,
+  type CarcassonnePiece,
   type CarcassonneProjection,
   type CarcassonneRotation,
 } from "@hangul-rummikub/shared";
-import { CarcassonneTileArt } from "./art.js";
+import type { CarcassonneCelebration } from "./scoring.js";
+import { CarcassonneMeepleArt, CarcassonneTileArt } from "./art.js";
 import { CARCASSONNE_PLAYER_COLORS } from "./ui.js";
 type Props = {
   game: CarcassonneProjection;
   rotation: CarcassonneRotation;
   draft: CarcassonneBoardTile | null;
   meepleRegionId: string | null;
+  piece?: CarcassonnePiece;
   selfId: string;
   enabled: boolean;
   highlight: readonly string[];
+  secondaryHighlight?: readonly string[];
+  focusRegion?: { tileIds: readonly string[]; request: number } | null;
+  celebration?: CarcassonneCelebration | null;
   onPlace(x: number, y: number): void;
   onInspect(tile: CarcassonneBoardTile): void;
 };
@@ -34,9 +41,13 @@ export function CarcassonneBoard({
   rotation,
   draft,
   meepleRegionId,
+  piece = "NORMAL",
   selfId,
   enabled,
   highlight,
+  secondaryHighlight = [],
+  focusRegion,
+  celebration,
   onPlace,
   onInspect,
 }: Props) {
@@ -76,11 +87,10 @@ export function CarcassonneBoard({
       zoom,
     });
   }
-  function fit() {
+  function fit(tiles = boardRef.current) {
     const box = viewport.current?.getBoundingClientRect();
     if (!box) return;
-    const tiles = boardRef.current,
-      minX = Math.min(...tiles.map((t) => t.x)) - 1,
+    const minX = Math.min(...tiles.map((t) => t.x)) - 1,
       maxX = Math.max(...tiles.map((t) => t.x)) + 1,
       minY = Math.min(...tiles.map((t) => t.y)) - 1,
       maxY = Math.max(...tiles.map((t) => t.y)) + 1;
@@ -103,6 +113,14 @@ export function CarcassonneBoard({
   useEffect(() => {
     fit();
   }, []);
+  const focusRequest = focusRegion?.request;
+  useEffect(() => {
+    if (!focusRegion) return;
+    const tiles = boardRef.current.filter((t) =>
+      focusRegion.tileIds.includes(t.tileId),
+    );
+    if (tiles.length) fit(tiles);
+  }, [focusRequest]);
   function zoomBy(factor: number) {
     const current = cameraRef.current,
       zoom = Math.max(0.22, Math.min(2.4, current.zoom * factor)),
@@ -232,7 +250,7 @@ export function CarcassonneBoard({
           >
             +
           </button>
-          <button type="button" onClick={fit}>
+          <button type="button" onClick={() => fit()}>
             전체 보기
           </button>
           <button
@@ -282,6 +300,7 @@ export function CarcassonneBoard({
               .filter((m) => m.tileId === t.tileId)
               .map((m) => ({
                 regionId: m.regionId,
+                piece: m.piece ?? "NORMAL",
                 color: CARCASSONNE_PLAYER_COLORS[playerIndex(m.playerId)]!,
                 number: playerIndex(m.playerId) + 1,
               }));
@@ -291,7 +310,16 @@ export function CarcassonneBoard({
                 key={t.tileId}
                 className={
                   "cc-map-tile" +
-                  (g.feedback?.tile.tileId === t.tileId ? " cc-last-tile" : "")
+                  (g.feedback?.tile.tileId === t.tileId
+                    ? " cc-last-tile"
+                    : "") +
+                  (celebration?.nodes.some((n) =>
+                    CARCASSONNE_CATALOG[t.kind].regions.some(
+                      (r) => carcassonneRegionKey(t.tileId, r.id) === n,
+                    ),
+                  )
+                    ? " cc-completed-tile"
+                    : "")
                 }
                 style={position(t)}
                 aria-label={
@@ -309,12 +337,56 @@ export function CarcassonneBoard({
                   kind={t.kind}
                   rotation={t.rotation}
                   tokens={tokens}
-                  highlight={CARCASSONNE_CATALOG[t.kind].regions
+                  secondaryHighlight={CARCASSONNE_CATALOG[t.kind].regions
                     .filter((r) =>
-                      highlight.includes(carcassonneRegionKey(t.tileId, r.id)),
+                      secondaryHighlight.includes(
+                        carcassonneRegionKey(t.tileId, r.id),
+                      ),
+                    )
+                    .map((r) => r.id)}
+                  highlight={CARCASSONNE_CATALOG[t.kind].regions
+                    .filter(
+                      (r) =>
+                        highlight.includes(
+                          carcassonneRegionKey(t.tileId, r.id),
+                        ) ||
+                        !!celebration?.nodes.includes(
+                          carcassonneRegionKey(t.tileId, r.id),
+                        ),
                     )
                     .map((r) => r.id)}
                 />
+                {celebration?.returned
+                  .filter((m) => m.tileId === t.tileId)
+                  .map((m) => {
+                    const region = CARCASSONNE_CATALOG[t.kind].regions.find(
+                      (r) => r.id === m.regionId,
+                    );
+                    if (!region) return null;
+                    const [x, y] = rotateCarcassonnePoint(
+                      region.point,
+                      t.rotation,
+                    );
+                    return (
+                      <span
+                        key={celebration.key + m.regionId}
+                        className="cc-returning-meeple"
+                        aria-hidden="true"
+                        style={{
+                          left: Math.min(72, Math.max(0, x - 14)) + "%",
+                          top: Math.min(72, Math.max(0, y - 14)) + "%",
+                        }}
+                      >
+                        <CarcassonneMeepleArt
+                          color={
+                            CARCASSONNE_PLAYER_COLORS[playerIndex(m.playerId)]!
+                          }
+                          number={playerIndex(m.playerId) + 1}
+                          piece={m.piece ?? "NORMAL"}
+                        />
+                      </span>
+                    );
+                  })}
                 {g.feedback?.tile.tileId === t.tileId && (
                   <span className="cc-last-mark" aria-hidden="true">
                     ✦
@@ -332,6 +404,7 @@ export function CarcassonneBoard({
                     ? [
                         {
                           regionId: meepleRegionId,
+                          piece,
                           color:
                             CARCASSONNE_PLAYER_COLORS[playerIndex(selfId)]!,
                           number: playerIndex(selfId) + 1,

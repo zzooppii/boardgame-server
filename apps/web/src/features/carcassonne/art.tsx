@@ -3,23 +3,34 @@ import {
   CARCASSONNE_CATALOG,
   rotateCarcassonnePoint,
   type CarcassonneTileKind,
+  type CarcassonnePiece,
   type CarcassonneRotation,
 } from "@hangul-rummikub/shared";
 export function CarcassonneMeepleArt({
   color,
   farmer = false,
   number,
+  piece = "NORMAL",
 }: {
   color: string;
   farmer?: boolean;
   number?: number;
+  piece?: CarcassonnePiece;
 }) {
   return (
     <svg viewBox="0 0 48 48" aria-hidden="true" className="cc-meeple-art">
-      <g transform={farmer ? "rotate(90 24 24)" : ""}>
+      <g transform={farmer && piece !== "PIG" ? "rotate(90 24 24)" : ""}>
         <ellipse cx="24" cy="42" rx="16" ry="3" fill="#16281c" opacity=".22" />
         <path
-          d="M18 15c-4-6-1-12 6-12s10 6 6 12l12 10-5 7-7-5 5 15H13l5-15-7 5-5-7Z"
+          d={
+            piece === "PIG"
+              ? "M9 19Q8 8 17 15Q29 9 36 20H44V31H37L34 41H28V34H17L14 41H8V30Q2 29 3 21Z"
+              : piece === "BUILDER"
+                ? "M18 14V6H30V14L39 20V27H32V36H38V43H10V36H16V27H9V20Z"
+                : piece === "BIG"
+                  ? "M16 14C10 3 35 0 32 14L46 24L39 33L32 29L38 45H10L16 29L9 33L2 24Z"
+                  : "M18 15c-4-6-1-12 6-12s10 6 6 12l12 10-5 7-7-5 5 15H13l5-15-7 5-5-7Z"
+          }
           fill={color}
           stroke="#fff2cb"
           strokeWidth="2"
@@ -52,12 +63,19 @@ export function CarcassonneTileArt({
   kind,
   rotation = 0,
   highlight = [],
+  secondaryHighlight = [],
   tokens = [],
 }: {
   kind: CarcassonneTileKind;
   rotation?: CarcassonneRotation;
   highlight?: readonly string[];
-  tokens?: readonly { regionId: string; color: string; number: number }[];
+  secondaryHighlight?: readonly string[];
+  tokens?: readonly {
+    regionId: string;
+    color: string;
+    number: number;
+    piece?: CarcassonnePiece;
+  }[];
 }) {
   const id = useId().replace(/:/g, ""),
     tile = CARCASSONNE_CATALOG[kind],
@@ -258,15 +276,123 @@ export function CarcassonneTileArt({
           </g>
         )}
         {tile.regions
-          .filter((r) => highlight.includes(r.id))
+          .filter((r) => r.inn)
+          .map((r) => (
+            <g
+              key={"inn" + r.id}
+              transform={`translate(${Math.min(72, r.point[0] + 10)} ${Math.max(8, r.point[1] - 20)})`}
+            >
+              <ellipse
+                cx="0"
+                cy="10"
+                rx="11"
+                ry="8"
+                fill="#71b5c0"
+                stroke="#326f78"
+                strokeWidth="1.3"
+              />
+              <path d="M-7 1H6V10H-7Z" fill="#f3d8a1" stroke="#6c5842" />
+              <path d="M-10 1L-1 -7L9 1Z" fill="#985b45" />
+              <path d="M-2 10V5H1V10" fill="#594e3c" />
+            </g>
+          ))}
+        {tile.regions.some((r) => r.cathedral) && (
+          <g>
+            <path
+              d="M27 65V31L35 18L43 31V40H57V31L65 18L73 31V65Z"
+              fill="#ede4c9"
+              stroke="#776955"
+              strokeWidth="1.4"
+            />
+            <path
+              d="M24 31L35 13L46 31M54 31L65 13L76 31M42 40L50 28L58 40"
+              fill="#6b7790"
+              stroke="#475b68"
+            />
+            <path
+              d="M45 65V51Q50 42 55 51V65M31 34H38V43H31M61 34H68V43H61"
+              fill="#485e6a"
+            />
+            <path d="M50 25V17M46 20H54" stroke="#e6be61" strokeWidth="2" />
+          </g>
+        )}
+        {tile.regions
+          .filter((r) => r.goods)
+          .map((r) => (
+            <g
+              key={"goods" + r.id}
+              transform={`translate(${Math.min(82, Math.max(18, r.point[0]))} ${Math.min(80, Math.max(20, r.point[1] + 14))})`}
+            >
+              <path
+                d="M-9 -8L0 -13L9 -8V10H-9Z"
+                fill="#fff0c5"
+                stroke="#745934"
+                strokeWidth="1.3"
+              />
+              {r.goods === "WINE" ? (
+                <g>
+                  <path
+                    d="M-4 -6Q-7 0 -4 6H4Q7 0 4 -6Z"
+                    fill="#a06d43"
+                    stroke="#65492f"
+                  />
+                  <path d="M-5 -3H5M-5 3H5" stroke="#e3c58c" />
+                </g>
+              ) : r.goods === "GRAIN" ? (
+                <g stroke="#95712e" strokeWidth="1.8">
+                  <path d="M0 7V-8M0 -3L-4 -6M0 1L4 -3M0 4L-4 1" />
+                </g>
+              ) : (
+                <path
+                  d="M-6 -6L0 -3L5 -6L6 6L0 8L-6 4Z"
+                  fill="#b44951"
+                  stroke="#753f42"
+                />
+              )}
+            </g>
+          ))}
+        {(kind === "HB" || kind === "HC") && (
+          <g>
+            <path
+              d="M37 47Q50 37 63 47M37 54Q50 44 63 54"
+              fill="none"
+              stroke="#8f6945"
+              strokeWidth="2"
+            />
+            <path d="M37 45V56M63 45V56" stroke="#806244" strokeWidth="3" />
+          </g>
+        )}
+        {kind.length > 1 && (
+          <text
+            x="94"
+            y="95"
+            textAnchor="end"
+            fontSize="6"
+            fill="#31472e"
+            fontWeight="bold"
+          >
+            {kind.startsWith("E") ? "I" : "II"}
+          </text>
+        )}
+        {tile.regions
+          .filter(
+            (r) =>
+              highlight.includes(r.id) || secondaryHighlight.includes(r.id),
+          )
           .map((r) => (
             <path
               key={r.id}
               d={r.path}
               mask={r.kind === "FIELD" ? "url(#" + id + "field)" : undefined}
-              fill={r.kind === "ROAD" ? "none" : "#fff397"}
+              fill={
+                r.kind === "ROAD"
+                  ? "none"
+                  : secondaryHighlight.includes(r.id)
+                    ? "#79d6e5"
+                    : "#fff397"
+              }
               fillOpacity=".45"
-              stroke="#fff7ba"
+              stroke={secondaryHighlight.includes(r.id) ? "#136578" : "#fff7ba"}
               strokeWidth={r.kind === "ROAD" ? 5 : 2.2}
               strokeDasharray={r.kind === "ROAD" ? undefined : "4 2"}
             />
@@ -296,6 +422,7 @@ export function CarcassonneTileArt({
           >
             <CarcassonneMeepleArt
               color={token.color}
+              piece={token.piece ?? "NORMAL"}
               farmer={region.kind === "FIELD"}
               number={token.number}
             />

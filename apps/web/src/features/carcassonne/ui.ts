@@ -6,6 +6,7 @@ import {
   carcassonneMajority,
   carcassonneMeepleChoices,
   carcassonnePlacementReason,
+  type CarcassonnePiece,
   type CarcassonneAction,
   type CarcassonneBoardTile,
   type CarcassonneProjection,
@@ -18,6 +19,7 @@ export type CarcassonneDraft = {
   y: number;
   rotation: CarcassonneRotation;
   meepleRegionId: string | null;
+  piece?: CarcassonnePiece;
 };
 export function previewCarcassonne(
   g: CarcassonneProjection,
@@ -39,14 +41,32 @@ export function previewCarcassonne(
           : (carcassonnePlacementReason(g.board, tile) ?? "");
   const choices =
     tile && !carcassonnePlacementReason(g.board, tile)
-      ? carcassonneMeepleChoices(g.board, g.meeples, tile)
+      ? carcassonneMeepleChoices(
+          g.board,
+          g.meeples,
+          tile,
+          selfId,
+          draft?.piece ?? "NORMAL",
+        )
       : [];
+  const piece = draft?.piece ?? "NORMAL";
+  const pieceAvailable =
+    !!player &&
+    (piece === "NORMAL"
+      ? player.availableMeeples > 0
+      : piece === "BIG"
+        ? !!player.availableBig
+        : piece === "BUILDER"
+          ? !!player.availableBuilder
+          : !!player.availablePig);
   if (!reason && draft?.meepleRegionId) {
     const choice = choices.find((c) => c.region.id === draft.meepleRegionId);
-    if (!player || player.availableMeeples === 0)
-      reason = "남은 미플이 없습니다. 타일만 놓아주세요.";
+    if (!pieceAvailable) reason = "남은 미플이 없습니다. 타일만 놓아주세요.";
     else if (!choice || !choice.available)
-      reason = "연결된 영역에 이미 미플이 있습니다.";
+      reason =
+        piece === "BUILDER" || piece === "PIG"
+          ? "내 미플이 있는 알맞은 영역을 선택해주세요."
+          : "연결된 영역에 이미 미플이 있습니다.";
   }
   const action: CarcassonneAction | null =
     !reason && tile && draft
@@ -56,6 +76,7 @@ export function previewCarcassonne(
           y: tile.y,
           rotation: tile.rotation,
           meepleRegionId: draft.meepleRegionId,
+          piece: draft.meepleRegionId ? piece : "NORMAL",
         }
       : null;
   const claims = action?.meepleRegionId
@@ -65,6 +86,7 @@ export function previewCarcassonne(
           tileId: action.tileId,
           regionId: action.meepleRegionId,
           playerId: selfId,
+          piece,
         },
       ]
     : g.meeples;
@@ -84,6 +106,7 @@ export function previewCarcassonne(
     .filter((p) => p.points > 0);
   return {
     tile,
+    pieceAvailable,
     reason,
     choices,
     action,

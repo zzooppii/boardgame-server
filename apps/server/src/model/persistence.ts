@@ -1,3 +1,4 @@
+import type { CarcassonneSettings } from "@hangul-rummikub/shared";
 import type { ArkNovaStoredGame } from '../games/ark-nova/compatibility/adapter.js';
 import type { SpaceCrewStoredGame } from "../games/space-crew/compatibility/adapter.js";
 import type { LiarPromptHistory } from "../games/liar-game/domain/prompts.js";
@@ -142,7 +143,7 @@ export type LoveLetterRoomRecord = RoomRecordBase & Readonly<{ gameType: "LOVE_L
 export type AzulRoomRecord = RoomRecordBase & Readonly<{ gameType: "AZUL"; game: AzulStoredGame | null; departedPlayerIds?: readonly PlayerId[] }>;
 export type VegasRoomRecord = RoomRecordBase & Readonly<{ gameType: "VEGAS"; game: VegasStoredGame | null; departedPlayerIds?: readonly PlayerId[] }>;
 export type BurgundyRoomRecord = RoomRecordBase & Readonly<{ gameType: "BURGUNDY"; settings?: BurgundySettings; game: BurgundyStoredGame | null; departedPlayerIds?: readonly PlayerId[] }>;
-export type CarcassonneRoomRecord = RoomRecordBase & Readonly<{ gameType: "CARCASSONNE"; game: CarcassonneStoredGame | null; departedPlayerIds?: readonly PlayerId[] }>;
+export type CarcassonneRoomRecord = RoomRecordBase & Readonly<{ gameType: "CARCASSONNE"; settings?: CarcassonneSettings; game: CarcassonneStoredGame | null; departedPlayerIds?: readonly PlayerId[] }>;
 export type ClueRoomRecord = RoomRecordBase & Readonly<{ gameType: "CLUE"; game: ClueStoredGame | null; departedPlayerIds?: readonly PlayerId[] }>;
 export type TerrorscapeRoomRecord = RoomRecordBase & Readonly<{ gameType: "TERRORSCAPE"; game: TerrorscapeStoredGame | null; departedPlayerIds?: readonly PlayerId[] }>;
 export type PandemicRoomRecord = RoomRecordBase & Readonly<{ gameType: "PANDEMIC"; game: PandemicStoredGame | null; departedPlayerIds?: readonly PlayerId[] }>;

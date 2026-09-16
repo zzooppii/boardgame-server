@@ -837,6 +837,7 @@ export class RealtimeClient {
     if (!parseRematch(CarcassonneClientCommandSchema, command).success) return Promise.reject(new RealtimeClientError("INVALID_COMMAND"));
     return this.#emitAcknowledged(command.kind, command.requestId, acknowledge => {
       switch (command.kind) {
+        case "carcassonne:configure": this.#socket.emit("carcassonne:configure", command, acknowledge); break;
         case "carcassonne:act": this.#socket.emit("carcassonne:act", command, acknowledge); break;
       }
     }, validateStateSyncWireAck, ack => hasConsistentSnapshotAcknowledgement(ack) && this.#acceptAcknowledgementSnapshotVersion(ack));

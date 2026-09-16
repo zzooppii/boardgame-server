@@ -4,6 +4,12 @@ import * as v from "valibot";
 import {
   CARCASSONNE_CATALOG,
   CARCASSONNE_TILE_KINDS,
+  CARCASSONNE_BASE_TILE_KINDS,
+  CARCASSONNE_GOODS,
+  carcassonneTileCount,
+  carcassonneAwardPoints,
+  type CarcassonneSettings,
+  type CarcassonnePiece,
   CarcassonneActionSchema,
   GameIdSchema,
   PlayerIdSchema,
@@ -60,12 +66,23 @@ function random(seed: number) {
     },
   };
 }
-function create(count = 2, seed = 17) {
+function create(
+  count = 2,
+  seed = 17,
+  settings: CarcassonneSettings = {
+    innsAndCathedrals: false,
+    tradersAndBuilders: false,
+  },
+) {
   let id = 0;
   return createCarcassonneGame({
+    settings,
     gameId: v.parse(GameIdSchema, "carc-game"),
     playerIds: Array.from({ length: count }, (_, i) => player(i)),
-    tiles: makeCarcassonneTiles(() => v.parse(TileIdSchema, "tile-" + ++id)),
+    tiles: makeCarcassonneTiles(
+      () => v.parse(TileIdSchema, "tile-" + ++id),
+      settings,
+    ),
     starter: 0,
     now: time(1000),
     turnId: turn(0),
@@ -106,13 +123,16 @@ function move(
 }
 
 test("CARCASSONNE catalog: official 24 kinds / 72 instances, complete unique edge and field ports, city adjacency and rotation invariants", () => {
-  assert.equal(Object.keys(CARCASSONNE_CATALOG).length, 24);
+  assert.equal(CARCASSONNE_BASE_TILE_KINDS.length, 24);
   assert.equal(
-    Object.values(CARCASSONNE_CATALOG).reduce((n, t) => n + t.count, 0),
+    CARCASSONNE_BASE_TILE_KINDS.reduce(
+      (n, k) => n + CARCASSONNE_CATALOG[k].count,
+      0,
+    ),
     72,
   );
   assert.deepEqual(
-    CARCASSONNE_TILE_KINDS.map((k) => CARCASSONNE_CATALOG[k].count),
+    CARCASSONNE_BASE_TILE_KINDS.map((k) => CARCASSONNE_CATALOG[k].count),
     [2, 4, 1, 4, 5, 2, 1, 3, 2, 3, 3, 3, 2, 3, 2, 3, 1, 3, 2, 1, 8, 9, 4, 1],
   );
   for (const kind of CARCASSONNE_TILE_KINDS) {
@@ -468,4 +488,449 @@ test("CARCASSONNE city loop: two separate regions on one tile reconnect outside 
   assert.equal(city.tileIds.length, 6);
   assert.equal(city.shields, 1);
   assert.equal(carcassonneFeaturePoints(city, false), 14);
+});
+
+const both = { innsAndCathedrals: true, tradersAndBuilders: true };
+function playPiece(
+  s: CarcassonneState,
+  kind: CarcassonneTileKind,
+  x: number,
+  y: number,
+  rotation: CarcassonneRotation = 0,
+  region: string | null = null,
+  piece: CarcassonnePiece = "NORMAL",
+) {
+  const current = s.inventory.find((t) => t.tileId === s.currentTileId);
+  s = current?.kind === kind ? s : drawKind(s, kind);
+  const a = {
+    tileId: s.currentTileId!,
+    x,
+    y,
+    rotation,
+    meepleRegionId: region,
+    piece,
+  };
+  const before = JSON.stringify(s);
+  const result = applyCarcassonneAction(
+    s,
+    s.activePlayerId,
+    a,
+    time(s.turnStartedAt + 1),
+    turn(s.revision + 1),
+  );
+  assert.equal(JSON.stringify(s), before);
+  assert.ok(result.ok, JSON.stringify(a));
+  return result.state;
+}
+test("CARCASSONNE expansions: exact inventories, facilities and goods; separate bridge roads, monasteries and enclosed fields", () => {
+  assert.equal(Object.keys(CARCASSONNE_CATALOG).length, 65);
+  for (const settings of [
+    { innsAndCathedrals: false, tradersAndBuilders: false },
+    { innsAndCathedrals: true, tradersAndBuilders: false },
+    { innsAndCathedrals: false, tradersAndBuilders: true },
+    both,
+  ]) {
+    const s = create(2, 17, settings);
+    assert.equal(s.inventory.length, carcassonneTileCount(settings));
+    assert.equal(s.players[0]!.availableBig, settings.innsAndCathedrals);
+    assert.equal(s.players[0]!.availableBuilder, settings.tradersAndBuilders);
+    assert.equal(s.players[0]!.availablePig, settings.tradersAndBuilders);
+  }
+  const regions = Object.values(CARCASSONNE_CATALOG).flatMap((t) =>
+    Array.from({ length: t.count }, () => t.regions).flat(),
+  );
+  assert.equal(regions.filter((r) => r.inn).length, 6);
+  assert.equal(regions.filter((r) => r.cathedral).length, 2);
+  assert.deepEqual(
+    CARCASSONNE_GOODS.map((g) => regions.filter((r) => r.goods === g).length),
+    [9, 6, 5],
+  );
+  for (const [kind, roads, fields, cities] of [
+    ["HB", 2, 4, 0],
+    ["HC", 2, 3, 1],
+    ["ED", 2, 2, 0],
+    ["HJ", 3, 3, 0],
+    ["EH", 0, 1, 4],
+    ["HM", 0, 1, 3],
+    ["EI", 2, 4, 2],
+    ["EG", 0, 2, 1],
+  ] as const) {
+    const fs = analyzeCarcassonneBoard([tile(kind, 0, 0)], []);
+    assert.deepEqual(
+      ["ROAD", "FIELD", "CITY"].map(
+        (k) => fs.filter((f) => f.kind === k).length,
+      ),
+      [roads, fields, cities],
+      kind,
+    );
+  }
+  const ec = analyzeCarcassonneBoard([tile("EC", 0, 0)], []).filter(
+    (f) => f.kind === "ROAD",
+  );
+  assert.equal(ec.filter((f) => f.inn).length, 1);
+  assert.equal(ec[0]!.inn, true);
+});
+test("CARCASSONNE expansions: inns and cathedrals multiply only completed features, never stack", () => {
+  const ring = [
+    tile("EA", 0, 0, 270),
+    tile("EA", 1, 0),
+    tile("V", 0, 1, 180),
+    tile("V", 1, 1, 90),
+  ];
+  let road = analyzeCarcassonneBoard(ring, []).find((f) => f.kind === "ROAD")!;
+  assert.equal(road.complete, true);
+  assert.equal(carcassonneFeaturePoints(road, false), 8);
+  road = analyzeCarcassonneBoard(ring.slice(0, -1), []).find(
+    (f) => f.kind === "ROAD",
+  )!;
+  assert.equal(carcassonneFeaturePoints(road, true), 0);
+  const board = [
+    tile("EK", 0, 0),
+    tile("E", 0, -1, 180),
+    tile("E", 1, 0, 270),
+    tile("E", 0, 1),
+    tile("E", -1, 0, 90),
+  ];
+  const city = analyzeCarcassonneBoard(board, []).find(
+    (f) => f.kind === "CITY",
+  )!;
+  assert.equal(carcassonneFeaturePoints(city, false), 15);
+  assert.equal(
+    carcassonneFeaturePoints(
+      analyzeCarcassonneBoard(board.slice(0, -1), []).find(
+        (f) => f.kind === "CITY",
+      )!,
+      true,
+    ),
+    0,
+  );
+});
+test("CARCASSONNE expansions: big follower counts twice and returns to its own reserve; special pieces cannot bypass settings", () => {
+  let s = create(2, 17, both);
+  s = playPiece(s, "E", 1, 0, 270, "c0", "BIG");
+  assert.equal(s.players[0]!.score, 4);
+  assert.equal(s.players[0]!.availableBig, true);
+  assert.equal(s.players[0]!.availableMeeples, 7);
+  const t = tile("U", 0, 0);
+  const f = analyzeCarcassonneBoard(
+    [t],
+    [
+      { playerId: player(0), tileId: t.tileId, regionId: "r0", piece: "BIG" },
+      { playerId: player(1), tileId: t.tileId, regionId: "r0" },
+      {
+        playerId: player(1),
+        tileId: t.tileId,
+        regionId: "r0",
+        piece: "BUILDER",
+      },
+    ],
+  ).find((f) => f.kind === "ROAD")!;
+  assert.deepEqual(carcassonneMajority(f), [player(0)]);
+  f.meeples.push({ playerId: player(1), tileId: t.tileId, regionId: "r0" });
+  assert.deepEqual(
+    new Set(carcassonneMajority(f)),
+    new Set([player(0), player(1)]),
+  );
+  const base = drawKind(create(), "E");
+  for (const piece of ["BIG", "BUILDER", "PIG"])
+    assert.deepEqual(
+      applyCarcassonneAction(
+        base,
+        base.activePlayerId,
+        {
+          tileId: base.currentTileId,
+          x: 1,
+          y: 0,
+          rotation: 270,
+          meepleRegionId: "c0",
+          piece,
+        },
+        time(1001),
+        turn(1),
+      ),
+      { ok: false, reason: "INVALID_ACTION" },
+    );
+});
+test("CARCASSONNE expansions: builder requires own follower, grants one extra turn, and never chains; deadline remains authoritative", () => {
+  let s = create(2, 17, both);
+  s.meeples = [
+    { playerId: player(0), tileId: s.board[0]!.tileId, regionId: "r0" },
+  ];
+  s.players[0]!.availableMeeples = 6;
+  s = playPiece(s, "U", 0, -1, 0, "r0", "BUILDER");
+  assert.equal(s.activePlayerId, player(1));
+  assert.equal(s.bonusTurn, false);
+  s = playPiece(s, "E", 1, 0, 270);
+  s = playPiece(s, "U", 0, -2);
+  assert.equal(s.activePlayerId, player(0));
+  assert.equal(s.bonusTurn, true);
+  assert.equal(s.deadlineAt! - s.turnStartedAt, 90000);
+  const action = chooseCarcassonneTimeoutAction(s)!;
+  assert.equal(
+    applyCarcassonneAction(s, player(0), action, time(s.deadlineAt!), turn(999))
+      .ok,
+    false,
+  );
+  s = playPiece(s, "U", 0, -3);
+  assert.equal(s.activePlayerId, player(1));
+  assert.equal(s.bonusTurn, false);
+  const noClaim = drawKind(create(2, 17, both), "U");
+  assert.equal(
+    applyCarcassonneAction(
+      noClaim,
+      noClaim.activePlayerId,
+      {
+        tileId: noClaim.currentTileId,
+        x: 0,
+        y: -1,
+        rotation: 0,
+        meepleRegionId: "r0",
+        piece: "BUILDER",
+      },
+      time(1001),
+      turn(1),
+    ).ok,
+    false,
+  );
+});
+test("CARCASSONNE expansions: completing a builder city keeps bonus and pays goods to completing opponent, even without city points", () => {
+  let s = create(2, 17, both);
+  s.meeples = [
+    { playerId: player(0), tileId: s.board[0]!.tileId, regionId: "c0" },
+  ];
+  s.players[0]!.availableMeeples = 6;
+  s = playPiece(s, "HE", 1, 0, 0, "c0", "BUILDER");
+  s = playPiece(s, "E", 2, 0, 270);
+  assert.equal(s.players[0]!.score, 6);
+  assert.equal(s.players[1]!.score, 0);
+  assert.equal(s.players[1]!.goods!.GRAIN, 1);
+  assert.equal(s.players[0]!.availableBuilder, true);
+  let b = create(2, 17, both);
+  b.meeples = [
+    { playerId: player(0), tileId: b.board[0]!.tileId, regionId: "c0" },
+  ];
+  b.players[0]!.availableMeeples = 6;
+  b = playPiece(b, "HE", 1, 0, 0, "c0", "BUILDER");
+  b = playPiece(b, "B", -1, 0);
+  b = playPiece(b, "E", 2, 0, 270);
+  assert.equal(b.activePlayerId, player(0));
+  assert.equal(b.bonusTurn, true);
+  assert.equal(b.players[0]!.availableBuilder, true);
+  assert.equal(b.players[0]!.goods!.GRAIN, 1);
+});
+test("CARCASSONNE expansions: pig changes only its winning owner's field award; goods final majority and zero holdings", () => {
+  const a = tile("E", 0, 0),
+    b = tile("E", 0, -1, 180);
+  const f = analyzeCarcassonneBoard(
+    [a, b, tile("B", -1, 0), tile("B", -1, -1)],
+    [
+      {
+        playerId: player(0),
+        tileId: a.tileId,
+        regionId: "f0",
+        piece: "NORMAL",
+      },
+      {
+        playerId: player(1),
+        tileId: b.tileId,
+        regionId: "f0",
+        piece: "NORMAL",
+      },
+      { playerId: player(0), tileId: a.tileId, regionId: "f0", piece: "PIG" },
+    ],
+  ).find((f) => f.kind === "FIELD")!;
+  assert.deepEqual(
+    new Set(carcassonneMajority(f)),
+    new Set([player(0), player(1)]),
+  );
+  assert.equal(carcassonneFeaturePoints(f, true, player(0)), 4);
+  assert.equal(carcassonneFeaturePoints(f, true, player(1)), 3);
+  let s = create(2, 17, both);
+  s.meeples = [
+    { playerId: player(0), tileId: s.board[0]!.tileId, regionId: "f1" },
+  ];
+  s.players[0]!.availableMeeples = 6;
+  s = playPiece(s, "U", 0, -1, 0, "f1", "PIG");
+  assert.equal(s.players[0]!.availablePig, false);
+  s = playPiece(s, "HE", 1, 0);
+  s = drawKind(s, "E");
+  s.discard.push(...s.bag);
+  s.bag = [];
+  s = playPiece(s, "E", 2, 0, 270);
+  assert.equal(s.phase, "FINISHED");
+  assert.equal(s.result!.scores[0]!.goods, 10);
+  assert.equal(s.result!.scores[1]!.goods, 0);
+  const field = s.result!.finalScoring.find((e) => e.kind === "FIELD")!;
+  assert.equal(carcassonneAwardPoints(field, player(0)), 4);
+  assert.throws(() =>
+    parseCarcassonneState({
+      ...s,
+      settings: { innsAndCathedrals: false, tradersAndBuilders: false },
+    }),
+  );
+});
+test("CARCASSONNE expansions: all combinations finish with tile/piece/goods conservation and hidden deck, 2–5 players", () => {
+  for (const settings of [
+    { innsAndCathedrals: true, tradersAndBuilders: false },
+    { innsAndCathedrals: false, tradersAndBuilders: true },
+    both,
+  ])
+    for (const count of [2, 3, 4, 5]) {
+      let s = create(count, 17 + count, settings);
+      let moves = 0;
+      while (s.phase === "PLAYING") {
+        const current = publicCarcassonne(s).currentTile!;
+        const placement = legalCarcassonnePlacements(s.board, current)[0]!;
+        const p = s.players.find((p) => p.playerId === s.activePlayerId)!;
+        let selected: { region: string; piece: CarcassonnePiece } | null = null;
+        for (const piece of ["BUILDER", "PIG", "BIG", "NORMAL"] as const) {
+          if (
+            !(piece === "NORMAL"
+              ? p.availableMeeples > 0
+              : piece === "BIG"
+                ? p.availableBig
+                : piece === "BUILDER"
+                  ? p.availableBuilder
+                  : p.availablePig)
+          )
+            continue;
+          const choices = carcassonneMeepleChoices(
+            s.board,
+            s.meeples,
+            placement,
+            p.playerId,
+            piece,
+          ).filter((c) => c.available);
+          if (choices.length) {
+            selected = {
+              region: choices[moves % choices.length]!.region.id,
+              piece,
+            };
+            break;
+          }
+        }
+        const result = applyCarcassonneAction(
+          s,
+          s.activePlayerId,
+          {
+            tileId: current.tileId,
+            x: placement.x,
+            y: placement.y,
+            rotation: placement.rotation,
+            meepleRegionId: selected?.region ?? null,
+            piece: selected?.piece ?? "NORMAL",
+          },
+          time(s.turnStartedAt + 1),
+          turn(++moves),
+        );
+        assert.ok(result.ok);
+        s = result.state;
+        assert.ok(moves < 114);
+        assert.equal(
+          s.board.length +
+            s.bag.length +
+            s.discard.length +
+            Number(s.currentTileId !== null),
+          carcassonneTileCount(settings),
+        );
+        for (const id of s.bag)
+          assert.equal(
+            JSON.stringify(publicCarcassonne(s)).includes('"' + id + '"'),
+            false,
+          );
+      }
+      assert.equal(s.result!.reason, "TILES_EXHAUSTED");
+      for (const score of s.result!.scores)
+        assert.equal(
+          score.total,
+          score.base +
+            score.roads +
+            score.cities +
+            score.fields +
+            score.monasteries +
+            (score.goods ?? 0),
+        );
+    }
+});
+
+test("CARCASSONNE expansion catalog matches official B1/B2 edge signatures including separate southern cities", () => {
+  const signatures = {
+    EA: "FFRR",
+    EB: "RFRF",
+    EC: "FRRR",
+    ED: "FRFR",
+    EE: "RRRR",
+    EF: "CCRF",
+    EG: "FFFC",
+    EH: "CCCC",
+    EI: "RCRC",
+    EJ: "CFRF",
+    EK: "CCCC",
+    EL: "CRRC",
+    EM: "CFRR",
+    EN: "CFRC",
+    EO: "CCFC",
+    EP: "CCFC",
+    EQ: "RCRC",
+    HA: "FCRF",
+    HB: "RRRR",
+    HC: "CFRR",
+    HD: "CCRC",
+    HE: "FCRC",
+    HF: "CFRC",
+    HG: "CFFC",
+    HH: "CCFC",
+    HI: "CFRC",
+    HJ: "FRRR",
+    HK: "CCRF",
+    HL: "CCRC",
+    HM: "CCCC",
+    HN: "FCCC",
+    HO: "CRRC",
+    HP: "FCCC",
+    HQ: "FCFC",
+    HR: "RCFC",
+    HS: "FCRC",
+    HT: "CFFC",
+    HU: "CRRC",
+    HV: "CCRC",
+    HW: "CCRF",
+    HX: "CCCC",
+  };
+  for (const [kind, expected] of Object.entries(signatures)) {
+    const def = Object.values(CARCASSONNE_CATALOG).find(
+      (t) => t.kind === kind,
+    )!;
+    assert.equal(
+      [0, 1, 2, 3]
+        .map((d) => carcassonneEdge({ kind: def.kind, rotation: 0 }, d)[0])
+        .join(""),
+      expected,
+      kind,
+    );
+  }
+  for (const kind of ["HN", "HP"] as const) {
+    const fs = analyzeCarcassonneBoard([tile(kind, 0, 0)], []);
+    assert.equal(fs.filter((f) => f.kind === "CITY").length, 2);
+    assert.equal(fs.filter((f) => f.kind === "FIELD").length, 2);
+  }
+});
+
+test("CARCASSONNE goods: tied positive holdings each receive ten, unused goods receive zero", () => {
+  let s = create(2, 17, both);
+  s = playPiece(s, "HQ", 1, 0);
+  s = playPiece(s, "E", 2, 0, 270); // player 1 receives wine, no city follower required
+  s = playPiece(s, "HT", 1, 1, 180);
+  s = playPiece(s, "E", 2, 1, 270);
+  s = playPiece(s, "E", 1, 2); // player 0 completes the second wine city
+  assert.equal(s.players[0]!.goods!.WINE, 1);
+  assert.equal(s.players[1]!.goods!.WINE, 1);
+  s = drawKind(s, "B");
+  s.discard.push(...s.bag);
+  s.bag = [];
+  s = playPiece(s, "B", -1, 0);
+  assert.deepEqual(
+    s.result!.scores.map((p) => p.goods),
+    [10, 10],
+  );
 });

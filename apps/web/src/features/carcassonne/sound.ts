@@ -1,3 +1,4 @@
+import { freshCarcassonneFeedback } from "./scoring.js";
 import { useEffect, useRef, useState } from "react";
 import type { CarcassonneProjection } from "@hangul-rummikub/shared";
 
@@ -6,6 +7,9 @@ export type CarcassonneCue =
   | "ROTATE"
   | "PLACE"
   | "TURN"
+  | "RETURN"
+  | "GOODS"
+  | "BUILDER"
   | "SCORE"
   | "FINISH"
   | "WARNING"
@@ -22,6 +26,19 @@ export const CARCASSONNE_SOUND_SCORE: Record<
   CarcassonneCue,
   readonly Strike[]
 > = {
+  GOODS: [
+    { pitch: 784, at: 0, gain: 0.2, decay: 0.25 },
+    { pitch: 1046.5, at: 0.1, gain: 0.18, decay: 0.3 },
+  ],
+  BUILDER: [
+    { pitch: 330, at: 0, gain: 0.2, decay: 0.12 },
+    { pitch: 440, at: 0.12, gain: 0.2, decay: 0.12 },
+    { pitch: 660, at: 0.24, gain: 0.2, decay: 0.3 },
+  ],
+  RETURN: [
+    { pitch: 392, at: 0, gain: 0.2, decay: 0.14 },
+    { pitch: 523.25, at: 0.09, gain: 0.18, decay: 0.2 },
+  ],
   MEEPLE: [{ pitch: 440, at: 0, gain: 0.25, decay: 0.11 }],
   PICK: [{ pitch: 520, at: 0, gain: 0.24, decay: 0.11 }],
   ROTATE: [{ pitch: 380, at: 0, gain: 0.2, decay: 0.1 }],
@@ -55,27 +72,17 @@ export function carcassonneTransitionCues(
   next: CarcassonneProjection | null,
   selfId: string,
 ): CarcassonneCue[] {
-  if (
-    !previous ||
-    !next ||
-    previous.gameId !== next.gameId ||
-    next.gameRevision <= previous.gameRevision
-  )
-    return [];
-  const cues: CarcassonneCue[] = [];
-  if (next.phase === "FINISHED" && previous.phase !== "FINISHED")
-    cues.push("FINISH");
-  else {
-    if (next.feedback?.tile.tileId !== previous.feedback?.tile.tileId)
-      cues.push("PLACE");
-    if (next.feedback?.scoring.some((s) => s.points > 0)) cues.push("SCORE");
-    if (
-      next.phase === "PLAYING" &&
-      next.activePlayerId === selfId &&
-      (previous.phase !== "PLAYING" || previous.turnId !== next.turnId)
-    )
-      cues.push("TURN");
-  }
+  const feedback = freshCarcassonneFeedback(previous, next);
+  if (!feedback || !next) return [];
+  const cues: CarcassonneCue[] = ["PLACE"];
+  if (feedback.scoring.some((s) => s.points > 0)) cues.push("SCORE");
+  if (feedback.scoring.some((s) => s.returnedPlayerIds.length > 0))
+    cues.push("RETURN");
+  if (Object.values(feedback.goods ?? {}).some((n) => n > 0))
+    cues.push("GOODS");
+  if (next.phase === "PLAYING" && next.bonusTurn) cues.push("BUILDER");
+  if (next.phase === "FINISHED") cues.push("FINISH");
+  else if (next.activePlayerId === selfId) cues.push("TURN");
   return cues;
 }
 const preferenceKey = "carcassonne:sound-volume";
@@ -146,7 +153,14 @@ export class CarcassonneAudio {
   play(cues: readonly CarcassonneCue[]): void {
     const context = this.context,
       generation = this.generation;
-    if (!context || !this.master || !this.room || this.volume === 0) return;
+    if (
+      !cues.length ||
+      !context ||
+      !this.master ||
+      !this.room ||
+      this.volume === 0
+    )
+      return;
     const render = () => {
       if (
         generation !== this.generation ||
@@ -250,7 +264,7 @@ export function useCarcassonneSound(
     }
   });
   const audio = useRef<CarcassonneAudio | null>(null),
-    previous = useRef(game);
+    previous = useRef({ game, connected });
   useEffect(
     () => () => {
       audio.current?.dispose();
@@ -259,8 +273,11 @@ export function useCarcassonneSound(
     [],
   );
   useEffect(() => {
-    const cues = carcassonneTransitionCues(previous.current, game, selfId);
-    previous.current = game;
+    const cues =
+      previous.current.connected && connected
+        ? carcassonneTransitionCues(previous.current.game, game, selfId)
+        : [];
+    previous.current = { game, connected };
     if (connected && volume > 0) audio.current?.play(cues);
   }, [game, selfId, connected, volume]);
   function unlock() {

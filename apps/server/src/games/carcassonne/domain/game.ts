@@ -1,6 +1,14 @@
 import * as v from "valibot";
 import {
   CARCASSONNE_CATALOG,
+  CARCASSONNE_DEFAULT_SETTINGS,
+  CarcassonneSettingsSchema,
+  carcassonneTileCount,
+  carcassonneTileEnabled,
+  carcassonneMeepleChoices,
+  carcassonneAwardPoints,
+  CARCASSONNE_GOODS,
+  type CarcassonneSettings,
   CARCASSONNE_RULES_VERSION,
   CARCASSONNE_TURN_DURATION_MS,
   CarcassonneTileSchema,
@@ -15,7 +23,6 @@ import {
   carcassonneProjectionIsConsistent,
   analyzeCarcassonneBoard,
   carcassonnePlacementReason,
-  carcassonneRegionKey,
   carcassonneFeaturePoints,
   carcassonneMajority,
   legalCarcassonnePlacements,
@@ -37,8 +44,12 @@ import {
   type TurnId,
   type ServerTime,
 } from "@hangul-rummikub/shared";
-const ids = v.pipe(v.array(TileIdSchema), v.maxLength(72));
+const ids = v.pipe(v.array(TileIdSchema), v.maxLength(114));
 const StateSchema = v.strictObject({
+  settings: v.optional(CarcassonneSettingsSchema, () => ({
+    ...CARCASSONNE_DEFAULT_SETTINGS,
+  })),
+  bonusTurn: v.optional(v.boolean(), false),
   rulesVersion: v.literal(CARCASSONNE_RULES_VERSION),
   gameId: GameIdSchema,
   revision: GameRevisionSchema,
@@ -49,16 +60,20 @@ const StateSchema = v.strictObject({
   turnStartedAt: ServerTimeSchema,
   deadlineAt: v.nullable(ServerTimeSchema),
   activePlayerId: PlayerIdSchema,
-  inventory: v.pipe(v.array(CarcassonneTileSchema), v.length(72)),
+  inventory: v.pipe(
+    v.array(CarcassonneTileSchema),
+    v.minLength(72),
+    v.maxLength(114),
+  ),
   bag: ids,
   discard: ids,
   currentTileId: v.nullable(TileIdSchema),
   board: v.pipe(
     v.array(CarcassonneBoardTileSchema),
     v.minLength(1),
-    v.maxLength(72),
+    v.maxLength(114),
   ),
-  meeples: v.pipe(v.array(CarcassonneMeepleSchema), v.maxLength(35)),
+  meeples: v.pipe(v.array(CarcassonneMeepleSchema), v.maxLength(50)),
   players: v.pipe(
     v.array(CarcassonnePlayerSchema),
     v.minLength(2),
@@ -72,13 +87,16 @@ export type CarcassonneState = v.InferOutput<typeof StateSchema>;
 export type CarcassonneRandom = { nextInt(upperBound: number): number };
 export function makeCarcassonneTiles(
   generate: () => TileId,
+  settings: CarcassonneSettings = CARCASSONNE_DEFAULT_SETTINGS,
 ): CarcassonneTile[] {
-  return Object.values(CARCASSONNE_CATALOG).flatMap((t) =>
-    Array.from({ length: t.count }, () => ({
-      tileId: generate(),
-      kind: t.kind,
-    })),
-  );
+  return Object.values(CARCASSONNE_CATALOG)
+    .filter((t) => carcassonneTileEnabled(t.kind, settings))
+    .flatMap((t) =>
+      Array.from({ length: t.count }, () => ({
+        tileId: generate(),
+        kind: t.kind,
+      })),
+    );
 }
 export function shuffleCarcassonne<T>(
   items: readonly T[],
@@ -101,6 +119,8 @@ function tileById(s: CarcassonneState, id: TileId): CarcassonneTile {
 export function publicCarcassonne(s: CarcassonneState): CarcassonneProjection {
   const base = {
     gameType: "CARCASSONNE",
+    settings: s.settings,
+    bonusTurn: s.bonusTurn,
     gameId: s.gameId,
     gameRevision: s.revision,
     rulesVersion: s.rulesVersion,
@@ -132,9 +152,11 @@ export function parseCarcassonneState(input: unknown): CarcassonneState {
   const s = v.parse(StateSchema, input),
     inventory = new Map(s.inventory.map((t) => [t.tileId, t]));
   if (
-    inventory.size !== 72 ||
+    inventory.size !== carcassonneTileCount(s.settings) ||
     Object.values(CARCASSONNE_CATALOG).some(
-      (t) => s.inventory.filter((i) => i.kind === t.kind).length !== t.count,
+      (t) =>
+        s.inventory.filter((i) => i.kind === t.kind).length !==
+        (carcassonneTileEnabled(t.kind, s.settings) ? t.count : 0),
     )
   )
     throw new Error("Invalid Carcassonne inventory.");
@@ -145,8 +167,8 @@ export function parseCarcassonneState(input: unknown): CarcassonneState {
     ...(s.currentTileId ? [s.currentTileId] : []),
   ];
   if (
-    zones.length !== 72 ||
-    new Set(zones).size !== 72 ||
+    zones.length !== carcassonneTileCount(s.settings) ||
+    new Set(zones).size !== carcassonneTileCount(s.settings) ||
     zones.some((id) => !inventory.has(id)) ||
     s.board.some((t) => inventory.get(t.tileId)?.kind !== t.kind)
   )
@@ -180,6 +202,7 @@ function drawNext(s: CarcassonneState): boolean {
   return false;
 }
 export function createCarcassonneGame(input: {
+  settings?: CarcassonneSettings;
   gameId: GameId;
   playerIds: readonly PlayerId[];
   tiles: readonly CarcassonneTile[];
@@ -198,12 +221,15 @@ export function createCarcassonneGame(input: {
   )
     throw new Error("Invalid Carcassonne players.");
   const tiles = v.parse(
-      v.pipe(v.array(CarcassonneTileSchema), v.length(72)),
+      v.pipe(v.array(CarcassonneTileSchema), v.minLength(72), v.maxLength(114)),
       input.tiles,
     ),
     start = tiles.find((t) => t.kind === "D");
   if (!start) throw new Error("Start tile missing.");
+  const settings = input.settings ?? CARCASSONNE_DEFAULT_SETTINGS;
   const s: CarcassonneState = {
+    settings: { ...settings },
+    bonusTurn: false,
     rulesVersion: CARCASSONNE_RULES_VERSION,
     gameId: input.gameId,
     revision: v.parse(GameRevisionSchema, 0),
@@ -230,6 +256,10 @@ export function createCarcassonneGame(input: {
       playerId,
       score: 0,
       availableMeeples: 7,
+      availableBig: settings.innsAndCathedrals,
+      availableBuilder: settings.tradersAndBuilders,
+      availablePig: settings.tradersAndBuilders,
+      goods: { WINE: 0, GRAIN: 0, CLOTH: 0 },
     })),
     feedback: null,
     history: [],
@@ -253,6 +283,15 @@ function scoreEvent(
     complete: feature.complete,
     shields: feature.shields,
     cityCount: feature.completedCityIds.length,
+    inn: feature.inn ?? false,
+    cathedral: feature.cathedral ?? false,
+    playerPoints: carcassonneMajority(feature).map((playerId) => ({
+      playerId,
+      points: carcassonneFeaturePoints(feature, final, playerId),
+      pig: feature.meeples.some(
+        (m) => m.playerId === playerId && m.piece === "PIG",
+      ),
+    })),
   };
 }
 function settleCompleted(s: CarcassonneState): CarcassonneScoreEvent[] {
@@ -263,10 +302,16 @@ function settleCompleted(s: CarcassonneState): CarcassonneScoreEvent[] {
     const event = scoreEvent(feature, false);
     events.push(event);
     for (const p of s.players) {
-      if (event.winnerPlayerIds.includes(p.playerId)) p.score += event.points;
+      if (event.winnerPlayerIds.includes(p.playerId))
+        p.score += carcassonneAwardPoints(event, p.playerId);
       p.availableMeeples += feature.meeples.filter(
-        (m) => m.playerId === p.playerId,
+        (m) => m.playerId === p.playerId && (!m.piece || m.piece === "NORMAL"),
       ).length;
+    }
+    for (const m of feature.meeples) {
+      const p = s.players.find((p) => p.playerId === m.playerId)!;
+      if (m.piece === "BIG") p.availableBig = true;
+      if (m.piece === "BUILDER") p.availableBuilder = true;
     }
     const returned = new Set(feature.meeples);
     s.meeples = s.meeples.filter((m) => !returned.has(m));
@@ -283,13 +328,19 @@ function finish(s: CarcassonneState, now: ServerTime): void {
         .filter(
           (f) => f.kind === kind && f.winnerPlayerIds.includes(p.playerId),
         )
-        .reduce((n, f) => n + f.points, 0);
+        .reduce((n, f) => n + carcassonneAwardPoints(f, p.playerId), 0);
     const base = p.score,
       roads = sum("ROAD"),
       cities = sum("CITY"),
       monasteries = sum("MONASTERY"),
       fields = sum("FIELD"),
-      total = base + roads + cities + monasteries + fields;
+      goods = CARCASSONNE_GOODS.reduce((n, good) => {
+        const maximum = Math.max(
+          ...s.players.map((other) => other.goods?.[good] ?? 0),
+        );
+        return n + (maximum > 0 && p.goods?.[good] === maximum ? 10 : 0);
+      }, 0),
+      total = base + roads + cities + monasteries + fields + goods;
     p.score = total;
     return {
       playerId: p.playerId,
@@ -298,6 +349,7 @@ function finish(s: CarcassonneState, now: ServerTime): void {
       cities,
       monasteries,
       fields,
+      goods,
       total,
     };
   });
@@ -359,23 +411,43 @@ function applyMove(
   };
   if (carcassonnePlacementReason(state.board, tile) !== null)
     return { ok: false, reason: "INVALID_ACTION" };
+  const piece = a.piece ?? "NORMAL";
+  if (a.meepleRegionId === null && piece !== "NORMAL")
+    return { ok: false, reason: "INVALID_ACTION" };
   if (a.meepleRegionId !== null) {
-    if (
-      p.availableMeeples < 1 ||
-      !CARCASSONNE_CATALOG[tile.kind].regions.some(
-        (r) => r.id === a.meepleRegionId,
-      )
-    )
-      return { ok: false, reason: "INVALID_ACTION" };
-    const feature = analyzeCarcassonneBoard(
-      [...state.board, tile],
+    const available =
+      piece === "NORMAL"
+        ? p.availableMeeples > 0
+        : piece === "BIG"
+          ? state.settings.innsAndCathedrals && p.availableBig
+          : piece === "BUILDER"
+            ? state.settings.tradersAndBuilders && p.availableBuilder
+            : state.settings.tradersAndBuilders && p.availablePig;
+    const choice = carcassonneMeepleChoices(
+      state.board,
       state.meeples,
-    ).find((f) =>
-      f.nodes.includes(carcassonneRegionKey(tile.tileId, a.meepleRegionId!)),
-    );
-    if (!feature || feature.meeples.length > 0)
+      tile,
+      actor,
+      piece,
+    ).find((c) => c.region.id === a.meepleRegionId);
+    if (!available || !choice?.available)
       return { ok: false, reason: "INVALID_ACTION" };
   }
+  const expanded = analyzeCarcassonneBoard(
+    [...state.board, tile],
+    state.meeples,
+  );
+  const bonusTurn =
+    !state.bonusTurn &&
+    expanded.some(
+      (f) =>
+        f.tileIds.includes(tile.tileId) &&
+        f.meeples.some((m) => m.playerId === actor && m.piece === "BUILDER"),
+    );
+  const earnedGoods = { WINE: 0, GRAIN: 0, CLOTH: 0 };
+  for (const f of expanded)
+    if (f.kind === "CITY" && f.complete && f.tileIds.includes(tile.tileId))
+      for (const good of f.goods ?? []) earnedGoods[good]++;
   const s = v.parse(StateSchema, state),
     player = s.players.find((p) => p.playerId === actor)!;
   s.board.push(tile);
@@ -385,15 +457,25 @@ function applyMove(
       playerId: actor,
       tileId: tile.tileId,
       regionId: a.meepleRegionId,
+      piece,
     });
-    player.availableMeeples--;
+    if (piece === "NORMAL") player.availableMeeples--;
+    else if (piece === "BIG") player.availableBig = false;
+    else if (piece === "BUILDER") player.availableBuilder = false;
+    else player.availablePig = false;
   }
+  player.goods ??= { WINE: 0, GRAIN: 0, CLOTH: 0 };
+  for (const good of CARCASSONNE_GOODS) player.goods[good] += earnedGoods[good];
   const scoring = settleCompleted(s);
+  s.bonusTurn = bonusTurn;
   s.feedback = {
     playerId: actor,
     tile,
     meepleRegionId: a.meepleRegionId,
     automatic,
+    piece,
+    goods: earnedGoods,
+    bonusTurn,
     at: now,
     scoring,
   };
@@ -403,11 +485,12 @@ function applyMove(
   s.turnStartedAt = now;
   if (!drawNext(s)) finish(s, now);
   else {
-    s.activePlayerId =
-      s.players[
-        (s.players.findIndex((p) => p.playerId === actor) + 1) %
-          s.players.length
-      ]!.playerId;
+    s.activePlayerId = bonusTurn
+      ? actor
+      : s.players[
+          (s.players.findIndex((p) => p.playerId === actor) + 1) %
+            s.players.length
+        ]!.playerId;
     s.deadlineAt = v.parse(
       ServerTimeSchema,
       now + CARCASSONNE_TURN_DURATION_MS,

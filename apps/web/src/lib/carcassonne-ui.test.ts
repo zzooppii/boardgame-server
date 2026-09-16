@@ -292,6 +292,7 @@ test("Carcassonne audio: mount/reconnect/duplicate revision never replay history
   assert.deepEqual(carcassonneTransitionCues(g, n, "b"), [
     "PLACE",
     "SCORE",
+    "RETURN",
     "TURN",
   ]);
   assert.deepEqual(carcassonneTransitionCues(n, structuredClone(n), "b"), []);
@@ -309,4 +310,67 @@ test("Carcassonne audio: mount/reconnect/duplicate revision never replay history
   audio.setVolume(0);
   audio.play(["TURN"]);
   audio.dispose();
+});
+
+test("CARCASSONNE expansions UI: host selectors show inventory, special piece legality and bonus/resource feedback", () => {
+  const settings = { innsAndCathedrals: true, tradersAndBuilders: true };
+  const l = lobby();
+  l.room.settings = settings;
+  const html = render(l);
+  assert.match(html, /여관과 성당/);
+  assert.match(html, /상인과 건축가/);
+  assert.match(html, /114/);
+  assert.match(html, /carcassonne|cc-expansion-card/);
+  assert.equal(
+    safeParse(CarcassonneClientCommandSchema, {
+      protocolVersion: 1,
+      requestId: "configure",
+      kind: "carcassonne:configure",
+      expectedRoomRevision: 1,
+      payload: settings,
+    }).success,
+    true,
+  );
+  assert.equal(
+    safeParse(CarcassonneClientCommandSchema, {
+      protocolVersion: 1,
+      requestId: "configure",
+      kind: "carcassonne:configure",
+      expectedRoomRevision: 1,
+      payload: { ...settings, bonusTurn: true },
+    }).success,
+    false,
+  );
+  const p = playing();
+  p.room.settings = settings;
+  p.game.settings = settings;
+  p.game.bagCount += 42;
+  p.game.bonusTurn = true;
+  for (const player of p.game.playerStates) {
+    player.availableBig = true;
+    player.availableBuilder = true;
+    player.availablePig = true;
+    player.goods = { WINE: 0, GRAIN: 0, CLOTH: 0 };
+  }
+  assert.match(render(p), /건축가의 추가 턴/);
+  assert.match(render(p), /포도주 0/);
+  const base = { x: 1, y: 0, rotation: 270 as const, meepleRegionId: "c0" };
+  const big = previewCarcassonne(p.game, p.self.playerId, {
+    ...base,
+    piece: "BIG",
+  });
+  assert.equal(big.reason, "");
+  assert.equal(big.action?.piece, "BIG");
+  assert.equal(big.returnCount, 1);
+  const builder = previewCarcassonne(p.game, p.self.playerId, {
+    ...base,
+    piece: "BUILDER",
+  });
+  assert.match(builder.reason, /내 미플/);
+  p.game.playerStates[0]!.availableBig = false;
+  assert.match(
+    previewCarcassonne(p.game, p.self.playerId, { ...base, piece: "BIG" })
+      .reason,
+    /남은 미플/,
+  );
 });

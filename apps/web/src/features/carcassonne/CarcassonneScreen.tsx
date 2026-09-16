@@ -1,3 +1,20 @@
+import { ExpansionSettings } from "./ExpansionSettings.js";
+import {
+  CARCASSONNE_DEFAULT_SETTINGS,
+  CARCASSONNE_PIECE_LABELS,
+  CARCASSONNE_GOODS,
+  CARCASSONNE_GOOD_LABELS,
+  carcassonneTileEnabled,
+  carcassonneTileCount,
+  type CarcassonnePiece,
+} from "@hangul-rummikub/shared";
+import {
+  FINAL_SCORE_CATEGORIES,
+  finalScoreEvents,
+  scoreEventGeometry,
+} from "./scoring.js";
+import { ScoreDetails } from "./ScoreDetails.js";
+import { useCarcassonneCelebration } from "./use-celebration.js";
 import {
   useEffect,
   useMemo,
@@ -46,8 +63,12 @@ type Props = Readonly<{
   onCopy(): void;
 }>;
 export function CarcassonneScreen(props: Props) {
+  const [configuring, setConfiguring] = useState(false);
   const s = props.snapshot,
-    start = getGameStartControl(s, props.pending || !props.connected),
+    start = getGameStartControl(
+      s,
+      props.pending || configuring || !props.connected,
+    ),
     sound = useCarcassonneSound(s.game, s.self.playerId, props.connected);
   return (
     <section
@@ -130,7 +151,7 @@ export function CarcassonneScreen(props: Props) {
             </p>
             <div className="cc-lobby-tags">
               <span>2–5인</span>
-              <span>기본판 · 농부 포함</span>
+              <span>농부 포함 · 확장 선택 가능</span>
               <span>턴마다 90초</span>
             </div>
           </div>
@@ -159,6 +180,12 @@ export function CarcassonneScreen(props: Props) {
                 </div>
               ))}
             </div>
+            <ExpansionSettings
+              snapshot={s}
+              disabled={props.pending || !props.connected}
+              onCommand={props.onCommand}
+              onBusy={setConfiguring}
+            />
             <p className="cc-start-guidance">{start.guidance}</p>
             <button
               type="button"
@@ -213,15 +240,42 @@ export function CarcassonneScreen(props: Props) {
           </div>
         </div>
         <p>
-          마지막 타일 후 미완성 도로·도시는 타일당 1점(방패 +1), 수도원은 자신과
-          주변 타일 수, 들판을 정산합니다. 90초가 끝나면 서버가 타일만 자동
-          배치합니다. 연결이 끊겨도 시간은 흐르며, 나가기 버튼은 게임을
-          취소합니다.
+          기본판의 마지막 정산에서 미완성 도로·도시는 타일당 1점(방패 +1),
+          수도원은 자신과 주변 타일 수, 들판을 정산합니다. 90초가 끝나면 서버가
+          타일만 자동 배치합니다. 연결이 끊겨도 시간은 흐르며, 나가기 버튼은
+          게임을 취소합니다.
         </p>
+        {s.room.settings?.innsAndCathedrals && (
+          <p>
+            <b>여관과 성당</b> · 큰 미플은 점유 비교에서 2명입니다. 여관 도로는
+            완성 시 타일당 2점, 성당 도시는 완성 시 타일·방패당 3점이며 미완성은
+            0점입니다.
+          </p>
+        )}
+        {s.room.settings?.tradersAndBuilders && (
+          <p>
+            <b>상인과 건축가</b> · 상품은 도시를 완성한 사람이 받으며 종류별
+            최다 보유자는 종료 시 10점입니다. 건축가는 내 미플이 있는
+            도시·도로에 놓고 이후 확장하면 추가 턴 1회를 얻습니다. 돼지는 내
+            농부가 있는 들판에 놓으며 내가 최다 점유할 때만 도시당 4점을
+            받습니다.
+          </p>
+        )}
         <details className="cc-catalog">
-          <summary>기본 타일 24종 · 전체 72장 보기</summary>
+          <summary>
+            선택한 타일 · 전체{" "}
+            {carcassonneTileCount(
+              s.room.settings ?? CARCASSONNE_DEFAULT_SETTINGS,
+            )}
+            장 보기
+          </summary>
           <div>
-            {CARCASSONNE_TILE_KINDS.map((kind) => (
+            {CARCASSONNE_TILE_KINDS.filter((kind) =>
+              carcassonneTileEnabled(
+                kind,
+                s.room.settings ?? CARCASSONNE_DEFAULT_SETTINGS,
+              ),
+            ).map((kind) => (
               <figure key={kind}>
                 <CarcassonneTileArt kind={kind} />
                 <figcaption>
@@ -266,6 +320,46 @@ function CarcassonneTable({
       scope: string;
       command: CarcassonneClientCommand;
     } | null>(null);
+  const celebration = useCarcassonneCelebration(g, props.connected);
+  const [scoreSelection, setScoreSelection] = useState<{
+    playerId: string;
+    kind: (typeof FINAL_SCORE_CATEGORIES)[number]["kind"];
+    featureId: string;
+    request: number;
+  } | null>(null);
+  const scoreEvents = scoreSelection
+    ? finalScoreEvents(g, scoreSelection.playerId, scoreSelection.kind)
+    : [];
+  const scoreEvent = scoreEvents.find(
+    (e) => e.featureId === scoreSelection?.featureId,
+  );
+  const scoreGeometry = useMemo(
+    () => (scoreEvent ? scoreEventGeometry(g, scoreEvent) : null),
+    [g, scoreEvent],
+  );
+  function selectScore(
+    playerId: string,
+    kind: (typeof FINAL_SCORE_CATEGORIES)[number]["kind"],
+    featureId?: string,
+  ) {
+    const events = finalScoreEvents(g, playerId, kind),
+      id = featureId ?? events[0]?.featureId;
+    if (!id) return;
+    setInspection(null);
+    setScoreSelection((old) => ({
+      playerId,
+      kind,
+      featureId: id,
+      request: (old?.request ?? 0) + 1,
+    }));
+    sound.play("PICK");
+    mapArea.current?.scrollIntoView({
+      block: "start",
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "instant"
+        : "smooth",
+    });
+  }
   const currentRetry = retry?.scope === scope ? retry.command : null;
   const panel = useRef<HTMLElement>(null),
     mapArea = useRef<HTMLDivElement>(null),
@@ -331,7 +425,8 @@ function CarcassonneTable({
   const pendingFeature = draft?.meepleRegionId
     ? preview.choices.find((c) => c.region.id === draft.meepleRegionId)?.feature
     : undefined;
-  const highlight = feature?.nodes ?? pendingFeature?.nodes ?? [];
+  const highlight =
+    scoreGeometry?.nodes ?? feature?.nodes ?? pendingFeature?.nodes ?? [];
   function chooseRotation(clockwise = true) {
     if (!canAct) return;
     const next = nextCarcassonneRotation(rotation, clockwise);
@@ -361,6 +456,15 @@ function CarcassonneTable({
     sound.play("PICK");
     scrollToControls();
   }
+  function choosePiece(piece: CarcassonnePiece) {
+    if (!canAct || !draft) return;
+    setSelection({
+      scope,
+      rotation,
+      draft: { ...draft, piece, meepleRegionId: null },
+    });
+    sound.play("PICK");
+  }
   function chooseMeeple(regionId: string | null) {
     if (!canAct || !draft) return;
     setSelection({
@@ -372,6 +476,7 @@ function CarcassonneTable({
     sound.play("MEEPLE");
   }
   function inspect(tile: CarcassonneBoardTile) {
+    setScoreSelection(null);
     setInspection({
       tileId: tile.tileId,
       regionId: CARCASSONNE_CATALOG[tile.kind].regions[0]!.id,
@@ -524,8 +629,69 @@ function CarcassonneTable({
                   : ""}
               </span>
             </div>
+            {(g.settings?.innsAndCathedrals ||
+              g.settings?.tradersAndBuilders) && (
+              <div className="cc-player-resources">
+                {g.settings.innsAndCathedrals && (
+                  <span>큰 미플 {p.availableBig ? "●" : "배치 중"}</span>
+                )}
+                {g.settings.tradersAndBuilders && (
+                  <>
+                    <span>
+                      건축가 {p.availableBuilder ? "●" : "배치 중"} · 돼지{" "}
+                      {p.availablePig ? "●" : "배치 중"}
+                    </span>
+                    <span>
+                      {CARCASSONNE_GOODS.map(
+                        (good) =>
+                          CARCASSONNE_GOOD_LABELS[good] +
+                          " " +
+                          (p.goods?.[good] ?? 0),
+                      ).join(" · ")}
+                    </span>
+                  </>
+                )}
+              </div>
+            )}
             <div className="cc-player-points">
-              <strong>{p.score}</strong>
+              <strong
+                key={
+                  celebration?.gains.some(
+                    (gain) => gain.playerId === p.playerId,
+                  )
+                    ? celebration.key
+                    : p.playerId
+                }
+                className={
+                  celebration?.gains.some(
+                    (gain) => gain.playerId === p.playerId,
+                  )
+                    ? "cc-score-pop"
+                    : undefined
+                }
+              >
+                {p.score}
+              </strong>
+              {celebration?.gains
+                .filter((gain) => gain.playerId === p.playerId)
+                .map((gain) => (
+                  <span className="cc-score-gain" key={celebration.key}>
+                    +{gain.points}
+                  </span>
+                ))}
+              {celebration?.returned.some((m) => m.playerId === p.playerId) && (
+                <span
+                  className="cc-return-count"
+                  key={celebration.key + "return"}
+                >
+                  미플 +
+                  {
+                    celebration.returned.filter(
+                      (m) => m.playerId === p.playerId,
+                    ).length
+                  }
+                </span>
+              )}
               <span>점</span>
             </div>
           </div>
@@ -551,15 +717,64 @@ function CarcassonneTable({
           </div>
           {g.result.reason !== "CANCELLED" && (
             <div className="cc-result-scores">
+              <p className="cc-result-help">
+                종료 정산 항목을 누르면 지도에서 점수 근거를 볼 수 있습니다.
+                진행 중 획득한 점수는 별도 합계입니다.
+              </p>
               {g.result.scores.map((s) => (
                 <div key={s.playerId}>
                   <strong>
                     {nickname(s.playerId)} <b>{s.total}점</b>
                   </strong>
-                  <span>
-                    진행 중 {s.base} · 도로 +{s.roads} · 도시 +{s.cities} ·
-                    수도원 +{s.monasteries} · 들판 +{s.fields}
-                  </span>
+                  <span>진행 중 획득 {s.base}점</span>
+                  {g.settings?.tradersAndBuilders && (
+                    <span className="cc-goods-result">
+                      상품 보너스 +{s.goods ?? 0}점 ·{" "}
+                      {CARCASSONNE_GOODS.map((good) => {
+                        const count =
+                          g.playerStates.find((p) => p.playerId === s.playerId)
+                            ?.goods?.[good] ?? 0;
+                        const max = Math.max(
+                          ...g.playerStates.map((p) => p.goods?.[good] ?? 0),
+                        );
+                        return (
+                          CARCASSONNE_GOOD_LABELS[good] +
+                          " " +
+                          count +
+                          "개" +
+                          (count > 0 && count === max ? " (+10점)" : "")
+                        );
+                      }).join(" · ")}
+                    </span>
+                  )}
+                  <div className="cc-final-categories">
+                    {FINAL_SCORE_CATEGORIES.map((category) => (
+                      <button
+                        key={category.kind}
+                        type="button"
+                        disabled={
+                          finalScoreEvents(g, s.playerId, category.kind)
+                            .length === 0
+                        }
+                        aria-pressed={
+                          scoreSelection?.playerId === s.playerId &&
+                          scoreSelection.kind === category.kind
+                        }
+                        aria-label={
+                          nickname(s.playerId) +
+                          " " +
+                          category.label +
+                          " +" +
+                          s[category.key] +
+                          "점 근거 보기"
+                        }
+                        onClick={() => selectScore(s.playerId, category.kind)}
+                      >
+                        {category.label} <b>+{s[category.key]}</b>
+                        <span aria-hidden="true"> ↗</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
@@ -578,8 +793,62 @@ function CarcassonneTable({
           </button>
         </section>
       )}
+      {g.phase === "PLAYING" && g.bonusTurn && (
+        <p className="cc-builder-notice" role="status">
+          건축가의 추가 턴 · {nickname(g.activePlayerId)}님이 타일을 한 장 더
+          놓습니다.
+        </p>
+      )}
+      {g.feedback?.goods &&
+        CARCASSONNE_GOODS.some((good) => g.feedback!.goods![good] > 0) && (
+          <p className="cc-goods-notice">
+            상품 획득 · {nickname(g.feedback.playerId)} ·{" "}
+            {CARCASSONNE_GOODS.filter((good) => g.feedback!.goods![good] > 0)
+              .map(
+                (good) =>
+                  CARCASSONNE_GOOD_LABELS[good] +
+                  " +" +
+                  g.feedback!.goods![good],
+              )
+              .join(" · ")}
+          </p>
+        )}
       <div className="cc-table-layout">
         <div className="cc-board-column" ref={mapArea}>
+          {scoreSelection && scoreEvent && (
+            <ScoreDetails
+              playerName={nickname(scoreSelection.playerId)}
+              events={scoreEvents}
+              selectedId={scoreSelection.featureId}
+              nickname={nickname}
+              onSelect={(id) =>
+                selectScore(scoreSelection.playerId, scoreSelection.kind, id)
+              }
+              onClose={() => setScoreSelection(null)}
+            />
+          )}
+          {celebration && celebration.completed.length > 0 && (
+            <div
+              key={celebration.key}
+              className="cc-completion-notice"
+              role="status"
+            >
+              ✦{" "}
+              {celebration.completed
+                .map(
+                  (e) =>
+                    CARCASSONNE_FEATURE_LABELS[e.kind] +
+                    " 완성 · " +
+                    e.winnerPlayerIds.map(nickname).join(", ") +
+                    " +" +
+                    e.points +
+                    "점",
+                )
+                .join(" / ")}
+              {celebration.returned.length > 0 &&
+                " · 미플 " + celebration.returned.length + "개 회수"}
+            </div>
+          )}
           <CarcassonneBoard
             game={g}
             rotation={rotation}
@@ -587,7 +856,18 @@ function CarcassonneTable({
             meepleRegionId={draft?.meepleRegionId ?? null}
             selfId={selfId}
             enabled={canAct}
+            piece={draft?.piece ?? "NORMAL"}
             highlight={highlight}
+            secondaryHighlight={scoreGeometry?.cityNodes ?? []}
+            focusRegion={
+              scoreGeometry && scoreSelection
+                ? {
+                    tileIds: scoreGeometry.tileIds,
+                    request: scoreSelection.request,
+                  }
+                : null
+            }
+            celebration={celebration}
             onPlace={place}
             onInspect={inspect}
           />
@@ -665,6 +945,7 @@ function CarcassonneTable({
                           {
                             regionId: draft.meepleRegionId,
                             color: CARCASSONNE_PLAYER_COLORS[selfIndex]!,
+                            piece: draft.piece ?? "NORMAL",
                             number: selfIndex + 1,
                           },
                         ]
@@ -674,7 +955,7 @@ function CarcassonneTable({
                 {canAct &&
                   draft &&
                   preview.choices
-                    .filter((c) => c.available && me.availableMeeples > 0)
+                    .filter((c) => c.available && preview.pieceAvailable)
                     .map(({ region }) => {
                       const [x, y] = rotateCarcassonnePoint(
                         region.point,
@@ -760,6 +1041,53 @@ function CarcassonneTable({
               </div>
               {draft ? (
                 <>
+                  {(g.settings?.innsAndCathedrals ||
+                    g.settings?.tradersAndBuilders) && (
+                    <div
+                      className="cc-piece-picker"
+                      aria-label="배치할 말 선택"
+                    >
+                      {(["NORMAL", "BIG", "BUILDER", "PIG"] as const)
+                        .filter(
+                          (piece) =>
+                            piece === "NORMAL" ||
+                            (piece === "BIG"
+                              ? g.settings?.innsAndCathedrals
+                              : g.settings?.tradersAndBuilders),
+                        )
+                        .map((piece) => (
+                          <button
+                            type="button"
+                            key={piece}
+                            aria-pressed={(draft.piece ?? "NORMAL") === piece}
+                            disabled={
+                              !canAct ||
+                              (piece === "NORMAL"
+                                ? me.availableMeeples === 0
+                                : piece === "BIG"
+                                  ? !me.availableBig
+                                  : piece === "BUILDER"
+                                    ? !me.availableBuilder
+                                    : !me.availablePig)
+                            }
+                            onClick={() => choosePiece(piece)}
+                          >
+                            <CarcassonneMeepleArt
+                              piece={piece}
+                              color={CARCASSONNE_PLAYER_COLORS[selfIndex]!}
+                            />
+                            <span>{CARCASSONNE_PIECE_LABELS[piece]}</span>
+                          </button>
+                        ))}
+                    </div>
+                  )}
+                  {(draft.piece === "BUILDER" || draft.piece === "PIG") && (
+                    <p className="cc-piece-help">
+                      {draft.piece === "BUILDER"
+                        ? "내 미플이 있는 도시·도로에 놓으세요. 다음부터 이 영역을 확장하면 추가 턴을 얻습니다."
+                        : "내 농부가 있는 들판에 놓으세요. 내가 최다 점유할 때만 도시당 4점을 받습니다."}
+                    </p>
+                  )}
                   <div
                     className="cc-region-options"
                     aria-label="미플 배치 영역"
@@ -779,7 +1107,7 @@ function CarcassonneTable({
                         key={region.id}
                         aria-pressed={draft.meepleRegionId === region.id}
                         disabled={
-                          !canAct || !available || me.availableMeeples === 0
+                          !canAct || !available || !preview.pieceAvailable
                         }
                         onClick={() => chooseMeeple(region.id)}
                       >
@@ -789,8 +1117,10 @@ function CarcassonneTable({
                         </span>
                         <small>
                           {!available
-                            ? "이미 점유됨"
-                            : me.availableMeeples === 0
+                            ? draft.piece === "BUILDER" || draft.piece === "PIG"
+                              ? "내 미플이 있는 영역 필요"
+                              : "이미 점유됨"
+                            : !preview.pieceAvailable
                               ? "미플 없음"
                               : region.kind === "FIELD"
                                 ? "종료 때 정산"
@@ -801,7 +1131,7 @@ function CarcassonneTable({
                   </div>
                   {draft.meepleRegionId?.startsWith("f") && (
                     <p className="cc-farmer-note">
-                      농부는 게임이 끝날 때까지 들판에 남습니다.
+                      농부와 돼지는 게임이 끝날 때까지 들판에 남습니다.
                     </p>
                   )}
                   <button
@@ -830,18 +1160,38 @@ function CarcassonneTable({
           )}
           <div className="cc-score-key">
             <span>
-              도로 <b>1점 / 타일</b>
+              도로{" "}
+              <b>
+                {g.settings?.innsAndCathedrals
+                  ? "1점 · 여관 완성 2점 / 타일"
+                  : "1점 / 타일"}
+              </b>
             </span>
             <span>
-              도시 <b>2점 / 타일·방패</b>
+              도시{" "}
+              <b>
+                {g.settings?.innsAndCathedrals
+                  ? "2점 · 성당 완성 3점 / 타일·방패"
+                  : "2점 / 타일·방패"}
+              </b>
             </span>
             <span>
               수도원 <b>완성 시 9점</b>
             </span>
             <span>
-              들판 <b>종료 시 도시당 3점</b>
+              들판{" "}
+              <b>
+                {g.settings?.tradersAndBuilders
+                  ? "도시당 3점 · 내 돼지 4점"
+                  : "종료 시 도시당 3점"}
+              </b>
             </span>
           </div>
+          {g.settings?.innsAndCathedrals && (
+            <p className="cc-piece-help">
+              여관 도로·성당 도시는 미완성으로 끝나면 0점입니다.
+            </p>
+          )}
         </aside>
       </div>
       {g.phase === "PLAYING" && (
@@ -866,7 +1216,8 @@ function CarcassonneTable({
                             (r) => r.id === draft.meepleRegionId,
                           )!.kind
                         ] +
-                        " 미플"
+                        " " +
+                        CARCASSONNE_PIECE_LABELS[draft.piece ?? "NORMAL"]
                       : "만") +
                     " 배치 준비"
                   : preview.reason}
@@ -958,7 +1309,8 @@ function CarcassonneTable({
                           )
                           .join(" / ")
                       : item.meepleRegionId
-                        ? "미플을 보내 영역을 차지했습니다."
+                        ? CARCASSONNE_PIECE_LABELS[item.piece ?? "NORMAL"] +
+                          " 배치"
                         : "미플을 아끼고 타일만 놓았습니다."}
                   </p>
                 </div>

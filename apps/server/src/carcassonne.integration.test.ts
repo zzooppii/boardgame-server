@@ -636,3 +636,93 @@ test("CARCASSONNE timer: a successful manual command makes its old timeout stale
     false,
   );
 });
+
+test("CARCASSONNE expansions: host-only lobby settings, scoped revisions, replay/conflict, sync and frozen game settings", async (t) => {
+  const h = await harness(t, 2),
+    both = { innsAndCathedrals: true, tradersAndBuilders: true };
+  let s = await h.sync();
+  const revision = s.versions.roomRevision;
+  assert.equal(
+    h.failure(
+      await h.call(h.members[1]!.client, "carcassonne:configure", both, {
+        expectedRoomRevision: revision,
+      }),
+    ),
+    "HOST_ONLY",
+  );
+  assert.equal(
+    h.failure(
+      await h.call(
+        h.host,
+        "carcassonne:configure",
+        { ...both, extra: true },
+        { expectedRoomRevision: revision },
+      ),
+    ),
+    "INVALID_PAYLOAD",
+  );
+  const command = h.request("carcassonne:configure", both, {
+    expectedRoomRevision: revision,
+  });
+  s = h.success(await h.send(h.host, command));
+  assert.equal(s.versions.roomRevision, revision + 1);
+  assert.ok(s.room.gameType === "CARCASSONNE");
+  assert.deepEqual(s.room.settings, both);
+  const replay = h.success(await h.send(h.host, command));
+  assert.equal(replay.versions.roomRevision, s.versions.roomRevision);
+  assert.equal(
+    h.failure(
+      await h.send(h.host, {
+        ...command,
+        payload: { ...both, tradersAndBuilders: false },
+      }),
+    ),
+    "REQUEST_ID_REUSED",
+  );
+  assert.equal(
+    h.failure(
+      await h.call(h.host, "carcassonne:configure", both, {
+        expectedRoomRevision: revision,
+      }),
+    ),
+    "STALE_ROOM_REVISION",
+  );
+  const peer = await h.sync(h.members[1]!.client);
+  assert.ok(peer.room.gameType === "CARCASSONNE");
+  assert.deepEqual(peer.room.settings, both);
+  const game = carcassonne(await start(h));
+  assert.deepEqual(game.settings, both);
+  assert.equal(
+    game.board.length +
+      game.bagCount +
+      Number(game.currentTile !== null) +
+      game.discardedTiles.length,
+    114,
+  );
+  assert.ok(
+    game.playerStates.every(
+      (p) => p.availableBig && p.availableBuilder && p.availablePig,
+    ),
+  );
+  assert.equal(
+    h.failure(
+      await h.call(
+        h.host,
+        "carcassonne:configure",
+        { innsAndCathedrals: false, tradersAndBuilders: false },
+        { expectedRoomRevision: (await h.sync()).versions.roomRevision },
+      ),
+    ),
+    "INVALID_PHASE",
+  );
+});
+
+test("CARCASSONNE expansion rematch preserves host selection after 114-tile completion",async t=>{
+ const h=await harness(t);const settings={innsAndCathedrals:true,tradersAndBuilders:true};
+ h.success(await h.call(h.host,"carcassonne:configure",settings,{expectedRoomRevision:(await h.sync()).versions.roomRevision}));
+ let s=await start(h),steps=0;
+ while(s.room.phase==="PLAYING" && steps++<114){const g=carcassonne(s);assert.ok(g.phase==="PLAYING");const actor=h.members.find(p=>p.playerId===g.activePlayerId)!;s=h.success(await h.send(actor.client,action(h,s,legalMove(g))));}
+ assert.equal(s.room.phase,"FINISHED");
+ const lobby=h.success(await h.send(h.host,h.selection(s,"CARCASSONNE")));assert.ok(lobby.room.gameType==="CARCASSONNE");assert.deepEqual(lobby.room.settings,settings);
+ const again=carcassonne(await start(h));assert.deepEqual(again.settings,settings);assert.equal(again.board.length+again.bagCount+Number(again.currentTile!==null)+again.discardedTiles.length,114);
+});

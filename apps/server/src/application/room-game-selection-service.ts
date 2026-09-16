@@ -69,6 +69,7 @@ export class RoomGameSelectionService {
               : command.payload.gameType === "TERRAFORMING_MARS" ? {...lobby,gameType:"TERRAFORMING_MARS"}
               : command.payload.gameType === "SEVEN_WONDERS_DUEL" ? {...lobby,gameType:"SEVEN_WONDERS_DUEL", ...(room.gameType === "SEVEN_WONDERS_DUEL" && room.settings ? {settings:room.settings} : {})}
               : { ...lobby, gameType: command.payload.gameType };
+          if (command.payload.gameType === "CARCASSONNE" && room.gameType === "CARCASSONNE" && room.settings) candidate = { ...lobby, gameType: "CARCASSONNE", settings: room.settings };
           if (command.payload.gameType === "AVALON" && room.gameType === "AVALON") candidate = { ...lobby, gameType: "AVALON", settings: room.settings ?? { roleSet: "INTRIGUE" } };
           if (command.payload.gameType === "LIAR_GAME" && room.gameType === "LIAR_GAME") {
             candidate = { ...candidate, gameType: "LIAR_GAME", game: null, settings: room.settings ?? { category: "RANDOM", discussionSeconds: 90 } };

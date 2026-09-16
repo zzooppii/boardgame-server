@@ -4643,6 +4643,7 @@ test("runtime Socket.IO map은 Number events를 additive하게 제공하고 lega
     | "burgundy:act"
     | "burgundy:configure"
     | "carcassonne:act"
+    | "carcassonne:configure"
     | "clue:act"
     | "terrorscape:act"
     | "pandemic:act"

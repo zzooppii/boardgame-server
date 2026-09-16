@@ -1,3 +1,4 @@
+import { CarcassonneSettingsSchema } from "../games/carcassonne/actions.js";
 import { PatchworkSettingsSchema } from "../games/patchwork/actions.js";
 import {HarmoniesSettingsSchema,HARMONIES_DEFAULT_SETTINGS} from "../games/harmonies/actions.js";
 import { DuelSettingsSchema } from "../games/seven-wonders-duel/actions.js";
@@ -538,7 +539,7 @@ export const BurgundyPlayingPlatformSnapshotV2Schema: v.GenericSchema<unknown, B
 export const BurgundyFinishedPlatformSnapshotV2Schema: v.GenericSchema<unknown, BurgundyFinishedPlatformSnapshotV2> = BurgundyFinishedRaw;
 
 const CarcassonneOuter = { snapshotVersion: PlatformSnapshotVersionSchema, versions: PlatformSnapshotVersionsV2Schema, serverTime: ServerTimeSchema, self: PlatformSelfViewV2Schema };
-const CarcassonneRoom = { roomId: RoomIdSchema, roomCode: RoomCodeSchema, gameType: v.literal("CARCASSONNE") };
+const CarcassonneRoom = { roomId: RoomIdSchema, roomCode: RoomCodeSchema, gameType: v.literal("CARCASSONNE"), settings: v.optional(CarcassonneSettingsSchema) };
 const CarcassonnePlayers = v.pipe(v.array(PlatformPlayerViewV2Schema), v.minLength(2), v.maxLength(5));
 const CarcassonneLobbyRaw = v.pipe(v.strictObject({ ...CarcassonneOuter, room: v.strictObject({ ...CarcassonneRoom, phase: v.literal("LOBBY"),
   players: v.pipe(v.array(PlatformPlayerViewV2Schema), v.maxLength(10)) }), game: v.null() }),

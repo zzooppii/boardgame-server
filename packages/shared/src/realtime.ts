@@ -592,6 +592,7 @@ export interface SnapshotWireClientToServerEvents {
   "vegas:act": (command: Extract<VegasClientCommand,{kind:"vegas:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "burgundy:configure": (command: Extract<BurgundyClientCommand,{kind:"burgundy:configure"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "burgundy:act": (command: Extract<BurgundyClientCommand,{kind:"burgundy:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
+  "carcassonne:configure": (command: Extract<CarcassonneClientCommand,{kind:"carcassonne:configure"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "carcassonne:act": (command: Extract<CarcassonneClientCommand,{kind:"carcassonne:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "clue:act": (command: Extract<ClueClientCommand,{kind:"clue:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "terrorscape:act": (command: Extract<TerrorscapeClientCommand,{kind:"terrorscape:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;

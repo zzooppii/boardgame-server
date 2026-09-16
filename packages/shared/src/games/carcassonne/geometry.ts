@@ -8,6 +8,8 @@ import type {
 import {
   CARCASSONNE_CATALOG,
   type CarcassonneFeatureKind,
+  type CarcassonneGood,
+  type CarcassonnePiece,
   type CarcassonneRegion,
 } from "./catalog.js";
 export const CARCASSONNE_OFFSETS = [
@@ -60,8 +62,8 @@ export function carcassonnePlacementReason(
   if (
     !Number.isSafeInteger(tile.x) ||
     !Number.isSafeInteger(tile.y) ||
-    Math.abs(tile.x) > 72 ||
-    Math.abs(tile.y) > 72
+    Math.abs(tile.x) > 114 ||
+    Math.abs(tile.y) > 114
   )
     return "보드 범위를 벗어났습니다.";
   const cells = new Map(board.map((t) => [carcassonneCellKey(t.x, t.y), t]));
@@ -93,7 +95,7 @@ export function carcassonneFrontier(
       const x = t.x + dx,
         y = t.y + dy,
         key = carcassonneCellKey(x, y);
-      if (!occupied.has(key) && Math.abs(x) <= 72 && Math.abs(y) <= 72)
+      if (!occupied.has(key) && Math.abs(x) <= 114 && Math.abs(y) <= 114)
         result.set(key, { x, y });
     }
   return [...result.values()].sort(
@@ -138,6 +140,9 @@ export type CarcassonneFeature = {
   meeples: CarcassonneMeeple[];
   completedCityIds: string[];
   surroundingCount: number;
+  inn?: boolean;
+  cathedral?: boolean;
+  goods?: CarcassonneGood[];
 };
 type Node = {
   key: string;
@@ -237,6 +242,9 @@ export function analyzeCarcassonneBoard(
       meeples: queue.flatMap((key) => claims.get(key) ?? []),
       completedCityIds: [],
       surroundingCount,
+      inn: component.some((n) => n.region.inn),
+      cathedral: component.some((n) => n.region.cathedral),
+      goods: component.flatMap((n) => (n.region.goods ? [n.region.goods] : [])),
     };
     features.push(feature);
     for (const key of queue) byNode.set(key, feature);
@@ -260,26 +268,50 @@ export function analyzeCarcassonneBoard(
 export function carcassonneFeaturePoints(
   feature: CarcassonneFeature,
   final: boolean,
+  playerId?: PlayerId,
 ): number {
   switch (feature.kind) {
     case "FIELD":
-      return final ? feature.completedCityIds.length * 3 : 0;
+      return final
+        ? feature.completedCityIds.length *
+            (playerId &&
+            feature.meeples.some(
+              (m) => m.playerId === playerId && m.piece === "PIG",
+            )
+              ? 4
+              : 3)
+        : 0;
     case "MONASTERY":
       return final || feature.complete ? feature.surroundingCount : 0;
     case "ROAD":
-      return final || feature.complete ? feature.tileIds.length : 0;
-    case "CITY":
-      return feature.complete
-        ? (feature.tileIds.length + feature.shields) * 2
-        : final
-          ? feature.tileIds.length + feature.shields
+      return feature.inn
+        ? feature.complete
+          ? feature.tileIds.length * 2
+          : 0
+        : final || feature.complete
+          ? feature.tileIds.length
           : 0;
+    case "CITY":
+      return feature.cathedral
+        ? feature.complete
+          ? (feature.tileIds.length + feature.shields) * 3
+          : 0
+        : feature.complete
+          ? (feature.tileIds.length + feature.shields) * 2
+          : final
+            ? feature.tileIds.length + feature.shields
+            : 0;
   }
 }
 export function carcassonneMajority(feature: CarcassonneFeature): PlayerId[] {
   const counts = new Map<PlayerId, number>();
-  for (const m of feature.meeples)
-    counts.set(m.playerId, (counts.get(m.playerId) ?? 0) + 1);
+  for (const m of feature.meeples) {
+    if (m.piece === "BUILDER" || m.piece === "PIG") continue;
+    counts.set(
+      m.playerId,
+      (counts.get(m.playerId) ?? 0) + (m.piece === "BIG" ? 2 : 1),
+    );
+  }
   const maximum = Math.max(0, ...counts.values());
   return [...counts].filter(([, count]) => count === maximum).map(([id]) => id);
 }
@@ -287,6 +319,8 @@ export function carcassonneMeepleChoices(
   board: readonly CarcassonneBoardTile[],
   meeples: readonly CarcassonneMeeple[],
   tile: CarcassonneBoardTile,
+  playerId?: PlayerId,
+  piece: CarcassonnePiece = "NORMAL",
 ): {
   region: CarcassonneRegion;
   feature: CarcassonneFeature;
@@ -298,6 +332,19 @@ export function carcassonneMeepleChoices(
       f.nodes.includes(carcassonneRegionKey(tile.tileId, region.id)),
     );
     if (!feature) throw new Error("Missing placed feature.");
-    return { region, feature, available: feature.meeples.length === 0 };
+    const ownFollower = feature.meeples.some(
+      (m) =>
+        m.playerId === playerId &&
+        (m.piece === undefined || m.piece === "NORMAL" || m.piece === "BIG"),
+    );
+    const available =
+      piece === "BUILDER"
+        ? ownFollower && (region.kind === "CITY" || region.kind === "ROAD")
+        : piece === "PIG"
+          ? ownFollower && region.kind === "FIELD"
+          : feature.meeples.every(
+              (m) => m.piece === "BUILDER" || m.piece === "PIG",
+            );
+    return { region, feature, available };
   });
 }

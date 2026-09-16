@@ -249,7 +249,11 @@ export class CarcassonneService {
             gameId = d.ids.generateGameId(),
             turnId = d.ids.generateTurnId();
           const state = createCarcassonneGame({
-            tiles: makeCarcassonneTiles(() => d.ids.generateTileId()),
+            tiles: makeCarcassonneTiles(
+              () => d.ids.generateTileId(),
+              room.settings,
+            ),
+            ...(room.settings ? { settings: room.settings } : {}),
             gameId,
             playerIds: room.players.map((p) => p.playerId),
             now,
@@ -353,6 +357,46 @@ export class CarcassonneService {
             v.parse(Receipt, prior.record.terminalResult);
             return { ok: true as const };
           }
+          if (c.kind === "carcassonne:configure") {
+            if (room.phase !== "LOBBY" || room.game !== null)
+              return failure("INVALID_PHASE");
+            if (room.hostPlayerId !== input.actorPlayerId)
+              return failure("HOST_ONLY");
+            if (room.roomRevision !== c.expectedRoomRevision)
+              return failure("STALE_ROOM_REVISION");
+            const now = d.clock.now();
+            const committed = await d.roomUnitOfWork.commit(
+              {
+                roomMutation: {
+                  kind: "REPLACE",
+                  candidate: {
+                    ...room,
+                    settings: c.payload,
+                    roomRevision: v.parse(
+                      RoomRevisionSchema,
+                      room.roomRevision + 1,
+                    ),
+                    updatedAt: now,
+                  },
+                  expectedRoomRevision: room.roomRevision,
+                  expectedStorageRevision: room.storageRevision,
+                },
+                sessionMutation: { kind: "NONE" },
+                idempotency: {
+                  scopeKey,
+                  requestId: c.requestId,
+                  payloadFingerprint,
+                  terminalResult: { outcome: "ACCEPTED" },
+                  createdAt: now,
+                },
+              },
+              { isSatisfied: () => input.authorization.isCurrent() },
+            );
+            if (committed.status !== "COMMITTED")
+              return failure("STALE_ROOM_REVISION");
+            changed = true;
+            return { ok: true as const };
+          }
           if (
             !room.game ||
             room.game.gameId !== c.gameId ||
@@ -404,7 +448,7 @@ export class CarcassonneService {
         },
       );
       if (changed) {
-        await this.cancelTimer(c.turnId);
+        if (c.kind === "carcassonne:act") await this.cancelTimer(c.turnId);
         await this.schedule(input.roomId);
         await this.notify(input.roomId);
       }

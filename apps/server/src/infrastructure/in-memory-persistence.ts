@@ -1,3 +1,4 @@
+import { CarcassonneSettingsSchema, CARCASSONNE_DEFAULT_SETTINGS } from "@hangul-rummikub/shared";
 import { PatchworkSettingsSchema } from "@hangul-rummikub/shared";
 import {HarmoniesSettingsSchema,HARMONIES_DEFAULT_SETTINGS} from "@hangul-rummikub/shared";
 import { DuelSettingsSchema, DUEL_DEFAULT_SETTINGS } from "@hangul-rummikub/shared";
@@ -403,7 +404,9 @@ function cloneRoomWriteCandidate(
       validateRoomGameCoherence(shell.phase, shell.players, game, () => game === null ? null : adapter.inspectLifecycle(game));
       const departedPlayerIds = Object.freeze([...(candidate.departedPlayerIds ?? [])]);
       if (new Set(departedPlayerIds).size !== departedPlayerIds.length || departedPlayerIds.some(id => !shell.players.some(p => p.playerId === id)) || shell.phase === "LOBBY" && departedPlayerIds.length > 0) throw new Error("Invalid departed CARCASSONNE roster.");
-      return Object.freeze({...shell, gameType:"CARCASSONNE", game, departedPlayerIds});
+      const settings = v.parse(CarcassonneSettingsSchema, candidate.settings ?? CARCASSONNE_DEFAULT_SETTINGS);
+      if (game && JSON.stringify(settings) !== JSON.stringify(game.state.settings)) throw new Error("Carcassonne settings mismatch.");
+      return Object.freeze({...shell, gameType:"CARCASSONNE", settings, game, departedPlayerIds});
     }
     case "CLUE": {
       const adapter = new ClueGameStateAdapter(), game = candidate.game === null ? null : adapter.cloneAndValidate(candidate.game);
