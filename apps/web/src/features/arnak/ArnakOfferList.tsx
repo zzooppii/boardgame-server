@@ -1,6 +1,21 @@
 import { useState } from 'react';
-import { arnakCard, arnakCostText, ARNAK_TRAVEL_NAMES, type ArnakCard, type ArnakOffer } from '@hangul-rummikub/shared';
+import { arnakCard, arnakCostText, ARNAK_ASSISTANTS, ARNAK_TRAVEL_NAMES, type ArnakCard, type ArnakOffer } from '@hangul-rummikub/shared';
 import { groupArnakOffers } from './offer-list.js';
+import { ArnakWorldArt } from './ArnakWorldArt.js';
+import { describeArnakEffect } from './effect-description.js';
+
+/** Public catalog reference only; the server offer still determines the selected action. */
+function AssistantPreview({ offer }: { offer: ArnakOffer | undefined }) {
+    const assistant = offer?.kind === 'EFFECT' ? ARNAK_ASSISTANTS.find(a => a.id === offer.targetId) : undefined;
+    if (!assistant) return null;
+    return <div className="ar-offer-assistant">
+        <ArnakWorldArt definitionId={assistant.id}/>
+        <div><small>{assistant.free ? '자유 행동' : '주 행동'}</small>
+            <dl><div><dt>☆ 은색 능력</dt><dd className="ar-silver-effect">{assistant.silver.map(describeArnakEffect).join(' · ')}</dd></div>
+                <div><dt>★ 금색 능력 · 승급 후</dt><dd className="ar-gold-effect">{assistant.gold.map(describeArnakEffect).join(' · ')}</dd></div></dl>
+        </div>
+    </div>;
+}
 export function ArnakOfferList({ offers, hand, selected, disabled, onSelect }: {
     offers: readonly ArnakOffer[]; hand: readonly ArnakCard[]; selected: string | null; disabled: boolean; onSelect(id: string | null): void;
 }) {
@@ -26,6 +41,7 @@ export function ArnakOfferList({ offers, hand, selected, disabled, onSelect }: {
         {preserved.size > 0 && <p className="ar-payment-count" role="status">지불 방법 {count}개 / 전체 {offers.length}개</p>}
         <div className="ar-offers">{groups.map(group => <fieldset className="ar-offer-group" key={group.key}>
             <legend>{group.offers[0]?.free ? 'ϟ ' : ''}{group.label}{group.offers.length > 1 && <small> · 지불 방법 {group.offers.length}개</small>}</legend>
+            <AssistantPreview offer={group.offers[0]}/>
             {group.offers.map((offer, i) => <button type="button" className={selected === offer.id ? 'selected' : ''} disabled={disabled} key={offer.id} aria-pressed={selected === offer.id} onClick={() => onSelect(offer.id)}>
                 <strong>{group.offers.length > 1 ? `방법 ${i + 1} · ` : ''}{Object.values(offer.cost).some(amount => amount > 0) ? arnakCostText(offer.cost) : '자원 지불 없음'}</strong>
                 <small>{offer.cards.length ? '지불 카드: ' + offer.cards.map(id => { const card = hand.find(c => c.tileId === id); return card ? label(card) : '카드'; }).join(', ') : offer.detail || '카드 지불 없음'}</small>

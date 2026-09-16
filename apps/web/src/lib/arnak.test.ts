@@ -213,6 +213,16 @@ test('Arnak payment list exposes separate hand instances and selection without c
 });
 
 import { ArnakResearchDetail } from '../features/arnak/ArnakResearchDetail.js';
+test('Arnak assistant effect choices show both public abilities without adding commands',()=>{
+ const assistant=ARNAK_ASSISTANTS[0]!;
+ const offer={...paymentOffer('hire',[]),kind:'EFFECT' as const,targetId:assistant.id,label:assistant.name+' 고용'};
+ const render=(offers:typeof offer[])=>renderToStaticMarkup(createElement(ArnakOfferList,{offers,hand:[],selected:null,disabled:true,onSelect(){}}));
+ const html=render([offer]);
+ assert.match(html,/☆ 은색 능력/);assert.match(html,/★ 금색 능력/);
+ for(const id of [...assistant.silver,...assistant.gold])assert.ok(html.includes(describeArnakEffect(id)));
+ assert.equal((html.match(/<button/g)??[]).length,1);assert.match(html,/disabled=""/);
+ assert.doesNotMatch(render([{...offer,targetId:'unknown'}]),/ar-offer-assistant/);
+});
 test('Arnak research preview distinguishes token rewards and connected predecessor cells',()=>{
  const html=renderToStaticMarkup(createElement(ArnakResearchDetail,{target:'2R',templeSupply:[]}));
  assert.match(html,/1L · 1R/);assert.match(html,/돋보기 보상/);assert.match(html,/나침반 1/);

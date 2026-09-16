@@ -43,3 +43,19 @@
 .ar-owned-abilities>button>span:last-child{flex:1;min-width:0}
 .ar-owned-abilities .ar-ability-effect{border-top:1px solid #8a795d66;padding-top:6px;margin-top:6px;line-height:1.6}
 .arnak-screen .ar-owned-abilities>button[aria-pressed="true"]{box-shadow:inset 0 0 0 2px #38664d}
+
+.ar-supply-note{font:12px/1.6 sans-serif;color:#e5d7b6}
+.ar-assistant-market{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr));align-items:stretch}
+.arnak-screen .ar-assistant-market>button{align-items:flex-start;width:100%;min-width:0}
+.ar-assistant-market>button>span:last-child{flex:1;min-width:0}
+.ar-assistant-market .ar-supply-ability{border-top:1px solid #8a795d66;padding-top:6px;margin-top:6px;line-height:1.6}
+.ar-supply-ability b{display:block;margin-bottom:3px}
+.arnak-screen .ar-assistant-market>button[aria-pressed="true"]{box-shadow:inset 0 0 0 2px #38664d}
+.ar-offer-assistant{display:flex;align-items:flex-start;gap:10px;padding:10px;background:#eee2c7;border-radius:5px;color:#28352b;font:12px/1.6 sans-serif;overflow-wrap:anywhere}
+.ar-offer-assistant>.ar-world-art{width:48px;height:48px;flex:0 0 48px}
+.ar-offer-assistant>div{min-width:0;flex:1}
+.ar-offer-assistant small{font-size:11px}
+.ar-offer-assistant dl{margin:6px 0 0}
+.ar-offer-assistant dl>div+div{border-top:1px solid #8a795d66;margin-top:8px;padding-top:8px}
+.ar-offer-assistant dt{font-weight:700}
+.ar-offer-assistant dd{margin:2px 0 0}

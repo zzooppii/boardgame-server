@@ -333,21 +333,29 @@ test('Arnak desktop/mobile: cards, dig, cleanup, five rounds, resume, results, r
   if(!await artifact.count()){await choose(other,/^이번 라운드 패스$/);await choose(other,/^패스 확정$/);continue;}
   artifactName=await artifact.locator('.ar-card-title strong').innerText();
   const artifactPrice=Number((await artifact.locator('.ar-card-foot span').innerText()).replace('✥','').trim());
-  const printedEffects=(await artifact.locator('.ar-card-effect').innerText()).replace(/^ϟ\s*/,'').split(/ · | → /);
-  const automatic=printedEffects.every(effect=>/^(금화|나침반|석판|화살촉|보석) \d+$|^카드 \d+장 뽑기$|^공포 1장 받기$/.test(effect));
+  const printedText=(await artifact.locator('.ar-card-effect').innerText()).replace(/^ϟ\s*/,'');
+  const printedEffects=printedText.split(/ · | → /);
+  const simpleEffects=printedEffects.every(effect=>/^(금화|나침반|석판|화살촉|보석) \d+$|^카드 \d+장 뽑기$|^공포 1장 받기$/.test(effect));
   const beforeArtifact=await readResources(),cardsBeforeArtifact=await cardTotal(other);
   await artifact.click();await other.locator('.ar-offer-group').filter({hasText:artifactName+' 획득'}).getByRole('button').click();
   assert.equal(parseCost(await other.locator('.ar-confirm > p').first().innerText()).compass,artifactPrice);
   await confirm(other);
   assert.equal(await other.locator('.ar-played button').filter({hasText:artifactName}).count(),1,'Purchased artifact is immediately played.');
-  if(automatic){
+  if(simpleEffects){
+   // A fear cost followed by an arrow needs an explicit choice before its rewards apply.
+   if(printedText.includes(' → ')){
+    assert.ok(printedText.startsWith('공포 1장 받기 → '));
+    assert.deepEqual(await readResources(),{...beforeArtifact,compass:beforeArtifact.compass-artifactPrice});
+    assert.equal(await cardTotal(other),cardsBeforeArtifact+1);
+    await choose(other,/공포 받고 효과 적용$/);
+   }
    const afterArtifact=await readResources();
    for(const key of Object.keys(resourceNames)){
     const gained=printedEffects.reduce((sum,effect)=>sum+parseCost(effect)[key],0);
     assert.equal(afterArtifact[key],beforeArtifact[key]-(key==='compass'?artifactPrice:0)+gained,`Immediate ${key} effect of ${artifactName}`);
    }
    assert.equal(await cardTotal(other),cardsBeforeArtifact+1+printedEffects.filter(effect=>effect==='공포 1장 받기').length);
-   t.diagnostic(`Checked printed automatic effects of ${artifactName}.`);
+   t.diagnostic(`Checked printed resource/card effects of ${artifactName}.`);
   }
   for(const peer of pages)assert.equal(await peer.locator('.ar-market .ar-card-title strong').filter({hasText:new RegExp('^'+artifactName+'$')}).count(),0);
   await other.reload();await other.locator('.ar-hand').waitFor();
@@ -447,6 +455,30 @@ for(const playerCount of [3,4]){
       await page.locator('#ar-actions').getByRole('button',{name:'전체',exact:true}).click();
       const hiring=()=>page.locator('.ar-offer-group').filter({has:page.locator('legend').filter({hasText:/고용$/})});
       const choices=await hiring().locator('legend').allTextContents();assert.equal(choices.length,3);
+      assert.equal(await hiring().locator('.ar-offer-assistant').count(),3);
+      await hiring().first().screenshot({path:join(output,'mobile-hiring-choice.png')});
+      const historyBeforePreview=await page.locator('.ar-log summary').innerText();
+      await page.locator('.ar-supply summary').click();
+      const supply=page.locator('.ar-assistant-market button');assert.equal(await supply.count(),3);
+      for(let choice=0;choice<3;choice++){
+       const card=supply.nth(choice),silverText=await card.locator('.ar-silver-effect').innerText(),goldText=await card.locator('.ar-gold-effect').innerText();
+       await page.locator('#ar-actions').getByRole('button',{name:'전체',exact:true}).click();
+       const preview=hiring().filter({hasText:(await card.locator('strong').innerText())+' 고용'}).locator('.ar-offer-assistant');
+       assert.equal(await preview.locator('.ar-silver-effect').innerText(),silverText);
+       assert.equal(await preview.locator('.ar-gold-effect').innerText(),goldText);
+       assert.equal(await preview.evaluate(element=>element.scrollWidth<=element.clientWidth),true);
+       assert.ok(silverText.trim());assert.ok(goldText.trim());await assertCampControlContrast(card);
+       assert.equal(await card.evaluate(button=>button.scrollWidth<=button.clientWidth),true);
+       await card.click();assert.equal(await card.getAttribute('aria-pressed'),'true');
+       const details=page.locator('.ar-card-inspector');
+       assert.equal(await details.locator('h4').filter({hasText:'은색 능력'}).locator('xpath=following-sibling::p[1]').innerText(),silverText);
+       assert.equal(await details.locator('h4').filter({hasText:'금색 능력'}).locator('xpath=following-sibling::p[1]').innerText(),goldText);
+      }
+      assert.equal(await page.locator('.ar-log summary').innerText(),historyBeforePreview,'Comparing candidates must not hire or spend an action.');
+      await supply.first().screenshot({path:join(output,'mobile-assistant-comparison.png')});
+      await page.locator('#ar-actions').getByRole('button',{name:'전체',exact:true}).click();
+      assert.deepEqual(await hiring().locator('legend').allTextContents(),choices);
+
       assert.equal(await page.locator('.ar-offer-group legend').filter({hasText:/^차례 마치기$/}).count(),0,'Hiring must resolve before ending the turn.');
       await page.reload();await page.locator('.ar-hand').waitFor();
       assert.deepEqual(await hiring().locator('legend').allTextContents(),choices,'Same public hiring choices survive reload.');
