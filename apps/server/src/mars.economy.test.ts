@@ -124,3 +124,34 @@ test('Mars resource actions use printed costs and never mix fighters with scienc
  for(const resource of ['animal','microbe','science',null])assert.throws(()=>marsAddedCardResources(2,resource,'fighter',1));
  assert.equal(marsAddedCardResources(0,'science','science',1),1);
 });
+
+import {marsBaseRequirements,marsRequirementReason,type MarsRequirementContext} from './games/mars/domain/requirements.js';
+const requirementContext=(overrides:Partial<MarsRequirementContext>={}):MarsRequirementContext=>({oxygen:0,temperature:-30,oceans:0,cities:0,ownGreenery:0,production:marsResources(),globalAllowance:0,tagCount:()=>0,...overrides});
+test('Mars requirement allowance changes global tracks only and temperature uses two-degree steps',()=>{
+ const requirement=[{kind:'global',track:'temperature',amount:0,max:false}] as const;
+ assert.equal(marsRequirementReason(requirement,requirementContext({temperature:-4,globalAllowance:2})),null);
+ assert.match(marsRequirementReason(requirement,requirementContext({temperature:-6,globalAllowance:2}))??'',/기온 조건/);
+ for(const track of ['oxygen','oceans'] as const){
+  assert.equal(marsRequirementReason([{kind:'global',track,amount:4,max:false}],requirementContext({[track]:2,globalAllowance:2})),null);
+  assert.notEqual(marsRequirementReason([{kind:'global',track,amount:4,max:false}],requirementContext({[track]:1,globalAllowance:2})),null);
+ }
+ assert.equal(marsRequirementReason([{kind:'global',track:'oxygen',amount:8,max:true}],requirementContext({oxygen:10,globalAllowance:2})),null);
+ assert.notEqual(marsRequirementReason([{kind:'global',track:'oxygen',amount:8,max:true}],requirementContext({oxygen:11,globalAllowance:2})),null);
+});
+test('Mars corporate production, tags and cities never receive global allowance',()=>{
+ const ctx=requirementContext({globalAllowance:6});
+ assert.match(marsRequirementReason(printed('AsteroidMiningConsortium').requirements,ctx)??'',/티타늄 생산 조건/);
+ assert.equal(marsRequirementReason(printed('AsteroidMiningConsortium').requirements,{...ctx,production:marsResources({titanium:1})}),null);
+ assert.notEqual(marsRequirementReason(printed('MassConverter').requirements,{...ctx,tagCount:()=>4}),null);
+ assert.equal(marsRequirementReason(printed('MassConverter').requirements,{...ctx,tagCount:()=>5}),null);
+ assert.notEqual(marsRequirementReason(printed('RadSuits').requirements,{...ctx,cities:1}),null);
+ assert.equal(marsRequirementReason(printed('RadSuits').requirements,{...ctx,cities:2}),null);
+});
+test('Mars base requirement adaptation preserves own greenery and exact tag minimums',()=>{
+ const greenery=marsBaseRequirements([{kind:'greenery',amount:1,max:false}]);
+ assert.notEqual(marsRequirementReason(greenery,requirementContext({cities:5,globalAllowance:6})),null);
+ assert.equal(marsRequirementReason(greenery,requirementContext({ownGreenery:1})),null);
+ const tags=marsBaseRequirements([{kind:'science',amount:3,max:false}]);
+ assert.notEqual(marsRequirementReason(tags,requirementContext({tagCount:()=>2,globalAllowance:6})),null);
+ assert.equal(marsRequirementReason(tags,requirementContext({tagCount:tag=>tag==='science'?3:0})),null);
+});

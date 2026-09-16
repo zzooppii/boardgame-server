@@ -1,3 +1,4 @@
+import { marsBaseRequirements, marsRequirementReason } from './requirements.js';
 import { marsCanReduceProduction } from './production-attacks.js';
 import { marsCardResourcePoints, marsAddedCardResources } from './card-resources.js';
 import { marsLandClaimsAreConsistent } from '@hangul-rummikub/shared';
@@ -7,7 +8,7 @@ import { marsScienceExchangeEffects } from './science.js';
 import { marsEconomyTags, marsMetalValues, marsDiscountedCost, marsCardIncome, marsStandardProjectIncome, marsJovianProduction, marsTagProduction } from './economy.js';
 import { marsCorporationStart } from './corporation-start.js';
 import * as v from 'valibot';
-import { GameIdSchema, GameRevisionSchema, ServerTimeSchema, TurnIdSchema, MARS_CARDS, MARS_RESOURCES, MARS_BOARD, MARS_MILESTONES, MARS_AWARDS, MARS_CORPORATIONS, MarsPublicFields, MarsPlayerPublicSchema, MarsCardSchema, MarsCardChoiceSchema, PlayerIdSchema, MarsRefSchema, MarsCountSchema, MarsResultSchema, MarsActionSchema, marsResources, marsCard, marsAdjacent, marsEffectText, MARS_RESOURCE_NAMES, MARS_TAG_NAMES, marsPaymentValue, type MarsEffect, type MarsDefinition, type MarsOffer, type MarsPlacementRule, type MarsTileKind, type GameId, type PlayerId, type TileId, type ServerTime, type TurnId } from '@hangul-rummikub/shared';
+import { GameIdSchema, GameRevisionSchema, ServerTimeSchema, TurnIdSchema, MARS_CARDS, MARS_RESOURCES, MARS_BOARD, MARS_MILESTONES, MARS_AWARDS, MARS_CORPORATIONS, MarsPublicFields, MarsPlayerPublicSchema, MarsCardSchema, MarsCardChoiceSchema, PlayerIdSchema, MarsRefSchema, MarsCountSchema, MarsResultSchema, MarsActionSchema, marsResources, marsCard, marsAdjacent, marsEffectText, MARS_RESOURCE_NAMES, marsPaymentValue, type MarsEffect, type MarsDefinition, type MarsOffer, type MarsPlacementRule, type MarsTileKind, type GameId, type PlayerId, type TileId, type ServerTime, type TurnId } from '@hangul-rummikub/shared';
 import type { RandomSource } from '../../../ports/system.js';
 const Resource = v.picklist(MARS_RESOURCES), CardResource = v.picklist(['animal', 'microbe', 'science', 'fighter']);
 const Effect: v.GenericSchema<MarsEffect> = v.lazy(() => v.variant('kind', [
@@ -175,28 +176,13 @@ function effectsPossible(s: MarsState, p: Person, effects: readonly MarsEffect[]
 }
 export function marsCardReason(s: MarsState, p: Person, c: MarsDefinition): string | null {
     const bonus = (p.corporationId === 'Inventrix' ? 2 : 0) + (has(p, 'AdaptationTechnology') ? 2 : 0) + (p.specialDesign ? 2 : 0);
-    for (const req of c.requirements) {
-        let current: number;
-        let wiggle = 0;
-        if (req.kind === 'oxygen') {
-            current = s.oxygen;
-            wiggle = bonus;
-        }
-        else if (req.kind === 'temperature') {
-            current = s.temperature;
-            wiggle = bonus * 2;
-        }
-        else if (req.kind === 'oceans') {
-            current = s.oceans;
-            wiggle = bonus;
-        }
-        else if (req.kind === 'greenery')
-            current = s.tiles.filter(t => t.ownerId === p.playerId && t.kind === 'greenery').length;
-        else
-            current = marsTags(p, req.kind);
-        if (req.max ? current > req.amount + wiggle : current < req.amount - wiggle)
-            return `${MARS_TAG_NAMES[req.kind] ?? ({ oxygen: '산소', temperature: '기온', oceans: '해양', greenery: '내 녹지' }[req.kind] ?? req.kind)} 조건: ${req.amount}${req.max ? ' 이하' : ' 이상'} · 현재 ${current}${wiggle ? ` · 완화 ${wiggle}` : ''}`;
-    }
+    const requirementFailure = marsRequirementReason(marsBaseRequirements(c.requirements), {
+        oxygen: s.oxygen, temperature: s.temperature, oceans: s.oceans,
+        cities: s.tiles.filter(t => t.kind === 'city').length,
+        ownGreenery: s.tiles.filter(t => t.ownerId === p.playerId && t.kind === 'greenery').length,
+        production: p.production, globalAllowance: bonus, tagCount: tag => marsTags(p, tag),
+    });
+    if (requirementFailure) return requirementFailure;
     if (!effectsPossible(s, p, c.effects, ''))
         return '생산 감소·필수 자원·배치 조건을 충족하지 못합니다.';
     const available = {...p, resources: {...p.resources}};

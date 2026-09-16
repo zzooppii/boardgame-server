@@ -184,3 +184,4 @@ export * from './games/mars/corporate-era-board.js';
 export * from './games/mars/corporate-era-attacks.js';
 export * from './games/mars/corporate-era-resource-actions.js';
 export * from './games/speakeasy/contracts.js';
+export * from './games/mars/corporate-era-catalog.js';

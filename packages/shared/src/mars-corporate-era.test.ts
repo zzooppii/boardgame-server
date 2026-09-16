@@ -106,3 +106,20 @@ test('Mars private card choices enforce count bounds and commands identify the p
  assert.equal(v.safeParse(MarsActionSchema,{type:'CHOOSE_CARDS',choiceId:1,cardIds:[],heat:0}).success,true);
  assert.equal(v.safeParse(MarsActionSchema,{type:'CHOOSE_CARDS',choiceId:1,cardIds:['private-card'],heat:1.5}).success,false);
 });
+
+import {MARS_PREPARED_CORPORATE_CARDS,MARS_PENDING_CORPORATE_CARD_IDS} from './games/mars/corporate-era-catalog.js';
+test('Mars prepared corporate definitions preserve all printed metadata and explicitly partition pending cards without changing the live deck',()=>{
+ const ids=MARS_PREPARED_CORPORATE_CARDS.map(c=>c.id),all=[...ids,...MARS_PENDING_CORPORATE_CARD_IDS];
+ assert.equal(new Set(all).size,71);assert.deepEqual([...all].sort(),MARS_CORPORATE_ERA_CARD_FACTS.map(c=>c.id).sort());
+ for(const card of MARS_PREPARED_CORPORATE_CARDS){const {effects,actions,passive,...printed}=card;assert.deepEqual(printed,fact(card.id));assert.ok(effects.length||actions?.length||passive,card.id);assert.throws(()=>marsCard(card.id));}
+ assert.equal(MARS_CARDS.length,137);assert.ok(MARS_PENDING_CORPORATE_CARD_IDS.includes('OlympusConference'));assert.ok(MARS_PENDING_CORPORATE_CARD_IDS.includes('BusinessNetwork'));
+});
+test('Mars assembled cards retain mandatory costs, active actions, passive discounts and printed resource scoring',()=>{
+ const prepared=(id:string)=>{const card=MARS_PREPARED_CORPORATE_CARDS.find(c=>c.id===id);assert.ok(card,id);return card;};
+ assert.equal(prepared('Hackers').cost,3);assert.deepEqual(prepared('Hackers').score,{kind:'fixed',points:-1});assert.equal(prepared('Hackers').effects.length,3);
+ assert.deepEqual(prepared('AsteroidMiningConsortium').requirements,[{kind:'production',resource:'titanium',amount:1}]);
+ assert.equal(prepared('SecurityFleet').resource,'fighter');assert.equal(prepared('SecurityFleet').actions?.length,2);
+ assert.deepEqual(prepared('PhysicsComplex').score,{kind:'resources',per:1,points:2});
+ assert.match(prepared('QuantumExtractor').passive??'',/2 M€/);assert.ok(prepared('QuantumExtractor').effects.length);
+ assert.ok(prepared('MassConverter').passive);assert.ok(prepared('InventorsGuild').actions);assert.ok(prepared('MarsUniversity').passive);
+});
