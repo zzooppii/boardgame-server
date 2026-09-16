@@ -4,7 +4,7 @@ import {arkMapBonusLabels,arkBuildingName,arkUniqueBuildingCardKey,arkBuildingLa
 import type {ArkFeedback} from './feedback.js';
 import {useId, useState, type KeyboardEvent} from 'react';
 import { arkCellKey, type ArkBuilding, type ArkCell} from '@hangul-rummikub/shared';
-import {BoardIllustrationDefs, BoardBonus} from './BoardIllustration.js';
+import {BoardIllustrationDefs, BoardBonus, arkTerrainStyle} from './BoardIllustration.js';
 import {arkHexPoints, arkScreenPoint} from './presentation.js';
 
 const bonuses:Readonly<Record<string,string>>={MONEY_2:'2',REPUTATION_1:'↑1',MOVE_1:'→1',KIOSK:'⌂',PAID_SPONSOR:'$@',FREE_PARTNER:'제휴',FREE_UNIVERSITY:'대학',MULTIPLIER:'×2',REPUTATION_2:'↑2',X_1:'X',CARD_1:'▤',MONEY_5:'5',MONEY_10:'10',WORKER:'♟'};
@@ -37,9 +37,9 @@ export function ArkNovaBoard({mapId='A',eligibleBonusCells=[],eligibleHousingIds
     if(next)e.currentTarget.ownerSVGElement?.querySelector<SVGPolygonElement>(`[data-cell-index="${next.i}"]`)?.focus();
   }
   return <div className="ark-map-panel"><div className="ark-map-heading"><span>MY ZOO · 지도 {mapId} · {layout.name}</span><span>{buildings.length}개 시설</span></div>
-    <p>{layout.description}</p><p className="ark-map-legend">노란 오각형: 건설로 덮으면 받는 보상 · 굵은 노란 테두리 하나 = 우리 하나 · 모래색: 빈 우리 · 진한 초록: 동물 입주 · 청록색: 후원자 고유 건물 · 보라색 II: 건설 II 필요</p>
-    <div className={`ark-map-viewport ${zoomed?'is-zoomed':''}`}><svg className="ark-map" viewBox="0 0 450 410" role="group" aria-label="내 동물원 지도. 방향키로 이동, Enter로 칸 선택, R 회전, F 반전.">
-      <BoardIllustrationDefs/><rect x="4" y="4" width="442" height="402" rx="14" fill="url(#ark-painted-grass)" pointerEvents="none"/>
+    <p>{layout.description}</p><p className="ark-map-legend">파란색: 물 · 회색: 바위 · 황토색: 건설 가능한 땅 · 노란 오각형: 건설로 덮으면 받는 보상 · 굵은 노란 테두리 하나 = 우리 하나 · 모래색: 빈 우리 · 진한 초록: 동물 입주 · 청록색: 후원자 고유 건물 · 보라색 II: 건설 II 필요</p>
+    <div className={`ark-map-viewport ${zoomed?'is-zoomed':''}`}><svg style={arkTerrainStyle(tileId)} className="ark-map" viewBox="0 0 450 410" role="group" aria-label="내 동물원 지도. 방향키로 이동, Enter로 칸 선택, R 회전, F 반전.">
+      <BoardIllustrationDefs prefix={tileId}/><rect x="4" y="4" width="442" height="402" rx="14" fill="var(--ark-grass)" pointerEvents="none"/>
       {mapCells.map((cell,i)=>{
         const id=arkCellKey(cell),b=occupied.get(id),p=arkScreenPoint(cell),isSelected=selected!==null&&id===arkCellKey(selected);
         const bonusEligible=eligibleBonusCells.some(c=>arkCellKey(c)===id);

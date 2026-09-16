@@ -1,10 +1,10 @@
 import {ArkAnimalArt} from './animal-art.js';
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useId, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { ARK_ACTIONS, ARK_ACTION_LABELS, ARK_BUILDINGS, ARK_CARDS, ARK_MAP_A, ARK_TAG_LABELS, arkCellKey, arkShape, type ArkActionKind, type ArkCardDefinition, type ArkCell } from '@hangul-rummikub/shared';
 import { ArkAudio, readArkSoundPreferences, saveArkSoundPreferences, type ArkCue } from './sound.js';
 import { arkHexPoints, arkLandCount, arkPreviewCovered, arkScreenPoint, initialArkPreview, placeArkPreview, previewPlacementReason, searchArkCards, undoArkPreview } from './presentation.js';
 import './ark-nova.css';
-import { BoardIllustrationDefs, BoardBonus } from './BoardIllustration.js';
+import { BoardIllustrationDefs, BoardBonus, arkTerrainStyle } from './BoardIllustration.js';
 import { arkAbilityCopy } from './card-copy.js';
 
 const actionCopy: Record<ArkActionKind, readonly [string, string]> = {
@@ -45,6 +45,7 @@ function CardDetail({card, onClose}: {card: ArkCardDefinition; onClose: () => vo
 }
 
 export default function ArkNovaPreview({onExit}: {onExit: () => void}) {
+  const terrainId=useId();
   const [boardExpanded, setBoardExpanded] = useState(false);
   const [action, setAction] = useState<ArkActionKind>('BUILD');
   const [state, setState] = useState(initialArkPreview);
@@ -104,9 +105,9 @@ export default function ArkNovaPreview({onExit}: {onExit: () => void}) {
     <nav className="ark-action-rack" aria-label="아크노바 체험 공간">{ARK_ACTIONS.map((kind, i) => <button key={kind} type="button" className={`ark-action-card ${action === kind ? 'is-active' : ''}`} aria-pressed={action === kind} onClick={() => selectAction(kind)}><span className="ark-action-number" aria-hidden="true">0{i + 1}</span><span>{ARK_ACTION_LABELS[kind]}</span><small>{kind === 'BUILD' ? '배치 체험' : kind === 'ASSOCIATION' ? '구성 안내' : '카드 도감'}</small></button>)}</nav>
     <section className="ark-workspace" aria-labelledby="ark-section-title"><div className="ark-section-heading"><div><p className="ark-overline">YOUR ZOO JOURNAL</p><h2 id="ark-section-title">{actionCopy[action][0]}</h2><p>{actionCopy[action][1]}</p></div><span className="ark-edition">기본판 · 지도 A</span></div>
       {action === 'BUILD' ? <div className={`ark-build-layout ${boardExpanded ? 'is-expanded' : ''}`}>
-        <div className="ark-map-panel"><div className="ark-map-heading"><span>THE ZOO PLAN</span><button type="button" aria-pressed={boardExpanded} onClick={() => setBoardExpanded(expanded => !expanded)}>{boardExpanded ? '기본 크기' : '보드 크게 보기'}</button></div><svg className="ark-map" viewBox="0 0 450 410" role="group" aria-label="지도 A 건물 배치. 방향키로 칸 이동, Enter로 선택, R로 회전, F로 반전." onPointerLeave={() => setHover(null)}>
-          <BoardIllustrationDefs/>
-          <rect className="ark-board-ground" x="4" y="4" width="442" height="402" rx="14" fill="url(#ark-painted-grass)" pointerEvents="none"/>
+        <div className="ark-map-panel"><div className="ark-map-heading"><span>THE ZOO PLAN</span><button type="button" aria-pressed={boardExpanded} onClick={() => setBoardExpanded(expanded => !expanded)}>{boardExpanded ? '기본 크기' : '보드 크게 보기'}</button></div><svg style={arkTerrainStyle(terrainId)} className="ark-map" viewBox="0 0 450 410" role="group" aria-label="지도 A 건물 배치. 방향키로 칸 이동, Enter로 선택, R로 회전, F로 반전." onPointerLeave={() => setHover(null)}>
+          <BoardIllustrationDefs prefix={terrainId}/>
+          <rect className="ark-board-ground" x="4" y="4" width="442" height="402" rx="14" fill="var(--ark-grass)" pointerEvents="none"/>
           <defs><pattern id="ark-fence" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><path d="M0 0v8" stroke="#557452" strokeWidth="2"/></pattern></defs>
           {ARK_MAP_A.map((cell, i) => { const key = arkCellKey(cell), b = occupied.get(key), center = arkScreenPoint(cell); const label = `${cell.q + 1}열 ${cell.r + Math.ceil(cell.q / 2) + 1}칸, ${b ? ARK_BUILDINGS[b.kind]?.name : cell.terrain === 'WATER' ? '물' : cell.terrain === 'ROCK' ? '바위' : '빈 땅'}${cell.bonus ? `, ${bonusLabel[cell.bonus]} 보너스` : ''}${cell.restricted ? ', 건설 II 필요' : ''}`;
             return <g key={key}><polygon points={arkHexPoints(cell)} data-cell-index={i} role="button" tabIndex={focusedCell === i ? 0 : -1} aria-label={label} aria-pressed={anchor !== null && key === arkCellKey(anchor)} className={`ark-hex terrain-${cell.terrain.toLowerCase()} ${anchor && key === arkCellKey(anchor) ? 'is-anchor' : ''} ${b ? `is-built ${b.occupied ? 'is-occupied' : ''} ${b.kind === 'KIOSK' ? 'is-kiosk' : b.kind === 'PAVILION' ? 'is-pavilion' : ''}` : ''}`} onFocus={() => setFocusedCell(i)} onKeyDown={e => mapKey(e, i)} onPointerEnter={e => { if (e.pointerType !== 'touch') setHover(cell); }} onClick={() => selectAnchor(cell)}/>

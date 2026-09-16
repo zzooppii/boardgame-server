@@ -24,3 +24,12 @@ test('Construction advice and archaeologist use selected map rather than map A',
 test('University rewards display the original map-specific threshold',()=>{
  const html=renderToStaticMarkup(createElement(ArkNovaAssociationBenefits,{kind:'UNIVERSITY',mapId:'1',count:0}));assert.match(html,/1번째 획득: 행동 업그레이드/);assert.match(html,/보전 \+1/);
 });
+test('Multiple zoo boards keep terrain references local and provide colors before textures load',()=>{
+ const html=renderToStaticMarkup(createElement('div',null,...['A','0'].map(mapId=>createElement(ArkNovaBoard,{mapId:mapId as 'A'|'0',buildings:[],selected:null,onSelect:()=>{}}))));
+ const ids=[...html.matchAll(/<pattern id="([^"]+)"/g)].map(match=>match[1]);
+ assert.equal(ids.length,8);assert.equal(new Set(ids).size,8);
+ const refs=[...html.matchAll(/--ark-(?:grass|earth|water|rock):url\(#([^)]*)\)/g)].map(match=>match[1]);
+ assert.equal(refs.length,8);for(const ref of refs)assert.ok(ids.includes(ref));
+ for(const color of ['#80a856','#d9bb7d','#409fc3','#91959c'])assert.ok(html.includes(`fill="${color}"`));
+ assert.ok(html.includes('파란색: 물 · 회색: 바위'));
+});
