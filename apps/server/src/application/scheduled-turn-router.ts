@@ -7,7 +7,7 @@ export type ScheduledTurnDispatchResult =
   | Readonly<{ status: "FAILED" }>;
 
 type ScheduledTurnCapability<
-  TGameType extends "TRAIN" | "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "SPLENDOR" | "HALLI_GALLI" | "ISLAND_SETTLERS" | "SABOTEUR" | "LOST_CITIES" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE",
+  TGameType extends "HARMONIES" | "TRAIN" | "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "SPLENDOR" | "HALLI_GALLI" | "ISLAND_SETTLERS" | "SABOTEUR" | "LOST_CITIES" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE",
 > = Readonly<{
   gameType: TGameType;
   handleTurnTimeout(
@@ -28,6 +28,7 @@ export type ScheduledTurnRouterDependencies = Readonly<{
   numberTile: NumberTileScheduledTurnCapability;
   gemCard: GemCardScheduledTurnCapability;
   cityRole: CityRoleScheduledTurnCapability;
+  harmonies?: ScheduledTurnCapability<"HARMONIES">;
   azul?: ScheduledTurnCapability<"AZUL">;
   vegas?: ScheduledTurnCapability<"VEGAS">;
   burgundy?: ScheduledTurnCapability<"BURGUNDY">;
@@ -50,7 +51,7 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 }
 
 function isCapability<
-  TGameType extends "TRAIN" | "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "SPLENDOR" | "HALLI_GALLI" | "ISLAND_SETTLERS" | "SABOTEUR" | "LOST_CITIES" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE",
+  TGameType extends "HARMONIES" | "TRAIN" | "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "SPLENDOR" | "HALLI_GALLI" | "ISLAND_SETTLERS" | "SABOTEUR" | "LOST_CITIES" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE",
 >(
   value: unknown,
   gameType: TGameType,
@@ -63,7 +64,7 @@ function isCapability<
 }
 
 function requireCapability<
-  TGameType extends "TRAIN" | "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "SPLENDOR" | "HALLI_GALLI" | "ISLAND_SETTLERS" | "SABOTEUR" | "LOST_CITIES" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE",
+  TGameType extends "HARMONIES" | "TRAIN" | "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "SPLENDOR" | "HALLI_GALLI" | "ISLAND_SETTLERS" | "SABOTEUR" | "LOST_CITIES" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE",
 >(
   value: unknown,
   gameType: TGameType,
@@ -84,6 +85,7 @@ export class ScheduledTurnRouter {
   readonly #numberTile: NumberTileScheduledTurnCapability;
   readonly #gemCard: GemCardScheduledTurnCapability;
   readonly #cityRole: CityRoleScheduledTurnCapability;
+  readonly #harmonies: ScheduledTurnCapability<"HARMONIES"> | undefined;
   readonly #azul: ScheduledTurnCapability<"AZUL"> | undefined;
   readonly #vegas: ScheduledTurnCapability<"VEGAS"> | undefined;
   readonly #burgundy: ScheduledTurnCapability<"BURGUNDY"> | undefined;
@@ -102,6 +104,7 @@ export class ScheduledTurnRouter {
 
   constructor(dependencies: ScheduledTurnRouterDependencies) {
     this.#roomRepository = dependencies.roomRepository;
+    this.#harmonies=dependencies.harmonies;
     this.#azul = dependencies.azul;
     this.#vegas = dependencies.vegas;
     this.#burgundy = dependencies.burgundy;
@@ -153,7 +156,7 @@ export class ScheduledTurnRouter {
         case "TERRORSCAPE": return { status: "NO_OP" };
         case "PANDEMIC": return { status: "NO_OP" };
         case "PERCH": return { status: "NO_OP" };
-        case "HARMONIES": return { status: "NO_OP" };
+        case "HARMONIES": return this.#harmonies?await this.#harmonies.handleTurnTimeout(input):{status:"FAILED"};
         case "PATCHWORK": return { status: "NO_OP" };
         case "ARNAK": return { status: "NO_OP" };
         case "TERRAFORMING_MARS": return { status: "NO_OP" };

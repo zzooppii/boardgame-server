@@ -68,7 +68,7 @@ function action(h: Harness, s: PlatformSnapshotV2, payload: unknown) { const g =
 async function start(h: Harness) { const s = await h.sync(); return h.success(await h.call(h.host, 'game:start', {}, { expectedRoomRevision: s.versions.roomRevision })); }
 function turnPayload(s:PlatformSnapshotV2){const g=harmonies(s),p=g.playerStates.find(p=>p.playerId===g.activePlayerId)!,source=g.markets.findIndex(m=>m.length===3),empty=p.board.flatMap((c,i)=>c.stack.length?[]:[i]);const steps:HarmoniesStep[]=[{type:'TAKE_TOKENS',source},...g.markets[source]!.map((token,i)=>({type:'PLACE' as const,tileId:token.tileId,cell:empty[i]!}))];if(g.animalMarket[0]!==undefined&&p.cards.filter(c=>c.placed<harmoniesAnimal(c.cardId).points.length).length<4)steps.unshift({type:'TAKE_ANIMAL',cardId:g.animalMarket[0]});return {type:'SUBMIT_TURN',steps};}
 test('HARMONIES sockets: 2/3/4 player admission, hidden bag/deck, strict actor and capabilities',async t=>{
- for(const count of [2,3,4]){const h=await harness(t,count),s=await start(h),g=harmonies(s);assert.equal(g.phase,'PLAYING');assert.equal(g.playerStates.length,count);assert.equal((await h.server.runtime.persistence.listActiveTurnDeadlines()).some(d=>d.roomId===s.room.roomId),false);
+ for(const count of [2,3,4]){const h=await harness(t,count),s=await start(h),g=harmonies(s);assert.equal(g.phase,'PLAYING');assert.equal(g.playerStates.length,count);assert.equal((await h.server.runtime.persistence.listActiveTurnDeadlines()).some(d=>d.roomId===s.room.roomId),true);
  for(const member of h.members){const projection=harmonies(await h.sync(member.client));assert.equal(projection.privateState.playerId,member.playerId);assert.equal('bag' in projection,false);assert.equal('deck' in projection,false);assert.equal(projection.playerStates[0]!.board.length,23);}
  const owner=h.members.find(m=>m.playerId===g.activePlayerId)!,other=h.members.find(m=>m!==owner)!,command=action(h,s,turnPayload(s));assert.equal(h.failure(await h.send(other.client,command)),'NOT_YOUR_TURN');assert.equal(h.failure(await h.send(owner.client,{...command,payload:{...turnPayload(s),score:900}})),'INVALID_PAYLOAD');
  const unsupported=await h.connect(SUPPORTED_GAME_TYPES.filter(x=>x!=='HARMONIES'));assert.equal(h.failure(await h.call(unsupported,'session:resume',{credential:{...other.credential,roomCode:s.room.roomCode},lastSeenVersions:null})),'INCOMPATIBLE_GAME_CAPABILITY');
@@ -96,4 +96,30 @@ test('HARMONIES sockets: complete match, exact final score and same-room game se
  while(harmonies(s).phase!=='FINISHED'&&turns++<40){const g=harmonies(s),owner=h.members.find(m=>m.playerId===g.activePlayerId)!;s=h.success(await h.send(owner.client,action(h,s,turnPayload(s))));}
  const g=harmonies(s);assert.equal(g.phase,'FINISHED');assert.equal(turns,28);if(g.phase==='FINISHED'){assert.equal(g.result.reason,'SCORED');assert.ok(g.result.winnerPlayerIds.length);const best=Math.max(...g.playerStates.map(p=>harmoniesScore(p.board,p.cards).total));assert.ok(g.result.winnerPlayerIds.every(id=>{const p=g.playerStates.find(p=>p.playerId===id)!;return harmoniesScore(p.board,p.cards).total===best;}));}
  const next=h.success(await h.send(h.host,h.selection(s,'NUMBER_TILE')));assert.equal(next.room.phase,'LOBBY');assert.equal(next.room.roomCode,s.room.roomCode);assert.equal(next.room.gameType,'NUMBER_TILE');
+});
+
+test('HARMONIES settings: only host configures 30/60 seconds in lobby; revision and idempotency are enforced',async t=>{
+ const h=await harness(t),l=await h.sync(),c=h.request('harmonies:configure',{turnSeconds:30},{expectedRoomRevision:l.versions.roomRevision});
+ assert.equal(h.failure(await h.send(h.members[1]!.client,c)),'HOST_ONLY');
+ assert.equal(h.failure(await h.call(h.host,'harmonies:configure',{turnSeconds:45},{expectedRoomRevision:l.versions.roomRevision})),'INVALID_PAYLOAD');
+ const configured=h.success(await h.send(h.host,c));assert.ok(configured.room.gameType==='HARMONIES'&&configured.room.phase==='LOBBY');assert.equal(configured.room.settings.turnSeconds,30);
+ h.success(await h.send(h.host,c));assert.equal(h.failure(await h.call(h.host,'harmonies:configure',{turnSeconds:60},{expectedRoomRevision:l.versions.roomRevision})),'STALE_ROOM_REVISION');
+ const s=await start(h),g=harmonies(s);assert.equal(g.settings.turnSeconds,30);assert.ok(g.deadlineAt);assert.ok(g.deadlineAt-s.serverTime<=30000&&g.deadlineAt-s.serverTime>29000);
+ assert.equal(h.failure(await h.call(h.host,'harmonies:configure',{turnSeconds:60},{expectedRoomRevision:s.versions.roomRevision})),'INVALID_PHASE');
+});
+test('HARMONIES timeout: private saved draft survives reconnect, stale timeout is ignored and racing completion commits once',async t=>{
+ const h=await harness(t);let s=await start(h),g=harmonies(s);assert.equal(g.phase,'PLAYING');if(g.phase!=='PLAYING')throw Error('playing');
+ const owner=h.members.find(m=>m.playerId===g.activePlayerId)!,other=h.members.find(m=>m!==owner)!,oldDeadline=(await h.server.runtime.persistence.listActiveTurnDeadlines()).find(d=>d.roomId===s.room.roomId)!;
+ const token=g.markets[0]![0]!,steps:HarmoniesStep[]=[{type:'TAKE_TOKENS',source:0},{type:'PLACE',tileId:token.tileId,cell:22}],draft=h.request('harmonies:draft',{steps},{gameId:g.gameId,expectedGameRevision:g.gameRevision,turnId:g.turnId});
+ assert.equal(h.failure(await h.send(other.client,draft)),'NOT_YOUR_TURN');s=h.success(await h.send(owner.client,draft));g=harmonies(s);assert.deepEqual(g.privateState.draftSteps,steps);assert.equal(g.deadlineAt,oldDeadline.deadlineAt);
+ const afterSave=await h.server.runtime.persistence.findById(s.room.roomId);h.success(await h.send(owner.client,draft));assert.deepEqual(await h.server.runtime.persistence.findById(s.room.roomId),afterSave);
+ assert.deepEqual(harmonies(await h.sync(other.client)).privateState.draftSteps,[]);
+ owner.client.disconnect();const replacement=await h.connect();s=h.success(await h.call(replacement,'session:resume',{credential:{...owner.credential,roomCode:s.room.roomCode},lastSeenVersions:null}));g=harmonies(s);assert.deepEqual(g.privateState.draftSteps,steps);assert.equal(g.deadlineAt,oldDeadline.deadlineAt);
+ const deadline=(await h.server.runtime.persistence.listActiveTurnDeadlines()).find(d=>d.roomId===s.room.roomId)!;
+ const service=h.server.runtime.harmoniesService!;assert.equal((await service.timeout(deadline)).status,'NO_OP');
+ const actualNow=h.server.runtime.clock.now.bind(h.server.runtime.clock);h.server.runtime.clock.now=()=>deadline.deadlineAt;t.after(()=>{h.server.runtime.clock.now=actualNow;});
+ assert.equal((await service.timeout(oldDeadline)).status,'NO_OP');
+ const late=action(h,s,turnPayload(s));const results=await Promise.all([service.timeout(deadline),service.timeout(deadline),h.send(replacement,late)]);
+ assert.equal(results.slice(0,2).filter(x=>typeof x==='object'&&x!==null&&'status' in x&&x.status==='APPLIED').length,1);assert.equal(v.parse(StateSyncWireAckSchema,results[2]).ok,false);
+ const done=harmonies(await h.sync(other.client)),board=done.playerStates.find(p=>p.playerId===owner.playerId)!.board;assert.equal(board[22]!.stack[0]!.tileId,token.tileId);assert.equal(board.flatMap(c=>c.stack).length,3);assert.equal(done.history.length,1);assert.match(done.history[0]!.text,/시간 초과/);assert.equal(done.deadlineAt,deadline.deadlineAt+60000);
 });

@@ -4647,6 +4647,8 @@ test("runtime Socket.IO map은 Number events를 additive하게 제공하고 lega
     | "pandemic:act"
     | "perch:act"
     | "harmonies:act"
+    | "harmonies:configure"
+    | "harmonies:draft"
     | "patchwork:act"
     | "arnak:act"
     | "mars:act"

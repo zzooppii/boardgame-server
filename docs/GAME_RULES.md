@@ -1103,3 +1103,7 @@ Dedicated Tile이 있는 ㅐ, ㅔ, ㅒ, ㅖ는 arbitrary component 합성으로 
 ## 아르낙 — CONFIRMED (2026-09-15)
 
 사용자의 개발 요청에 따라 [ARNAK_GAME_RULES.md](./ARNAK_GAME_RULES.md)의 2–4인 기본판 새 사원·5라운드·시간 제한 없는 운영을 확정한다. 확장은 후속 선택 사항이다.
+
+### 하모니즈 턴 시간 — 2026-09-16
+
+CONFIRMED: 사용자의 요청 및 시간 초과 처리 선택에 따라 [하모니즈 규칙](./HARMONIES_GAME_RULES.md)의 방장 선택 30초/60초, 저장된 배치 유지 및 남은 토큰 자동 배치 정책을 적용한다.

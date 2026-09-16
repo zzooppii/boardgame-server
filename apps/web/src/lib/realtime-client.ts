@@ -881,6 +881,8 @@ export class RealtimeClient {
     return this.#emitAcknowledged(command.kind, command.requestId, acknowledge => {
       switch (command.kind) {
         case "harmonies:act": this.#socket.emit("harmonies:act", command, acknowledge); break;
+        case "harmonies:configure": this.#socket.emit("harmonies:configure", command, acknowledge); break;
+        case "harmonies:draft": this.#socket.emit("harmonies:draft", command, acknowledge); break;
       }
     }, validateStateSyncWireAck, ack => hasConsistentSnapshotAcknowledgement(ack) && this.#acceptAcknowledgementSnapshotVersion(ack));
   }

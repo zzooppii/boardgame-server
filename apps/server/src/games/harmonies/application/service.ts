@@ -1,3 +1,4 @@
+import {HARMONIES_DEFAULT_SETTINGS, RequestIdSchema} from "@hangul-rummikub/shared";
 import * as v from "valibot";
 import { HarmoniesClientCommandSchema, GameRevisionSchema, RoomRevisionSchema, ServerTimeSchema, type HarmoniesClientCommand, type ErrorDto, type RoomId, type PlayerId, type ServerTime } from "@hangul-rummikub/shared";
 import { GameStartSuccessDataSchema, type StartGameInput, type GameStartResult } from "../../../application/game-start-service.js";
@@ -6,9 +7,9 @@ import type { RoomRepository } from "../../../ports/room-repository.js";
 import type { RoomUnitOfWork } from "../../../ports/room-unit-of-work.js";
 import type { IdempotencyRepository } from "../../../ports/idempotency-repository.js";
 import type { RoomPresencePolicyReader } from "../../../ports/room-presence-policy.js";
-import type { Clock, IdGenerator, RandomSource } from "../../../ports/system.js";
+import type { Clock, IdGenerator, RandomSource, ScheduledTurnDeadline, TurnScheduler } from "../../../ports/system.js";
 import type { HarmoniesRoomRecord } from "../../../model/persistence.js";
-import { createHarmoniesGame, applyHarmoniesAction, type HarmoniesState } from "../domain/game.js";
+import { createHarmoniesGame, applyHarmoniesAction, saveHarmoniesDraft, timeoutHarmonies, type HarmoniesState } from "../domain/game.js";
 export type HarmoniesDependencies = Readonly<{
     roomRepository: RoomRepository;
     roomUnitOfWork: RoomUnitOfWork;
@@ -18,6 +19,7 @@ export type HarmoniesDependencies = Readonly<{
     clock: Clock;
     ids: IdGenerator;
     random: RandomSource;
+    turnScheduler:TurnScheduler;
 }>;
 const failure = (code: ErrorDto['code']) => ({ ok: false as const, error: { code, message: code === 'RULE_VIOLATION' ? '현재 단계, 행동 차례와 선택 가능한 대상을 확인해주세요.' : code === 'NOT_ENOUGH_PLAYERS' ? '하모니즈는 2~4명이 플레이합니다.' : '현재 차례와 연결 상태를 확인해주세요.', recoverable: true } });
 const Receipt = v.strictObject({ outcome: v.literal('ACCEPTED') });
@@ -32,10 +34,37 @@ export class HarmoniesService {
     constructor(readonly deps: HarmoniesDependencies) { }
     subscribe(listener: (roomId: RoomId) => void | Promise<void>) { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; }
     async notify(roomId: RoomId) { await Promise.allSettled([...this.listeners].map(fn => Promise.resolve().then(() => fn(roomId)))); }
+  private async cancelTimer(turnId: ScheduledTurnDeadline['turnId']) {
+    try { await this.deps.turnScheduler.cancelTimeout(turnId); }
+    catch { console.error('Harmonies timer cancellation failed; stale callbacks are guarded.'); }
+  }
+  async schedule(roomId: RoomId) {
+    try {
+      const room = await this.deps.roomRepository.findById(roomId);
+      if (room?.gameType !== 'HARMONIES' || room.phase !== 'PLAYING' || !room.game || room.game.state.deadlineAt === null) return;
+      await this.deps.turnScheduler.scheduleTimeout({roomId,gameId:room.game.gameId,expectedGameRevision:room.game.gameRevision,turnId:room.game.state.transitionId,deadlineAt:room.game.state.deadlineAt});
+    } catch { console.error('Harmonies scheduling failed; overdue recovery will retry.'); }
+  }
+  async timeout(input: ScheduledTurnDeadline): Promise<{status:'APPLIED'|'NO_OP'|'FAILED'}> {
+    const d = this.deps;
+    try {
+      const applied = await d.roomMutationExecutor.run(input.roomId, async () => {
+        const room = await d.roomRepository.findById(input.roomId), now = d.clock.now();
+        if (room?.gameType !== 'HARMONIES' || room.phase !== 'PLAYING' || !room.game || room.game.gameId !== input.gameId || room.game.gameRevision !== input.expectedGameRevision || room.game.state.transitionId !== input.turnId || room.game.state.deadlineAt !== input.deadlineAt || now < input.deadlineAt) return false;
+        const state = timeoutHarmonies(room.game.state, now, d.ids.generateTurnId());
+        if (!state) return false;
+        const committed = await d.roomUnitOfWork.commit({roomMutation:{kind:'REPLACE',candidate:transitionHarmonies(room,state,now),expectedRoomRevision:room.roomRevision,expectedStorageRevision:room.storageRevision},sessionMutation:{kind:'NONE'},idempotency:{scopeKey:`room-timeout:${room.roomId}:${room.game.gameId}`,requestId:v.parse(RequestIdSchema,`turn:${input.turnId}`),payloadFingerprint:JSON.stringify([input.turnId,input.deadlineAt]),terminalResult:{transitioned:true},createdAt:now}});
+        return committed.status === 'COMMITTED';
+      });
+      if (applied) { await this.cancelTimer(input.turnId); await this.schedule(input.roomId); await this.notify(input.roomId); }
+      return {status:applied?'APPLIED':'NO_OP'};
+    } catch { return {status:'FAILED'}; }
+  }
+
     async start(input: StartGameInput): Promise<GameStartResult> {
         const d = this.deps;
         try {
-            return await d.roomMutationExecutor.run(input.roomId, async (): Promise<GameStartResult> => {
+            const result = await d.roomMutationExecutor.run(input.roomId, async (): Promise<GameStartResult> => {
                 if (!input.authorization.isCurrent())
                     return failure('UNAUTHENTICATED');
                 const room = await d.roomRepository.findById(input.roomId);
@@ -59,12 +88,14 @@ export class HarmoniesService {
                 if (!lease.isCurrent() || !room.players.every(p => lease.connectionStatusByPlayerId.get(p.playerId) === 'CONNECTED'))
                     return failure('PLAYERS_NOT_CONNECTED');
                 const now = d.clock.now(), gameId = d.ids.generateGameId(), turnId = d.ids.generateTurnId();
-                const state = createHarmoniesGame({ generateTileId: () => d.ids.generateTileId(), gameId, playerIds: room.players.map(p => p.playerId), now, turnId, random: d.random });
+                const state = createHarmoniesGame({ generateTileId: () => d.ids.generateTileId(), gameId, playerIds: room.players.map(p => p.playerId), now, turnId, random: d.random, settings: room.settings??HARMONIES_DEFAULT_SETTINGS });
                 const roomRevision = v.parse(RoomRevisionSchema, room.roomRevision + 1), gameRevision = v.parse(GameRevisionSchema, 0);
                 const data = v.parse(GameStartSuccessDataSchema, { roomId: room.roomId, roomRevision, gameId, gameRevision, turnId });
                 const committed = await d.roomUnitOfWork.commit({ roomMutation: { kind: 'REPLACE', candidate: { ...room, phase: 'PLAYING', roomRevision, updatedAt: now, game: { gameId, gameRevision, startedAt: now, finishedAt: null, state } }, expectedRoomRevision: room.roomRevision, expectedStorageRevision: room.storageRevision }, sessionMutation: { kind: 'NONE' }, idempotency: { scopeKey, requestId: input.requestId, payloadFingerprint, terminalResult: data, createdAt: now } }, { isSatisfied: () => input.authorization.isCurrent() && lease.isCurrent() });
                 return committed.status === 'COMMITTED' ? { ok: true, data } : failure('STALE_ROOM_REVISION');
             });
+            if(result.ok)await this.schedule(input.roomId);
+            return result;
         }
         catch {
             return failure('INTERNAL_ERROR');
@@ -99,6 +130,20 @@ export class HarmoniesService {
                     v.parse(Receipt, prior.record.terminalResult);
                     return { ok: true as const };
                 }
+                if (c.kind === 'harmonies:configure') {
+                    if (room.phase !== 'LOBBY' || room.game)
+                        return failure('INVALID_PHASE');
+                    if (room.hostPlayerId !== input.actorPlayerId)
+                        return failure('HOST_ONLY');
+                    if (room.roomRevision !== c.expectedRoomRevision)
+                        return failure('STALE_ROOM_REVISION');
+                    const now = d.clock.now();
+                    const committed = await d.roomUnitOfWork.commit({ roomMutation: { kind: 'REPLACE', candidate: { ...room, settings: c.payload, roomRevision: v.parse(RoomRevisionSchema, room.roomRevision + 1), updatedAt: now }, expectedRoomRevision: room.roomRevision, expectedStorageRevision: room.storageRevision }, sessionMutation: { kind: 'NONE' }, idempotency: { scopeKey, requestId: c.requestId, payloadFingerprint, terminalResult: { outcome: 'ACCEPTED' }, createdAt: now } }, { isSatisfied: () => input.authorization.isCurrent() });
+                    if (committed.status !== 'COMMITTED')
+                        return failure('STALE_ROOM_REVISION');
+                    changed = true;
+                    return { ok: true as const };
+                }
                 if (!room.game || room.game.gameId !== c.gameId || room.game.state.revision !== c.expectedGameRevision)
                     return failure('STALE_GAME_REVISION');
                 if (room.phase !== 'PLAYING')
@@ -106,7 +151,10 @@ export class HarmoniesService {
                 const s = room.game.state, now = v.parse(ServerTimeSchema, d.clock.now());
                 if (c.turnId !== s.transitionId)
                     return failure('STALE_GAME_REVISION');
-                const applied = applyHarmoniesAction(s, input.actorPlayerId, c.payload, now, d.ids.generateTurnId());
+                if(s.deadlineAt===null||now>=s.deadlineAt)return failure('TURN_EXPIRED');
+                if(s.players[s.active]?.playerId!==input.actorPlayerId)return failure('NOT_YOUR_TURN');
+                const saved=c.kind==='harmonies:draft'?saveHarmoniesDraft(s,input.actorPlayerId,c.payload.steps,now):null;
+                const applied = c.kind==='harmonies:draft'?(saved?{ok:true as const,state:saved}:{ok:false as const,reason:'INVALID_ACTION' as const}):applyHarmoniesAction(s, input.actorPlayerId, c.payload, now, d.ids.generateTurnId());
                 if (!applied.ok)
                     return failure(applied.reason === 'INVALID_ACTION' ? 'RULE_VIOLATION' : applied.reason);
                 const committed = await d.roomUnitOfWork.commit({ roomMutation: { kind: 'REPLACE', candidate: transitionHarmonies(room, applied.state, now), expectedRoomRevision: room.roomRevision, expectedStorageRevision: room.storageRevision }, sessionMutation: { kind: 'NONE' }, idempotency: { scopeKey, requestId: c.requestId, payloadFingerprint, terminalResult: { outcome: 'ACCEPTED' }, createdAt: now } }, { isSatisfied: () => input.authorization.isCurrent() });
@@ -115,8 +163,11 @@ export class HarmoniesService {
                 changed = true;
                 return { ok: true as const };
             });
-            if (changed)
+            if (changed) {
+                if(c.kind!=='harmonies:configure')await this.cancelTimer(c.turnId);
+                await this.schedule(input.roomId);
                 await this.notify(input.roomId);
+            }
             return result;
         }
         catch {

@@ -598,6 +598,8 @@ export interface SnapshotWireClientToServerEvents {
   "pandemic:act": (command: Extract<PandemicClientCommand,{kind:"pandemic:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "perch:act": (command: Extract<PerchClientCommand,{kind:"perch:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "harmonies:act": (command: Extract<HarmoniesClientCommand,{kind:"harmonies:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
+  "harmonies:configure": (command: Extract<HarmoniesClientCommand,{kind:"harmonies:configure"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
+  "harmonies:draft": (command: Extract<HarmoniesClientCommand,{kind:"harmonies:draft"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "patchwork:act": (command: Extract<PatchworkClientCommand,{kind:"patchwork:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "arnak:act": (command: Extract<ArnakClientCommand,{kind:"arnak:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "mars:act": (command: Extract<MarsClientCommand,{kind:"mars:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;

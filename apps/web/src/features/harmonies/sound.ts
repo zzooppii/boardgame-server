@@ -3,6 +3,7 @@ import type {HarmoniesProjection,HarmoniesColor} from '@hangul-rummikub/shared';
 export type HarmoniesCue='SELECT'|'UNDO'|'CARD'|'ANIMAL'|'TURN'|'COMMIT'|'WIN'|'ERROR'|HarmoniesColor;
 export function harmoniesNewCue(previous:{gameId:string;revision:number}|null,g:HarmoniesProjection,continuous:boolean):HarmoniesCue|null{
  if(!continuous||!previous||previous.gameId!==g.gameId||previous.revision>=g.gameRevision)return null;
+ if(g.phase==='PLAYING'&&g.history.at(-1)?.id!==g.gameRevision)return null;
  return g.phase==='FINISHED'?(g.result.reason==='SCORED'?'WIN':null):g.history.at(-1)?.animals?'ANIMAL':'COMMIT';
 }
 export function useHarmoniesSound(g:HarmoniesProjection|null,connected:boolean){

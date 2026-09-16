@@ -21,3 +21,8 @@ export const HarmoniesStepSchema = v.variant('type', [
 export type HarmoniesStep = v.InferOutput<typeof HarmoniesStepSchema>;
 export const HarmoniesActionSchema = v.strictObject({ type: v.literal('SUBMIT_TURN'), steps: v.pipe(v.array(HarmoniesStepSchema), v.minLength(4), v.maxLength(32)) });
 export type HarmoniesAction = v.InferOutput<typeof HarmoniesActionSchema>;
+
+export const HarmoniesSettingsSchema = v.strictObject({turnSeconds:v.picklist([30,60])});
+export type HarmoniesSettings = v.InferOutput<typeof HarmoniesSettingsSchema>;
+export const HARMONIES_DEFAULT_SETTINGS: HarmoniesSettings = {turnSeconds:60};
+export const HarmoniesDraftSchema = v.pipe(v.array(HarmoniesStepSchema),v.maxLength(32));

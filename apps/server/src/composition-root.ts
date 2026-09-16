@@ -861,7 +861,7 @@ export function createApplicationRuntime(
     if (room?.gameType === "PERCH" && room.phase === "FINISHED" && room.game) await onGameFinished({ roomId, gameId: room.game.gameId });
   });
   const harmoniesService = new HarmoniesService({ roomRepository: persistence, roomUnitOfWork: persistence, idempotencyRepository: persistence,
-    roomMutationExecutor, presence: presenceReader, clock, ids: idGenerator, random: randomSource });
+    roomMutationExecutor, presence: presenceReader, clock, ids: idGenerator, random: randomSource, turnScheduler });
   const harmoniesHostSuccession = new HarmoniesHostSuccession(harmoniesService.deps, roomId => harmoniesService.notify(roomId));
   harmoniesService.subscribe(async roomId => {
     const room = await persistence.findById(roomId);
@@ -1168,6 +1168,7 @@ export function createApplicationRuntime(
   scheduledTurnRouter = new ScheduledTurnRouter({
     train: {gameType:"TRAIN", handleTurnTimeout: input => trainService.timeout(input)},
     lostCities: {gameType:"LOST_CITIES", handleTurnTimeout: input => lostCitiesService.timeout(input)},
+    harmonies: {gameType:"HARMONIES",handleTurnTimeout: input=>harmoniesService.timeout(input)},
     azul: {gameType:"AZUL", handleTurnTimeout: input => azulService.timeout(input)},
     vegas: {gameType:"VEGAS", handleTurnTimeout: input => vegasService.timeout(input)},
     burgundy: {gameType:"BURGUNDY", handleTurnTimeout: input => burgundyService.timeout(input)},

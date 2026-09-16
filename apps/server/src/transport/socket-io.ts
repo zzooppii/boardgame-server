@@ -3153,7 +3153,7 @@ function registerPerchHandlers(socket: RealtimeSocket, runtime: ApplicationRunti
 }
 import { HarmoniesClientCommandSchema } from "@hangul-rummikub/shared";
 function registerHarmoniesHandlers(socket: RealtimeSocket, runtime: ApplicationRuntime): void {
-  for (const event of ["harmonies:act"] as const) socket.on(event, (raw: unknown, acknowledge: (ack: StateSyncWireAck) => void) => {
+  for (const event of ["harmonies:act", "harmonies:configure", "harmonies:draft"] as const) socket.on(event, (raw: unknown, acknowledge: (ack: StateSyncWireAck) => void) => {
     const receivedAt = runtime.clock.now(), command = parseNumberRematch(HarmoniesClientCommandSchema, raw);
     if (!command.success || command.output.kind !== event) { acknowledgeIfPresent(acknowledge, failureAck(raw, INVALID_PAYLOAD_ERROR, receivedAt)); return; }
     void (async () => {

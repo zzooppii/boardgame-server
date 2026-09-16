@@ -1,3 +1,4 @@
+import {HarmoniesSettingsSchema,HARMONIES_DEFAULT_SETTINGS} from "@hangul-rummikub/shared";
 import { DuelSettingsSchema, DUEL_DEFAULT_SETTINGS } from "@hangul-rummikub/shared";
 import { ArkNovaGameStateAdapter, arkNovaPlayerIds, type ArkNovaLifecycle } from '../games/ark-nova/compatibility/adapter.js';
 import { SpaceCrewGameStateAdapter, type SpaceCrewLifecycle } from "../games/space-crew/compatibility/adapter.js";
@@ -436,7 +437,7 @@ function cloneRoomWriteCandidate(
       validateRoomGameCoherence(shell.phase, shell.players, game, () => game === null ? null : adapter.inspectLifecycle(game));
       const departedPlayerIds = Object.freeze([...(candidate.departedPlayerIds ?? [])]);
       if (new Set(departedPlayerIds).size !== departedPlayerIds.length || departedPlayerIds.some(id => !shell.players.some(p => p.playerId === id)) || shell.phase === "LOBBY" && departedPlayerIds.length > 0) throw new Error("Invalid departed HARMONIES roster.");
-      return Object.freeze({...shell, gameType:"HARMONIES", game, departedPlayerIds});
+      return Object.freeze({...shell, gameType:"HARMONIES", settings:v.parse(HarmoniesSettingsSchema,candidate.settings??HARMONIES_DEFAULT_SETTINGS), game, departedPlayerIds});
     }
     case "PATCHWORK": {
       const adapter = new PatchworkGameStateAdapter(), game = candidate.game === null ? null : adapter.cloneAndValidate(candidate.game);

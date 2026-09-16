@@ -5,8 +5,8 @@
 - shared/games/harmonies: 공개 카드 카탈로그, 엄격한 명령/상태 DTO, 육각 좌표, 순수 지형 정산과 미확정 행동 재생. React/Socket.IO에 의존하지 않는다. 주머니·덱과 서버 저장 상태는 공유하지 않는다.
 - server/games/harmonies/domain: 120개 토큰 보존과 32장 카드 보존, 서버 시계·난수·ID 주입, 순서별 행동 검증, 마지막 라운드와 동률 정산. 공개된 최종 보드를 제출받지 않는다.
 - harmonies:act: requestId/gameId/expectedGameRevision/turnId 및 SUBMIT_TURN의 순서 있는 steps. 인증 actor는 socket binding에서 얻는다. 같은 방 직렬화 → 인증/phase/identity/revision → candidate 전체 검증 → UoW 한 번 commit. 오류는 원본 상태와 revision을 보존한다. 중복 성공 요청은 이전 영수증으로 처리한다.
-- application/compatibility: 현재 primary 연결, 공개 projection, 종료·퇴장 취소, 방장 승계와 재시작. activeTurn은 null이며 임의로 시간 초과 전략을 실행하지 않는다.
-- web/features/harmonies: 개인 보드 편집과 상대 보드 열람, 동물 패턴/높이, 유효한 목표 강조, 점수 근거, 한 수 되돌리기/초기화, 확정 및 응답 불명확 시 동일 requestId 결과 재확인. 새 game/revision은 오래된 편집을 폐기한다.
+- application/compatibility: 현재 primary 연결, 공개 projection, 종료·퇴장 취소, 방장 승계와 재시작. activeTurn은 turnId/deadlineAt을 노출하여 기존 TurnScheduler와 overdue sweeper로 마감을 처리한다.
+- web/features/harmonies: 서버에 저장되는 개인 보드 편집과 상대 보드 열람, 동물 패턴/높이, 유효한 목표 강조, 점수 근거, 한 수 되돌리기/초기화, 확정 및 응답 불명확 시 동일 requestId 결과 재확인. 새 game/revision은 서버의 개인 draftSteps로 편집을 복구한다.
 - 토큰은 색과 기호를 함께 가진 계층형 SVG, 그림은 정적인 자체 생성 WebP, 글·숫자·카드 점수는 DOM. 모바일은 카드 공급처 내부 가로 스크롤, 한 열 보드와 sticky 조작부를 사용한다. 클릭/탭, 키보드 버튼, 데스크톱 토큰 드래그가 같은 행동 경로를 이용한다.
 - Web Audio로 물·돌·나무/건물·잎·선택·카드·되돌리기·동물·확정·승리 소리를 합성한다. 최초 사용자 제스처에서 활성화하며 음량/음소거를 저장한다. 최초 snapshot, 재접속, 중복/오래된 revision은 확정 소리를 재생하지 않는다.
 - 아트 기록: [README](../apps/web/public/images/harmonies/README.md). 새 패키지 dependency, 범용 게임 엔진 추상화, 서버 배포는 추가하지 않는다.
@@ -39,3 +39,18 @@
 - 차례 안내의 `점수 계산표` 버튼으로 A면의 나무·산·들판·건물·강과 동물 카드 정산을 그림과 수치로 참조한다. 기존 토큰 SVG를 재사용하며 산의 인접 조건, 들판 무리 단위, 건물 주변의 맨 위 색, 강의 최단 경로 기준과 카드의 최고 달성 점수를 설명한다.
 - 네이티브 dialog의 닫기·Esc·포커스 복귀를 사용한다. 열고 닫는 동작은 로컬 배치와 선택 및 서버 상태를 변경하지 않는다.
 - 실제 Chrome 2인 게임에서 여섯 점수 항목 표시, 닫기·Esc, 포커스 복귀 및 미확정 배치 보존을 검증했다. 320px 모바일에서 가로 넘침과 브라우저 오류 없음. 루트 typecheck/build/test 통과, 전체 4,988개 테스트 실패 0. 기존 500KB 초과 번들 경고는 남아 있다.
+
+
+## 30초/1분 턴 타이머 (2026-09-16)
+
+- `harmonies:configure`: LOBBY의 방장만 roomRevision과 requestId를 검증해 turnSeconds(30/60, 기본60)를 설정한다. 설정은 공개되고 게임 시작 시 고정된다.
+- `harmonies:draft`: actor/gameId/turnId/gameRevision/서버 마감을 검증하고 순수 replay에 성공한 단계 목록을 저장한다. gameRevision만 증가하며 turnId/deadlineAt은 유지한다. 토큰은 턴 확정 전 원본 보드/공급처에 남아 있고, 편집 목록은 본인 projection에만 포함된다. UI는 저장 중 다음 배치를 막고 불명확한 응답은 같은 요청으로 확인한다.
+- 일반 제출과 timeout은 같은 room 직렬화 경로에서 candidate 검증 후 한 번 commit한다. 이전 revision/turn의 콜백은 NO_OP이다. deadline 이후 명령은 거절하고, 저장된 배치를 기준으로 순서에 따른 자동 배치로 턴을 완료한다.
+- 새 턴은 처리 시점부터 선택한 제한시간을 부여한다. 종료/퇴장 시 deadline은 null, draft는 빈 배열이다. 타이머 표시만 클라이언트의 monotonic clock으로 보간한다. 규칙·점수 창을 열어도 타이머는 계속 진행된다.
+
+### 타이머 검증 결과
+
+- 하모니즈 도메인·Socket.IO 17개와 웹 3개 테스트 통과. 30/60초 마감 경계, 저장된 카드·토큰 유지, 무입력 전체 게임, 방장 권한, stale/idempotent 명령, 비공개 draft, 재접속, 중복 timeout 및 제출 경합을 검증했다.
+- 실제 Chrome 2인 검수에서 방장 30초 설정과 새로고침 유지, 참가자 설정 금지, 토큰 1개 배치 후 재접속, 남은 시간 유지, 실제 마감 후 나머지 2개만 자동 배치되는 것을 확인했다. 브라우저 오류 없음.
+- 루트 typecheck/build 통과. 기존 500KB 초과 번들 경고 유지. 전체 npm test 실행에서는 별도 작업 중인 PATCHWORK 설정 테스트에서 30초 대신 60초가 반환되는 실패가 발생했다. 하모니즈 테스트는 통과했으며 다른 게임 변경은 이번 범위에서 수정하지 않았다.
+- 전체 실행 결과: shared 133 / web 934 통과, server 3,933 통과·위 PATCHWORK 1건 실패. 서버 단계 실패로 root script의 후속 Space Crew E2E는 실행되지 않았다. `git diff --check` 통과.

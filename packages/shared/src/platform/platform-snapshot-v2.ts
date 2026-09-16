@@ -1,3 +1,4 @@
+import {HarmoniesSettingsSchema,HARMONIES_DEFAULT_SETTINGS} from "../games/harmonies/actions.js";
 import { DuelSettingsSchema } from "../games/seven-wonders-duel/actions.js";
 import { ArkNovaPlayingProjectionSchema, ArkNovaFinishedProjectionSchema } from "../games/ark-nova/platform-contracts.js";
 import { TrainSettingsSchema, isTrainMapAvailable } from "../games/train/maps.js";
@@ -623,7 +624,7 @@ export const PerchFinishedPlatformSnapshotV2Schema: v.GenericSchema<unknown, Per
 const HarmoniesOuter = { snapshotVersion: PlatformSnapshotVersionSchema, versions: PlatformSnapshotVersionsV2Schema, serverTime: ServerTimeSchema, self: PlatformSelfViewV2Schema };
 const HarmoniesRoom = { roomId: RoomIdSchema, roomCode: RoomCodeSchema, gameType: v.literal("HARMONIES") };
 const HarmoniesPlayers = v.pipe(v.array(PlatformPlayerViewV2Schema), v.minLength(2), v.maxLength(4));
-const HarmoniesLobbyRaw = v.pipe(v.strictObject({ ...HarmoniesOuter, room: v.strictObject({ ...HarmoniesRoom, phase: v.literal("LOBBY"),
+const HarmoniesLobbyRaw = v.pipe(v.strictObject({ ...HarmoniesOuter, room: v.strictObject({ ...HarmoniesRoom, phase: v.literal("LOBBY"), settings: v.optional(HarmoniesSettingsSchema,HARMONIES_DEFAULT_SETTINGS),
   players: v.pipe(v.array(PlatformPlayerViewV2Schema), v.maxLength(10)) }), game: v.null() }),
   v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)));
 const HarmoniesPlayingRaw = v.pipe(v.strictObject({ ...HarmoniesOuter, room: v.strictObject({ ...HarmoniesRoom, phase: v.literal("PLAYING"), players: HarmoniesPlayers }), game: HarmoniesPlayingProjectionSchema }),

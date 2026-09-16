@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {parse} from 'valibot';
 import {GameIdSchema,PlayerIdSchema,TileIdSchema,TurnIdSchema,ServerTimeSchema,HARMONIES_ANIMALS,HARMONIES_CELLS,harmoniesAnimal,harmoniesCellAt,harmoniesNeighbors,harmoniesPatternCells,harmoniesCanPlace,harmoniesCanSettle,harmoniesMatches,harmoniesReplay,harmoniesScore,HarmoniesActionSchema,type HarmoniesPlayer,type HarmoniesColor,type HarmoniesStep,type HarmoniesToken,type HarmoniesCell} from '@hangul-rummikub/shared';
-import {createHarmoniesGame,applyHarmoniesAction,parseHarmoniesState,cancelHarmonies} from './games/harmonies/domain/game.js';
+import {createHarmoniesGame,applyHarmoniesAction,parseHarmoniesState,cancelHarmonies,saveHarmoniesDraft,timeoutHarmonies} from './games/harmonies/domain/game.js';
 let serial=0;
 const token=(color:HarmoniesColor):HarmoniesToken=>({tileId:parse(TileIdSchema,`tile-${++serial}`),color});
 const stack=(...colors:HarmoniesColor[]):HarmoniesCell=>({stack:colors.map(token),animal:null});
@@ -81,4 +81,20 @@ test('HARMONIES: 2/3/4 players complete deterministic full games; every commit c
   }
   assert.equal(s.phase,'FINISHED');assert.equal(new Set(s.players.map(p=>p.turns)).size,1);assert.ok(s.result?.winnerPlayerIds.length);assert.equal(s.players[0]!.turns,7);
  }
+});
+
+test('HARMONIES timed turns: exact deadline rejects late edits; timeout preserves saved placements and completes only the remaining tokens',()=>{
+ for(const seconds of [30,60] as const)for(let placed=0;placed<=3;placed++){
+  const f=fixture(),s=f.state;s.settings={turnSeconds:seconds};s.deadlineAt=parse(ServerTimeSchema,s.startedAt+seconds*1000);
+  const tokens=s.markets[0]!,steps:HarmoniesStep[]=[{type:'TAKE_ANIMAL',cardId:s.animalMarket[0]!},{type:'TAKE_TOKENS',source:0},...tokens.slice(0,placed).map((t,i)=>({type:'PLACE' as const,tileId:t.tileId,cell:22-i}))];
+  const saved=saveHarmoniesDraft(s,s.players[0]!.playerId,steps,parse(ServerTimeSchema,s.deadlineAt-1));assert.ok(saved);assert.equal(saved.deadlineAt,s.deadlineAt);
+  assert.equal(saveHarmoniesDraft(saved,s.players[0]!.playerId,[],s.deadlineAt),null);assert.equal(timeoutHarmonies(saved,parse(ServerTimeSchema,s.deadlineAt-1),f.next()),null);
+  const original=JSON.stringify(saved),done=timeoutHarmonies(saved,s.deadlineAt,f.next());assert.ok(done);assert.equal(JSON.stringify(saved),original);
+  for(let i=0;i<placed;i++)assert.equal(done.players[0]!.board[22-i]!.stack[0]!.tileId,tokens[i]!.tileId);
+  assert.equal(done.players[0]!.board.flatMap(c=>c.stack).length,3);assert.equal(done.players[0]!.turns,1);assert.deepEqual(done.players[0]!.cards,[{cardId:s.animalMarket[0]!,placed:0}]);assert.equal(done.deadlineAt,s.deadlineAt+seconds*1000);assert.deepEqual(done.draftSteps,[]);
+  const late=applyHarmoniesAction(saved,s.players[0]!.playerId,{type:'SUBMIT_TURN',steps:[{type:'TAKE_TOKENS',source:0},...tokens.map((t,i)=>({type:'PLACE' as const,tileId:t.tileId,cell:i}))]},s.deadlineAt,f.next());assert.equal(late.ok,false);
+ }
+});
+test('HARMONIES timeout without input finishes equal-turn games and conserves inventory',()=>{
+ for(const count of [2,3,4]){const f=fixture(count);let s=f.state;for(let n=0;s.phase==='PLAYING'&&n<50;n++){assert.ok(s.deadlineAt);const next=timeoutHarmonies(s,s.deadlineAt,f.next());assert.ok(next);s=next;parseHarmoniesState(s);}assert.equal(s.phase,'FINISHED');assert.equal(s.deadlineAt,null);assert.equal(new Set(s.players.map(p=>p.turns)).size,1);assert.equal(s.players[0]!.turns,7);}
 });
