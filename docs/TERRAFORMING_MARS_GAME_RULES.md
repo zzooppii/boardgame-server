@@ -74,3 +74,13 @@ Hackers는 자신의 에너지 생산을 1 줄이고 한 플레이어의 M€ �
 ## CONFIRMED — Business Network 시작 효과
 
 Business Network의 카드 실행 시 자신의 M€ 생산을 1 줄인다. 이후 세대당 행동으로 맨 위 카드를 보고 3 M€로 구매하거나 버린다. 구매에는 프로젝트 카드 할인을 적용하지 않는다. 근거: [Business Network 인쇄 효과](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/BusinessNetwork.ts). 실제 확장 덱과 카드의 세대당 사용 연결은 후속 통합 단계다.
+
+## CONFIRMED — 기업시대 기본 효과·행동 카드 10장
+
+- AI Central: 과학 태그 3개 필요, 시작 에너지 생산 -1, 행동으로 카드 2장 뽑기. Development Center: 행동으로 에너지 1개를 내고 카드 1장 뽑기.
+- Caretaker Contract: 기온 0°C 이상 필요, 행동으로 열 8개를 내고 TR +1. 기온 자체는 올리지 않는다. Space Elevator: 시작 티타늄 생산 +1, 행동으로 강철 1개를 내고 5 M€ 획득.
+- Bribed Committee: TR +2, 최종 점수 -2. Rad-Suits: 전체 도시 2개 필요, M€ 생산 +1, 최종 점수 +1.
+- Corporate Stronghold: 에너지 생산 -1, M€ 생산 +3, 일반 도시 배치, 최종 점수 -2. Great Escarpment Consortium: 자기 강철 생산 1 이상 필요, 한 플레이어의 강철 생산 -1과 자기 강철 생산 +1. 자기 대상도 가능하며 생산 감소를 생략하지 않는다.
+- Interstellar Colony Ship: 과학 태그 5개 필요, 최종 점수 +4. Trans-Neptune Probe: 최종 점수 +1. 두 카드는 별도 즉시 효과·행동이 없다.
+
+근거는 각 카드의 인쇄 설명이며 링크는 `TERRAFORMING_MARS_CORPORATE_ERA.md`의 기본 효과·행동 조립 절에 기록했다. 실제 카드 등록과 세대당 행동 횟수 연결은 전체 확장 통합 단계다.

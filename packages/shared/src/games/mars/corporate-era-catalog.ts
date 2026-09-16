@@ -6,6 +6,7 @@ import { MARS_CORPORATE_ERA_PROTECTION_EFFECTS } from './corporate-era-protectio
 import { MARS_CORPORATE_ERA_SELECTION_EFFECTS, MARS_CORPORATE_ERA_SELECTION_ACTIONS } from './corporate-era-selection.js';
 import { MARS_CORPORATE_ERA_RESOURCE_ACTIONS } from './corporate-era-resource-actions.js';
 import type { MarsEffect } from './catalog.js';
+import { MARS_CORPORATE_ERA_STANDARD_RULES } from './corporate-era-standard.js';
 
 type Execution = Readonly<{ effects: readonly MarsEffect[]; actions?: readonly MarsEffect[]; passive?: string }>;
 export type MarsPreparedCorporateCard = MarsCorporateCardFact & Execution;
@@ -27,7 +28,7 @@ const passive: Readonly<Record<string, string>> = {
     QuantumExtractor: '우주 태그 카드 비용 2 M€ 할인',
     MassConverter: '우주 태그 카드 비용 2 M€ 할인',
 };
-const execution: Record<string, Execution> = {};
+const execution: Record<string, Execution> = { ...MARS_CORPORATE_ERA_STANDARD_RULES };
 for (const [id, effects] of Object.entries(immediate)) execution[id] = { effects };
 for (const [id, description] of Object.entries(passive)) execution[id] = { ...(execution[id] ?? { effects: [] }), passive: description };
 for (const [id, actions] of Object.entries(MARS_CORPORATE_ERA_RESOURCE_ACTIONS)) execution[id] = { effects: [], actions };

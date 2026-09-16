@@ -30,7 +30,7 @@
 
 ## 다음 개발 단계
 
-1. **카드 정의 통합:** 준비된 효과를 인쇄 정보와 묶은 48장 정의를 기반으로 미조립 23장과 실행 카탈로그 어댑터를 완성한다. 미조립 목록에는 일부 계산만 구현된 카드도 포함된다.
+1. **카드 정의 통합:** 준비된 효과를 인쇄 정보와 묶은 58장 정의를 기반으로 미조립 13장과 실행 카탈로그 어댑터를 완성한다. 미조립 목록에는 일부 계산만 구현된 카드도 포함된다.
 2. **선택 효과 통합:** 구현한 비공개 열람·선택·구매를 실제 기업시대 카드의 조건·행동·사용 횟수와 연결한다. Mars University의 과학 태그별 손패 교환 엔진·트리거 계산을 추가했으며 실제 확장 카드 통합은 남아 있다.
 3. **특수 규칙:** 구현한 생산량 복제·서식지 보호·토지 예약을 실제 확장 카드와 통합한다. 자원 공격 효과를 실제 카드와 연결하고 과학 태그 중복 반응과 남은 점수 규칙을 구현한다. 전투기·자원별 점수 배율은 아래 단계에서 기반을 추가했으며 실제 카드 통합이 남아 있다.
 4. **시작 전 설정:** 방장 권한·room revision·중복 요청·동시 시작 검증, 참가자 표시, 208장 재고 검증과 시작 생산량 0 적용. 기업시대 기업 선택과 초기 효과 적용.
@@ -196,3 +196,18 @@
 - 정의 조립과 기존 경제·선택 처리의 연결을 검증한 단계이며, 이번 변경에서는 Chrome UI 테스트를 재실행하지 않았다. 기존 공통 번들 500 kB 경고는 유지된다. `git diff --check` 통과.
 
 근거: [Anti-Gravity Technology](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/AntiGravityTechnology.ts), [Earth Catapult](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/EarthCatapult.ts), [Advanced Alloys](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/AdvancedAlloys.ts), [Earth Office](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/EarthOffice.ts), [Media Group](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/MediaGroup.ts), [Space Station](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/SpaceStation.ts), [Standard Technology](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/StandardTechnology.ts), [Business Network](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/BusinessNetwork.ts).
+
+## 기본 효과·행동 카드 10장 추가 조립
+
+- `corporate-era-standard.ts`에서 AI Central, Development Center, Caretaker Contract, Space Elevator, Bribed Committee, Rad-Suits, Corporate Stronghold, Great Escarpment Consortium, Interstellar Colony Ship, Trans-Neptune Probe의 전체 즉시 효과·행동을 기존 effect primitive로 구성했다. 준비 목록 58장·미조립 13장이다.
+- 점수·태그만 제공하는 2장은 빈 효과 목록을 명시한다. 이 2장에만 예외를 허용하고 정확한 점수와 행동·지속 효과 부재를 별도 검증한다.
+- 서버 효과 fixture로 필수 비용 지불과 보상, 비공개 카드 뽑기, 도시 배치 재접속, 생산량 공격을 검증한다. 카드 조건은 준비 정의를 공통 요구 조건 평가기에 전달한다. 실제 카드 지불·행동 사용 횟수·최종 점수까지 연결한 확장 대국 검증은 아니다.
+- Energy Tapping과 Power Supply Consortium은 모든 플레이어의 에너지 생산이 0일 때 증가·감소 처리의 예외가 있어 이번 목록에서 제외했다. 전체 카드·기업·덱·로비 옵션 통합은 계속 남아 있다.
+
+### 기본 효과·행동 단계 검증 (2026-09-16)
+
+- 루트 `typecheck`, `build` 통과. 기존 공통 번들 500 kB 경고는 유지된다. 별도 실행한 마스 도메인·경제 79개가 통과했으며, 이후 추가한 요구 조건 경계 테스트도 루트 실행에서 통과했다.
+- 루트 `test`: 공유 144개·웹 981개 통과. 서버 4,067개 중 4,066개 통과·1개 실패. 실패는 SNEAKY 8인 15초 입력 부하 테스트의 `Too little exercise: 152`다. 코드 변경 없는 단독 재실행에서 해당 1개는 통과했다(이름 필터로 76개 미실행). 최초 전체 실행을 성공으로 재분류하지 않는다.
+- 서버 실패로 루트 실행에서 미실행된 공통 E2E를 별도 실행해 155개 모두 통과했다. 이번 변경에서 Chrome UI 테스트는 재실행하지 않았다. `git diff --check` 통과.
+
+근거: [AICentral](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/AICentral.ts), [DevelopmentCenter](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/DevelopmentCenter.ts), [CaretakerContract](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/CaretakerContract.ts), [SpaceElevator](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/SpaceElevator.ts), [BribedCommittee](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/BribedCommittee.ts), [RadSuits](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/RadSuits.ts), [CorporateStronghold](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/CorporateStronghold.ts), [GreatEscarpmentConsortium](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/GreatEscarpmentConsortium.ts), [InterstellarColonyShip](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/InterstellarColonyShip.ts), [TransNeptuneProbe](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/TransNeptuneProbe.ts).

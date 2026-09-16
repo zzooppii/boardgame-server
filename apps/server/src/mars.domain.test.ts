@@ -488,6 +488,53 @@ test('Mars mining consortium can reduce its own titanium production and restore 
 });
 
 import {MARS_PREPARED_CORPORATE_CARDS} from '@hangul-rummikub/shared';
+function preparedCorporate(id:string){const c=MARS_PREPARED_CORPORATE_CARDS.find(c=>c.id===id);assert.ok(c,id);return c;}
+function corporateSequence(s:MarsState,effects:readonly MarsEffect[]){return peek(s,{kind:'choice',options:[{label:'기업시대 효과 검증',effects}]});}
+test('Mars prepared draw and conversion actions reserve costs, reject underfunded choices atomically, and pay rewards once',()=>{
+ for(const [id,resource,cost] of [['DevelopmentCenter','energy',1],['CaretakerContract','heat',8],['SpaceElevator','steel',1]] as const){
+  const card=preparedCorporate(id);assert.ok(card.actions);let s=ready();s.players[0]!.resources[resource]=cost-1;
+  s=corporateSequence(s,card.actions);assert.equal(marsOffers(s,s.activePlayerId).length,0);
+  const before=structuredClone(s);assert.equal(applyMarsAction(s,s.activePlayerId,{type:'TAKE',actionId:'choice:0'},now,s.transitionId,random).ok,false);assert.deepEqual(s,before);
+  s.players[0]!.resources[resource]=cost;const hand=s.players[0]!.hand.length,money=s.players[0]!.resources.money,tr=s.players[0]!.tr,temperature=s.temperature;
+  s=act(s,o=>o.id==='choice:0');assert.equal(s.players[0]!.resources[resource],0);s=settle(s);
+  assert.equal(s.players[0]!.hand.length,hand+(id==='DevelopmentCenter'?1:0));assert.equal(s.players[0]!.resources.money,money+(id==='SpaceElevator'?5:0));
+  assert.equal(s.players[0]!.tr,tr+(id==='CaretakerContract'?1:0));assert.equal(s.temperature,temperature);assert.equal(s.actionsTaken,1);parseMarsState(s);
+ }
+});
+test('Mars AI Central requires initial energy production and its draw effect keeps cards private',()=>{
+ const card=preparedCorporate('AICentral');assert.ok(card.actions);let s=ready();s.players[0]!.production.energy=0;
+ const rule={...MARS_CARDS[0]!,cost:0,requirements:[],effects:card.effects};assert.notEqual(marsCardReason(s,s.players[0]!,rule),null);
+ s.players[0]!.production.energy=1;s=corporateSequence(s,card.effects);s=act(s,o=>o.id==='choice:0');s=settle(s);assert.equal(s.players[0]!.production.energy,0);
+ s.actionsTaken=0;const hand=s.players[0]!.hand.length,deck=s.deck.length;s=corporateSequence(s,card.actions);s=act(s,o=>o.id==='choice:0');s=settle(s);
+ assert.equal(s.players[0]!.hand.length,hand+2);assert.equal(s.deck.length,deck-2);
+ const other=JSON.stringify(projection(s,s.players[1]!.playerId));for(const drawn of s.players[0]!.hand.slice(-2))assert.equal(other.includes(drawn.tileId),false);
+ assert.equal(s.actionsTaken,1);parseMarsState(s);
+});
+test('Mars prepared immediate effects apply TR, income and titanium production without changing stocks',()=>{
+ for(const [id,resource,amount] of [['RadSuits','money',1],['SpaceElevator','titanium',1]] as const){
+  let s=ready();const before=structuredClone(s.players[0]!);s=corporateSequence(s,preparedCorporate(id).effects);s=act(s,o=>o.id==='choice:0');s=settle(s);
+  assert.equal(s.players[0]!.production[resource],before.production[resource]+amount);assert.deepEqual(s.players[0]!.resources,before.resources);
+ }
+ let s=ready();const tr=s.players[0]!.tr;s=corporateSequence(s,preparedCorporate('BribedCommittee').effects);s=act(s,o=>o.id==='choice:0');s=settle(s);
+ assert.equal(s.players[0]!.tr,tr+2);assert.equal(s.temperature,-30);assert.equal(s.oxygen,0);
+});
+test('Mars Corporate Stronghold applies mandatory energy cost and normal city placement, preserving the pending placement on reconnect',()=>{
+ const card=preparedCorporate('CorporateStronghold');let s=ready();s.players[0]!.production.energy=0;
+ assert.notEqual(marsCardReason(s,s.players[0]!,{...MARS_CARDS[0]!,requirements:[],cost:0,effects:card.effects}),null);
+ s.players[0]!.production.energy=1;s=corporateSequence(s,card.effects);s=act(s,o=>o.id==='choice:0');assert.equal(s.players[0]!.production.energy,0);
+ s=act(s,o=>o.label.includes('도시'));const legal=marsOffers(s,s.activePlayerId).map(o=>o.targetId).sort();assert.deepEqual(legal,marsSpaces(s,s.activePlayerId,'city').sort());
+ s=parseMarsState(JSON.parse(JSON.stringify(s)));s=act(s,o=>o.kind==='PLACE');s=settle(s);
+ assert.equal(s.tiles.filter(t=>t.kind==='city'&&t.ownerId===s.activePlayerId).length,1);assert.equal(s.players[0]!.production.money,4);assert.equal(s.actionsTaken,1);
+});
+test('Mars Great Escarpment production attack offers legal self and protected opponents, never an empty producer',()=>{
+ for(const self of [false,true]){
+  let s=ready(3);const owner=s.activePlayerId;s.players[0]!.production.steel=1;s.players[1]!.production.steel=1;s.players[1]!.protectedHabitats=true;s.players[2]!.production.steel=0;
+  const stocks=s.players.map(p=>({...p.resources}));s=corporateSequence(s,preparedCorporate('GreatEscarpmentConsortium').effects);s=act(s,o=>o.id==='choice:0');s=act(s,o=>o.label.includes('생산 −1'));
+  assert.deepEqual(marsOffers(s,owner).map(o=>o.targetId).sort(),[owner,s.players[1]!.playerId].sort());
+  s=act(s,o=>o.targetId===(self?owner:s.players[1]!.playerId));s=settle(s);
+  assert.equal(s.players[0]!.production.steel,self?1:2);assert.equal(s.players[1]!.production.steel,self?1:0);assert.deepEqual(s.players.map(p=>p.resources),stocks);assert.equal(s.actionsTaken,1);
+ }
+});
 test('Mars Business Network setup cost reaches -5 but cannot cross it, and buying cards remains separate from discounts',()=>{
  const network=MARS_PREPARED_CORPORATE_CARDS.find(c=>c.id==='BusinessNetwork');assert.ok(network);assert.ok(network.actions);
  let s=ready();s.players[0]!.production.money=-5;

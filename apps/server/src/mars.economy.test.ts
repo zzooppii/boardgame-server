@@ -157,6 +157,18 @@ test('Mars base requirement adaptation preserves own greenery and exact tag mini
 });
 
 import {MARS_PREPARED_CORPORATE_CARDS} from '@hangul-rummikub/shared';
+test('Mars prepared standard cards preserve science, steel production and temperature requirement boundaries',()=>{
+ const requirements=(id:string)=>{const c=MARS_PREPARED_CORPORATE_CARDS.find(c=>c.id===id);assert.ok(c);return c.requirements;};
+ for(const [id,count] of [['AICentral',3],['InterstellarColonyShip',5]] as const){
+  assert.notEqual(marsRequirementReason(requirements(id),requirementContext({tagCount:()=>count-1,globalAllowance:6})),null);
+  assert.equal(marsRequirementReason(requirements(id),requirementContext({tagCount:tag=>tag==='science'?count:0})),null);
+ }
+ assert.notEqual(marsRequirementReason(requirements('GreatEscarpmentConsortium'),requirementContext({globalAllowance:6})),null);
+ assert.equal(marsRequirementReason(requirements('GreatEscarpmentConsortium'),requirementContext({production:marsResources({steel:1})})),null);
+ assert.notEqual(marsRequirementReason(requirements('CaretakerContract'),requirementContext({temperature:-2})),null);
+ assert.equal(marsRequirementReason(requirements('CaretakerContract'),requirementContext({temperature:0})),null);
+ assert.equal(marsRequirementReason(requirements('CaretakerContract'),requirementContext({temperature:-4,globalAllowance:2})),null);
+});
 test('Mars prepared economy definitions compose actual discounts, metal value and post-payment rewards',()=>{
  const card=(id:string)=>{const c=MARS_PREPARED_CORPORATE_CARDS.find(c=>c.id===id);assert.ok(c,id);return c;};
  const owner=player('Teractor','AntiGravityTechnology','EarthCatapult','EarthOffice','SpaceStation','AdvancedAlloys','MediaGroup','StandardTechnology');
