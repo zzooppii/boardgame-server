@@ -19,6 +19,7 @@ import {
 } from "../game-catalog/game-catalog.js";
 
 const ArkNovaPreview = lazy(() => import("../ark-nova/ArkNovaPreview.js"));
+const SpeakeasyPreview = lazy(() => import("../speakeasy/SpeakeasyPreview.js"));
 
 export type HomeScreenProps = Readonly<{
   nickname: string;
@@ -44,6 +45,7 @@ export function HomeScreen(props: HomeScreenProps) {
     DEFAULT_SELECTED_GAME_TYPE,
   );
   const [arkPreview, setArkPreview] = useState(false);
+  const [speakeasyPreview, setSpeakeasyPreview] = useState(false);
   const isBusy = props.busyLabel !== null;
   const joinRoomCode = props.invitationRoomCode ?? props.roomCodeInput;
 
@@ -55,6 +57,14 @@ export function HomeScreen(props: HomeScreenProps) {
   function submitJoin(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
     props.onJoinRoom();
+  }
+
+  if (speakeasyPreview) {
+    return (
+      <Suspense fallback={<main className="app-shell"><p role="status">스피크이지 체험 화면을 여는 중입니다…</p></main>}>
+        <SpeakeasyPreview onExit={() => setSpeakeasyPreview(false)} />
+      </Suspense>
+    );
   }
 
   if (arkPreview) {
@@ -313,6 +323,12 @@ export function HomeScreen(props: HomeScreenProps) {
         <h2 id="ark-preview-heading">아크노바 · 개발 미리보기</h2>
         <p className="field-help">규칙을 익히기 위한 별도 건설 연습과 카드 도감입니다. 솔로 대국은 게임 목록에서 아크노바를 선택하세요.</p>
         <button className="secondary-button" type="button" onClick={() => setArkPreview(true)}>동물원 설계 체험하기</button>
+      </section>
+
+      <section className="entry-card" aria-labelledby="speakeasy-preview-heading">
+        <h2 id="speakeasy-preview-heading">스피크이지 · 개발 미리보기</h2>
+        <p className="field-help">맨해튼의 주점과 개인판, 건설·운송·판매의 조작과 효과음을 체험하세요. 고정된 예시이며 온라인 대국은 아직 준비 중입니다.</p>
+        <button className="secondary-button" type="button" onClick={() => setSpeakeasyPreview(true)}>스피크이지 체험하기</button>
       </section>
 
       <p className="live-region" aria-live="polite">
