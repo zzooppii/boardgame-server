@@ -388,3 +388,119 @@ test('Last-player city cleanup delays round settlement until after the draw and 
   assert.equal(s.round.phase,'ROUND_END');assert.equal(s.awaitingCityReturn,false);
   s=value(settleSpeakeasyGameRound(s,guard(s)));assert.equal(s.round.clock.round,2);
 });
+
+// Per-viewer turn data must be safe even before a transport is connected.
+import {projectSpeakeasyTurn} from './games/speakeasy/application/turn-projector.js';
+import {SpeakeasyTurnViewSchema,PlayerIdSchema} from '@hangul-rummikub/shared';
+test('Turn projection separates private hands and funds for every supported player count',()=>{
+  for(const count of [2,3,4]) {
+    const s=setup(count);
+    for(const player of s.round.economy.players) {
+      const view=projectSpeakeasyTurn(s,player.playerId)!;
+      assert.deepEqual(parse(SpeakeasyTurnViewSchema,JSON.parse(JSON.stringify(view))),view);
+      assert.equal(view.stage,'PLACE_CAPO');assert.equal(view.actorId,a);
+      assert.deepEqual(view.self.hand,player.hand);assert.equal(view.self.safe,player.safe);
+      const wire=JSON.stringify(view);
+      for(const other of s.round.economy.players.filter(p=>p.playerId!==player.playerId)) {
+        for(const card of other.hand) assert.ok(!wire.includes(card.tileId));
+      }
+      for(const card of Object.values(s.round.decks).flat()) assert.ok(!wire.includes(card.tileId));
+      assert.deepEqual(view.self.drawDecks,[]);
+    }
+  }
+  assert.equal(projectSpeakeasyTurn(setup(),parse(PlayerIdSchema,'outsider')),null);
+});
+test('Hidden identities, order and opponent funds cannot change the viewer turn projection',()=>{
+  const s=cityGame(), before=projectSpeakeasyTurn(s,a);
+  s.city.middle[0]!.push({tileId:tile('buried-secret'),effectId:'buried-effect'});
+  const withBuried=projectSpeakeasyTurn(s,a)!;
+  assert.equal(withBuried.market.middle[0]!.count,2);
+  assert.equal(withBuried.market.middle[0]!.top!.tileId,tile('market-first'));
+  const changed=structuredClone(s);
+  changed.round.economy.players[1]!.safe=999;
+  changed.round.economy.players[1]!.hand.reverse();
+  changed.round.economy.players[1]!.hand[0]!.leverage=9;
+  changed.round.decks.VIP.reverse();
+  changed.city.supply[0]![0]={tileId:tile('different-secret'),effectId:'different-effect'};
+  changed.city.middle[0]![1]={tileId:tile('different-buried'),effectId:'different-effect'};
+  assert.deepEqual(projectSpeakeasyTurn(changed,a),withBuried);
+  assert.ok(!JSON.stringify(withBuried).includes('hidden-city'));
+  assert.ok(!JSON.stringify(withBuried).includes('buried-secret'));
+  assert.ok(before);
+});
+test('Turn projection is detached from canonical state and rejects invalid restored state',()=>{
+  const s=cityGame(), before=structuredClone(s), view=projectSpeakeasyTurn(s,a)!;
+  view.self.hand.pop();view.self.availableCapos.length=0;view.self.cityTiles[0]!.effectId='changed';
+  view.market.middle[0]!.top!.effectId='changed';view.order.reverse();
+  assert.deepEqual(s,before);
+  const bad=structuredClone(s);bad.awaitingCityReturn=true;
+  assert.throws(()=>projectSpeakeasyTurn(bad,a));
+});
+test('Turn panel follows Restaurant choices, completion and the mandatory draw without enabling observers',()=>{
+  let s=place(setup(),true);
+  assert.equal(projectSpeakeasyTurn(s,a)!.stage,'RESTAURANT_CHOICE');
+  s=choose(s,'CITY_TILES');assert.equal(projectSpeakeasyTurn(s,a)!.stage,'RESTAURANT_ACTION');
+  assert.equal(projectSpeakeasyTurn(s,b)!.restaurant!.current!.action,'CITY_TILES');
+  s=close(s);s=close(choose(s,'BOOKS'));
+  assert.equal(projectSpeakeasyTurn(s,a)!.stage,'FINISH_LOCATION');
+  s=value(finishSpeakeasyLocation(s,guard(s)));
+  assert.equal(projectSpeakeasyTurn(s,a)!.stage,'DRAW_OPERATION');
+  assert.deepEqual(projectSpeakeasyTurn(s,a)!.self.drawDecks,['VIP','PARTY','STILLS','FLEET']);
+  assert.deepEqual(projectSpeakeasyTurn(s,b)!.self.drawDecks,[]);
+  s=value(drawSpeakeasyTurnCard(s,a,{...guard(s),deck:'VIP'}));
+  const next=projectSpeakeasyTurn(s,b)!;
+  assert.equal(next.actorId,b);assert.equal(next.stage,'PLACE_CAPO');assert.equal(next.active,null);
+  assert.equal(next.spaces.find(p=>p.id==='restaurant')!.occupants[0]!.playerId,a);
+});
+test('Return projection preserves actor after draw and exposes only own required choices',()=>{
+  let s=playCity(choose(place(cityGame(),true),'CITY_TILES'),'city-0');
+  s=readyAfterCities(s);s=value(drawSpeakeasyTurnCard(s,a,{...guard(s),deck:'VIP'}));
+  const view=projectSpeakeasyTurn(s,a)!, other=projectSpeakeasyTurn(s,b)!;
+  assert.equal(view.stage,'RETURN_CITY');assert.equal(view.actorId,a);
+  assert.equal(view.self.returnCount,1);assert.deepEqual(view.self.mandatoryReturnIds,[tile('city-0')]);
+  assert.deepEqual(view.self.eligibleReturnIds,[tile('city-0')]);assert.deepEqual(view.self.firstReturnRows,[2]);
+  assert.deepEqual(view.self.drawDecks,[]);assert.equal(other.self.returnCount,0);
+  assert.deepEqual(other.self.mandatoryReturnIds,[]);assert.deepEqual(other.self.firstReturnRows,[]);
+  assert.ok(view.self.hand.some(c=>c.tileId===tile('deck-VIP-0')));
+  assert.ok(!JSON.stringify(other).includes('deck-VIP-0'));
+  assert.deepEqual(projectSpeakeasyTurn(parseSpeakeasyGameFlow(JSON.parse(JSON.stringify(s))),a),view);
+  s=value(returnSpeakeasyTurnCityTiles(s,a,{...guard(s),placements:[{tileId:tile('city-0'),row:2}]}));
+  assert.equal(projectSpeakeasyTurn(s,b)!.stage,'PLACE_CAPO');assert.equal(projectSpeakeasyTurn(s,b)!.actorId,b);
+});
+test('Return projection includes optional excess tiles as well as mandatory used tiles',()=>{
+  let s=choose(place(cityGame(4),true),'CITY_TILES');
+  s=playCity(s,'city-0',[{effectId:'reward',resolve:state=>{
+    state.city.held[0]!.tiles.push(...state.city.middle[0]!.splice(0),...state.city.middle[1]!.splice(0));
+    return {ok:true,value:state};
+  }}]);
+  s=readyAfterCities(s);s=value(drawSpeakeasyTurnCard(s,a,{...guard(s),deck:'VIP'}));
+  const view=projectSpeakeasyTurn(s,a)!;
+  assert.equal(view.self.returnCount,2);assert.equal(view.self.eligibleReturnIds.length,6);
+  assert.equal(view.self.mandatoryReturnIds.length,1);assert.deepEqual(view.self.firstReturnRows,[0,1,2]);
+});
+test('Round and Luciano waiting stages do not expose previous actor actions or future mobs',()=>{
+  let s=end(place(end(place(setup()))));
+  assert.equal(projectSpeakeasyTurn(s,a)!.stage,'ROUND_END');assert.equal(projectSpeakeasyTurn(s,a)!.actorId,null);
+  s=finishAct(setup());
+  const piece=s.round.economy.players[0]!.reserves.shift()!;
+  s.round.economy.districts[0]!.slots[0]={piece,ownerId:a,familyId:null,barrelId:null};
+  s=war(s);
+  const view=projectSpeakeasyTurn(s,a)!;
+  assert.equal(view.stage,'LUCIANO');assert.equal(view.actorId,null);assert.deepEqual(view.self.drawDecks,[]);
+  for(const mob of s.luciano!.deck) assert.ok(!JSON.stringify(view).includes(mob.tileId));
+  s=value(advanceSpeakeasyMobWar(s,guard(s)));
+  assert.equal(s.luciano!.phase,'DEFENSE');
+  assert.equal(projectSpeakeasyTurn(s,a)!.actorId,a);
+});
+
+test('Final scoring projection clears acting identity and per-turn prompts',()=>{
+  let s=setup();
+  for(let act=1;act<=4;act++) {
+    s=finishAct(s);
+    if(act<4) {s=finishWar(war(s));s=value(beginSpeakeasyNextAct(s,guard(s)));}
+  }
+  const view=projectSpeakeasyTurn(s,a)!;
+  assert.equal(view.stage,'FINAL_SCORING');assert.equal(view.actorId,null);assert.equal(view.active,null);
+  assert.deepEqual(view.self.drawDecks,[]);assert.equal(view.self.returnCount,0);
+  assert.ok(!JSON.stringify(view).includes('mobster-'));
+});
