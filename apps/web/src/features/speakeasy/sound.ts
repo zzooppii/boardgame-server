@@ -1,10 +1,13 @@
 import {useEffect, useRef, useState} from 'react';
 
-export type SpeakeasyCue = 'SELECT' | 'CANCEL' | 'BUILD' | 'PRODUCE' | 'DELIVER' | 'SELL' | 'PROTECT' | 'SETTLE' | 'ERROR';
+export type SpeakeasyCue = 'CARD_DRAW' | 'TILE_USE' | 'TILE_RETURN' | 'SELECT' | 'CANCEL' | 'BUILD' | 'PRODUCE' | 'DELIVER' | 'SELL' | 'PROTECT' | 'SETTLE' | 'ERROR';
 export type SpeakeasyTone = Readonly<{frequency: number; end: number; delay: number; duration: number; shape: OscillatorType; gain: number}>;
 export function speakeasyTones(cue: SpeakeasyCue): readonly SpeakeasyTone[] {
   const note = (frequency: number, delay: number, duration: number, end = frequency, shape: OscillatorType = 'sine', gain = 1): SpeakeasyTone => ({frequency, end, delay, duration, shape, gain});
   switch (cue) {
+    case 'CARD_DRAW': return [note(640, 0, .06, 240, 'triangle', .35), note(420, .065, .08, 260, 'sine', .3)];
+    case 'TILE_USE': return [note(330, 0, .09, 200, 'triangle', .5), note(660, .08, .15, 660, 'sine', .3)];
+    case 'TILE_RETURN': return [note(180, 0, .09, 80, 'triangle', .6), note(240, .08, .07, 100, 'triangle', .3)];
     case 'SELECT': return [note(680, 0, .055, 310, 'triangle', .4)];
     case 'CANCEL': return [note(380, 0, .08, 260, 'sine', .4)];
     case 'BUILD': return [note(210, 0, .12, 85, 'triangle'), note(285, .13, .18, 100, 'triangle', .7)];

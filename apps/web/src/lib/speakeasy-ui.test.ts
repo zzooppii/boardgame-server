@@ -1,3 +1,4 @@
+import {startCityPreview,cityPreviewStep,cityPreviewRows,cityPreviewReturns} from '../features/speakeasy/city-preview.js';
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {speakeasyContinuousCue, speakeasyTones, type SpeakeasyCue} from '../features/speakeasy/sound.js';
@@ -13,7 +14,7 @@ test('Speakeasy never replays historical or disconnected sound events', () => {
 });
 
 test('Speakeasy cues are short, finite and have bounded gains', () => {
-  const cues: readonly SpeakeasyCue[] = ['SELECT', 'CANCEL', 'BUILD', 'PRODUCE', 'DELIVER', 'SELL', 'PROTECT', 'SETTLE', 'ERROR'];
+  const cues: readonly SpeakeasyCue[] = ['CARD_DRAW', 'TILE_USE', 'TILE_RETURN', 'SELECT', 'CANCEL', 'BUILD', 'PRODUCE', 'DELIVER', 'SELL', 'PROTECT', 'SETTLE', 'ERROR'];
   for (const cue of cues) for (const tone of speakeasyTones(cue)) {
     assert.ok(tone.frequency > 0 && tone.frequency < 20000);
     assert.ok(tone.end > 0 && tone.end < 20000);
@@ -54,4 +55,40 @@ test('district keyboard navigation follows visual rows across zone panels', () =
   assert.equal(speakeasyDistrictFocus(1, 'ArrowUp'), null);
   assert.equal(speakeasyDistrictFocus(1, 'ArrowLeft'), null);
   assert.equal(speakeasyDistrictFocus(16, 'ArrowDown'), null);
+});
+
+
+test('city presentation keeps used tiles until after drawing and balances returns before completing',()=>{
+  const initial=startCityPreview();let s=initial;
+  s=cityPreviewStep(s,{type:'SELECT',id:'produce'});s=cityPreviewStep(s,{type:'USE'});
+  s=cityPreviewStep(s,{type:'SELECT',id:'deliver'});s=cityPreviewStep(s,{type:'USE'});
+  assert.equal(s.held.length,6);assert.equal(s.used.length,2);
+  assert.equal(cityPreviewStep(s,{type:'SELECT',id:'book'}),s);
+  assert.equal(cityPreviewStep(s,{type:'RETURN',row:1}),s);
+  s=cityPreviewStep(s,{type:'FINISH'});assert.equal(s.phase,'DRAW');
+  assert.equal(cityPreviewStep(s,{type:'SELECT',id:'produce'}),s);
+  s=cityPreviewStep(s,{type:'DRAW'});assert.equal(s.phase,'RETURN');
+  assert.equal(cityPreviewStep(s,{type:'DRAW'}),s);
+  s=cityPreviewStep(s,{type:'SELECT',id:'produce'});assert.deepEqual(cityPreviewRows(s),[1]);
+  assert.equal(cityPreviewStep(s,{type:'RETURN',row:0}),s);
+  s=cityPreviewStep(s,{type:'RETURN',row:1});assert.equal(cityPreviewReturns(s),1);
+  s=cityPreviewStep(s,{type:'SELECT',id:'deliver'});assert.deepEqual(cityPreviewRows(s),[1,2]);
+  s=cityPreviewStep(s,{type:'RETURN',row:2});assert.equal(s.phase,'DONE');assert.equal(s.held.length,4);
+  assert.deepEqual(initial,startCityPreview());
+});
+test('city presentation allows skipping uses and choosing excess without discarding below four',()=>{
+  let s=cityPreviewStep(startCityPreview(),{type:'FINISH'});s=cityPreviewStep(s,{type:'DRAW'});
+  for(const id of ['book','protect']) {
+    s=cityPreviewStep(s,{type:'SELECT',id});s=cityPreviewStep(s,{type:'RETURN',row:1});
+  }
+  assert.equal(s.phase,'DONE');assert.equal(s.held.length,4);
+  assert.equal(cityPreviewStep(s,{type:'SELECT',id:'family'}),s);
+  const reset=cityPreviewStep(s,{type:'RESET'});assert.equal(reset.phase,'USE');assert.equal(reset.held.length,6);assert.equal(reset.selected,null);
+});
+test('city selection cancel and rejected repeated clicks never use or return a tile twice',()=>{
+  let s=cityPreviewStep(startCityPreview(),{type:'SELECT',id:'produce'});
+  s=cityPreviewStep(s,{type:'SELECT',id:null});assert.equal(cityPreviewStep(s,{type:'USE'}),s);
+  assert.equal(cityPreviewStep(s,{type:'SELECT',id:'foreign-id'}),s);
+  s=cityPreviewStep(s,{type:'SELECT',id:'produce'});s=cityPreviewStep(s,{type:'USE'});
+  assert.equal(cityPreviewStep(s,{type:'USE'}),s);assert.equal(cityPreviewStep(s,{type:'SELECT',id:'produce'}),s);
 });

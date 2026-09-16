@@ -4,6 +4,7 @@ import {SpeakeasyBuildingArt, SpeakeasyToken} from './art.js';
 import {SPEAKEASY_PREVIEW_SCENES, speakeasyPreviewBuildings, speakeasyPreviewOperating, speakeasyDistrictFocus} from './preview-scenes.js';
 import {useSpeakeasyAudio} from './sound.js';
 import './speakeasy.css';
+import {SpeakeasyCityPreview} from './SpeakeasyCityPreview.js';
 
 const names = ['나', '노랑 패밀리', '보라 패밀리'];
 const zones = [{name: '다운타운', english: 'DOWNTOWN', from: 1, to: 6}, {name: '미드타운', english: 'MIDTOWN', from: 7, to: 12}, {name: '업타운', english: 'UPTOWN', from: 13, to: 16}];
@@ -11,6 +12,7 @@ const operations: readonly SpeakeasyOperation[] = ['VIP', 'PARTY', 'STILLS', 'FL
 
 /** Presentation-only guided scenes. This component never emits a game command or determines game outcomes. */
 export default function SpeakeasyPreview({onExit}: {onExit(): void}) {
+  const [cityMode, setCityMode] = useState(false);
   const [sceneIndex, setSceneIndex] = useState(0), [selected, setSelected] = useState<number | null>(null), [applied, setApplied] = useState(false);
   const [help, setHelp] = useState(false), [showSafe, setShowSafe] = useState(false), [mobileTab, setMobileTab] = useState<'MAP' | 'PLAYER'>('MAP');
   const [zoom, setZoom] = useState(false), [status, setStatus] = useState(''), audio = useSpeakeasyAudio();
@@ -31,7 +33,7 @@ export default function SpeakeasyPreview({onExit}: {onExit(): void}) {
       board.current?.querySelector<HTMLButtonElement>(`[data-district="${next}"]`)?.focus();
     }
   }
-  function changeScene(index: number) {interactionRevision.current++; setSceneIndex(index); setSelected(null); setApplied(false); setStatus(''); audio.play('SELECT');}
+  function changeScene(index: number) {setCityMode(false);interactionRevision.current++; setSceneIndex(index); setSelected(null); setApplied(false); setStatus(''); audio.play('SELECT');}
   async function applyScene() {
     if (!targetSelected) return;
     const revision = interactionRevision.current;
@@ -46,10 +48,10 @@ export default function SpeakeasyPreview({onExit}: {onExit(): void}) {
       <img src="/images/speakeasy/jazz-club.png" width="1536" height="1024" alt="1920년대 맨해튼의 창밖 야경과 재즈 주점"/>
       <div className="sp-hero-copy"><p className="sp-eyebrow">A CITY AFTER DARK</p><h1 ref={heading} tabIndex={-1}>도시가 잠들면,<br/>당신의 밤이 시작됩니다.</h1><p>주점을 열고, 주류를 나르고, 사업을 지키세요.</p><span>2–4인 기본판 개발 중 · 아래는 고정 예시의 화면·음향 체험입니다.</span></div>
     </section>
-    <div className="sp-timeline"><div><span className="sp-live-dot"/> 상호작용 체험 <strong>{sceneIndex + 1} / {SPEAKEASY_PREVIEW_SCENES.length}</strong></div><span>선택하고 · 검토하고 · 확정하기</span><button type="button" onClick={() => setHelp(!help)} aria-expanded={help} aria-controls="sp-help">{help ? '도움말 닫기' : '게임과 조작 안내'}</button></div>
+    <div className="sp-timeline"><div><span className="sp-live-dot"/> 상호작용 체험 <strong>{cityMode ? '도시 타일' : `${sceneIndex + 1} / ${SPEAKEASY_PREVIEW_SCENES.length}`}</strong></div><span>선택하고 · 검토하고 · 확정하기</span><button type="button" onClick={() => setHelp(!help)} aria-expanded={help} aria-controls="sp-help">{help ? '도움말 닫기' : '게임과 조작 안내'}</button></div>
     {help && <section id="sp-help" className="sp-help"><h2>사업의 흐름을 눈으로 읽는 보드</h2><div><p><strong>지도</strong> 건물 모양과 패밀리 색으로 소유권을, 주류통과 사람으로 재고와 보호를 읽습니다. 경찰이 있는 12구역은 보호 전후의 차이를 보여줍니다.</p><p><strong>선택과 확정</strong> 구역을 누르면 오른쪽에서 정보를 확인할 수 있습니다. 강조된 구역을 선택한 뒤 연출 버튼으로 적용 전후를 비교하세요. 방향키로 구역 이동, Enter로 선택, Escape로 취소할 수 있습니다.</p><p><strong>원작 규칙 확인 중</strong> 최신 규칙서의 판정 원칙을 구현하고 있습니다. 전체 카드·타일의 개별 값 확인과 온라인 진행 연결은 남아 있습니다. 이 화면은 실제 대국이나 솔로 모드가 아닙니다.</p></div></section>}
-    <nav className="sp-scene-tabs" aria-label="체험할 행동">{SPEAKEASY_PREVIEW_SCENES.map((s, i) => <button key={s.id} type="button" aria-pressed={sceneIndex === i} onClick={() => changeScene(i)}><span>{String(i + 1).padStart(2, '0')}</span>{s.label}</button>)}</nav>
-    <div className="sp-layout">
+    <nav className="sp-scene-tabs" aria-label="체험할 행동">{SPEAKEASY_PREVIEW_SCENES.map((s, i) => <button key={s.id} type="button" aria-pressed={!cityMode && sceneIndex === i} onClick={() => changeScene(i)}><span>{String(i + 1).padStart(2, '0')}</span>{s.label}</button>)}<button type="button" aria-pressed={cityMode} onClick={()=>{interactionRevision.current++;setCityMode(true);audio.play('SELECT');}}>도시 타일</button></nav>
+    {cityMode ? <SpeakeasyCityPreview audio={audio}/> : <><div className="sp-layout">
       <section className="sp-table-column">
         <div className="sp-players" aria-label="예시 패밀리">{names.map((name, i) => <div key={name} className={`sp-player sp-owner-${i}`}><span className="sp-family-symbol">{['●', '◆', '▲'][i]}</span><div><strong>{name}</strong><small>{i === 0 ? '청록 패밀리' : '다른 패밀리'}</small></div><span className="sp-wallet">{i === 0 ? '내 경영판 ↓' : '금고 비공개'}</span></div>)}</div>
         <nav className="sp-mobile-nav" aria-label="화면 영역"><button type="button" aria-pressed={mobileTab === 'MAP'} onClick={() => setMobileTab('MAP')}>도시 지도</button><button type="button" aria-pressed={mobileTab === 'PLAYER'} onClick={() => setMobileTab('PLAYER')}>내 경영판</button></nav>
@@ -105,7 +107,7 @@ export default function SpeakeasyPreview({onExit}: {onExit(): void}) {
         <section className="sp-recent"><p className="sp-eyebrow">WHAT CHANGED</p><h3>행동 기록</h3><div aria-live="polite"><span className="sp-log-dot"/>{status || '아직 적용한 행동이 없습니다.'}</div><p>선택만으로 보드는 바뀌지 않습니다.<br/>확정 후 결과와 소리가 함께 전달됩니다.</p></section>
       </aside>
     </div>
-    {targetSelected && <button type="button" className="sp-mobile-review" onClick={() => action.current?.scrollIntoView({block: 'start'})}>선택한 행동 검토하기 ↓</button>}
+    {targetSelected && <button type="button" className="sp-mobile-review" onClick={() => action.current?.scrollIntoView({block: 'start'})}>선택한 행동 검토하기 ↓</button>}</>}
     <footer className="sp-footer"><div><span className="sp-eyebrow">THE SOUND OF THE CITY</span><p>작은 선택에도, 분명한 반응.</p></div><div className="sp-audio-controls"><button type="button" aria-pressed={audio.volume > 0} onClick={() => {audio.setVolume(audio.volume ? 0 : 30); void audio.unlock();}}>{audio.volume ? '♪ 효과음 켜짐' : '♪ 음소거'}</button><label>음량<input aria-label="스피크이지 효과음 음량" type="range" min="0" max="100" step="5" value={audio.volume} onChange={e => audio.setVolume(Number(e.target.value))}/><span>{audio.volume}%</span></label><button type="button" disabled={audio.volume === 0} onClick={() => void audio.unlock().then(() => audio.play('SETTLE'))}>정산 소리 듣기</button></div>{!audio.available && <p role="status">이 브라우저에서 소리를 사용할 수 없습니다. 모든 결과는 화면에도 표시됩니다.</p>}</footer>
     <p className="sp-development-note">개발 미리보기 · 각 체험은 독립된 예시입니다. 카드 전체 데이터 확인과 온라인 대국 연결은 진행 중입니다.</p>
   </main>;

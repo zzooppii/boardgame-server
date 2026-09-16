@@ -285,3 +285,54 @@ to{transform:translateX(0);opacity:1}
 .sp-header .sp-wordmark span{font-size:8px}
 .sp-operation>div>span{font-size:11px}
 }
+
+.sp-city-experience{padding:26px 30px 32px}
+.sp-city-intro{display:flex;justify-content:space-between;align-items:center;gap:18px;margin-bottom:22px}
+.sp-city-intro h2{font:26px/1.4 Georgia,"Pretendard",serif;margin:7px 0;color:#203e37}
+.sp-city-intro h2:focus{outline:none}
+.sp-city-intro p:not(.sp-eyebrow){font-size:12px;line-height:1.8;color:#58685b}
+.sp-city-intro>button{flex-shrink:0;font-size:12px}
+.sp-city-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));padding:0;margin:0 0 24px;list-style:none;border-block:1px solid #cbbd9f}
+.sp-city-steps li{display:flex;align-items:center;gap:9px;padding:14px 12px;font-size:12px;color:#626d5d}
+.sp-city-steps li>span{border:1px solid #a9af99;border-radius:50%;width:24px;height:24px;display:grid;place-items:center;flex-shrink:0}
+.sp-city-steps li[aria-current=step]{background:#1c4941;color:#ffefcd}
+.sp-city-steps li.is-done{color:#235d4c;background:#dbe3cc}
+.sp-city-grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:26px;align-items:start}
+.sp-city-table{min-width:0;display:grid;gap:22px}
+.sp-city-hand{padding:22px;background:#f6efdf;border:1px solid #cec2a8}
+.sp-city-hand>header,.sp-city-display>header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+.sp-city-hand h3,.sp-city-display h3{font-size:17px}
+.sp-city-hand>header>span,.sp-city-display>header>span{font-size:12px;color:#5e6e5d}
+.sp-city-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.sp-root .sp-city-tile{position:relative;display:flex;flex-direction:column;align-items:center;gap:12px;min-height:158px;padding:13px 10px;background:linear-gradient(145deg,#fff9e9,#e7d6b8);border:1px solid #a18f6d;border-bottom:4px solid #947c57;border-radius:8px;box-shadow:0 4px 8px #59442118;transition:transform .16s,box-shadow .16s}
+.sp-city-tile-number{font:9px Georgia,serif;letter-spacing:2px;color:#69644f}
+.sp-city-tile .sp-token-art{width:42px;height:42px}
+.sp-city-tile strong{font-size:14px}
+.sp-city-tile-status{font-size:11px;line-height:1.6;text-align:center}
+.sp-root .sp-city-tile[aria-pressed=true]{outline:3px solid #2a7360;outline-offset:3px;transform:translateY(-3px);box-shadow:0 8px 12px #12352b25}
+.sp-root .sp-city-tile.is-used{background:repeating-linear-gradient(135deg,#e0e5ce,#e0e5ce 10px,#d8dec5 10px,#d8dec5 12px);border-color:#728c70}
+.sp-root .sp-city-tile:disabled{opacity:1;color:#65715d;box-shadow:none}
+.sp-city-tile.is-used .sp-city-tile-status{background:#2c6250;color:#fff5d9;border-radius:3px;padding:2px 8px}
+.sp-city-note{font-size:12px;line-height:1.8;color:#5c6b5d;margin-top:16px!important}
+.sp-city-display{padding:22px;background:#d2ddd0;border:1px solid #acbba4}
+.sp-city-display .sp-eyebrow{margin-bottom:5px}
+.sp-city-piles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.sp-root .sp-city-pile{display:flex;align-items:center;flex-direction:column;gap:10px;min-height:157px;padding:12px 8px;background:#dce5d5;border:1px dashed #859879;font-size:12px}
+.sp-root .sp-city-pile:disabled{opacity:1;color:#536b52}
+.sp-root .sp-city-pile.is-available{background:#fff1c9;border:2px solid #a87a30;box-shadow:0 0 0 3px #c9954240;color:#574316}
+.sp-city-pile-index{font:12px Georgia,serif;letter-spacing:2px}
+.sp-city-pile-art{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;flex:1;animation:sp-city-land .22s ease-out}
+.sp-city-pile-art strong{font-size:13px;word-break:keep-all}
+.sp-city-guide h3{font-size:21px;margin-top:10px}
+.sp-city-detail{padding:16px 0;min-height:126px;line-height:1.85;font-size:13px}
+.sp-city-detail small{display:block;margin-top:10px;color:#606d5a;font-size:12px}
+.sp-root .sp-city-guide .sp-primary{width:100%;margin-top:10px;justify-content:center}
+.sp-root .sp-city-finish{margin-top:10px;width:100%;background:transparent;font-size:12px}
+.sp-city-drawn{border:1px solid #bcaa82;background:#f0e1ba;padding:19px 13px;display:grid;gap:12px;transform:rotate(-1deg);animation:sp-city-land .22s ease-out}
+.sp-city-drawn span{font-size:11px;line-height:1.6}
+.sp-city-drawn strong{font:18px Georgia,"Pretendard",serif;letter-spacing:1px}
+.sp-city-status{padding:14px 12px;margin-top:20px!important;background:#e2e8d2;border-left:3px solid #56816a;font-size:12px;line-height:1.85;min-height:80px}
+@keyframes sp-city-land{from{opacity:.4;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:900px){.sp-city-grid{grid-template-columns:minmax(0,1fr) 260px;gap:16px}.sp-city-experience{padding:22px 18px}.sp-city-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.sp-city-hand,.sp-city-display{padding:16px}}
+@media(max-width:680px){.sp-city-grid{grid-template-columns:minmax(0,1fr)}.sp-city-intro{align-items:flex-start;flex-direction:column}.sp-city-intro h2{font-size:23px}.sp-city-steps{grid-template-columns:repeat(2,minmax(0,1fr))}.sp-city-experience{padding:20px 14px}.sp-city-hand>header{align-items:flex-start;flex-direction:column;gap:6px}.sp-city-piles{gap:8px}.sp-city-pile-art strong{font-size:12px}.sp-city-display>header>span{font-size:11px}.sp-city-guide{padding:20px}.sp-city-detail{min-height:0}.sp-city-tiles{gap:12px}.sp-root .sp-city-pile{padding:10px 4px;font-size:11px}}
+@media(prefers-reduced-motion:reduce){.sp-city-experience *{animation:none!important;transition:none!important}}
