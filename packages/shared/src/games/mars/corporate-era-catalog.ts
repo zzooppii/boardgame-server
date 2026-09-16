@@ -17,12 +17,21 @@ const immediate: Readonly<Record<string, readonly MarsEffect[]>> = {
     ...MARS_CORPORATE_ERA_SELECTION_EFFECTS,
 };
 const passive: Readonly<Record<string, string>> = {
+    AdvancedAlloys: '강철과 티타늄의 지불 가치 각각 1 M€ 증가',
+    AntiGravityTechnology: '프로젝트 카드 비용 2 M€ 할인',
+    EarthCatapult: '프로젝트 카드 비용 2 M€ 할인',
+    EarthOffice: '지구 태그 카드 비용 3 M€ 할인',
+    MediaGroup: '이벤트 카드 실행 후 3 M€ 획득',
+    SpaceStation: '우주 태그 카드 비용 2 M€ 할인',
+    StandardTechnology: '유료 일반 프로젝트 실행 후 3 M€ 획득. 특허 매각 제외',
     QuantumExtractor: '우주 태그 카드 비용 2 M€ 할인',
     MassConverter: '우주 태그 카드 비용 2 M€ 할인',
 };
 const execution: Record<string, Execution> = {};
-for (const [id, effects] of Object.entries(immediate)) execution[id] = { effects, ...(passive[id] ? { passive: passive[id] } : {}) };
+for (const [id, effects] of Object.entries(immediate)) execution[id] = { effects };
+for (const [id, description] of Object.entries(passive)) execution[id] = { ...(execution[id] ?? { effects: [] }), passive: description };
 for (const [id, actions] of Object.entries(MARS_CORPORATE_ERA_RESOURCE_ACTIONS)) execution[id] = { effects: [], actions };
+execution.BusinessNetwork = { effects: MARS_CORPORATE_ERA_SELECTION_EFFECTS.BusinessNetwork, actions: MARS_CORPORATE_ERA_SELECTION_ACTIONS.BusinessNetwork };
 execution.InventorsGuild = { effects: [], actions: MARS_CORPORATE_ERA_SELECTION_ACTIONS.InventorsGuild };
 execution.MarsUniversity = { effects: [], passive: '과학 태그마다 손패 1장을 버리고 1장을 뽑을 수 있음. 자신의 태그 포함' };
 

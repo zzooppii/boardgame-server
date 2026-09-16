@@ -155,3 +155,16 @@ test('Mars base requirement adaptation preserves own greenery and exact tag mini
  assert.notEqual(marsRequirementReason(tags,requirementContext({tagCount:()=>2,globalAllowance:6})),null);
  assert.equal(marsRequirementReason(tags,requirementContext({tagCount:tag=>tag==='science'?3:0})),null);
 });
+
+import {MARS_PREPARED_CORPORATE_CARDS} from '@hangul-rummikub/shared';
+test('Mars prepared economy definitions compose actual discounts, metal value and post-payment rewards',()=>{
+ const card=(id:string)=>{const c=MARS_PREPARED_CORPORATE_CARDS.find(c=>c.id===id);assert.ok(c,id);return c;};
+ const owner=player('Teractor','AntiGravityTechnology','EarthCatapult','EarthOffice','SpaceStation','AdvancedAlloys','MediaGroup','StandardTechnology');
+ assert.equal(marsDiscountedCost(owner,card('BusinessNetwork')),0);
+ assert.equal(marsDiscountedCost(owner,card('SecurityFleet')),6);
+ assert.equal(marsDiscountedCost(player('Beginner'),card('EarthCatapult')),23,'The new card does not discount its own purchase');
+ assert.deepEqual(marsMetalValues(owner),{steelValue:3,titaniumValue:4});
+ assert.equal(marsCardIncome(owner,card('HiredRaiders')).money,3);
+ assert.equal(marsCardIncome(owner,card('BusinessNetwork')).money,0);
+ assert.equal(marsStandardProjectIncome(owner,'city',25),3);assert.equal(marsStandardProjectIncome(owner,'sell',0),0);
+});

@@ -70,3 +70,7 @@ Security Fleet는 행동으로 티타늄 1개를 지불하고 자기 카드에 �
 ## CONFIRMED — 기업시대 생산량 공격
 
 Hackers는 자신의 에너지 생산을 1 줄이고 한 플레이어의 M€ 생산을 2 줄이며 자신의 M€ 생산을 2 올린다. Asteroid Mining Consortium은 자기 티타늄 생산이 1 이상이어야 하며 한 플레이어의 티타늄 생산을 1 줄이고 자기 생산을 1 올린다. 자신을 대상으로 할 수 있다. 생산량 감소는 생략할 수 없으며 M€ 생산 하한 -5, 다른 생산 하한 0을 지킨다. 서식지 보호는 생산량 감소를 막지 않는다. 근거: [Hackers](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/Hackers.ts), [Asteroid Mining Consortium](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/AsteroidMiningConsortium.ts). 실제 카드의 조건·비용·점수 통합은 후속 단계다.
+
+## CONFIRMED — Business Network 시작 효과
+
+Business Network의 카드 실행 시 자신의 M€ 생산을 1 줄인다. 이후 세대당 행동으로 맨 위 카드를 보고 3 M€로 구매하거나 버린다. 구매에는 프로젝트 카드 할인을 적용하지 않는다. 근거: [Business Network 인쇄 효과](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/BusinessNetwork.ts). 실제 확장 덱과 카드의 세대당 사용 연결은 후속 통합 단계다.

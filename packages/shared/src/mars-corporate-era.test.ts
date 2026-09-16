@@ -112,7 +112,8 @@ test('Mars prepared corporate definitions preserve all printed metadata and expl
  const ids=MARS_PREPARED_CORPORATE_CARDS.map(c=>c.id),all=[...ids,...MARS_PENDING_CORPORATE_CARD_IDS];
  assert.equal(new Set(all).size,71);assert.deepEqual([...all].sort(),MARS_CORPORATE_ERA_CARD_FACTS.map(c=>c.id).sort());
  for(const card of MARS_PREPARED_CORPORATE_CARDS){const {effects,actions,passive,...printed}=card;assert.deepEqual(printed,fact(card.id));assert.ok(effects.length||actions?.length||passive,card.id);assert.throws(()=>marsCard(card.id));}
- assert.equal(MARS_CARDS.length,137);assert.ok(MARS_PENDING_CORPORATE_CARD_IDS.includes('OlympusConference'));assert.ok(MARS_PENDING_CORPORATE_CARD_IDS.includes('BusinessNetwork'));
+ assert.equal(MARS_CARDS.length,137);assert.ok(MARS_PENDING_CORPORATE_CARD_IDS.includes('OlympusConference'));assert.ok(MARS_PENDING_CORPORATE_CARD_IDS.includes('ViralEnhancers'));
+ assert.equal(ids.length,48);assert.equal(MARS_PENDING_CORPORATE_CARD_IDS.length,23);
 });
 test('Mars assembled cards retain mandatory costs, active actions, passive discounts and printed resource scoring',()=>{
  const prepared=(id:string)=>{const card=MARS_PREPARED_CORPORATE_CARDS.find(c=>c.id===id);assert.ok(card,id);return card;};
@@ -122,4 +123,12 @@ test('Mars assembled cards retain mandatory costs, active actions, passive disco
  assert.deepEqual(prepared('PhysicsComplex').score,{kind:'resources',per:1,points:2});
  assert.match(prepared('QuantumExtractor').passive??'',/2 M€/);assert.ok(prepared('QuantumExtractor').effects.length);
  assert.ok(prepared('MassConverter').passive);assert.ok(prepared('InventorsGuild').actions);assert.ok(prepared('MarsUniversity').passive);
+});
+
+test('Mars prepared economy cards include complete passive text and Business Network production cost with its purchase action',()=>{
+ for(const id of ['AdvancedAlloys','AntiGravityTechnology','EarthCatapult','EarthOffice','MediaGroup','SpaceStation','StandardTechnology']){
+  const card=MARS_PREPARED_CORPORATE_CARDS.find(c=>c.id===id);assert.ok(card,id);assert.ok(card.passive,id);assert.deepEqual(card.effects,[]);assert.equal(card.type,'active');assert.ok(!MARS_PENDING_CORPORATE_CARD_IDS.includes(id));
+ }
+ const network=MARS_PREPARED_CORPORATE_CARDS.find(c=>c.id==='BusinessNetwork');assert.ok(network);
+ assert.equal(network.cost,4);assert.deepEqual(network.tags,['earth']);assert.deepEqual(network.effects,[{kind:'production',resource:'money',amount:-1}]);assert.deepEqual(network.actions,[{kind:'buyCard'}]);
 });

@@ -2,6 +2,7 @@ import type { MarsEffect } from './catalog.js';
 
 // These effects remain outside the live deck until the complete expansion is assembled.
 export const MARS_CORPORATE_ERA_SELECTION_EFFECTS = {
+    BusinessNetwork: [{ kind: 'production', resource: 'money', amount: -1 }],
     InventionContest: [{ kind: 'keepCards', count: 3, keep: 1 }],
     BusinessContacts: [{ kind: 'keepCards', count: 4, keep: 2 }],
 } as const satisfies Record<string, readonly MarsEffect[]>;

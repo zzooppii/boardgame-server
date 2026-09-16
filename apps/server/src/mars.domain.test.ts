@@ -486,3 +486,16 @@ test('Mars mining consortium can reduce its own titanium production and restore 
  assert.deepEqual(marsOffers(s,owner).map(o=>o.targetId),[owner]);assert.match(marsOffers(s,owner)[0]!.detail,/내 생산량 감소/);
  s=act(s,o=>o.targetId===owner);s=settle(s);assert.equal(s.players[0]!.production.titanium,1);assert.equal(s.players[1]!.production.titanium,0);assert.equal(s.actionsTaken,1);
 });
+
+import {MARS_PREPARED_CORPORATE_CARDS} from '@hangul-rummikub/shared';
+test('Mars Business Network setup cost reaches -5 but cannot cross it, and buying cards remains separate from discounts',()=>{
+ const network=MARS_PREPARED_CORPORATE_CARDS.find(c=>c.id==='BusinessNetwork');assert.ok(network);assert.ok(network.actions);
+ let s=ready();s.players[0]!.production.money=-5;
+ const rule={...MARS_CARDS[0]!,requirements:[],cost:network.cost,tags:network.tags,effects:network.effects};
+ assert.notEqual(marsCardReason(s,s.players[0]!,rule),null);
+ s.players[0]!.production.money=-4;assert.equal(marsCardReason(s,s.players[0]!,rule),null);
+ s=peek(s,{kind:'choice',options:[{label:'Business Network setup',effects:network.effects}]});s=act(s,o=>o.id==='choice:0');assert.equal(s.players[0]!.production.money,-5);assert.equal(s.actionsTaken,1);
+ s.players[0]!.nextCardDiscount=8;s=peek(s,network.actions[0]!);assert.equal(s.cardChoice?.view.kind,'BUY');
+ if(s.cardChoice?.view.kind!=='BUY')throw new Error('Expected purchase');assert.equal(s.cardChoice.view.cost,3);
+ s=command(s,{type:'CHOOSE_CARDS',choiceId:s.cardChoice.view.id,cardIds:[]});assert.equal(s.players[0]!.nextCardDiscount,8);
+});

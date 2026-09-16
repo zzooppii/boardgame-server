@@ -30,7 +30,7 @@
 
 ## 다음 개발 단계
 
-1. **카드 정의 통합:** 준비된 효과를 인쇄 정보와 묶은 40장 정의를 기반으로 미조립 31장과 실행 카탈로그 어댑터를 완성한다. 미조립 목록에는 일부 계산만 구현된 카드도 포함된다.
+1. **카드 정의 통합:** 준비된 효과를 인쇄 정보와 묶은 48장 정의를 기반으로 미조립 23장과 실행 카탈로그 어댑터를 완성한다. 미조립 목록에는 일부 계산만 구현된 카드도 포함된다.
 2. **선택 효과 통합:** 구현한 비공개 열람·선택·구매를 실제 기업시대 카드의 조건·행동·사용 횟수와 연결한다. Mars University의 과학 태그별 손패 교환 엔진·트리거 계산을 추가했으며 실제 확장 카드 통합은 남아 있다.
 3. **특수 규칙:** 구현한 생산량 복제·서식지 보호·토지 예약을 실제 확장 카드와 통합한다. 자원 공격 효과를 실제 카드와 연결하고 과학 태그 중복 반응과 남은 점수 규칙을 구현한다. 전투기·자원별 점수 배율은 아래 단계에서 기반을 추가했으며 실제 카드 통합이 남아 있다.
 4. **시작 전 설정:** 방장 권한·room revision·중복 요청·동시 시작 검증, 참가자 표시, 208장 재고 검증과 시작 생산량 0 적용. 기업시대 기업 선택과 초기 효과 적용.
@@ -182,3 +182,17 @@
 - 타입 검사·빌드와 Chrome 두 세션 회귀 검증 통과. 기존 선택·지불·교환·보호·복제·예약·공격·자원 카드 흐름을 확인했다. 기존 공통 번들 500 kB 경고는 유지된다.
 - 이번 검증은 기본판 실행과 통합용 정의·조건 함수 범위다. 기업시대 40장의 실제 실행·전체 208장 대국 검증으로 해석하지 않는다.
 - 루트 `npm test` 전체 통과: 공유 142개·웹 980개·서버 4,051개·공통 E2E 155개. 이번 실행에서는 실패가 없었다. `git diff --check`도 통과했다.
+
+## 경제·선택 카드 8장 추가 조립
+
+- Advanced Alloys, Anti-Gravity Technology, Earth Catapult, Earth Office, Media Group, Space Station, Standard Technology의 인쇄 정보와 지속 설명을 기존 경제 계산에 맞춰 준비 목록에 추가했다. 준비 정의는 48장, 미조립 목록은 23장이다.
+- Business Network의 시작 M€ 생산 -1과 기존 맨 위 카드 열람·구매 행동을 한 카드 정의로 조립했다. 생산 하한 -5, 카드 구매 가격 3 M€, 다음 프로젝트 할인 미소비를 서버 효과 큐에서 검증한다.
+- 준비된 카드 정의를 실제 경제 함수에 전달해 할인 중첩·신규 할인 카드의 자기 지불 제외·금속 가치·이벤트 수입·일반 프로젝트 환급과 매각 제외를 검증한다.
+- 실제 실행 카탈로그·확장 덱·기업 선택·로비 옵션은 여전히 미연결이다. 48장 준비를 전체 기업시대 플레이 완료로 해석하지 않는다.
+
+### 경제·선택 카드 단계 검증 (2026-09-16)
+
+- 루트 `typecheck`, `test`, `build` 통과. 공유 143개·웹 980개·서버 4,053개·공통 E2E 155개가 모두 통과했다. 마스 도메인·경제 테스트 74개도 별도 실행해 통과했다.
+- 정의 조립과 기존 경제·선택 처리의 연결을 검증한 단계이며, 이번 변경에서는 Chrome UI 테스트를 재실행하지 않았다. 기존 공통 번들 500 kB 경고는 유지된다. `git diff --check` 통과.
+
+근거: [Anti-Gravity Technology](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/AntiGravityTechnology.ts), [Earth Catapult](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/EarthCatapult.ts), [Advanced Alloys](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/AdvancedAlloys.ts), [Earth Office](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/EarthOffice.ts), [Media Group](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/MediaGroup.ts), [Space Station](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/SpaceStation.ts), [Standard Technology](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/StandardTechnology.ts), [Business Network](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/BusinessNetwork.ts).
