@@ -59,6 +59,24 @@ test('Arnak desktop/mobile: cards, dig, cleanup, five rounds, resume, results, r
  await guest.getByRole('button',{name:'방 참가하기',exact:true}).click();await guest.locator('.ar-lobby').waitFor();
  await host.getByRole('button',{name:'탐험 시작 →',exact:true}).click();
  for(const page of pages){await page.locator('.ar-hand').waitFor();assert.equal(await page.locator('.ar-hand .ar-card').count(),5);}
+ for(const page of pages){
+  for(const card of await page.locator('.ar-hand .ar-card, .ar-market .ar-card').all()){
+   const travel=card.locator('.ar-travel');await travel.waitFor();
+   assert.match(await travel.innerText(),/신발 · 도보|자동차|배|비행기/);
+   assert.equal(await travel.evaluate(el=>el.scrollWidth<=el.clientWidth),true);
+   assert.ok(await travel.locator('svg').count());
+  }
+ }
+ await guest.locator('.ar-hand').screenshot({path:join(output,'mobile-travel-hand.png')});
+ for(const page of pages){
+  const prices=page.locator('.ar-market .ar-purchase-price');assert.equal(await prices.count(),6);
+  for(const price of await prices.all()){
+   assert.match(await price.innerText(),/구매 · (금화|나침반)/);
+   assert.equal(await price.evaluate(el=>el.scrollWidth<=el.clientWidth&&el.scrollHeight<=el.clientHeight),true);
+   assert.ok(await price.locator('strong').evaluate(el=>parseFloat(getComputedStyle(el).fontSize)>=24));
+  }
+ }
+ await host.locator('.ar-market').screenshot({path:join(output,'market-prices.png')});
  const history=page=>page.locator('.ar-log summary');
  const all=page=>page.locator('#ar-actions').getByRole('button',{name:'전체',exact:true});
  async function confirm(page){
@@ -177,7 +195,7 @@ test('Arnak desktop/mobile: cards, dig, cleanup, five rounds, resume, results, r
  await choose(researcher,/^차례 마치기$/);await digAt('해안 야영지');await choose(researcher,/^차례 마치기$/);
  assert.ok(await resource('coin')>=6,'The scenario earns enough for every base-game item.');
  const item=researcher.locator('.ar-market .ar-card.item.available').first();assert.ok(await item.count());
- const itemName=await item.locator('.ar-card-title strong').innerText(),price=Number((await item.locator('.ar-card-foot span').innerText()).replace('◉','').trim());
+ const itemName=await item.locator('.ar-card-title strong').innerText(),price=Number((await item.locator('.ar-purchase-price strong').innerText()).replace('◉','').trim());
  const coinsBefore=await resource('coin'),handBefore=await researcher.locator('.ar-hand .ar-card').count();
  const deckBefore=Number((await researcher.locator('.ar-camp-heading p').innerText()).match(/덱 (\d+)장/)[1]);
  const marketBefore=await researcher.locator('.ar-market .ar-card').count();
@@ -332,7 +350,7 @@ test('Arnak desktop/mobile: cards, dig, cleanup, five rounds, resume, results, r
   const artifact=other.locator('.ar-market .ar-card.artifact.available').first();
   if(!await artifact.count()){await choose(other,/^이번 라운드 패스$/);await choose(other,/^패스 확정$/);continue;}
   artifactName=await artifact.locator('.ar-card-title strong').innerText();
-  const artifactPrice=Number((await artifact.locator('.ar-card-foot span').innerText()).replace('✥','').trim());
+  const artifactPrice=Number((await artifact.locator('.ar-purchase-price strong').innerText()).replace('✥','').trim());
   const printedText=(await artifact.locator('.ar-card-effect').innerText()).replace(/^ϟ\s*/,'');
   const printedEffects=printedText.split(/ · | → /);
   const simpleEffects=printedEffects.every(effect=>/^(금화|나침반|석판|화살촉|보석) \d+$|^카드 \d+장 뽑기$|^공포 1장 받기$/.test(effect));

@@ -40,6 +40,13 @@ import { describeArnakEffect } from '../features/arnak/effect-description.js';
 import { ArnakCardDetail } from '../features/arnak/ArnakCardDetail.js';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { ArnakTravel } from '../features/arnak/ArnakTravel.js';
+test('Arnak travel badges name shoes, boats, cars and planes and retain repeated symbols', () => {
+ const html=renderToStaticMarkup(createElement(ArnakTravel,{travel:['foot','car','car','boat','plane']}));
+ assert.match(html,/신발 · 도보/);assert.match(html,/자동차/);assert.match(html,/배/);assert.match(html,/비행기/);
+ assert.match(html,/×2/);assert.match(html,/도보 \+ 자동차 \+ 자동차 \+ 배 \+ 비행기/);
+ assert.equal((html.match(/<svg/g)??[]).length,4);
+});
 test('Arnak effect descriptions distinguish free acquisition, deck placement and discounts', () => {
  const text=(id:string)=>arnakCard(id).effects.map(describeArnakEffect).join(' ');
  assert.match(text('0112'),/아이템 1장 비용 없이 획득 · 손패에 추가/);
