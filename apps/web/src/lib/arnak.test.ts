@@ -266,3 +266,28 @@ test('Arnak action browser uses visible names, exposes only offered targets and 
  assert.doesNotMatch(html,/비공개 카드|선택 확정/);
  assert.equal(renderToStaticMarkup(createElement(ArnakActionBrowser,{offers:[],names:new Map(),disabled:false,onSelect(){}})),'');
 });
+
+import { ArnakJournal, filterArnakHistory } from '../features/arnak/ArnakJournal.js';
+import { ArnakLogSchema } from '@hangul-rummikub/shared';
+const journalEntry=(id:number,round:number,playerId='alice')=>v.parse(ArnakLogSchema,{id,round,playerId,kind:'DIG',text:`기록 ${id}`});
+test('Arnak journal combines player and round filters, newest first without mutating history',()=>{
+ const history=[journalEntry(1,1),journalEntry(2,2,'bob'),journalEntry(3,2)];
+ assert.deepEqual(filterArnakHistory(history,'','').map(e=>e.id),[3,2,1]);
+ assert.deepEqual(filterArnakHistory(history,'2','alice').map(e=>e.id),[3]);
+ assert.deepEqual(filterArnakHistory(history,'','bob').map(e=>e.id),[2]);
+ assert.deepEqual(filterArnakHistory(history,'1','bob'),[]);
+ assert.deepEqual(history.map(e=>e.id),[1,2,3]);
+});
+test('Arnak journal initially shows fifteen entries and offers access to earlier public records',()=>{
+ const history=Array.from({length:20},(_,i)=>journalEntry(i+1,1));
+ const html=renderToStaticMarkup(createElement(ArnakJournal,{history,players:[{playerId:'alice',nickname:'탐험가 A'}]}));
+ assert.match(html,/20건 중 15건 표시/);assert.match(html,/이전 기록 더 보기 · 5건 남음/);
+ assert.match(html,/기록 20/);assert.doesNotMatch(html,/>기록 5</);assert.match(html,/탐험가 A/);
+ assert.equal((html.match(/<li>/g)??[]).length,15);
+});
+test('Arnak journal handles empty history and renders public text safely',()=>{
+ const html=renderToStaticMarkup(createElement(ArnakJournal,{history:[],players:[]}));
+ assert.match(html,/아직 탐험 기록이 없습니다/);assert.doesNotMatch(html,/이전 기록 더 보기/);
+ const escaped=renderToStaticMarkup(createElement(ArnakJournal,{history:[{...journalEntry(1,1),text:'<script>test</script>'}],players:[]}));
+ assert.match(escaped,/&lt;script&gt;/);assert.doesNotMatch(escaped,/<script>/);
+});
