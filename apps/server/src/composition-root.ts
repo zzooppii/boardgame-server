@@ -890,7 +890,7 @@ export function createApplicationRuntime(
     if (room?.gameType === "TERRAFORMING_MARS" && room.phase === "FINISHED" && room.game) await onGameFinished({ roomId, gameId: room.game.gameId });
   });
   const duelService = new DuelService({ roomRepository: persistence, roomUnitOfWork: persistence, idempotencyRepository: persistence,
-    roomMutationExecutor, presence: presenceReader, clock, ids: idGenerator, random: randomSource });
+    roomMutationExecutor, presence: presenceReader, clock, ids: idGenerator, random: randomSource, turnScheduler });
   const duelHostSuccession = new DuelHostSuccession(duelService.deps, roomId => duelService.notify(roomId));
   duelService.subscribe(async roomId => {
     const room = await persistence.findById(roomId);
@@ -1166,6 +1166,7 @@ export function createApplicationRuntime(
     onGameFinished, presenceLeaseReader: presenceReader,
   });
   scheduledTurnRouter = new ScheduledTurnRouter({
+    duel: {gameType:"SEVEN_WONDERS_DUEL", handleTurnTimeout: input => duelService.timeout(input)},
     train: {gameType:"TRAIN", handleTurnTimeout: input => trainService.timeout(input)},
     patchwork: {gameType:"PATCHWORK", handleTurnTimeout: input => patchworkService.timeout(input)},
     lostCities: {gameType:"LOST_CITIES", handleTurnTimeout: input => lostCitiesService.timeout(input)},

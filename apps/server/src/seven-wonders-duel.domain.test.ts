@@ -8,7 +8,7 @@ import {choices,decisionActor,available} from './games/seven-wonders-duel/domain
 import {quote,science,scores} from './games/seven-wonders-duel/domain/economy.js';
 import {projectDuel} from './games/seven-wonders-duel/compatibility/projector.js';
 let serial=0;const now=parse(ServerTimeSchema,1000),random={nextInt:(n:number)=>(++serial*73)%n};
-function fixture(settings:DuelSettings={pantheon:true,agora:true},seed=1){return createDuelGame({generateTileId:()=>parse(TileIdSchema,`opaque-${++serial}`),gameId:parse(GameIdSchema,'duel'),playerIds:[parse(PlayerIdSchema,'alice'),parse(PlayerIdSchema,'bob')],turnId:parse(TurnIdSchema,'initial'),now,settings,random:{nextInt(n){seed=(seed*1664525+1013904223)>>>0;return seed%n;}}});}
+function fixture(settings:Omit<DuelSettings,'turnDurationSeconds'>&Partial<Pick<DuelSettings,'turnDurationSeconds'>>={pantheon:true,agora:true},seed=1){return createDuelGame({generateTileId:()=>parse(TileIdSchema,`opaque-${++serial}`),gameId:parse(GameIdSchema,'duel'),playerIds:[parse(PlayerIdSchema,'alice'),parse(PlayerIdSchema,'bob')],turnId:parse(TurnIdSchema,'initial'),now,settings:{turnDurationSeconds:60,...settings},random:{nextInt(n){seed=(seed*1664525+1013904223)>>>0;return seed%n;}}});}
 function act(s:DuelState,index=0){const selected=choices(s)[index];assert.ok(selected,`No choice: ${JSON.stringify(s.tasks)} ${s.stage}`);const before=structuredClone(s),r=applyDuelAction(s,s.players[decisionActor(s)]!.playerId,{type:'SELECT',optionId:selected.view.id},now,parse(TurnIdSchema,`turn-${++serial}`),random);assert.deepEqual(s,before);assert.ok(r.ok);return r.state;}
 function op(s:DuelState,kind:string,a?:string){const index=choices(s).findIndex(c=>c.operation.kind===kind&&(a===undefined||c.operation.a===a));assert.ok(index>=0,`${kind} not available`);return act(s,index);}
 function ready(s:DuelState){let count=0;while(s.stage==='DRAFT'&&count++<30)s=act(s);return s;}
@@ -261,4 +261,49 @@ test('Duel hidden card locations are unique and Pantheon identifiers cannot coll
  assert.ok(hidden.length>1);assert.equal(new Set(hidden.map(c=>c.view.label)).size,hidden.length);
  s.tasks=[];installGod(s,'mars');
  assert.ok(choices(s).filter(c=>c.operation.kind==='INVOKE').every(c=>c.view.sourceId===`pantheon-${c.operation.a}`));
+});
+
+for(const seconds of [30,60,90] as const)test(`Duel timer ${seconds}s: exact deadline rejects manual input and draft auto-selects`,async()=>{
+ const {timeoutDuel}=await import('./games/seven-wonders-duel/domain/game.js');
+ const s=fixture({pantheon:false,agora:false,turnDurationSeconds:seconds}),before=structuredClone(s),at=parse(ServerTimeSchema,now+seconds*1000),actor=s.players[decisionActor(s)]!.playerId;
+ assert.equal(s.deadlineAt,at);assert.equal(timeoutDuel(s,parse(ServerTimeSchema,at-1),s.transitionId,random),null);
+ const r=applyDuelAction(s,actor,{type:'SELECT',optionId:choices(s)[0]!.view.id},at,s.transitionId,random);assert.deepEqual(r,{ok:false,reason:'TURN_EXPIRED'});
+ const next=timeoutDuel(s,at,parse(TurnIdSchema,'timeout'),random)!;assert.equal(next.draftCount,1);assert.equal(next.deadlineAt,at+seconds*1000);assert.equal(next.history.at(-1)!.text.startsWith('시간 초과'),true);assert.deepEqual(s,before);
+});
+test('Duel timer: nested decisions share time, opponent pauses budget, replay receives new budget',()=>{
+ let s=ready(fixture({pantheon:false,agora:false}));const p=s.active,opp=p===0?1:0;
+ s.tasks=[task('PLACE',p),task('PLACE',opp),task('PLACE',p),task('HANDOFF',p)];s.replay=true;
+ const selectAt=(state:DuelState,time:number)=>{const c=choices(state).find(c=>c.operation.kind==='PLACE')!;const result=applyDuelAction(state,state.players[decisionActor(state)]!.playerId,{type:'SELECT',optionId:c.view.id},parse(ServerTimeSchema,time),parse(TurnIdSchema,`clock-${time}`),random);assert.ok(result.ok);return result.state;};
+ s=selectAt(s,11000);assert.equal(s.timerRemaining[p],50000);assert.equal(s.deadlineAt,71000);
+ s=selectAt(s,21000);assert.equal(s.deadlineAt,71000);assert.equal(s.timerRemaining[opp],50000);
+ s=selectAt(s,31000);assert.equal(s.active,p);assert.equal(s.deadlineAt,91000);assert.deepEqual(s.timerRemaining,[60000,60000]);
+});
+test('Duel timer: expired main action discards a legal card; expired mandatory chain settles without extra budgets',async()=>{
+ const {timeoutDuel}=await import('./games/seven-wonders-duel/domain/game.js');
+ let s=ready(fixture({pantheon:false,agora:false}));const p=s.active,coins=s.players[p]!.coins,discard=choices(s).find(c=>c.operation.kind==='DISCARD')!;
+ const next=timeoutDuel(s,s.deadlineAt!,parse(TurnIdSchema,'auto-discard'),random)!;
+ assert.equal(next.cards.find(c=>c.tileId===discard.operation.a)!.zone,'DISCARD');assert.equal(next.players[p]!.coins,coins+2);assert.equal(next.active,p===0?1:0);
+ s=ready(fixture({pantheon:true,agora:true}));s.tasks=[task('PROGRESS',s.active),task('PLACE',s.active),task('HANDOFF',s.active)];
+ const done=timeoutDuel(s,s.deadlineAt!,parse(TurnIdSchema,'auto-chain'),random)!;
+ assert.equal(done.tasks.length,0);assert.ok(done.revision>s.revision+1);assert.equal(done.progress.filter(t=>t.zone==='PLAYER').length,1);assert.ok(done.deadlineAt!>s.deadlineAt!);
+});
+for(const pantheon of [false,true])for(const agora of [false,true])test(`Duel timed automatic game finishes with P=${pantheon} A=${agora}`,async()=>{
+ const {timeoutDuel}=await import('./games/seven-wonders-duel/domain/game.js');let s=fixture({pantheon,agora});let steps=0;
+ while(s.phase==='PLAYING'&&steps++<200){s=timeoutDuel(s,s.deadlineAt!,parse(TurnIdSchema,`auto-${steps}`),random)!;assert.ok(s);parseDuelState(s);}
+ assert.equal(s.phase,'FINISHED');assert.equal(s.deadlineAt,null);assert.equal(s.result?.reason,'SCORED');
+});
+
+test('Duel unlimited: no deadline, no timeout, late manual choices and full game remain valid',async()=>{
+ const {timeoutDuel}=await import('./games/seven-wonders-duel/domain/game.js');
+ const {DuelGameStateAdapter}=await import('./games/seven-wonders-duel/compatibility/adapter.js');
+ let s=fixture({pantheon:true,agora:true,turnDurationSeconds:0});const late=parse(ServerTimeSchema,now+86400000);
+ const adapter=new DuelGameStateAdapter();let moves=0;
+ while(s.phase==='PLAYING'&&moves++<250){
+  assert.equal(s.deadlineAt,null);assert.deepEqual(s.timerRemaining,[0,0]);assert.equal(timeoutDuel(s,late,parse(TurnIdSchema,'no-timeout'),random),null);
+  const lifecycle=adapter.inspectLifecycle({gameId:s.gameId,gameRevision:s.revision,startedAt:s.startedAt,finishedAt:s.finishedAt,state:s});assert.equal(lifecycle.lifecycle,'RUNNING');if(lifecycle.lifecycle==='RUNNING')assert.equal(lifecycle.activeTurn,null);
+  assert.equal(view(s,decisionActor(s)).phase,'PLAYING');
+  const all=choices(s),c=all.find(c=>c.operation.kind==='DISCARD')??all.find(c=>c.operation.kind==='SKIP')??all[0]!;
+  const result=applyDuelAction(s,s.players[decisionActor(s)]!.playerId,{type:'SELECT',optionId:c.view.id},late,parse(TurnIdSchema,`unlimited-${moves}`),random);assert.ok(result.ok);s=result.state;
+ }
+ assert.equal(s.phase,'FINISHED');assert.equal(s.result?.reason,'SCORED');
 });

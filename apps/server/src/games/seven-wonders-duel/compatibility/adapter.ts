@@ -1,4 +1,4 @@
-import { GameIdSchema, GameRevisionSchema, ServerTimeSchema, type GameId, type GameRevision, type ServerTime } from "@hangul-rummikub/shared";
+import { GameIdSchema, GameRevisionSchema, ServerTimeSchema, type TurnId, type GameId, type GameRevision, type ServerTime } from "@hangul-rummikub/shared";
 import { parse } from "valibot";
 import { parseDuelState, type DuelState } from "../domain/game.js";
 export type DuelStoredGame = Readonly<{
@@ -12,7 +12,7 @@ export type DuelLifecycle = Readonly<{
     lifecycle: 'RUNNING';
     gameId: GameId;
     gameRevision: GameRevision;
-    activeTurn: null;
+    activeTurn: { turnId: TurnId; deadlineAt: ServerTime } | null;
 }> | Readonly<{
     lifecycle: 'FINISHED';
     gameId: GameId;
@@ -31,6 +31,6 @@ export class DuelGameStateAdapter {
                 throw new Error('Duel finish time missing.');
             return { lifecycle: 'FINISHED', gameId: game.gameId, finishedAt: game.finishedAt };
         }
-        return { lifecycle: 'RUNNING', gameId: game.gameId, gameRevision: game.gameRevision, activeTurn: null };
+        return { lifecycle: 'RUNNING', gameId: game.gameId, gameRevision: game.gameRevision, activeTurn: game.state.deadlineAt === null ? null : {turnId: game.state.transitionId, deadlineAt: game.state.deadlineAt} };
     }
 }

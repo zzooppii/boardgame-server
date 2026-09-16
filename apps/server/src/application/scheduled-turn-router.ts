@@ -7,7 +7,7 @@ export type ScheduledTurnDispatchResult =
   | Readonly<{ status: "FAILED" }>;
 
 type ScheduledTurnCapability<
-  TGameType extends "PATCHWORK" | "HARMONIES" | "TRAIN" | "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "SPLENDOR" | "HALLI_GALLI" | "ISLAND_SETTLERS" | "SABOTEUR" | "LOST_CITIES" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE",
+  TGameType extends "PATCHWORK" | "HARMONIES" | "TRAIN" | "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "SPLENDOR" | "HALLI_GALLI" | "ISLAND_SETTLERS" | "SABOTEUR" | "LOST_CITIES" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE" | "SEVEN_WONDERS_DUEL",
 > = Readonly<{
   gameType: TGameType;
   handleTurnTimeout(
@@ -32,6 +32,7 @@ export type ScheduledTurnRouterDependencies = Readonly<{
   azul?: ScheduledTurnCapability<"AZUL">;
   vegas?: ScheduledTurnCapability<"VEGAS">;
   burgundy?: ScheduledTurnCapability<"BURGUNDY">;
+  duel?: ScheduledTurnCapability<"SEVEN_WONDERS_DUEL">;
   carcassonne?: ScheduledTurnCapability<"CARCASSONNE">;
   train?: ScheduledTurnCapability<"TRAIN">;
   patchwork?: ScheduledTurnCapability<"PATCHWORK">;
@@ -52,7 +53,7 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 }
 
 function isCapability<
-  TGameType extends "PATCHWORK" | "HARMONIES" | "TRAIN" | "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "SPLENDOR" | "HALLI_GALLI" | "ISLAND_SETTLERS" | "SABOTEUR" | "LOST_CITIES" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE",
+  TGameType extends "PATCHWORK" | "HARMONIES" | "TRAIN" | "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "SPLENDOR" | "HALLI_GALLI" | "ISLAND_SETTLERS" | "SABOTEUR" | "LOST_CITIES" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE" | "SEVEN_WONDERS_DUEL",
 >(
   value: unknown,
   gameType: TGameType,
@@ -65,7 +66,7 @@ function isCapability<
 }
 
 function requireCapability<
-  TGameType extends "PATCHWORK" | "HARMONIES" | "TRAIN" | "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "SPLENDOR" | "HALLI_GALLI" | "ISLAND_SETTLERS" | "SABOTEUR" | "LOST_CITIES" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE",
+  TGameType extends "PATCHWORK" | "HARMONIES" | "TRAIN" | "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "SPLENDOR" | "HALLI_GALLI" | "ISLAND_SETTLERS" | "SABOTEUR" | "LOST_CITIES" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE" | "SEVEN_WONDERS_DUEL",
 >(
   value: unknown,
   gameType: TGameType,
@@ -90,6 +91,7 @@ export class ScheduledTurnRouter {
   readonly #azul: ScheduledTurnCapability<"AZUL"> | undefined;
   readonly #vegas: ScheduledTurnCapability<"VEGAS"> | undefined;
   readonly #burgundy: ScheduledTurnCapability<"BURGUNDY"> | undefined;
+  readonly #duel: ScheduledTurnCapability<"SEVEN_WONDERS_DUEL"> | undefined;
   readonly #carcassonne: ScheduledTurnCapability<"CARCASSONNE"> | undefined;
   readonly #train: ScheduledTurnCapability<"TRAIN"> | undefined;
   readonly #patchwork: ScheduledTurnCapability<"PATCHWORK"> | undefined;
@@ -110,6 +112,7 @@ export class ScheduledTurnRouter {
     this.#azul = dependencies.azul;
     this.#vegas = dependencies.vegas;
     this.#burgundy = dependencies.burgundy;
+    this.#duel = dependencies.duel;
     this.#carcassonne = dependencies.carcassonne;
     this.#train = dependencies.train;
     this.#patchwork = dependencies.patchwork;
@@ -154,6 +157,7 @@ export class ScheduledTurnRouter {
         case "AZUL": return this.#azul ? await this.#azul.handleTurnTimeout(input) : {status:"FAILED"};
         case "VEGAS": return this.#vegas ? await this.#vegas.handleTurnTimeout(input) : {status:"FAILED"};
         case "BURGUNDY": return this.#burgundy ? await this.#burgundy.handleTurnTimeout(input) : {status:"FAILED"};
+        case "SEVEN_WONDERS_DUEL": return this.#duel ? await this.#duel.handleTurnTimeout(input) : {status:"FAILED"};
         case "CARCASSONNE": return this.#carcassonne ? await this.#carcassonne.handleTurnTimeout(input) : {status:"FAILED"};
         case "CLUE": return { status: "NO_OP" };
         case "TERRORSCAPE": return { status: "NO_OP" };

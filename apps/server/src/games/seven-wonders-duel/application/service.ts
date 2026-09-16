@@ -1,15 +1,15 @@
 import { DUEL_DEFAULT_SETTINGS } from "@hangul-rummikub/shared";
 import * as v from "valibot";
-import { DuelClientCommandSchema, GameRevisionSchema, RoomRevisionSchema, ServerTimeSchema, type DuelClientCommand, type ErrorDto, type RoomId, type PlayerId, type ServerTime } from "@hangul-rummikub/shared";
+import { DuelClientCommandSchema, GameRevisionSchema, RoomRevisionSchema, ServerTimeSchema, RequestIdSchema, type DuelClientCommand, type ErrorDto, type RoomId, type PlayerId, type ServerTime } from "@hangul-rummikub/shared";
 import { GameStartSuccessDataSchema, type StartGameInput, type GameStartResult } from "../../../application/game-start-service.js";
 import type { RoomMutationSerialExecutor } from "../../../application/room-session-service.js";
 import type { RoomRepository } from "../../../ports/room-repository.js";
 import type { RoomUnitOfWork } from "../../../ports/room-unit-of-work.js";
 import type { IdempotencyRepository } from "../../../ports/idempotency-repository.js";
 import type { RoomPresencePolicyReader } from "../../../ports/room-presence-policy.js";
-import type { Clock, IdGenerator, RandomSource } from "../../../ports/system.js";
+import type { Clock, IdGenerator, RandomSource, TurnScheduler, ScheduledTurnDeadline } from "../../../ports/system.js";
 import type { DuelRoomRecord } from "../../../model/persistence.js";
-import { createDuelGame, applyDuelAction, type DuelState } from "../domain/game.js";
+import { createDuelGame, applyDuelAction, timeoutDuel, type DuelState } from "../domain/game.js";
 export type DuelDependencies = Readonly<{
     roomRepository: RoomRepository;
     roomUnitOfWork: RoomUnitOfWork;
@@ -19,6 +19,7 @@ export type DuelDependencies = Readonly<{
     clock: Clock;
     ids: IdGenerator;
     random: RandomSource;
+    turnScheduler: TurnScheduler;
 }>;
 const failure = (code: ErrorDto['code']) => ({ ok: false as const, error: { code, message: code === 'RULE_VIOLATION' ? '현재 단계, 행동 차례와 선택 가능한 대상을 확인해주세요.' : code === 'NOT_ENOUGH_PLAYERS' ? '7 원더스 듀얼은 2명이 플레이합니다.' : '현재 차례와 연결 상태를 확인해주세요.', recoverable: true } });
 const Receipt = v.strictObject({ outcome: v.literal('ACCEPTED') });
@@ -33,10 +34,37 @@ export class DuelService {
     constructor(readonly deps: DuelDependencies) { }
     subscribe(listener: (roomId: RoomId) => void | Promise<void>) { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; }
     async notify(roomId: RoomId) { await Promise.allSettled([...this.listeners].map(fn => Promise.resolve().then(() => fn(roomId)))); }
+  async schedule(roomId:RoomId) {
+    try {
+      const room=await this.deps.roomRepository.findById(roomId);
+      if(room?.gameType!=='SEVEN_WONDERS_DUEL'||room.phase!=='PLAYING'||!room.game||room.game.state.phase!=='PLAYING'||room.game.state.deadlineAt===null)return;
+      await this.deps.turnScheduler.scheduleTimeout({roomId,gameId:room.game.gameId,expectedGameRevision:room.game.gameRevision,turnId:room.game.state.transitionId,deadlineAt:room.game.state.deadlineAt});
+    } catch { console.error('SEVEN_WONDERS_DUEL scheduling failed; overdue recovery will retry.'); }
+  }
+  private async cancelTimer(turnId:DuelState['transitionId']) {
+    try { await this.deps.turnScheduler.cancelTimeout(turnId); }
+    catch { console.error('SEVEN_WONDERS_DUEL timer cancellation failed; stale callbacks are guarded.'); }
+  }
+  async timeout(input:ScheduledTurnDeadline):Promise<{status:'NO_OP'|'APPLIED'|'FAILED'}> {
+    const d=this.deps;
+    try {
+      const applied=await d.roomMutationExecutor.run(input.roomId,async()=>{
+        const room=await d.roomRepository.findById(input.roomId),now=d.clock.now();
+        if(room?.gameType!=='SEVEN_WONDERS_DUEL'||room.phase!=='PLAYING'||!room.game||room.game.gameId!==input.gameId||room.game.gameRevision!==input.expectedGameRevision||room.game.state.transitionId!==input.turnId||room.game.state.deadlineAt!==input.deadlineAt||now<input.deadlineAt)return false;
+        const outcome=timeoutDuel(room.game.state,now,d.ids.generateTurnId(),d.random);
+        if(!outcome)return false;
+        const committed=await d.roomUnitOfWork.commit({roomMutation:{kind:'REPLACE',candidate:transitionDuel(room,outcome,now),expectedRoomRevision:room.roomRevision,expectedStorageRevision:room.storageRevision},sessionMutation:{kind:'NONE'},idempotency:{scopeKey:`duel-timer:${room.roomId}:${room.game.gameId}`,requestId:v.parse(RequestIdSchema,`turn:${input.turnId}`),payloadFingerprint:JSON.stringify([input.turnId,input.deadlineAt]),terminalResult:{transitioned:true},createdAt:now}});
+        return committed.status==='COMMITTED';
+      });
+      if(applied){await this.cancelTimer(input.turnId);await this.schedule(input.roomId);await this.notify(input.roomId);}
+      return {status:applied?'APPLIED':'NO_OP'};
+    } catch { return {status:'FAILED'}; }
+  }
+
     async start(input: StartGameInput): Promise<GameStartResult> {
         const d = this.deps;
         try {
-            return await d.roomMutationExecutor.run(input.roomId, async (): Promise<GameStartResult> => {
+            const result = await d.roomMutationExecutor.run(input.roomId, async (): Promise<GameStartResult> => {
                 if (!input.authorization.isCurrent())
                     return failure('UNAUTHENTICATED');
                 const room = await d.roomRepository.findById(input.roomId);
@@ -66,6 +94,8 @@ export class DuelService {
                 const committed = await d.roomUnitOfWork.commit({ roomMutation: { kind: 'REPLACE', candidate: { ...room, phase: 'PLAYING', roomRevision, updatedAt: now, game: { gameId, gameRevision, startedAt: now, finishedAt: null, state } }, expectedRoomRevision: room.roomRevision, expectedStorageRevision: room.storageRevision }, sessionMutation: { kind: 'NONE' }, idempotency: { scopeKey, requestId: input.requestId, payloadFingerprint, terminalResult: data, createdAt: now } }, { isSatisfied: () => input.authorization.isCurrent() && lease.isCurrent() });
                 return committed.status === 'COMMITTED' ? { ok: true, data } : failure('STALE_ROOM_REVISION');
             });
+            if (result.ok) await this.schedule(input.roomId);
+            return result;
         }
         catch {
             return failure('INTERNAL_ERROR');
@@ -85,6 +115,7 @@ export class DuelService {
             return failure('INVALID_PAYLOAD');
         const d = this.deps, c = parsed.output;
         let changed = false;
+        let previousTurn: DuelState['transitionId'] | null = null;
         try {
             const result = await d.roomMutationExecutor.run(input.roomId, async () => {
                 if (!input.authorization.isCurrent())
@@ -128,10 +159,14 @@ export class DuelService {
                 if (committed.status !== 'COMMITTED')
                     return failure('STALE_GAME_REVISION');
                 changed = true;
+                previousTurn = s.transitionId;
                 return { ok: true as const };
             });
-            if (changed)
+            if (changed) {
+                if (previousTurn) await this.cancelTimer(previousTurn);
+                await this.schedule(input.roomId);
                 await this.notify(input.roomId);
+            }
             return result;
         }
         catch {

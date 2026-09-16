@@ -8,6 +8,7 @@ const Task = v.strictObject({ kind: v.picklist(TASK_KINDS), actor: v.picklist([0
 export type DuelTask = v.InferOutput<typeof Task>;
 const State = v.strictObject({
     gameId: GameIdSchema, revision: GameRevisionSchema, rulesVersion: v.literal(DUEL_RULES_VERSION), startedAt: ServerTimeSchema, finishedAt: v.nullable(ServerTimeSchema), phase: v.picklist(['PLAYING', 'FINISHED']), transitionId: TurnIdSchema, settings: DuelSettingsSchema,
+    deadlineAt: v.nullable(ServerTimeSchema), turnNumber: DuelCount, timerRemaining: v.tuple([v.pipe(v.number(), v.safeInteger(), v.minValue(0), v.maxValue(90000)), v.pipe(v.number(), v.safeInteger(), v.minValue(0), v.maxValue(90000))]),
     players: v.pipe(v.array(Player), v.length(2)), active: v.picklist([0, 1]), starter: v.picklist([0, 1]), age: v.picklist([1, 2, 3]), stage: v.picklist(['DRAFT', 'TURN_START', 'ACTION', 'NEXT_AGE']), draftCount: DuelCount, replay: v.boolean(),
     cards: v.array(DuelEntitySchema), slots: v.array(DuelSlotSchema), wonders: v.array(v.strictObject({ id: DuelId, owner: Owner, built: v.boolean(), removed: v.boolean() })),
     progress: v.array(v.strictObject({ id: DuelId, zone: v.picklist(['BOARD', 'BOX', 'PLAYER', 'ENKI', 'LOCKED']), owner: Owner, source: v.nullable(DuelId) })),
@@ -24,6 +25,8 @@ export function playerIndex(s: DuelState, id: PlayerId): DuelSeat | null { retur
 export function task(kind: DuelTask['kind'], actor: DuelSeat, data: string[] = [], remaining = 1, section = -1, optional = false): DuelTask { return { kind, actor, data, remaining, section, optional }; }
 export function parseDuelState(input: unknown): DuelState {
     const s = v.parse(State, input);
+    if ((s.phase === 'PLAYING' && s.settings.turnDurationSeconds !== 0) !== (s.deadlineAt !== null) || s.timerRemaining.some(n => n > s.settings.turnDurationSeconds * 1000))
+        throw new Error('Invalid Duel turn timer.');
     if (new Set(s.players.map(p => p.playerId)).size !== 2 || new Set(s.cards.map(c => c.tileId)).size !== s.cards.length || new Set(s.cards.map(c => c.definitionId)).size !== s.cards.length)
         throw new Error('Invalid Duel inventory identity.');
     const expected = DUEL_CARDS.filter(c => c.color === 'WHITE' || c.color === 'BLACK' ? s.settings.agora : c.color === 'TEMPLE' ? s.settings.pantheon : true);

@@ -1,5 +1,5 @@
 import * as v from 'valibot';
-import { DuelActionSchema, GameRevisionSchema, duelCard, duelWonder, DUEL_CONSPIRACIES, type DuelAction, type PlayerId, type ServerTime, type TurnId } from '@hangul-rummikub/shared';
+import { DuelActionSchema, GameRevisionSchema, ServerTimeSchema, duelCard, duelWonder, DUEL_CONSPIRACIES, type DuelAction, type PlayerId, type ServerTime, type TurnId } from '@hangul-rummikub/shared';
 import type { RandomSource } from '../../../ports/system.js';
 import { parseDuelState, task, other, type DuelState, type DuelSeat, type DuelTask, type DuelEntity } from './state.js';
 import { choices, decisionActor, available, type DuelOperation } from './choices.js';
@@ -7,7 +7,7 @@ import { quote, science, scores, hasProgress, hasDecree, controller, countType, 
 import { setupAge, shuffled, revealEnki } from './setup.js';
 export { createDuelGame } from './setup.js';
 export { parseDuelState, type DuelState } from './state.js';
-function finish(s: DuelState, reason: NonNullable<DuelState['result']>['reason'], winners: DuelSeat[], now: ServerTime) { s.phase = 'FINISHED'; s.finishedAt = now; s.result = { reason, winnerPlayerIds: winners.map(p => s.players[p]!.playerId), scores: scores(s) }; s.tasks = []; }
+function finish(s: DuelState, reason: NonNullable<DuelState['result']>['reason'], winners: DuelSeat[], now: ServerTime) { s.phase = 'FINISHED'; s.deadlineAt = null; s.finishedAt = now; s.result = { reason, winnerPlayerIds: winners.map(p => s.players[p]!.playerId), scores: scores(s) }; s.tasks = []; }
 function scienceSnapshot(s: DuelState) { return ([0, 1] as const).map(p => science(s, p)); }
 function checkScience(s: DuelState, before: ReturnType<typeof scienceSnapshot>, now: ServerTime) {
     const after = scienceSnapshot(s), wins = ([0, 1] as const).filter(p => new Set(after[p]).size >= 6);
@@ -246,6 +246,7 @@ function trigger(s: DuelState, p: DuelSeat, id: string, now: ServerTime, random:
         addEffect(s, p, d.effect, random, id);
 }
 function handoff(s: DuelState, p: DuelSeat, now: ServerTime, random: RandomSource) {
+    s.turnNumber++;
     if (!s.cards.some(c => c.zone === 'BOARD')) {
         if (s.age === 3) {
             const results = scores(s), best = Math.max(...results.map(r => r.total)), tied = results.filter(r => r.total === best), blue = Math.max(...tied.map(r => r.blue));
@@ -325,6 +326,7 @@ function execute(s: DuelState, p: DuelSeat, a: DuelOperation, now: ServerTime, r
             break;
         }
         case 'STARTER':
+            s.turnNumber++;
             s.active = a.n === 0 ? 0 : 1;
             s.stage = 'TURN_START';
             break;
@@ -526,7 +528,7 @@ function execute(s: DuelState, p: DuelSeat, a: DuelOperation, now: ServerTime, r
         default: throw new Error('Unknown server-generated Duel operation.');
     }
 }
-export function applyDuelAction(s: DuelState, actor: PlayerId, input: DuelAction, now: ServerTime, turnId: TurnId, random: RandomSource): {
+function applyDuelActionCore(s: DuelState, actor: PlayerId, input: DuelAction, now: ServerTime, turnId: TurnId, random: RandomSource): {
     ok: true;
     state: DuelState;
 } | {
@@ -549,9 +551,40 @@ export function applyDuelAction(s: DuelState, actor: PlayerId, input: DuelAction
     pump(next, now, random);
     next.revision = v.parse(GameRevisionSchema, s.revision + 1);
     next.transitionId = turnId;
+    // Draft picks include their Agora effects; each next pick gets a fresh budget.
+    if (s.stage === 'DRAFT' && next.tasks.length === 0) next.turnNumber++;
+    if (next.phase === 'PLAYING' && s.settings.turnDurationSeconds !== 0) {
+        if (next.turnNumber !== s.turnNumber) next.timerRemaining = [s.settings.turnDurationSeconds * 1000, s.settings.turnDurationSeconds * 1000];
+        else next.timerRemaining[p] = Math.max(0, (s.deadlineAt ?? now) - now);
+        next.deadlineAt = v.parse(ServerTimeSchema, now + next.timerRemaining[decisionActor(next)]);
+    }
     const kind = selected.operation.kind, sound = next.phase === 'FINISHED' ? 'finish' : kind === 'WONDER' || kind === 'FREE_WONDER' ? 'wonder' : kind.includes('GOD') || kind === 'INVOKE' ? 'god' : kind === 'TRIGGER' ? 'conspiracy' : ['PLACE', 'MOVE', 'REMOVE', 'DECREE'].includes(kind) ? 'senate' : kind === 'PROGRESS' ? 'science' : kind === 'DISCARD' ? 'coin' : next.military !== s.military ? 'military' : selected.operation.kind === 'BUILD' && selected.view.definitionId && duelCard(selected.view.definitionId).science ? 'science' : 'card';
     const hidden = ['PICK_GOD', 'PLACE_GOD', 'KEEP_CONSPIRACY', 'RETURN_CONSPIRACY', 'LOCK', 'ORDER_GOD', 'PREPARE'].includes(kind);
     next.history.push({ id: next.revision, playerId: actor, text: hidden ? '비공개 선택을 완료했습니다.' : selected.view.label, sound });
     return { ok: true, state: parseDuelState(next) };
 }
 export function cancelDuel(s: DuelState, now: ServerTime): DuelState { const next = structuredClone(s); finish(next, 'CANCELLED', [], now); next.revision = v.parse(GameRevisionSchema, next.revision + 1); return parseDuelState(next); }
+
+/** A player's main action and its effects share a budget. Opponent decisions pause it. */
+export function applyDuelAction(s: DuelState, actor: PlayerId, input: DuelAction, now: ServerTime, turnId: TurnId, random: RandomSource) {
+    if (s.phase === 'PLAYING' && s.deadlineAt !== null && now >= s.deadlineAt) return { ok: false as const, reason: 'TURN_EXPIRED' as const };
+    return applyDuelActionCore(s, actor, input, now, turnId, random);
+}
+export function timeoutDuel(s: DuelState, now: ServerTime, turnId: TurnId, random: RandomSource): DuelState | null {
+    if (s.phase !== 'PLAYING' || s.deadlineAt === null || now < s.deadlineAt) return null;
+    let next = s;
+    for (let guard = 0; guard < 200 && next.phase === 'PLAYING' && next.deadlineAt !== null && next.deadlineAt <= now; guard++) {
+        const options = choices(next);
+        const choice = (!next.tasks.length ? options.find(c => c.operation.kind === 'DISCARD') : undefined)
+            ?? options.find(c => c.operation.kind === 'SKIP') ?? options[0];
+        if (!choice) throw new Error('Expired Duel decision has no legal option.');
+        const actor = next.players[decisionActor(next)]!.playerId;
+        const result = applyDuelActionCore(next, actor, { type: 'SELECT', optionId: choice.view.id }, now, turnId, random);
+        if (!result.ok) throw new Error('Server-generated Duel timeout choice failed.');
+        next = result.state;
+        const last = next.history.at(-1)!;
+        last.text = `시간 초과 · 자동 진행: ${last.text}`;
+    }
+    if (next.phase === 'PLAYING' && next.deadlineAt !== null && next.deadlineAt <= now) throw new Error('Duel timeout did not settle.');
+    return parseDuelState(next);
+}

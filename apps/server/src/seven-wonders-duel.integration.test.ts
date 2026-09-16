@@ -67,8 +67,8 @@ function action(h:Harness,s:PlatformSnapshotV2,optionId:string){const g=duel(s);
 test('DUEL sockets: settings are host-only, persisted, revision scoped, frozen at start; exact two players',async t=>{
  const h=await harness(t),before=await h.sync();
  assert.equal(h.failure(await h.call(h.members[1]!.client,'duel:configure',{pantheon:false,agora:false},{expectedRoomRevision:before.versions.roomRevision})),'HOST_ONLY');
- const configured=h.success(await h.call(h.host,'duel:configure',{pantheon:false,agora:true},{expectedRoomRevision:before.versions.roomRevision}));assert.equal(configured.room.gameType,'SEVEN_WONDERS_DUEL');if(configured.room.gameType==='SEVEN_WONDERS_DUEL'&&configured.room.phase==='LOBBY')assert.deepEqual(configured.room.settings,{pantheon:false,agora:true});
- assert.equal(h.failure(await h.call(h.host,'duel:configure',{pantheon:true,agora:false},{expectedRoomRevision:before.versions.roomRevision})),'STALE_ROOM_REVISION');const s=await start(h);assert.deepEqual(duel(s).settings,{pantheon:false,agora:true});assert.equal((await h.server.runtime.persistence.listActiveTurnDeadlines()).some(d=>d.roomId===s.room.roomId),false);
+ const configured=h.success(await h.call(h.host,'duel:configure',{pantheon:false,agora:true},{expectedRoomRevision:before.versions.roomRevision}));assert.equal(configured.room.gameType,'SEVEN_WONDERS_DUEL');if(configured.room.gameType==='SEVEN_WONDERS_DUEL'&&configured.room.phase==='LOBBY')assert.deepEqual(configured.room.settings,{pantheon:false,agora:true,turnDurationSeconds:60});
+ assert.equal(h.failure(await h.call(h.host,'duel:configure',{pantheon:true,agora:false},{expectedRoomRevision:before.versions.roomRevision})),'STALE_ROOM_REVISION');const s=await start(h);assert.deepEqual(duel(s).settings,{pantheon:false,agora:true,turnDurationSeconds:60});assert.equal((await h.server.runtime.persistence.listActiveTurnDeadlines()).some(d=>d.roomId===s.room.roomId),true);
  assert.equal(h.failure(await h.call(h.host,'duel:configure',{pantheon:true,agora:false},{expectedRoomRevision:s.versions.roomRevision})),'INVALID_PHASE');
  const solo=await harness(t,1);assert.equal(solo.failure(await solo.call(solo.host,'game:start',{}, {expectedRoomRevision:(await solo.sync()).versions.roomRevision})),'NOT_ENOUGH_PLAYERS');
 });
@@ -89,4 +89,27 @@ test('DUEL sockets: complete combined game, reconnect an unresolved choice, leav
  }
  assert.ok(reconnected);assert.equal(duel(s).phase,'FINISHED');assert.equal(duel(s).gameRevision,steps);const host=h.members[0]!.client;s=h.success(await h.send(host,h.selection(s,'SEVEN_WONDERS_DUEL')));s=h.success(await h.call(host,'game:start',{}, {expectedRoomRevision:s.versions.roomRevision}));assert.equal(duel(s).gameRevision,0);
  const guest=h.members[1]!.client,gs=await h.sync(guest);const left=v.parse(RoomLeaveAckSchema,await h.call(guest,'room:leave',{}, {expectedRoomRevision:gs.versions.roomRevision,expectedGameRevision:duel(gs).gameRevision}));assert.ok(left.ok);const end=duel(await h.sync(host));assert.equal(end.phase,'FINISHED');if(end.phase==='FINISHED'){assert.equal(end.result.reason,'CANCELLED');assert.deepEqual(end.result.winnerPlayerIds,[]);}
+});
+
+test('DUEL timer: settings wire validation, deadline recovery, late input and duplicate timeout race',async t=>{
+ const {DuelService}=await import('./games/seven-wonders-duel/application/service.js');const {DuelClientCommandSchema,ServerTimeSchema}=await import('@hangul-rummikub/shared');
+ const h=await harness(t);let snapshot=await h.sync();
+ for(const seconds of [30,90,60]){snapshot=h.success(await h.call(h.host,'duel:configure',{pantheon:false,agora:false,turnDurationSeconds:seconds},{expectedRoomRevision:snapshot.versions.roomRevision}));if(snapshot.room.gameType==='SEVEN_WONDERS_DUEL'&&snapshot.room.phase==='LOBBY')assert.equal(snapshot.room.settings.turnDurationSeconds,seconds);}
+ assert.equal(h.failure(await h.call(h.host,'duel:configure',{pantheon:false,agora:false,turnDurationSeconds:45},{expectedRoomRevision:snapshot.versions.roomRevision})),'INVALID_PAYLOAD');
+ snapshot=await start(h);const deadline=(await h.server.runtime.persistence.listActiveTurnDeadlines()).find(d=>d.roomId===snapshot.room.roomId)!;assert.ok(deadline);
+ const owner=h.members.find(m=>m.playerId===duel(snapshot).activePlayerId)!;snapshot=await h.sync(owner.client);const g=duel(snapshot);assert.equal(g.phase,'PLAYING');if(g.phase!=='PLAYING')throw new Error('playing');assert.equal(g.deadlineAt,deadline.deadlineAt);assert.equal(duel(await h.sync()).gameRevision,g.gameRevision);
+ let at=v.parse(ServerTimeSchema,deadline.deadlineAt-1);const service=new DuelService({...h.server.runtime.duelService!.deps,clock:{now:()=>at}});
+ assert.equal((await service.timeout(deadline)).status,'NO_OP');at=deadline.deadlineAt;
+ const late=await service.command({roomId:snapshot.room.roomId,actorPlayerId:owner.playerId,command:v.parse(DuelClientCommandSchema,action(h,snapshot,g.privateState.options[0]!.id)),receivedAt:at,authorization:{isCurrent:()=>true}});assert.equal(late.ok,false);if(!late.ok)assert.equal(late.error.code,'TURN_EXPIRED');
+ const race=await Promise.all([service.timeout(deadline),service.timeout(deadline)]);assert.deepEqual(race.map(r=>r.status).sort(),['APPLIED','NO_OP']);
+ const after=duel(await h.sync());assert.equal(after.gameRevision,g.gameRevision+1);assert.ok(after.history.at(-1)!.text.includes('시간 초과'));
+ assert.equal((await service.timeout(deadline)).status,'NO_OP');assert.equal((await h.server.runtime.persistence.listActiveTurnDeadlines()).filter(d=>d.roomId===snapshot.room.roomId).length,1);
+});
+
+test('DUEL unlimited settings persist and running games have no scheduled deadline',async t=>{
+ const h=await harness(t),before=await h.sync();h.success(await h.call(h.host,'duel:configure',{pantheon:false,agora:false,turnDurationSeconds:0},{expectedRoomRevision:before.versions.roomRevision}));
+ const initial=await start(h),g=duel(initial);assert.equal(g.settings.turnDurationSeconds,0);assert.equal(g.phase,'PLAYING');if(g.phase==='PLAYING')assert.equal(g.deadlineAt,null);
+ assert.equal((await h.server.runtime.persistence.listActiveTurnDeadlines()).some(d=>d.roomId===initial.room.roomId),false);
+ const owner=h.members.find(m=>m.playerId===g.activePlayerId)!;const own=await h.sync(owner.client);const next=h.success(await h.send(owner.client,action(h,own,duel(own).privateState.options[0]!.id)));assert.equal(duel(next).settings.turnDurationSeconds,0);
+ assert.equal((await h.server.runtime.persistence.listActiveTurnDeadlines()).some(d=>d.roomId===initial.room.roomId),false);
 });

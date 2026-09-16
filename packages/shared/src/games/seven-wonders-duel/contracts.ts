@@ -1,6 +1,6 @@
 import * as v from 'valibot';
 import { GameIdSchema, PlayerIdSchema, TileIdSchema, TurnIdSchema } from '../../identifiers.js';
-import { GameRevisionSchema } from '../../protocol.js';
+import { GameRevisionSchema, ServerTimeSchema } from '../../protocol.js';
 import { DuelSettingsSchema } from './actions.js';
 import { DUEL_RULES_VERSION, DUEL_CARDS, DUEL_WONDERS } from './catalog.js';
 export const DuelCount = v.pipe(v.number(), v.safeInteger(), v.minValue(0), v.maxValue(10000));
@@ -23,10 +23,11 @@ export const DuelPublicFields = {
     history: v.array(v.strictObject({ id: DuelCount, playerId: PlayerIdSchema, text: v.pipe(v.string(), v.maxLength(600)), sound: v.picklist(['card', 'coin', 'wonder', 'military', 'science', 'god', 'senate', 'conspiracy', 'reveal', 'turn', 'finish']) })),
 };
 const Base = { gameType: v.literal('SEVEN_WONDERS_DUEL'), gameId: GameIdSchema, gameRevision: GameRevisionSchema, rulesVersion: v.literal(DUEL_RULES_VERSION), ...DuelPublicFields, privateState: v.strictObject({ playerId: PlayerIdSchema, options: v.pipe(v.array(DuelOptionSchema), v.maxLength(2000)) }) };
-export const DuelPlayingProjectionSchema = v.strictObject({ ...Base, phase: v.literal('PLAYING'), turnId: TurnIdSchema });
+export const DuelPlayingProjectionSchema = v.strictObject({ ...Base, phase: v.literal('PLAYING'), turnId: TurnIdSchema, deadlineAt: v.nullable(ServerTimeSchema) });
 export const DuelFinishedProjectionSchema = v.strictObject({ ...Base, phase: v.literal('FINISHED'), result: DuelResultSchema });
 export type DuelProjection = v.InferOutput<typeof DuelPlayingProjectionSchema> | v.InferOutput<typeof DuelFinishedProjectionSchema>;
 export function duelProjectionIsConsistent(g: DuelProjection): boolean {
+    if (g.phase === 'PLAYING' && (g.settings.turnDurationSeconds === 0) !== (g.deadlineAt === null)) return false;
     const ids = g.playerStates.map(p => p.playerId), all = [...g.board, ...g.discard, ...g.playerStates.flatMap(p => p.buildings)];
     return new Set(ids).size === 2 && ids.includes(g.activePlayerId) && ids.includes(g.privateState.playerId) && new Set(all.map(c => c.tileId)).size === all.length && all.every(c => c.definitionId === null || DUEL_CARDS.some(d => d.id === c.definitionId)) && g.wonders.every(w => DUEL_WONDERS.some(d => d.id === w.id) && (w.owner === null || ids.includes(w.owner))) && (g.decision === null || ids.includes(g.decision.playerId)) && (g.privateState.options.length === 0 || g.decision?.playerId === g.privateState.playerId) && g.slots.every(slot => slot.coveredBy.every(i => g.slots.some(s => s.index === i))) && (g.phase !== 'FINISHED' || g.result.winnerPlayerIds.every(id => ids.includes(id)));
 }

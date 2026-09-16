@@ -64,7 +64,7 @@ test('DUEL wonder help distinguishes draft bonuses from later construction witho
 });
 
 test('DUEL military inspection preserves viewer direction, spent tokens and Agora replacement effects',()=>{
- const game={military:3,militaryTokens:[-6,-3,6],minerva:null,settings:{pantheon:false,agora:false}};
+ const game={military:3,militaryTokens:[-6,-3,6],minerva:null,settings:{pantheon:false,agora:false,turnDurationSeconds:60 as const}};
  const render=(g:typeof game,seat:0|1)=>renderToStaticMarkup(createElement(MilitaryView,{game:g,seat,myName:'나문명',opponentName:'상대문명'}));
  const html=render(game,0);
  assert.equal(militarySummary(3,0),'나 우세 3칸');
@@ -74,7 +74,7 @@ test('DUEL military inspection preserves viewer direction, spent tokens and Agor
  assert.equal((html.match(/aria-current="location"/g)??[]).length,1);
  assert.match(html,/상대 쪽 3칸[\s\S]*?spent[\s\S]*?상대: 2코인 상실[\s\S]*?토큰 없음/);
  for(const text of ['나: 5코인 상실','10점','2점','5점','즉시 승리','일반 코인이 부족하면 남은 만큼'])assert.ok(html.includes(text),text);
- const agora=render({...game,settings:{pantheon:true,agora:true}},0);
+ const agora=render({...game,settings:{pantheon:true,agora:true,turnDurationSeconds:60 as const}},0);
  assert.ok(agora.includes('코인 손실 토큰을 사용하지 않습니다'));
  assert.ok(agora.includes('나: 영향력 1개 배치'));
  assert.ok(agora.includes('상대: 자신의 영향력 이동 후 내 큐브 제거'));
@@ -134,4 +134,18 @@ test('DUEL city groups cover enabled expansions and exclude unknown private defi
  const science=DUEL_CARDS.find(c=>c.science&&c.points)!;
  assert.ok(buildingBenefits(science).ongoing.some(e=>e.text.includes('과학 기호')));
  assert.ok(buildingBenefits(science).scoring.some(e=>e.text.includes(`${science.points}점`)));
+});
+
+test('DUEL timer: unlimited and 30/60/90 seconds are accepted; display clamps at deadline',async()=>{
+ const {DuelSettingsSchema}=await import('@hangul-rummikub/shared');const {duelSecondsRemaining}=await import('../features/seven-wonders-duel/TurnTimer.js');
+ for(const seconds of [0,30,60,90])assert.equal(parse(DuelSettingsSchema,{pantheon:true,agora:true,turnDurationSeconds:seconds}).turnDurationSeconds,seconds);
+ for(const seconds of [45,-30,'60',null])assert.equal(safeParse(DuelSettingsSchema,{pantheon:true,agora:true,turnDurationSeconds:seconds}).success,false);
+ assert.equal(parse(DuelSettingsSchema,{pantheon:true,agora:true}).turnDurationSeconds,60);
+ assert.equal(duelSecondsRemaining(61000,1000,0),60);assert.equal(duelSecondsRemaining(61000,1000,59999),1);assert.equal(duelSecondsRemaining(61000,1000,60000),0);assert.equal(duelSecondsRemaining(61000,1000,99000),0);
+});
+
+test('DUEL unlimited UI labels the mode without a countdown',async()=>{
+ const {TurnTimer}=await import('../features/seven-wonders-duel/TurnTimer.js');
+ const html=renderToStaticMarkup(createElement(TurnTimer,{deadlineAt:null,serverTime:1000,connected:true}));
+ assert.ok(html.includes('시간 제한 없음'));assert.equal(html.includes('role="timer"'),false);assert.equal(html.includes('자동 진행 대기'),false);
 });
