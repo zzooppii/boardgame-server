@@ -148,3 +148,28 @@ test('Mars live base setup rejects unimplemented Corporate Era corporations with
  assert.equal(s.inventory.length,137);
  assert.equal(new Set(s.players.flatMap(p=>p.corporations)).size,10);
 });
+
+test('Mars production effect queue executes economy rules against actual base tags and excludes opponents events',()=>{
+ let s=ready();rich(s);const owner=s.activePlayerId,other=s.players[1]!.playerId;
+ s.players[0]!.corporationId='UnitedNationsMarsInitiative';s.players[1]!.corporationId='Helion';
+ for(const id of ['ResearchOutpost','PowerPlant','GanymedeColony'])give(s,id,owner,true);
+ for(const id of ['Shuttles','Asteroid'])give(s,id,other,true);
+ const before=s.players[0]!.production.money;
+ s.frames=[[...(['earthIncome','buildingIncome','spaceIncome','opponentsSpaceIncome'] as const).map(rule=>({id:s.nextJob++,source:'경제 생산 효과',effect:{kind:'dynamic' as const,rule}}))]];
+ s.actionInProgress=true;s=settle(s);
+ assert.equal(s.players[0]!.production.money,before+5);
+ assert.equal(s.players[1]!.production.money,10);assert.equal(s.actionsTaken,1);
+});
+
+test('Mars payment projection exposes canonical metal values and rejects client-supplied multipliers atomically',()=>{
+ let s=ready();rich(s);s.players[0]!.corporationId='PhoboLog';const c=give(s,'Asteroid');
+ s=act(s,o=>o.kind==='CARD'&&o.targetId===c.tileId);
+ assert.equal(projection(s).privateState.payment!.steelValue,2);assert.equal(projection(s).privateState.payment!.titaniumValue,4);
+ const before=structuredClone(s);
+ assert.equal(applyMarsAction(s,s.activePlayerId,{type:'PAY',payment:{money:0,steel:0,titanium:3,heat:0,titaniumValue:5}},now,s.transitionId,random).ok,false);
+ assert.deepEqual(s,before);
+ assert.equal(applyMarsAction(s,s.activePlayerId,{type:'PAY',payment:{money:0,steel:0,titanium:3,heat:0}},now,s.transitionId,random).ok,false);
+ assert.deepEqual(s,before);
+ s=command(s,{type:'PAY',payment:{money:2,steel:0,titanium:3,heat:0}});s=settle(s);
+ assert.equal(s.players[0]!.resources.money,498);assert.equal(s.players[0]!.resources.titanium,19);
+});

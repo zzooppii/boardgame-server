@@ -53,7 +53,7 @@ test('Mars resource receipt does not fabricate a receipt on first load, reconnec
 test('Mars action guide distinguishes payment cancellation, committed action payment, placement and effect resolution',()=>{
  const g=game(),html=()=>renderToStaticMarkup(createElement(ActionGuide,{game:g}));
  assert.equal(html(),'');
- g.privateState.payment={label:'지하수 추출',cost:18,steel:false,titanium:false,heat:false,titaniumValue:3,cardId:null,cancelable:true};
+ g.privateState.payment={label:'지하수 추출',cost:18,steel:false,titanium:false,heat:false,steelValue:2,titaniumValue:3,cardId:null,cancelable:true};
  assert.match(html(),/아직 지불하지 않았습니다/);g.privateState.payment.cancelable=false;assert.match(html(),/행동의 다음 효과/);assert.doesNotMatch(html(),/취소/);
  g.privateState.payment=null;g.privateState.offers=[{id:'place',kind:'PLACE',targetId:'1-1',label:'해양',detail:'배치',cost:0}];assert.match(html(),/배치할 위치/);
  g.privateState.offers[0]!.kind='EFFECT';assert.match(html(),/남은 효과/);
@@ -75,4 +75,14 @@ test('Mars command notice distinguishes rejected choices from uncertain requests
  const uncertain=renderToStaticMarkup(createElement(CommandNotice,{...props,uncertain:true,connected:false}));
  assert.match(uncertain,/role="alert"/);assert.match(uncertain,/disabled=""/);assert.match(uncertain,/같은 요청/);
  assert.equal(renderToStaticMarkup(createElement(CommandNotice,{...props,error:null})), '');
+});
+
+import {MarsPaymentPanel} from '../features/mars/Payment.js';
+test('Mars payment panel renders server metal values instead of assuming two credits per steel',()=>{
+ const g=game();g.privateState.payment={label:'금속 가치 검증',cost:11,steel:true,titanium:true,heat:false,steelValue:3,titaniumValue:5,cardId:null,cancelable:true};
+ const html=renderToStaticMarkup(createElement(MarsPaymentPanel,{game:g,busy:false,onPay:()=>{}}));
+ assert.match(html,/강철 <small>×3/);assert.match(html,/티타늄 <small>×5/);assert.doesNotMatch(html,/×2/);
+ assert.match(html,/지불 가치 <b>11 M€/);assert.match(html,/지불 후/);
+ const pending=renderToStaticMarkup(createElement(MarsPaymentPanel,{game:g,busy:true,onPay:()=>{}}));
+ assert.match(pending,/disabled=""/);
 });

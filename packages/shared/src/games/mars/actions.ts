@@ -15,6 +15,7 @@ export type MarsCard = v.InferOutput<typeof MarsCardSchema>;
 export const MarsOfferSchema = v.strictObject({ id: MarsRefSchema, kind: v.picklist(['CARD', 'PROJECT', 'CONVERT', 'ACTION', 'MILESTONE', 'AWARD', 'PLACE', 'EFFECT', 'END', 'PASS', 'CANCEL']), targetId: MarsRefSchema, label: MarsRefSchema, detail: v.pipe(v.string(), v.maxLength(1500)), cost: MarsCountSchema });
 export type MarsOffer = v.InferOutput<typeof MarsOfferSchema>;
 export const MarsPaymentSchema = v.strictObject({ money: MarsCountSchema, steel: MarsCountSchema, titanium: MarsCountSchema, heat: MarsCountSchema });
+export type MarsPayment = v.InferOutput<typeof MarsPaymentSchema>;
 export const MarsActionSchema = v.variant('type', [
     v.strictObject({ type: v.literal('TAKE'), actionId: MarsRefSchema }),
     v.strictObject({ type: v.literal('SETUP'), corporationId: MarsRefSchema, cardIds: v.pipe(v.array(TileIdSchema), v.maxLength(10)) }),

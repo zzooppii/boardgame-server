@@ -64,3 +64,32 @@ test('Mars Corporate Era corporations record printed starts and passives but rem
     assert.deepEqual(teractor.tags, ['earth']);
     assert.deepEqual(teractor.passive, { kind: 'cardDiscount', tag: 'earth', amount: 3 });
 });
+
+import * as v from 'valibot';
+import { MarsPaymentViewSchema } from './games/mars/contracts.js';
+import { marsPaymentValue } from './games/mars/payment.js';
+import { MARS_CORPORATE_ERA_ECONOMIC_EFFECTS } from './games/mars/corporate-era-economy.js';
+import { marsEffectText } from './games/mars/catalog.js';
+
+test('Mars metal payment contract accepts supported values and rejects missing or forged multipliers', () => {
+    const view = { label: '지불', cost: 14, steel: true, titanium: true, heat: true, steelValue: 3, titaniumValue: 5, cardId: null, cancelable: true };
+    const parsed = v.parse(MarsPaymentViewSchema, view);
+    assert.equal(marsPaymentValue({ money: 1, steel: 2, titanium: 1, heat: 2 }, parsed), 14);
+    for (const invalid of [{ ...view, steelValue: 4 }, { ...view, steelValue: undefined }, { ...view, titaniumValue: 6 }, { ...view, titaniumValue: 4.5 }]) {
+        assert.equal(v.safeParse(MarsPaymentViewSchema, invalid).success, false);
+    }
+});
+
+test('Mars prepared economic effects have readable descriptions and remain outside the live base deck', () => {
+    assert.equal(Object.keys(MARS_CORPORATE_ERA_ECONOMIC_EFFECTS).length, 24);
+    for (const [id, effects] of Object.entries(MARS_CORPORATE_ERA_ECONOMIC_EFFECTS)) {
+        fact(id);
+        assert.throws(() => marsCard(id), /Unknown Mars card/);
+        for (const effect of effects) assert.ok(marsEffectText(effect).length > 0, id);
+    }
+    assert.deepEqual(MARS_CORPORATE_ERA_ECONOMIC_EFFECTS.FuelFactory, [
+        { kind: 'production', resource: 'energy', amount: -1 },
+        { kind: 'production', resource: 'money', amount: 1 },
+        { kind: 'production', resource: 'titanium', amount: 1 },
+    ]);
+});

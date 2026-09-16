@@ -45,7 +45,7 @@ export type MarsEffect = {
     }[];
 } | {
     kind: 'dynamic';
-    rule: 'citiesEnergy' | 'citiesPlants' | 'citiesMoney' | 'citiesIncome' | 'plantTags' | 'powerTags' | 'microbeTags' | 'nitrogen' | 'insulation' | 'search' | 'flooding' | 'specialDesign';
+    rule: 'citiesEnergy' | 'citiesPlants' | 'citiesMoney' | 'citiesIncome' | 'plantTags' | 'powerTags' | 'microbeTags' | 'nitrogen' | 'insulation' | 'search' | 'flooding' | 'specialDesign' | 'earthIncome' | 'buildingIncome' | 'spaceIncome' | 'opponentsSpaceIncome';
 };
 export type MarsRule = {
     name: string;
@@ -246,7 +246,7 @@ export function marsEffectText(e: MarsEffect): string {
         case 'consumeSelf': return `이 카드 자원 ${e.amount} 사용`;
         case 'pay': return `${e.amount} M€ 지불${e.material === 'none' ? '' : `(${MARS_RESOURCE_NAMES[e.material]} 사용 가능)`}`;
         case 'choice': return e.options.map(o => o.label).join(' 또는 ');
-        case 'dynamic': return { citiesEnergy: '전체 도시마다 에너지 생산 +1', citiesPlants: '전체 도시마다 식물 +1', citiesMoney: '화성 도시마다 M€ +1', citiesIncome: '화성 도시마다 M€ 생산 +1', plantTags: '내 식물 태그마다 식물 생산 +1', powerTags: '이 카드를 포함한 내 에너지 태그마다 에너지 생산 +1', microbeTags: '이 카드를 포함한 내 미생물 태그 2개당 식물 생산 +1', nitrogen: '식물 생산 +1(내 식물 태그 3개 이상이면 +4)', insulation: '선택한 열 생산량을 같은 수의 M€ 생산량으로 전환', search: '덱 맨 위를 공개·버림. 미생물 태그면 과학 자원 +1', flooding: '방금 해양에 인접한 소유자 1명의 M€ 최대 4 제거(선택)', specialDesign: '이번 세대 다음 프로젝트의 전역 조건을 양방향 2단계 완화' }[e.rule];
+        case 'dynamic': return { citiesEnergy: '전체 도시마다 에너지 생산 +1', citiesPlants: '전체 도시마다 식물 +1', citiesMoney: '화성 도시마다 M€ +1', citiesIncome: '화성 도시마다 M€ 생산 +1', plantTags: '내 식물 태그마다 식물 생산 +1', powerTags: '이 카드를 포함한 내 에너지 태그마다 에너지 생산 +1', microbeTags: '이 카드를 포함한 내 미생물 태그 2개당 식물 생산 +1', nitrogen: '식물 생산 +1(내 식물 태그 3개 이상이면 +4)', insulation: '선택한 열 생산량을 같은 수의 M€ 생산량으로 전환', search: '덱 맨 위를 공개·버림. 미생물 태그면 과학 자원 +1', flooding: '방금 해양에 인접한 소유자 1명의 M€ 최대 4 제거(선택)', specialDesign: '이번 세대 다음 프로젝트의 전역 조건을 양방향 2단계 완화', earthIncome: '이 카드를 포함한 내 지구 태그마다 M€ 생산 +1', buildingIncome: '이 카드를 포함한 내 건물 태그 2개당 M€ 생산 +1', spaceIncome: '이 카드를 포함한 내 우주 태그마다 M€ 생산 +1', opponentsSpaceIncome: '상대방들의 우주 태그마다 M€ 생산 +1' }[e.rule];
     }
 }
 export function marsCardDescription(c: MarsDefinition): string { return [...c.effects.map(marsEffectText), ...(c.actions ? [`행동: ${c.actions.map(marsEffectText).join(' · ')}`] : []), ...(c.passive ? [c.passive] : [])].join(' · ') || '조건을 충족하면 종료 점수를 얻습니다.'; }

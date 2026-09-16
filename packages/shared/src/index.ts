@@ -167,9 +167,11 @@ export * from './games/arnak/contracts.js';
 export * from './games/arnak/catalog.js';
 export * from './games/arnak/board.js';
 export * from './games/mars/actions.js';
+export * from './games/mars/payment.js';
 export * from './games/mars/contracts.js';
 export * from './games/mars/catalog.js';
 export * from './games/mars/corporate-era-facts.js';
+export * from './games/mars/corporate-era-economy.js';
 export * from './games/mars/board.js';
 
 export * from './games/ark-nova/maps.js';
