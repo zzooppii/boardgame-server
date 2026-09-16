@@ -205,6 +205,7 @@ export function HomeScreen(props: HomeScreenProps) {
                             {game.gameType === "ARNAK" ? <img src="/images/arnak/island.webp" alt="" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:12}} /> : null}
                             {game.gameType === "TERRORSCAPE" ? <img src="/images/terrorscape/manor.webp" alt="" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:12}} /> : null}
                             {game.gameType === "GURYONGTU" ? <span aria-hidden="true" style={{ fontSize: 52, letterSpacing: -8 }}>◐◑</span> : null}
+                            {game.gameType === "GREAT_KINGDOM" ? <img src="/images/great-kingdom/cover.svg" alt="" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:12}} /> : null}
                             {game.gameType === "LOVE_LETTER" ? <span aria-hidden="true" style={{display:"block",width:90,height:90,borderRadius:12,backgroundImage:"url(/images/love-letter/court.png)",backgroundSize:"500% 200%",backgroundPosition:"100% 100%"}}/> : null}
                             {game.gameType === "TRAIN" ? <img src="/images/train/journey.jpg" alt="증기 기관차와 대륙 횡단 여행" loading="lazy" style={{width:"100%",height:"100%",objectFit:"cover"}}/> : null}
                             {game.gameType === "CENTURY" ? <img src="/images/century/market.jpg" alt="향신료 시장과 상단" loading="lazy" style={{width:"100%",height:"100%",objectFit:"cover"}}/> : null}

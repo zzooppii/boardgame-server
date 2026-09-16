@@ -40,6 +40,7 @@ export const GAME_CATALOG = Object.freeze([
   Object.freeze({ gameType: "ARK_NOVA", displayName: "아크노바", description: "혼자 27턴의 솔로 도전에 나서거나, 2–4명이 함께 동물원을 운영하며 보전 목표를 겨룹니다." }),
   Object.freeze({ gameType: "JAIPUR", displayName: "자이푸르", description: "2명이 시장에서 상품을 교환하고 판매하며 인장 2개를 겨루는 카드 게임입니다." }),
   Object.freeze({ gameType: "LOVE_LETTER", displayName: "러브레터", description: "2~6명이 한 장의 비밀과 궁정의 인물들로 겨루는 추리 카드 게임입니다." }),
+  Object.freeze({ gameType: "GREAT_KINGDOM", displayName: "그레이트 킹덤", description: "성을 세워 영토를 넓히고 상대의 성을 포위하세요. 한 수로 왕국의 운명이 바뀌는 2인 전략 게임입니다." }),
   Object.freeze({ gameType: "GURYONGTU", displayName: "구룡투", description: "흑백 타일에 숨긴 아홉 개의 숫자. 상대의 수를 읽고 2승을 먼저 거두는 2인 심리전입니다." }),
   Object.freeze({ gameType: "WORD_DUET", displayName: "코드네임 듀엣", description: "둘만의 비밀 작전. 한 단어의 힌트로 서로를 이끌어 15명의 요원을 찾는 2인 협동 게임입니다." }),
   Object.freeze({ gameType: "LOST_CITIES", displayName: "로스트시티", description: "일반판·확장판을 골라 탐험에 투자하고, 3라운드 합계 점수를 겨루는 2인 카드 게임입니다." }),

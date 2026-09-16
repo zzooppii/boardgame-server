@@ -8,6 +8,7 @@ import { SaboteurActionSchema } from "./games/saboteur/actions.js";
 import { JaipurActionSchema } from "./games/jaipur/actions.js";
 import { LoveLetterActionSchema } from "./games/love-letter/actions.js";
 import { GuryongtuActionSchema } from "./games/guryongtu/actions.js";
+import { GreatKingdomActionSchema } from "./games/great-kingdom/actions.js";
 import { AzulActionSchema } from "./games/azul/actions.js";
 import { VegasActionSchema } from "./games/vegas/actions.js";
 import { BurgundyActionSchema, BurgundySettingsSchema } from "./games/burgundy/actions.js";
@@ -370,6 +371,7 @@ export type SpaceCrewClientCommand = v.InferOutput<typeof SpaceCrewClientCommand
 const JaipurIdentity = { protocolVersion: ProtocolVersionSchema, requestId: RequestIdSchema, gameId: GameIdSchema, expectedGameRevision: GameRevisionSchema };
 const LoveLetterIdentity = { protocolVersion: ProtocolVersionSchema, requestId: RequestIdSchema, gameId: GameIdSchema, expectedGameRevision: GameRevisionSchema };
 const GuryongtuIdentity = { protocolVersion: ProtocolVersionSchema, requestId: RequestIdSchema, gameId: GameIdSchema, expectedGameRevision: GameRevisionSchema };
+const GreatKingdomIdentity = { protocolVersion: ProtocolVersionSchema, requestId: RequestIdSchema, gameId: GameIdSchema, expectedGameRevision: GameRevisionSchema };
 const AzulIdentity = { protocolVersion: ProtocolVersionSchema, requestId: RequestIdSchema, gameId: GameIdSchema, expectedGameRevision: GameRevisionSchema };
 const VegasIdentity = { protocolVersion: ProtocolVersionSchema, requestId: RequestIdSchema, gameId: GameIdSchema, expectedGameRevision: GameRevisionSchema };
 const BurgundyIdentity = { protocolVersion: ProtocolVersionSchema, requestId: RequestIdSchema, gameId: GameIdSchema, expectedGameRevision: GameRevisionSchema };
@@ -388,6 +390,7 @@ const LostCitiesIdentity = { protocolVersion: ProtocolVersionSchema, requestId: 
 export const JaipurActCommandSchema = v.strictObject({ ...JaipurIdentity, kind: v.literal("jaipur:act"), turnId: TurnIdSchema, payload: JaipurActionSchema });
 export const LoveLetterActCommandSchema = v.strictObject({ ...LoveLetterIdentity, kind: v.literal("loveLetter:act"), turnId: TurnIdSchema, payload: LoveLetterActionSchema });
 export const GuryongtuActCommandSchema = v.strictObject({ ...GuryongtuIdentity, kind: v.literal("guryongtu:act"), turnId: TurnIdSchema, payload: GuryongtuActionSchema });
+export const GreatKingdomActCommandSchema = v.strictObject({ ...GreatKingdomIdentity, kind: v.literal("greatKingdom:act"), turnId: TurnIdSchema, payload: GreatKingdomActionSchema });
 export const AzulActCommandSchema = v.strictObject({ ...AzulIdentity, kind: v.literal("azul:act"), turnId: TurnIdSchema, payload: AzulActionSchema });
 export const VegasActCommandSchema = v.strictObject({ ...VegasIdentity, kind: v.literal("vegas:act"), turnId: TurnIdSchema, payload: VegasActionSchema });
 export const BurgundyActCommandSchema = v.strictObject({ ...BurgundyIdentity, kind: v.literal("burgundy:act"), turnId: TurnIdSchema, payload: BurgundyActionSchema });
@@ -409,12 +412,14 @@ export const GuryongtuNextRoundCommandSchema = v.strictObject({ ...GuryongtuIden
 export const LostCitiesNextRoundCommandSchema = v.strictObject({ ...LostCitiesIdentity, kind: v.literal("lostCities:nextRound"), roundId: TurnIdSchema, payload: v.strictObject({}) });
 export const JaipurClientCommandSchema = v.variant("kind", [JaipurActCommandSchema, JaipurNextRoundCommandSchema]);
 export const LoveLetterClientCommandSchema = v.variant("kind", [LoveLetterActCommandSchema, LoveLetterNextRoundCommandSchema]);
+export const GreatKingdomClientCommandSchema = GreatKingdomActCommandSchema;
 export const GuryongtuClientCommandSchema = v.variant("kind", [GuryongtuActCommandSchema, GuryongtuNextRoundCommandSchema]);
 export const LostCitiesConfigureCommandSchema = v.strictObject({kind:v.literal("lostCities:configure"),protocolVersion:ProtocolVersionSchema,requestId:RequestIdSchema,expectedRoomRevision:RoomRevisionSchema,payload:LostCitiesSettingsSchema});
 export const LostCitiesClientCommandSchema = v.variant("kind", [LostCitiesConfigureCommandSchema, LostCitiesActCommandSchema, LostCitiesNextRoundCommandSchema]);
 export type JaipurClientCommand = v.InferOutput<typeof JaipurClientCommandSchema>;
 export type LoveLetterClientCommand = v.InferOutput<typeof LoveLetterClientCommandSchema>;
 export type GuryongtuClientCommand = v.InferOutput<typeof GuryongtuClientCommandSchema>;
+export type GreatKingdomClientCommand = v.InferOutput<typeof GreatKingdomClientCommandSchema>;
 export const AzulClientCommandSchema = AzulActCommandSchema;
 export const VegasClientCommandSchema = VegasActCommandSchema;
 export const BurgundyConfigureCommandSchema = v.strictObject({protocolVersion:ProtocolVersionSchema,requestId:RequestIdSchema,kind:v.literal("burgundy:configure"),expectedRoomRevision:RoomRevisionSchema,payload:BurgundySettingsSchema});

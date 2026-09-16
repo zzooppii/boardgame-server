@@ -6,7 +6,7 @@ import type {
   StartGameInput,
 } from "./game-start-service.js";
 
-type StartCapability<TGameType extends "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "AVALON" | "SPLENDOR" | "WORD_DUET" | "TRAIN" | "CENTURY" | "SPIRIT_ISLAND" | "ARK_NOVA" | "JAIPUR" | "SPACE_CREW" | "LOVE_LETTER" | "GURYONGTU" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE" | "CLUE" | "TERRORSCAPE" | "PANDEMIC" | "PERCH" | "HARMONIES" | "PATCHWORK" | "ARNAK" | "TERRAFORMING_MARS" | "SEVEN_WONDERS_DUEL" | "SABOTEUR" | "LOST_CITIES" | "HALLI_GALLI" | "ISLAND_SETTLERS"> =
+type StartCapability<TGameType extends "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "AVALON" | "SPLENDOR" | "WORD_DUET" | "TRAIN" | "CENTURY" | "SPIRIT_ISLAND" | "ARK_NOVA" | "JAIPUR" | "SPACE_CREW" | "LOVE_LETTER" | "GURYONGTU" | "GREAT_KINGDOM" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE" | "CLUE" | "TERRORSCAPE" | "PANDEMIC" | "PERCH" | "HARMONIES" | "PATCHWORK" | "ARNAK" | "TERRAFORMING_MARS" | "SEVEN_WONDERS_DUEL" | "SABOTEUR" | "LOST_CITIES" | "HALLI_GALLI" | "ISLAND_SETTLERS"> =
   Readonly<{
     gameType: TGameType;
     start(input: StartGameInput): Promise<GameStartResult>;
@@ -33,6 +33,7 @@ export type GameStartRouterDependencies = Readonly<{
   spaceCrew?: StartCapability<"SPACE_CREW">;
   loveLetter?: StartCapability<"LOVE_LETTER">;
   guryongtu?: StartCapability<"GURYONGTU">;
+  greatKingdom?: StartCapability<"GREAT_KINGDOM">;
   azul?: StartCapability<"AZUL">;
   vegas?: StartCapability<"VEGAS">;
   burgundy?: StartCapability<"BURGUNDY">;
@@ -79,7 +80,7 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 }
 
 function isStartCapability<
-  TGameType extends "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "AVALON" | "SPLENDOR" | "WORD_DUET" | "TRAIN" | "CENTURY" | "SPIRIT_ISLAND" | "ARK_NOVA" | "JAIPUR" | "SPACE_CREW" | "LOVE_LETTER" | "GURYONGTU" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE" | "CLUE" | "TERRORSCAPE" | "PANDEMIC" | "PERCH" | "HARMONIES" | "PATCHWORK" | "ARNAK" | "TERRAFORMING_MARS" | "SEVEN_WONDERS_DUEL" | "SABOTEUR" | "LOST_CITIES" | "HALLI_GALLI" | "ISLAND_SETTLERS",
+  TGameType extends "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "AVALON" | "SPLENDOR" | "WORD_DUET" | "TRAIN" | "CENTURY" | "SPIRIT_ISLAND" | "ARK_NOVA" | "JAIPUR" | "SPACE_CREW" | "LOVE_LETTER" | "GURYONGTU" | "GREAT_KINGDOM" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE" | "CLUE" | "TERRORSCAPE" | "PANDEMIC" | "PERCH" | "HARMONIES" | "PATCHWORK" | "ARNAK" | "TERRAFORMING_MARS" | "SEVEN_WONDERS_DUEL" | "SABOTEUR" | "LOST_CITIES" | "HALLI_GALLI" | "ISLAND_SETTLERS",
 >(
   value: unknown,
   gameType: TGameType,
@@ -91,7 +92,7 @@ function isStartCapability<
   );
 }
 
-function requireCapability<TGameType extends "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "AVALON" | "SPLENDOR" | "WORD_DUET" | "TRAIN" | "CENTURY" | "SPIRIT_ISLAND" | "ARK_NOVA" | "JAIPUR" | "SPACE_CREW" | "LOVE_LETTER" | "GURYONGTU" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE" | "CLUE" | "TERRORSCAPE" | "PANDEMIC" | "PERCH" | "HARMONIES" | "PATCHWORK" | "ARNAK" | "TERRAFORMING_MARS" | "SEVEN_WONDERS_DUEL" | "SABOTEUR" | "LOST_CITIES" | "HALLI_GALLI" | "ISLAND_SETTLERS">(
+function requireCapability<TGameType extends "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "AVALON" | "SPLENDOR" | "WORD_DUET" | "TRAIN" | "CENTURY" | "SPIRIT_ISLAND" | "ARK_NOVA" | "JAIPUR" | "SPACE_CREW" | "LOVE_LETTER" | "GURYONGTU" | "GREAT_KINGDOM" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE" | "CLUE" | "TERRORSCAPE" | "PANDEMIC" | "PERCH" | "HARMONIES" | "PATCHWORK" | "ARNAK" | "TERRAFORMING_MARS" | "SEVEN_WONDERS_DUEL" | "SABOTEUR" | "LOST_CITIES" | "HALLI_GALLI" | "ISLAND_SETTLERS">(
   value: unknown,
   gameType: TGameType,
 ): StartCapability<TGameType> {
@@ -122,6 +123,7 @@ export class GameStartRouter implements GameStartRouting {
   readonly #spaceCrew: StartCapability<"SPACE_CREW"> | undefined;
   readonly #loveLetter: StartCapability<"LOVE_LETTER"> | undefined;
   readonly #guryongtu: StartCapability<"GURYONGTU"> | undefined;
+  readonly #greatKingdom: StartCapability<"GREAT_KINGDOM"> | undefined;
   readonly #azul: StartCapability<"AZUL"> | undefined;
   readonly #vegas: StartCapability<"VEGAS"> | undefined;
   readonly #burgundy: StartCapability<"BURGUNDY"> | undefined;
@@ -158,6 +160,7 @@ export class GameStartRouter implements GameStartRouting {
     this.#spaceCrew = dependencies.spaceCrew;
     this.#loveLetter = dependencies.loveLetter;
     this.#guryongtu = dependencies.guryongtu;
+    this.#greatKingdom = dependencies.greatKingdom;
     this.#azul = dependencies.azul;
     this.#vegas = dependencies.vegas;
     this.#burgundy = dependencies.burgundy;
@@ -213,6 +216,7 @@ export class GameStartRouter implements GameStartRouting {
         case "JAIPUR": return this.#jaipur ? await this.#jaipur.start(input) : {ok:false,error:INTERNAL_ERROR};
         case "LOVE_LETTER": return this.#loveLetter ? await this.#loveLetter.start(input) : {ok:false,error:INTERNAL_ERROR};
         case "GURYONGTU": return this.#guryongtu ? await this.#guryongtu.start(input) : {ok:false,error:INTERNAL_ERROR};
+        case "GREAT_KINGDOM": return this.#greatKingdom ? await this.#greatKingdom.start(input) : {ok:false,error:INTERNAL_ERROR};
         case "AZUL": return this.#azul ? await this.#azul.start(input) : {ok:false,error:INTERNAL_ERROR};
         case "VEGAS": return this.#vegas ? await this.#vegas.start(input) : {ok:false,error:INTERNAL_ERROR};
         case "BURGUNDY": return this.#burgundy ? await this.#burgundy.start(input) : {ok:false,error:INTERNAL_ERROR};

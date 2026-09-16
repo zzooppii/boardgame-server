@@ -8,6 +8,7 @@ import type { ArkNovaLobbyPlatformSnapshotV2, ArkNovaPlayingPlatformSnapshotV2, 
 import type { JaipurLobbyPlatformSnapshotV2, JaipurPlayingPlatformSnapshotV2, JaipurFinishedPlatformSnapshotV2 } from "@hangul-rummikub/shared";
 import type { LoveLetterLobbyPlatformSnapshotV2, LoveLetterPlayingPlatformSnapshotV2, LoveLetterFinishedPlatformSnapshotV2 } from "@hangul-rummikub/shared";
 import type { GuryongtuLobbyPlatformSnapshotV2, GuryongtuPlayingPlatformSnapshotV2, GuryongtuFinishedPlatformSnapshotV2 } from "@hangul-rummikub/shared";
+import type { GreatKingdomLobbyPlatformSnapshotV2, GreatKingdomPlayingPlatformSnapshotV2, GreatKingdomFinishedPlatformSnapshotV2 } from "@hangul-rummikub/shared";
 import type { AzulLobbyPlatformSnapshotV2, AzulPlayingPlatformSnapshotV2, AzulFinishedPlatformSnapshotV2 } from "@hangul-rummikub/shared";
 import type { VegasLobbyPlatformSnapshotV2, VegasPlayingPlatformSnapshotV2, VegasFinishedPlatformSnapshotV2 } from "@hangul-rummikub/shared";
 import type { BurgundyLobbyPlatformSnapshotV2, BurgundyPlayingPlatformSnapshotV2, BurgundyFinishedPlatformSnapshotV2 } from "@hangul-rummikub/shared";
@@ -70,6 +71,7 @@ export const WEB_SUPPORTED_GAME_TYPES = Object.freeze([
   "JAIPUR",
   "LOVE_LETTER",
   "GURYONGTU",
+  "GREAT_KINGDOM",
   "WORD_DUET",
   "LOST_CITIES",
   "SABOTEUR",
@@ -117,6 +119,7 @@ export type ArkNovaWebSnapshot = ArkNovaLobbyPlatformSnapshotV2 | ArkNovaPlaying
 export type JaipurWebSnapshot = JaipurLobbyPlatformSnapshotV2 | JaipurPlayingPlatformSnapshotV2 | JaipurFinishedPlatformSnapshotV2;
 export type LoveLetterWebSnapshot = LoveLetterLobbyPlatformSnapshotV2 | LoveLetterPlayingPlatformSnapshotV2 | LoveLetterFinishedPlatformSnapshotV2;
 export type GuryongtuWebSnapshot = GuryongtuLobbyPlatformSnapshotV2 | GuryongtuPlayingPlatformSnapshotV2 | GuryongtuFinishedPlatformSnapshotV2;
+export type GreatKingdomWebSnapshot = GreatKingdomLobbyPlatformSnapshotV2 | GreatKingdomPlayingPlatformSnapshotV2 | GreatKingdomFinishedPlatformSnapshotV2;
 export type AzulWebSnapshot = AzulLobbyPlatformSnapshotV2 | AzulPlayingPlatformSnapshotV2 | AzulFinishedPlatformSnapshotV2;
 export type VegasWebSnapshot = VegasLobbyPlatformSnapshotV2 | VegasPlayingPlatformSnapshotV2 | VegasFinishedPlatformSnapshotV2;
 export type BurgundyWebSnapshot = BurgundyLobbyPlatformSnapshotV2 | BurgundyPlayingPlatformSnapshotV2 | BurgundyFinishedPlatformSnapshotV2;
@@ -150,6 +153,7 @@ export type CompatibleWebSnapshot =
   | Readonly<{kind: "PLATFORM_V2_JAIPUR"; snapshotVersion: 2; gameType: "JAIPUR"; platformSnapshot: JaipurWebSnapshot }>
   | Readonly<{kind: "PLATFORM_V2_LOVE_LETTER"; snapshotVersion: 2; gameType: "LOVE_LETTER"; platformSnapshot: LoveLetterWebSnapshot }>
   | Readonly<{kind: "PLATFORM_V2_GURYONGTU"; snapshotVersion: 2; gameType: "GURYONGTU"; platformSnapshot: GuryongtuWebSnapshot }>
+  | Readonly<{kind: "PLATFORM_V2_GREAT_KINGDOM"; snapshotVersion: 2; gameType: "GREAT_KINGDOM"; platformSnapshot: GreatKingdomWebSnapshot }>
   | Readonly<{kind: "PLATFORM_V2_AZUL"; snapshotVersion: 2; gameType: "AZUL"; platformSnapshot: AzulWebSnapshot }>
   | Readonly<{kind: "PLATFORM_V2_VEGAS"; snapshotVersion: 2; gameType: "VEGAS"; platformSnapshot: VegasWebSnapshot }>
   | Readonly<{kind: "PLATFORM_V2_BURGUNDY"; snapshotVersion: 2; gameType: "BURGUNDY"; platformSnapshot: BurgundyWebSnapshot }>
@@ -273,7 +277,7 @@ function decodePlatformSnapshotV2(
     input.room.gameType !== "HANGUL_TILE" &&
     input.room.gameType !== "NUMBER_TILE" &&
     input.room.gameType !== "GEM_CARD" &&
-    input.room.gameType !== "CITY_ROLE" && input.room.gameType !== "DRAW_RELAY" && input.room.gameType !== "SNEAKY_LUNCH" && input.room.gameType !== "WOLF_NIGHT" && input.room.gameType !== "LIAR_GAME" && input.room.gameType !== "SPYFALL" && input.room.gameType !== "AVALON" && input.room.gameType !== "WORD_DUET" && input.room.gameType !== "TRAIN" && input.room.gameType !== "CENTURY" && input.room.gameType !== "SPIRIT_ISLAND" && input.room.gameType !== "SPACE_CREW" && input.room.gameType !== "ARK_NOVA" && input.room.gameType !== "JAIPUR" && input.room.gameType !== "LOVE_LETTER" && input.room.gameType !== "GURYONGTU" && input.room.gameType !== "AZUL" && input.room.gameType !== "VEGAS" && input.room.gameType !== "BURGUNDY" && input.room.gameType !== "CARCASSONNE" && input.room.gameType !== "CLUE" && input.room.gameType !== "TERRORSCAPE" && input.room.gameType !== "PANDEMIC" && input.room.gameType !== "PERCH" && input.room.gameType !== "HARMONIES" && input.room.gameType !== "PATCHWORK" && input.room.gameType !== "ARNAK" && input.room.gameType !== "TERRAFORMING_MARS" && input.room.gameType !== "SEVEN_WONDERS_DUEL" && input.room.gameType !== "SABOTEUR" && input.room.gameType !== "LOST_CITIES" && input.room.gameType !== "SPLENDOR" && input.room.gameType !== "HALLI_GALLI" && input.room.gameType !== "ISLAND_SETTLERS"
+    input.room.gameType !== "CITY_ROLE" && input.room.gameType !== "DRAW_RELAY" && input.room.gameType !== "SNEAKY_LUNCH" && input.room.gameType !== "WOLF_NIGHT" && input.room.gameType !== "LIAR_GAME" && input.room.gameType !== "SPYFALL" && input.room.gameType !== "AVALON" && input.room.gameType !== "WORD_DUET" && input.room.gameType !== "TRAIN" && input.room.gameType !== "CENTURY" && input.room.gameType !== "SPIRIT_ISLAND" && input.room.gameType !== "SPACE_CREW" && input.room.gameType !== "ARK_NOVA" && input.room.gameType !== "JAIPUR" && input.room.gameType !== "LOVE_LETTER" && input.room.gameType !== "GURYONGTU" && input.room.gameType !== "GREAT_KINGDOM" && input.room.gameType !== "AZUL" && input.room.gameType !== "VEGAS" && input.room.gameType !== "BURGUNDY" && input.room.gameType !== "CARCASSONNE" && input.room.gameType !== "CLUE" && input.room.gameType !== "TERRORSCAPE" && input.room.gameType !== "PANDEMIC" && input.room.gameType !== "PERCH" && input.room.gameType !== "HARMONIES" && input.room.gameType !== "PATCHWORK" && input.room.gameType !== "ARNAK" && input.room.gameType !== "TERRAFORMING_MARS" && input.room.gameType !== "SEVEN_WONDERS_DUEL" && input.room.gameType !== "SABOTEUR" && input.room.gameType !== "LOST_CITIES" && input.room.gameType !== "SPLENDOR" && input.room.gameType !== "HALLI_GALLI" && input.room.gameType !== "ISLAND_SETTLERS"
   ) {
     return typeof input.room.gameType === "string"
       ? { kind: "INCOMPATIBLE", reason: "UNSUPPORTED_GAME_TYPE" }
@@ -338,6 +342,11 @@ function decodePlatformSnapshotV2(
     const snapshot = validation.value;
     if (!isGuryongtuSnapshot(snapshot)) return { kind: "INCOMPATIBLE", reason: "INVALID_V2_PROJECTION" };
     return { kind: "COMPATIBLE", value: { kind: "PLATFORM_V2_GURYONGTU", snapshotVersion: 2, gameType: "GURYONGTU", platformSnapshot: snapshot } };
+  }
+  if (input.room.gameType === "GREAT_KINGDOM") {
+    const snapshot = validation.value;
+    if (!isGreatKingdomSnapshot(snapshot)) return { kind: "INCOMPATIBLE", reason: "INVALID_V2_PROJECTION" };
+    return { kind: "COMPATIBLE", value: { kind: "PLATFORM_V2_GREAT_KINGDOM", snapshotVersion: 2, gameType: "GREAT_KINGDOM", platformSnapshot: snapshot } };
   }
   if (input.room.gameType === "AZUL") {
     const snapshot = validation.value;
@@ -551,6 +560,7 @@ function isArkNovaSnapshot(s: PlatformSnapshotV2): s is ArkNovaWebSnapshot { ret
 function isJaipurSnapshot(s: PlatformSnapshotV2): s is JaipurWebSnapshot { return s.room.gameType === "JAIPUR" && (s.game === null || s.game.gameType === "JAIPUR"); }
 function isLoveLetterSnapshot(s: PlatformSnapshotV2): s is LoveLetterWebSnapshot { return s.room.gameType === "LOVE_LETTER" && (s.game === null || s.game.gameType === "LOVE_LETTER"); }
 function isGuryongtuSnapshot(s: PlatformSnapshotV2): s is GuryongtuWebSnapshot { return s.room.gameType === "GURYONGTU" && (s.game === null || s.game.gameType === "GURYONGTU"); }
+function isGreatKingdomSnapshot(s: PlatformSnapshotV2): s is GreatKingdomWebSnapshot { return s.room.gameType === "GREAT_KINGDOM" && (s.game === null || s.game.gameType === "GREAT_KINGDOM"); }
 function isAzulSnapshot(s: PlatformSnapshotV2): s is AzulWebSnapshot { return s.room.gameType === "AZUL" && (s.game === null || s.game.gameType === "AZUL"); }
 function isVegasSnapshot(s: PlatformSnapshotV2): s is VegasWebSnapshot { return s.room.gameType === "VEGAS" && (s.game === null || s.game.gameType === "VEGAS"); }
 function isBurgundySnapshot(s: PlatformSnapshotV2): s is BurgundyWebSnapshot { return s.room.gameType === "BURGUNDY" && (s.game === null || s.game.gameType === "BURGUNDY"); }

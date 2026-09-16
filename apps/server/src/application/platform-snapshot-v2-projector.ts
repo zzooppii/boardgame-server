@@ -12,6 +12,7 @@ import { projectSpirit } from "../games/spirit-island/compatibility/projector.js
 import { projectJaipur } from "../games/jaipur/compatibility/projector.js";
 import { projectLoveLetter } from "../games/love-letter/compatibility/projector.js";
 import { projectGuryongtu } from "../games/guryongtu/compatibility/projector.js";
+import { projectGreatKingdom } from "../games/great-kingdom/compatibility/projector.js";
 import { projectAzul } from "../games/azul/compatibility/projector.js";
 import { projectVegas } from "../games/vegas/compatibility/projector.js";
 import { projectBurgundy } from "../games/burgundy/compatibility/projector.js";
@@ -160,6 +161,7 @@ export class PlatformSnapshotV2Projector {
     if(input.room.gameType === "JAIPUR") return v.parse(PlatformSnapshotV2Schema, {...base,room:{...base.room,phase:input.room.phase},game:projectJaipur(input.room.game,input.selfPlayerId)});
     if(input.room.gameType === "LOVE_LETTER") return v.parse(PlatformSnapshotV2Schema, {...base,room:{...base.room,phase:input.room.phase},game:projectLoveLetter(input.room.game,input.selfPlayerId)});
     if(input.room.gameType === "GURYONGTU") return v.parse(PlatformSnapshotV2Schema, {...base,room:{...base.room,phase:input.room.phase},game:projectGuryongtu(input.room.game,input.selfPlayerId)});
+    if(input.room.gameType === "GREAT_KINGDOM") return v.parse(PlatformSnapshotV2Schema, {...base,room:{...base.room,phase:input.room.phase},game:projectGreatKingdom(input.room.game,input.selfPlayerId)});
     if(input.room.gameType === "AZUL") return v.parse(PlatformSnapshotV2Schema, {...base,room:{...base.room,phase:input.room.phase},game:projectAzul(input.room.game,input.selfPlayerId)});
     if(input.room.gameType === "VEGAS") return v.parse(PlatformSnapshotV2Schema, {...base,room:{...base.room,phase:input.room.phase},game:projectVegas(input.room.game,input.selfPlayerId)});
     if(input.room.gameType === "BURGUNDY") return v.parse(PlatformSnapshotV2Schema, {...base,room:{...base.room,phase:input.room.phase,settings:input.room.settings??BURGUNDY_DEFAULT_SETTINGS},game:projectBurgundy(input.room.game,input.selfPlayerId)});

@@ -15,6 +15,7 @@ import { SpiritHostSuccession } from "./games/spirit-island/application/host-suc
 import { JaipurHostSuccession } from "./games/jaipur/application/host-succession.js";
 import { LoveLetterHostSuccession } from "./games/love-letter/application/host-succession.js";
 import { GuryongtuHostSuccession } from "./games/guryongtu/application/host-succession.js";
+import { GreatKingdomHostSuccession } from "./games/great-kingdom/application/host-succession.js";
 import { AzulHostSuccession } from "./games/azul/application/host-succession.js";
 import { VegasHostSuccession } from "./games/vegas/application/host-succession.js";
 import { BurgundyHostSuccession } from "./games/burgundy/application/host-succession.js";
@@ -44,6 +45,7 @@ import { SpiritService } from "./games/spirit-island/application/service.js";
 import { JaipurService } from "./games/jaipur/application/service.js";
 import { LoveLetterService } from "./games/love-letter/application/service.js";
 import { GuryongtuService } from "./games/guryongtu/application/service.js";
+import { GreatKingdomService } from "./games/great-kingdom/application/service.js";
 import { AzulService } from "./games/azul/application/service.js";
 import { VegasService } from "./games/vegas/application/service.js";
 import { BurgundyService } from "./games/burgundy/application/service.js";
@@ -73,6 +75,7 @@ import { createSpiritLifecycle } from "./games/spirit-island/application/lifecyc
 import { createJaipurLifecycle } from "./games/jaipur/application/lifecycle.js";
 import { createLoveLetterLifecycle } from "./games/love-letter/application/lifecycle.js";
 import { createGuryongtuLifecycle } from "./games/guryongtu/application/lifecycle.js";
+import { createGreatKingdomLifecycle } from "./games/great-kingdom/application/lifecycle.js";
 import { createAzulLifecycle } from "./games/azul/application/lifecycle.js";
 import { createVegasLifecycle } from "./games/vegas/application/lifecycle.js";
 import { createBurgundyLifecycle } from "./games/burgundy/application/lifecycle.js";
@@ -217,6 +220,7 @@ export type ApplicationRuntime = Readonly<{
   spaceCrewService?: SpaceCrewService;
   loveLetterService?: LoveLetterService;
   guryongtuService?: GuryongtuService;
+  greatKingdomService?: GreatKingdomService;
   azulService?: AzulService;
   vegasService?: VegasService;
   burgundyService?: BurgundyService;
@@ -247,6 +251,7 @@ export type ApplicationRuntime = Readonly<{
   spaceCrewHostSuccession?: SpaceCrewHostSuccession;
   loveLetterHostSuccession?: LoveLetterHostSuccession;
   guryongtuHostSuccession?: GuryongtuHostSuccession;
+  greatKingdomHostSuccession?: GreatKingdomHostSuccession;
   azulHostSuccession?: AzulHostSuccession;
   vegasHostSuccession?: VegasHostSuccession;
   burgundyHostSuccession?: BurgundyHostSuccession;
@@ -384,6 +389,7 @@ export function createApplicationRuntime(
       { gameType: "SPACE_CREW" },
       { gameType: "LOVE_LETTER" },
       { gameType: "GURYONGTU" },
+      { gameType: "GREAT_KINGDOM" },
       { gameType: "AZUL" },
       { gameType: "VEGAS" },
       { gameType: "BURGUNDY" },
@@ -442,6 +448,7 @@ export function createApplicationRuntime(
     spaceCrew: createSpaceCrewLifecycle(),
     loveLetter: createLoveLetterLifecycle(),
     guryongtu: createGuryongtuLifecycle(),
+    greatKingdom: createGreatKingdomLifecycle(),
     azul: createAzulLifecycle(),
     vegas: createVegasLifecycle(),
     burgundy: createBurgundyLifecycle(),
@@ -800,6 +807,13 @@ export function createApplicationRuntime(
     const room = await persistence.findById(roomId);
     if (room?.gameType === "GURYONGTU" && room.phase === "FINISHED" && room.game) await onGameFinished({ roomId, gameId: room.game.gameId });
   });
+  const greatKingdomService = new GreatKingdomService({ roomRepository: persistence, roomUnitOfWork: persistence, idempotencyRepository: persistence,
+    roomMutationExecutor, presence: presenceReader, clock, ids: idGenerator, random: randomSource });
+  const greatKingdomHostSuccession = new GreatKingdomHostSuccession(greatKingdomService.deps, roomId => greatKingdomService.notify(roomId));
+  greatKingdomService.subscribe(async roomId => {
+    const room = await persistence.findById(roomId);
+    if (room?.gameType === "GREAT_KINGDOM" && room.phase === "FINISHED" && room.game) await onGameFinished({ roomId, gameId: room.game.gameId });
+  });
   const azulService = new AzulService({ roomRepository: persistence, roomUnitOfWork: persistence, idempotencyRepository: persistence,
     roomMutationExecutor, presence: presenceReader, clock, ids: idGenerator, random: randomSource, turnScheduler });
   const azulHostSuccession = new AzulHostSuccession(azulService.deps, roomId => azulService.notify(roomId));
@@ -1031,6 +1045,7 @@ export function createApplicationRuntime(
     spaceCrew: { gameType: "SPACE_CREW", start: input => spaceCrewService.start(input) },
     loveLetter: { gameType: "LOVE_LETTER", start: input => loveLetterService.start(input) },
     guryongtu: { gameType: "GURYONGTU", start: input => guryongtuService.start(input) },
+    greatKingdom: { gameType: "GREAT_KINGDOM", start: input => greatKingdomService.start(input) },
     azul: { gameType: "AZUL", start: input => azulService.start(input) },
     vegas: { gameType: "VEGAS", start: input => vegasService.start(input) },
     burgundy: { gameType: "BURGUNDY", start: input => burgundyService.start(input) },
@@ -1263,6 +1278,7 @@ export function createApplicationRuntime(
     spaceCrewService,
     loveLetterService,
     guryongtuService,
+    greatKingdomService,
     azulService,
     vegasService,
     burgundyService,
@@ -1293,6 +1309,7 @@ export function createApplicationRuntime(
     spaceCrewHostSuccession,
     loveLetterHostSuccession,
     guryongtuHostSuccession,
+    greatKingdomHostSuccession,
     azulHostSuccession,
     vegasHostSuccession,
     burgundyHostSuccession,
@@ -1373,6 +1390,7 @@ export function createApplicationRuntime(
       spaceCrewService.startMaintenance();
       loveLetterHostSuccession.start();
       guryongtuHostSuccession.start();
+      greatKingdomHostSuccession.start();
       azulHostSuccession.start();
       vegasHostSuccession.start();
       burgundyHostSuccession.start();
@@ -1421,6 +1439,7 @@ export function createApplicationRuntime(
       spaceCrewService.stopMaintenance();
       loveLetterHostSuccession.stop();
       guryongtuHostSuccession.stop();
+      greatKingdomHostSuccession.stop();
       azulHostSuccession.stop();
       vegasHostSuccession.stop();
       burgundyHostSuccession.stop();

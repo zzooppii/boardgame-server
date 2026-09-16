@@ -7,6 +7,7 @@ import type { SpiritClientCommand } from "./protocol.js";
 import type { JaipurClientCommand } from "./protocol.js";
 import type { LoveLetterClientCommand } from "./protocol.js";
 import type { GuryongtuClientCommand } from "./protocol.js";
+import type { GreatKingdomClientCommand } from "./protocol.js";
 import type { AzulClientCommand } from "./protocol.js";
 import type { VegasClientCommand } from "./protocol.js";
 import type { BurgundyClientCommand } from "./protocol.js";
@@ -588,6 +589,7 @@ export interface SnapshotWireClientToServerEvents {
   "jaipur:act": (command: Extract<JaipurClientCommand,{kind:"jaipur:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "loveLetter:act": (command: Extract<LoveLetterClientCommand,{kind:"loveLetter:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "guryongtu:act": (command: Extract<GuryongtuClientCommand,{kind:"guryongtu:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
+  "greatKingdom:act": (command: Extract<GreatKingdomClientCommand,{kind:"greatKingdom:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "azul:act": (command: Extract<AzulClientCommand,{kind:"azul:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "vegas:act": (command: Extract<VegasClientCommand,{kind:"vegas:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "burgundy:configure": (command: Extract<BurgundyClientCommand,{kind:"burgundy:configure"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;

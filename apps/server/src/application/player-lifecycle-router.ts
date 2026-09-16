@@ -7,6 +7,7 @@ import type { createSpiritLifecycle } from "../games/spirit-island/application/l
 import type { createJaipurLifecycle } from "../games/jaipur/application/lifecycle.js";
 import type { createLoveLetterLifecycle } from "../games/love-letter/application/lifecycle.js";
 import type { createGuryongtuLifecycle } from "../games/guryongtu/application/lifecycle.js";
+import type { createGreatKingdomLifecycle } from "../games/great-kingdom/application/lifecycle.js";
 import type { createAzulLifecycle } from "../games/azul/application/lifecycle.js";
 import type { createVegasLifecycle } from "../games/vegas/application/lifecycle.js";
 import type { createBurgundyLifecycle } from "../games/burgundy/application/lifecycle.js";
@@ -97,6 +98,7 @@ export type PlayerLifecycleRouterDependencies = Readonly<{
   spaceCrew?: ReturnType<typeof createSpaceCrewLifecycle>;
   loveLetter?: ReturnType<typeof createLoveLetterLifecycle>;
   guryongtu?: ReturnType<typeof createGuryongtuLifecycle>;
+  greatKingdom?: ReturnType<typeof createGreatKingdomLifecycle>;
   azul?: ReturnType<typeof createAzulLifecycle>;
   vegas?: ReturnType<typeof createVegasLifecycle>;
   burgundy?: ReturnType<typeof createBurgundyLifecycle>;
@@ -149,6 +151,7 @@ export class PlayerLifecycleRouter implements PlayerLifecycleActionRouting {
   readonly #spaceCrew: ReturnType<typeof createSpaceCrewLifecycle> | undefined;
   readonly #loveLetter: ReturnType<typeof createLoveLetterLifecycle> | undefined;
   readonly #guryongtu: ReturnType<typeof createGuryongtuLifecycle> | undefined;
+  readonly #greatKingdom: ReturnType<typeof createGreatKingdomLifecycle> | undefined;
   readonly #azul: ReturnType<typeof createAzulLifecycle> | undefined;
   readonly #vegas: ReturnType<typeof createVegasLifecycle> | undefined;
   readonly #burgundy: ReturnType<typeof createBurgundyLifecycle> | undefined;
@@ -193,6 +196,7 @@ export class PlayerLifecycleRouter implements PlayerLifecycleActionRouting {
     this.#spaceCrew = dependencies.spaceCrew;
     this.#loveLetter = dependencies.loveLetter;
     this.#guryongtu = dependencies.guryongtu;
+    this.#greatKingdom = dependencies.greatKingdom;
     this.#azul = dependencies.azul;
     this.#vegas = dependencies.vegas;
     this.#burgundy = dependencies.burgundy;
@@ -262,6 +266,9 @@ export class PlayerLifecycleRouter implements PlayerLifecycleActionRouting {
       case "GURYONGTU":
         if (!this.#guryongtu) throw new Error("GURYONGTU lifecycle missing.");
         return this.#guryongtu.applyPlayingLeave(input);
+      case "GREAT_KINGDOM":
+        if (!this.#greatKingdom) throw new Error("GREAT_KINGDOM lifecycle missing.");
+        return this.#greatKingdom.applyPlayingLeave(input);
       case "AZUL":
         if (!this.#azul) throw new Error("AZUL lifecycle missing.");
         return this.#azul.applyPlayingLeave(input);
@@ -354,6 +361,7 @@ export class PlayerLifecycleRouter implements PlayerLifecycleActionRouting {
       case "JAIPUR": return {status:"NO_CHANGE"};
       case "LOVE_LETTER": return {status:"NO_CHANGE"};
       case "GURYONGTU": return {status:"NO_CHANGE"};
+      case "GREAT_KINGDOM": return {status:"NO_CHANGE"};
       case "AZUL": return {status:"NO_CHANGE"};
       case "VEGAS": return {status:"NO_CHANGE"};
       case "BURGUNDY": return {status:"NO_CHANGE"};

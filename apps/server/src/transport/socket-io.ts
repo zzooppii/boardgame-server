@@ -1360,6 +1360,7 @@ function registerResumeHandler(
         runtime.spaceCrewHostSuccession?.resumed(result.data.roomId, result.data.playerId);
         runtime.loveLetterHostSuccession?.resumed(result.data.roomId, result.data.playerId);
         runtime.guryongtuHostSuccession?.resumed(result.data.roomId, result.data.playerId);
+        runtime.greatKingdomHostSuccession?.resumed(result.data.roomId, result.data.playerId);
         runtime.azulHostSuccession?.resumed(result.data.roomId, result.data.playerId);
         runtime.vegasHostSuccession?.resumed(result.data.roomId, result.data.playerId);
         runtime.burgundyHostSuccession?.resumed(result.data.roomId, result.data.playerId);
@@ -2980,6 +2981,27 @@ function registerGuryongtuHandlers(socket: RealtimeSocket, runtime: ApplicationR
   });
 }
 
+import { GreatKingdomClientCommandSchema } from "@hangul-rummikub/shared";
+function registerGreatKingdomHandlers(socket: RealtimeSocket, runtime: ApplicationRuntime): void {
+  for (const event of ["greatKingdom:act"] as const) socket.on(event, (raw: unknown, acknowledge: (ack: StateSyncWireAck) => void) => {
+    const receivedAt = runtime.clock.now(), command = parseNumberRematch(GreatKingdomClientCommandSchema, raw);
+    if (!command.success || command.output.kind !== event) { acknowledgeIfPresent(acknowledge, failureAck(raw, INVALID_PAYLOAD_ERROR, receivedAt)); return; }
+    void (async () => {
+      const binding = runtime.connectionRegistry.getAuthenticatedBinding(createSocketId(socket.id));
+      if (!binding) { acknowledgeIfPresent(acknowledge, failureAck(raw, UNAUTHENTICATED_ERROR, receivedAt)); return; }
+      if (!isRoomAdmissionCompatible("GREAT_KINGDOM", socketAdmissionCapabilities(socket))) {
+        acknowledgeIfPresent(acknowledge, failureAck(raw, {code:"INCOMPATIBLE_GAME_CAPABILITY",message:"GREAT_KINGDOM requires V2 capability.",recoverable:false}, receivedAt)); return;
+      }
+      if (!runtime.greatKingdomService) { acknowledgeIfPresent(acknowledge, failureAck(raw, INTERNAL_ERROR, receivedAt)); return; }
+      const result = await runtime.greatKingdomService.command({roomId:binding.roomId,actorPlayerId:binding.playerId,command:command.output,receivedAt,
+        authorization:{isCurrent:()=>socket.connected && isCurrentBinding(runtime,binding)}});
+      if (!result.ok) { acknowledgeIfPresent(acknowledge, failureAck(raw,result.error,receivedAt)); return; }
+      const loaded = await loadSnapshotForSocket(runtime,socket,binding.roomId,binding.playerId);
+      if (loaded && socket.connected && isCurrentBinding(runtime,binding)) acknowledgeIfPresent(acknowledge,snapshotSuccessAck(command.output.requestId,loaded.metadata,loaded.wireSnapshot));
+    })().catch(()=>acknowledgeIfPresent(acknowledge,failureAck(raw,INTERNAL_ERROR,receivedAt)));
+  });
+}
+
 import { AzulClientCommandSchema } from "@hangul-rummikub/shared";
 import { VegasClientCommandSchema } from "@hangul-rummikub/shared";
 function registerAzulHandlers(socket: RealtimeSocket, runtime: ApplicationRuntime): void {
@@ -3728,6 +3750,7 @@ function registerDisconnectHandler(
     runtime.spaceCrewHostSuccession?.disconnected(binding.roomId, binding.playerId, disconnectedAt);
     runtime.loveLetterHostSuccession?.disconnected(binding.roomId, binding.playerId, disconnectedAt);
     runtime.guryongtuHostSuccession?.disconnected(binding.roomId, binding.playerId, disconnectedAt);
+    runtime.greatKingdomHostSuccession?.disconnected(binding.roomId, binding.playerId, disconnectedAt);
     runtime.azulHostSuccession?.disconnected(binding.roomId, binding.playerId, disconnectedAt);
     runtime.vegasHostSuccession?.disconnected(binding.roomId, binding.playerId, disconnectedAt);
     runtime.burgundyHostSuccession?.disconnected(binding.roomId, binding.playerId, disconnectedAt);
@@ -3837,6 +3860,7 @@ export function registerSocketIoHandlers(
   const unsubscribeJaipur = runtime.jaipurService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
   const unsubscribeLoveLetter = runtime.loveLetterService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
   const unsubscribeGuryongtu = runtime.guryongtuService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
+  const unsubscribeGreatKingdom = runtime.greatKingdomService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
   const unsubscribeAzul = runtime.azulService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
   const unsubscribeVegas = runtime.vegasService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
   const unsubscribeBurgundy = runtime.burgundyService?.subscribe(roomId => fanOutRoomSnapshots(io, runtime, roomId));
@@ -3917,6 +3941,7 @@ export function registerSocketIoHandlers(
     registerSpaceCrewHandlers(io, socket, runtime);
     registerLoveLetterHandlers(socket, runtime);
     registerGuryongtuHandlers(socket, runtime);
+    registerGreatKingdomHandlers(socket, runtime);
     registerAzulHandlers(socket, runtime);
     registerVegasHandlers(socket, runtime);
     registerBurgundyHandlers(socket, runtime);
@@ -3966,6 +3991,7 @@ export function registerSocketIoHandlers(
     unsubscribeSpaceCrew?.();
     unsubscribeLoveLetter?.();
     unsubscribeGuryongtu?.();
+    unsubscribeGreatKingdom?.();
     unsubscribeAzul?.();
     unsubscribeVegas?.();
     unsubscribeBurgundy?.();

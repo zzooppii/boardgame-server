@@ -8,6 +8,7 @@ import type { SplendorStoredGame } from "../games/splendor/compatibility/adapter
 import type { JaipurStoredGame } from "../games/jaipur/compatibility/adapter.js";
 import type { LoveLetterStoredGame } from "../games/love-letter/compatibility/adapter.js";
 import type { GuryongtuStoredGame } from "../games/guryongtu/compatibility/adapter.js";
+import type { GreatKingdomStoredGame } from "../games/great-kingdom/compatibility/adapter.js";
 import type { AzulStoredGame } from "../games/azul/compatibility/adapter.js";
 import type { VegasStoredGame } from "../games/vegas/compatibility/adapter.js";
 import type { CarcassonneStoredGame } from "../games/carcassonne/compatibility/adapter.js";
@@ -101,7 +102,7 @@ export function createNextTurn(
 
 export function toScheduledTurnDeadline(
   roomId: RoomId,
-  game: ArkNovaStoredGame | SpaceCrewStoredGame | TrainStoredGame | CenturyStoredGame | SpiritStoredGame | PlayingGameState | PlayingNumberTileGameState | PlayingGemGameState | CityRoleStoredGame | DrawRelayStoredGame | SneakyLunchStoredGame | WolfStoredGame | LiarStoredGame | SpyfallStoredGame | AvalonStoredGame | DuetStoredGame | JaipurStoredGame | LoveLetterStoredGame | GuryongtuStoredGame | AzulStoredGame | VegasStoredGame | BurgundyStoredGame | CarcassonneStoredGame | ClueStoredGame | TerrorscapeStoredGame | PandemicStoredGame | PerchStoredGame | HarmoniesStoredGame | PatchworkStoredGame | ArnakStoredGame | MarsStoredGame | DuelStoredGame | SaboteurStoredGame | LostCitiesStoredGame | SplendorStoredGame | HalliStoredGame | IslandStoredGame,
+  game: ArkNovaStoredGame | SpaceCrewStoredGame | TrainStoredGame | CenturyStoredGame | SpiritStoredGame | PlayingGameState | PlayingNumberTileGameState | PlayingGemGameState | CityRoleStoredGame | DrawRelayStoredGame | SneakyLunchStoredGame | WolfStoredGame | LiarStoredGame | SpyfallStoredGame | AvalonStoredGame | DuetStoredGame | JaipurStoredGame | LoveLetterStoredGame | GuryongtuStoredGame | GreatKingdomStoredGame | AzulStoredGame | VegasStoredGame | BurgundyStoredGame | CarcassonneStoredGame | ClueStoredGame | TerrorscapeStoredGame | PandemicStoredGame | PerchStoredGame | HarmoniesStoredGame | PatchworkStoredGame | ArnakStoredGame | MarsStoredGame | DuelStoredGame | SaboteurStoredGame | LostCitiesStoredGame | SplendorStoredGame | HalliStoredGame | IslandStoredGame,
 ): ScheduledTurnDeadline {
   if ("state" in game && !("windowStartedAt" in game)) {
     if (!("rulesVersion" in game.state)) throw new Error("Space Crew has no turn deadline.");
@@ -116,6 +117,7 @@ export function toScheduledTurnDeadline(
     if (game.state.rulesVersion === "jaipur-base-v1") throw new Error("Jaipur has no turn deadline.");
     if (game.state.rulesVersion === "love-letter-21-v1") throw new Error("LoveLetter has no turn deadline.");
     if (game.state.rulesVersion === "guryongtu-base-v1") throw new Error("Guryongtu has no turn deadline.");
+    if (game.state.rulesVersion === "great-kingdom-base-v2") throw new Error("GreatKingdom has no turn deadline.");
     if (game.state.rulesVersion === "azul-base-v1") {
       if (game.state.deadlineAt === null) throw new Error("Azul deadline missing.");
       return {roomId,gameId:game.gameId,expectedGameRevision:game.gameRevision,turnId:game.state.transitionId,deadlineAt:game.state.deadlineAt};
@@ -238,6 +240,7 @@ export async function scheduleCurrentTurnBestEffort(
       if (game.state.rulesVersion === "jaipur-base-v1") return false;
       if (game.state.rulesVersion === "love-letter-21-v1") return false;
       if (game.state.rulesVersion === "guryongtu-base-v1") return false;
+      if (game.state.rulesVersion === "great-kingdom-base-v2") return false;
       if (game.state.rulesVersion === "clue-bonus-manor-v2") return false;
       if (game.state.rulesVersion === "pandemic-base-v1") throw new Error("Pandemic has no turn deadline.");
       if (game.state.rulesVersion === "perch-base-v1") throw new Error("Perch has no turn deadline.");

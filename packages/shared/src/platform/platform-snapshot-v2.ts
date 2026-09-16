@@ -16,6 +16,7 @@ import { SplendorPlayingProjectionSchema, SplendorFinishedProjectionSchema, sple
 import { JaipurPlayingProjectionSchema, JaipurFinishedProjectionSchema, jaipurProjectionIsConsistent } from "../games/jaipur/contracts.js";
 import { LoveLetterPlayingProjectionSchema, LoveLetterFinishedProjectionSchema, loveLetterProjectionIsConsistent } from "../games/love-letter/contracts.js";
 import { GuryongtuPlayingProjectionSchema, GuryongtuFinishedProjectionSchema, guryongtuProjectionIsConsistent } from "../games/guryongtu/contracts.js";
+import { GreatKingdomPlayingProjectionSchema, GreatKingdomFinishedProjectionSchema, greatKingdomProjectionIsConsistent } from "../games/great-kingdom/contracts.js";
 import { AzulPlayingProjectionSchema, AzulFinishedProjectionSchema, azulProjectionIsConsistent } from "../games/azul/contracts.js";
 import { VegasPlayingProjectionSchema, VegasFinishedProjectionSchema, vegasProjectionIsConsistent } from "../games/vegas/contracts.js";
 import { CarcassonnePlayingProjectionSchema, CarcassonneFinishedProjectionSchema, carcassonneProjectionIsConsistent } from "../games/carcassonne/contracts.js";
@@ -487,6 +488,22 @@ export type GuryongtuFinishedPlatformSnapshotV2 = v.InferOutput<typeof Guryongtu
 export const GuryongtuLobbyPlatformSnapshotV2Schema: v.GenericSchema<unknown, GuryongtuLobbyPlatformSnapshotV2> = GuryongtuLobbyRaw;
 export const GuryongtuPlayingPlatformSnapshotV2Schema: v.GenericSchema<unknown, GuryongtuPlayingPlatformSnapshotV2> = GuryongtuPlayingRaw;
 export const GuryongtuFinishedPlatformSnapshotV2Schema: v.GenericSchema<unknown, GuryongtuFinishedPlatformSnapshotV2> = GuryongtuFinishedRaw;
+const GreatKingdomOuter = { snapshotVersion: PlatformSnapshotVersionSchema, versions: PlatformSnapshotVersionsV2Schema, serverTime: ServerTimeSchema, self: PlatformSelfViewV2Schema };
+const GreatKingdomRoom = { roomId: RoomIdSchema, roomCode: RoomCodeSchema, gameType: v.literal("GREAT_KINGDOM") };
+const GreatKingdomPlayers = v.pipe(v.array(PlatformPlayerViewV2Schema), v.length(2));
+const GreatKingdomLobbyRaw = v.pipe(v.strictObject({ ...GreatKingdomOuter, room: v.strictObject({ ...GreatKingdomRoom, phase: v.literal("LOBBY"),
+  players: v.pipe(v.array(PlatformPlayerViewV2Schema), v.maxLength(10)) }), game: v.null() }),
+  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)));
+const GreatKingdomPlayingRaw = v.pipe(v.strictObject({ ...GreatKingdomOuter, room: v.strictObject({ ...GreatKingdomRoom, phase: v.literal("PLAYING"), players: GreatKingdomPlayers }), game: GreatKingdomPlayingProjectionSchema }),
+  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)), v.check(s => hasMatchingGamePlayers(s)), v.check(s => greatKingdomProjectionIsConsistent(s.game)));
+const GreatKingdomFinishedRaw = v.pipe(v.strictObject({ ...GreatKingdomOuter, room: v.strictObject({ ...GreatKingdomRoom, phase: v.literal("FINISHED"), players: GreatKingdomPlayers }), game: GreatKingdomFinishedProjectionSchema }),
+  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)), v.check(s => hasMatchingGamePlayers(s)), v.check(s => greatKingdomProjectionIsConsistent(s.game)));
+export type GreatKingdomLobbyPlatformSnapshotV2 = v.InferOutput<typeof GreatKingdomLobbyRaw>;
+export type GreatKingdomPlayingPlatformSnapshotV2 = v.InferOutput<typeof GreatKingdomPlayingRaw>;
+export type GreatKingdomFinishedPlatformSnapshotV2 = v.InferOutput<typeof GreatKingdomFinishedRaw>;
+export const GreatKingdomLobbyPlatformSnapshotV2Schema: v.GenericSchema<unknown, GreatKingdomLobbyPlatformSnapshotV2> = GreatKingdomLobbyRaw;
+export const GreatKingdomPlayingPlatformSnapshotV2Schema: v.GenericSchema<unknown, GreatKingdomPlayingPlatformSnapshotV2> = GreatKingdomPlayingRaw;
+export const GreatKingdomFinishedPlatformSnapshotV2Schema: v.GenericSchema<unknown, GreatKingdomFinishedPlatformSnapshotV2> = GreatKingdomFinishedRaw;
 const AzulOuter = { snapshotVersion: PlatformSnapshotVersionSchema, versions: PlatformSnapshotVersionsV2Schema, serverTime: ServerTimeSchema, self: PlatformSelfViewV2Schema };
 const AzulRoom = { roomId: RoomIdSchema, roomCode: RoomCodeSchema, gameType: v.literal("AZUL") };
 const AzulPlayers = v.pipe(v.array(PlatformPlayerViewV2Schema), v.minLength(2), v.maxLength(4));
@@ -853,6 +870,7 @@ export const LobbyPlatformSnapshotV2Schema = v.union([
   JaipurLobbyPlatformSnapshotV2Schema,
   LoveLetterLobbyPlatformSnapshotV2Schema,
   GuryongtuLobbyPlatformSnapshotV2Schema,
+  GreatKingdomLobbyPlatformSnapshotV2Schema,
   AzulLobbyPlatformSnapshotV2Schema,
   VegasLobbyPlatformSnapshotV2Schema,
   BurgundyLobbyPlatformSnapshotV2Schema,
@@ -1024,6 +1042,7 @@ export const PlayingPlatformSnapshotV2Schema = v.union([
   JaipurPlayingPlatformSnapshotV2Schema,
   LoveLetterPlayingPlatformSnapshotV2Schema,
   GuryongtuPlayingPlatformSnapshotV2Schema,
+  GreatKingdomPlayingPlatformSnapshotV2Schema,
   AzulPlayingPlatformSnapshotV2Schema,
   VegasPlayingPlatformSnapshotV2Schema,
   BurgundyPlayingPlatformSnapshotV2Schema,
@@ -1195,6 +1214,7 @@ export const FinishedPlatformSnapshotV2Schema = v.union([
   JaipurFinishedPlatformSnapshotV2Schema,
   LoveLetterFinishedPlatformSnapshotV2Schema,
   GuryongtuFinishedPlatformSnapshotV2Schema,
+  GreatKingdomFinishedPlatformSnapshotV2Schema,
   AzulFinishedPlatformSnapshotV2Schema,
   VegasFinishedPlatformSnapshotV2Schema,
   BurgundyFinishedPlatformSnapshotV2Schema,

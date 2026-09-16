@@ -549,7 +549,7 @@ export class RoomSessionApplicationService {
       };
       const now = this.#clock.now();
       const roomCandidate: RoomWriteCandidate =
-        (gameType === "ARK_NOVA" || gameType === "SPIRIT_ISLAND" || gameType === "TERRORSCAPE" || gameType === "PANDEMIC" || gameType === "PERCH" || gameType === "HARMONIES" || gameType === "PATCHWORK" || gameType === "ARNAK" || gameType === "TERRAFORMING_MARS" || gameType === "SEVEN_WONDERS_DUEL" || gameType === "AVALON")
+        (gameType === "GREAT_KINGDOM" || gameType === "ARK_NOVA" || gameType === "SPIRIT_ISLAND" || gameType === "TERRORSCAPE" || gameType === "PANDEMIC" || gameType === "PERCH" || gameType === "HARMONIES" || gameType === "PATCHWORK" || gameType === "ARNAK" || gameType === "TERRAFORMING_MARS" || gameType === "SEVEN_WONDERS_DUEL" || gameType === "AVALON")
           ? {roomId,roomCode,gameType,phase:"LOBBY",hostPlayerId:playerId,players:[{playerId,nickname,joinOrder:0}],game:null,roomRevision,createdAt,updatedAt:createdAt}
           : gameType === "HANGUL_TILE"
           ? {

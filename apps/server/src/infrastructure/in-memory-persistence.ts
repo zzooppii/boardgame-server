@@ -16,6 +16,7 @@ import { SplendorGameStateAdapter, type SplendorLifecycle } from "../games/splen
 import { JaipurGameStateAdapter, type JaipurLifecycle } from "../games/jaipur/compatibility/adapter.js";
 import { LoveLetterGameStateAdapter, type LoveLetterLifecycle } from "../games/love-letter/compatibility/adapter.js";
 import { GuryongtuGameStateAdapter, type GuryongtuLifecycle } from "../games/guryongtu/compatibility/adapter.js";
+import { GreatKingdomGameStateAdapter, type GreatKingdomLifecycle } from "../games/great-kingdom/compatibility/adapter.js";
 import { AzulGameStateAdapter, type AzulLifecycle } from "../games/azul/compatibility/adapter.js";
 import { VegasGameStateAdapter, type VegasLifecycle } from "../games/vegas/compatibility/adapter.js";
 import { BurgundyGameStateAdapter, type BurgundyLifecycle } from "../games/burgundy/compatibility/adapter.js";
@@ -156,6 +157,7 @@ type RoomGameLifecycleInspection =
   | Readonly<{gameType:"SPACE_CREW";inspection:SpaceCrewLifecycle}>
   | Readonly<{gameType:"LOVE_LETTER";inspection:LoveLetterLifecycle}>
   | Readonly<{gameType:"GURYONGTU";inspection:GuryongtuLifecycle}>
+  | Readonly<{gameType:"GREAT_KINGDOM";inspection:GreatKingdomLifecycle}>
   | Readonly<{gameType:"AZUL";inspection:AzulLifecycle}>
   | Readonly<{gameType:"VEGAS";inspection:VegasLifecycle}>
   | Readonly<{gameType:"BURGUNDY";inspection:BurgundyLifecycle}>
@@ -376,6 +378,13 @@ function cloneRoomWriteCandidate(
       const departedPlayerIds = Object.freeze([...(candidate.departedPlayerIds ?? [])]);
       if (new Set(departedPlayerIds).size !== departedPlayerIds.length || departedPlayerIds.some(id => !shell.players.some(p => p.playerId === id)) || shell.phase === "LOBBY" && departedPlayerIds.length > 0) throw new Error("Invalid departed GURYONGTU roster.");
       return Object.freeze({...shell, gameType:"GURYONGTU", game, departedPlayerIds});
+    }
+    case "GREAT_KINGDOM": {
+      const adapter = new GreatKingdomGameStateAdapter(), game = candidate.game === null ? null : adapter.cloneAndValidate(candidate.game);
+      validateRoomGameCoherence(shell.phase, shell.players, game, () => game === null ? null : adapter.inspectLifecycle(game));
+      const departedPlayerIds = Object.freeze([...(candidate.departedPlayerIds ?? [])]);
+      if (new Set(departedPlayerIds).size !== departedPlayerIds.length || departedPlayerIds.some(id => !shell.players.some(p => p.playerId === id)) || shell.phase === "LOBBY" && departedPlayerIds.length > 0) throw new Error("Invalid departed GREAT_KINGDOM roster.");
+      return Object.freeze({...shell, gameType:"GREAT_KINGDOM", game, departedPlayerIds});
     }
     case "AZUL": {
       const adapter = new AzulGameStateAdapter(), game = candidate.game === null ? null : adapter.cloneAndValidate(candidate.game);
@@ -684,6 +693,7 @@ function persistRoom(
     case "JAIPUR":
     case "LOVE_LETTER":
     case "GURYONGTU":
+    case "GREAT_KINGDOM":
     case "AZUL":
     case "VEGAS":
     case "BURGUNDY":
@@ -735,6 +745,7 @@ function inspectRoomGame(
     case "JAIPUR": return {gameType:"JAIPUR",inspection:new JaipurGameStateAdapter().inspectLifecycle(room.game)};
     case "LOVE_LETTER": return {gameType:"LOVE_LETTER",inspection:new LoveLetterGameStateAdapter().inspectLifecycle(room.game)};
     case "GURYONGTU": return {gameType:"GURYONGTU",inspection:new GuryongtuGameStateAdapter().inspectLifecycle(room.game)};
+    case "GREAT_KINGDOM": return {gameType:"GREAT_KINGDOM",inspection:new GreatKingdomGameStateAdapter().inspectLifecycle(room.game)};
     case "AZUL": return {gameType:"AZUL",inspection:new AzulGameStateAdapter().inspectLifecycle(room.game)};
     case "VEGAS": return {gameType:"VEGAS",inspection:new VegasGameStateAdapter().inspectLifecycle(room.game)};
     case "BURGUNDY": return {gameType:"BURGUNDY",inspection:new BurgundyGameStateAdapter().inspectLifecycle(room.game)};

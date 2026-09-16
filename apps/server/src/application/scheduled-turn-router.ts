@@ -154,6 +154,7 @@ export class ScheduledTurnRouter {
         case "JAIPUR": return { status: "NO_OP" };
         case "LOVE_LETTER": return { status: "NO_OP" };
         case "GURYONGTU": return { status: "NO_OP" };
+        case "GREAT_KINGDOM": return { status: "NO_OP" };
         case "AZUL": return this.#azul ? await this.#azul.handleTurnTimeout(input) : {status:"FAILED"};
         case "VEGAS": return this.#vegas ? await this.#vegas.handleTurnTimeout(input) : {status:"FAILED"};
         case "BURGUNDY": return this.#burgundy ? await this.#burgundy.handleTurnTimeout(input) : {status:"FAILED"};
