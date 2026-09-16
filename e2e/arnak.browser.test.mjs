@@ -343,3 +343,133 @@ test('Arnak desktop/mobile: cards, dig, cleanup, five rounds, resume, results, r
  t.diagnostic(`Verified ${guardianName} overcome, exact payment, boon and no fear; purchased and resolved ${artifactName}.`);
  assert.deepEqual(errors,[]);complete=true;t.diagnostic(`Completed five rounds using ${commands} UI-confirmed actions.`);
 });
+
+for(const playerCount of [3,4]){
+ test(`Arnak ${playerCount} players: seat order, digs, round rotation, resume and scores`,{timeout:180000},async t=>{
+  const url=process.env.ARNAK_BROWSER_URL;
+  assert.ok(url,'Set ARNAK_BROWSER_URL to a disposable local server.');
+  assert.ok(['localhost','127.0.0.1','[::1]'].includes(new URL(url).hostname));
+  const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
+  const browser=await chromium.launch({headless:true,...(process.env.ARNAK_CHROME_PATH?{executablePath:process.env.ARNAK_CHROME_PATH}:{})});
+  const output=await mkdtemp(join(tmpdir(),`arnak-${playerCount}p-`)),pages=[],errors=[];
+  let complete=false;
+  t.after(async()=>{
+   try {if(!complete)for(const [index,page] of pages.entries())if(!page.isClosed()){
+    t.diagnostic((await page.locator('body').innerText()).slice(-1800));await page.screenshot({path:join(output,`failure-${index}.png`),fullPage:true});
+   }}finally{await browser.close();t.diagnostic(`Screenshots: ${output}`);}
+  });
+  const names=Array.from({length:playerCount},(_,i)=>`탐험대${i+1}`);
+  for(let index=0;index<playerCount;index++){
+   const context=await browser.newContext({viewport:index===playerCount-1?{width:390,height:844}:{width:1440,height:1000},reducedMotion:'reduce'});
+   const page=await context.newPage();pages.push(page);page.setDefaultTimeout(15000);page.on('pageerror',error=>errors.push(error.message));
+   await page.goto(url);await page.getByLabel('닉네임',{exact:true}).fill(names[index]);
+   if(index===0){
+    await page.locator('.game-option').filter({hasText:'아르낙'}).click();await page.getByRole('button',{name:'선택한 게임으로 방 만들기',exact:true}).click();
+   }else{
+    const code=(await pages[0].getByRole('button',{name:/초대 ·/}).innerText()).split(' · ')[1];assert.ok(code);
+    await page.locator('#room-code').fill(code);await page.getByRole('button',{name:'방 참가하기',exact:true}).click();
+   }
+   await page.locator('.ar-lobby').waitFor();
+  }
+  const host=pages[0];await host.getByRole('button',{name:'탐험 시작 →',exact:true}).click();
+  for(const page of pages){await page.locator('.ar-hand').waitFor();assert.equal(await page.locator('.ar-hand .ar-card').count(),5);assert.equal(await page.locator('.ar-opponents > details').count(),playerCount-1);}
+  assert.equal(await host.locator('.ar-sites.level-0 .ar-worker-slots .blocked').count(),playerCount===3?3:0);
+  const active=async()=>{
+   const label=await host.locator('.ar-roundbar b').innerText();const index=names.findIndex(name=>label===name+'의 차례');assert.ok(index>=0,label);return index;
+  };
+  const initial=await active();let commands=0;
+  async function confirm(page){
+   const before=await page.locator('.ar-log summary').innerText();
+   await page.locator('.ar-confirm').getByRole('button',{name:'선택 확정 →',exact:true}).click();
+   for(const peer of pages)await peer.waitForFunction(before=>document.querySelector('.ar-log summary')?.textContent!==before,before);
+   assert.equal(await page.locator('#ar-actions [role="alert"]').count(),0);commands++;
+  }
+  async function choose(page,label){
+   await page.locator('#ar-actions').getByRole('button',{name:'전체',exact:true}).click();
+   const group=page.locator('.ar-offer-group').filter({has:page.locator('legend').filter({hasText:label})});assert.equal(await group.count(),1);
+   await group.getByRole('button').first().click();await confirm(page);
+  }
+  const sites=['해안 야영지','탐험가의 길','석판 채석장','고대 제단'];
+  for(let round=1;round<=5;round++){
+   const first=(initial+round-1)%playerCount;
+   assert.equal(await active(),first,'Starting player rotates one seat each round.');
+   for(let offset=0;offset<playerCount;offset++){
+    const index=(first+offset)%playerCount,page=pages[index];assert.equal(await active(),index);
+    for(const peer of pages){assert.equal(await peer.locator('.ar-roundbar li.current').innerText(),['I','II','III','IV','V'][round-1]);if(peer!==page)assert.equal(await peer.locator('.ar-action-browser').count(),0);}
+    if(round===1){
+     const coinBefore=Number(await page.locator('.ar-camp-heading .coin b').innerText());
+     await page.locator('.ar-hand').getByRole('button',{name:/^자금 지원,/}).first().click();await confirm(page);
+     assert.equal(Number(await page.locator('.ar-camp-heading .coin b').innerText()),coinBefore+1);
+    }
+    const researchTurn=index===playerCount-1&&(round===2||round===3);
+    if(researchTurn){await page.locator('.ar-hand').getByRole('button',{name:/^탐험,/}).first().click();await confirm(page);}
+    await page.locator('.ar-sites.level-0').getByRole('button',{name:new RegExp(researchTurn?'고대 제단':sites[index])}).click();
+    await page.locator('.ar-offer-group').filter({has:page.locator('legend').filter({hasText:/발굴/})}).getByRole('button').filter({hasText:'자원 지불 없음'}).first().click();await confirm(page);
+    assert.match(await page.locator('.ar-camp-heading p').innerText(),/탐험가 1\/2/);
+    await choose(page,/^차례 마치기$/);assert.equal(await active(),(index+1)%playerCount);
+    if(round===2&&offset===0){
+     const hand=await page.locator('.ar-hand .ar-card').allTextContents(),camp=await page.locator('.ar-camp-heading').innerText();
+     await page.reload();await page.locator('.ar-hand').waitFor();
+     assert.deepEqual(await page.locator('.ar-hand .ar-card').allTextContents(),hand);assert.equal(await page.locator('.ar-camp-heading').innerText(),camp);
+     assert.equal(await active(),(index+1)%playerCount,'Rejoining does not steal the active turn.');
+    }
+   }
+   for(let offset=0;offset<playerCount;offset++){
+    const index=(first+offset)%playerCount,page=pages[index];assert.equal(await active(),index);
+    if(index===playerCount-1&&(round===2||round===3)){
+     const compass=Number(await page.locator('.ar-camp-heading .compass b').innerText()),arrow=Number(await page.locator('.ar-camp-heading .arrow b').innerText());
+     await page.getByRole('button',{name:/^연구 1L ·/}).click();
+     const token=round===2?'돋보기':'수첩';
+     const offer=page.locator('.ar-offer-group').filter({has:page.locator('legend').filter({hasText:new RegExp('^'+token+' 연구 → 1$')})});
+     await offer.getByRole('button').click();await confirm(page);
+     assert.equal(Number(await page.locator('.ar-camp-heading .compass b').innerText()),compass-1);
+     assert.equal(Number(await page.locator('.ar-camp-heading .arrow b').innerText()),arrow-1);
+     for(const peer of pages)assert.equal(await peer.getByRole('button',{name:/^연구 1L ·/}).getByTitle(names[index]+' '+token,{exact:true}).count(),1);
+     if(round===3){
+      await page.locator('#ar-actions').getByRole('button',{name:'전체',exact:true}).click();
+      const hiring=()=>page.locator('.ar-offer-group').filter({has:page.locator('legend').filter({hasText:/고용$/})});
+      const choices=await hiring().locator('legend').allTextContents();assert.equal(choices.length,3);
+      assert.equal(await page.locator('.ar-offer-group legend').filter({hasText:/^차례 마치기$/}).count(),0,'Hiring must resolve before ending the turn.');
+      await page.reload();await page.locator('.ar-hand').waitFor();
+      assert.deepEqual(await hiring().locator('legend').allTextContents(),choices,'Same public hiring choices survive reload.');
+      const assistant=choices[0].replace(/^ϟ\s*/,'').replace(/ 고용$/,'');
+      await hiring().first().getByRole('button').click();await confirm(page);
+      const owned=()=>page.locator('.ar-assistants[aria-label="내 조수와 수호자"] button').filter({hasText:assistant});
+      assert.equal(await owned().count(),1);assert.match(await owned().innerText(),/☆.*사용 가능/s);
+      for(const peer of pages){
+       assert.equal(await peer.locator('.ar-supply button').filter({hasText:assistant}).count(),0);
+       if(peer!==page){
+        const opponent=peer.locator('.ar-opponents > details').filter({has:peer.locator('summary > b').filter({hasText:names[index]})});
+        await opponent.locator('summary').first().click();
+        assert.equal(await opponent.locator('.ar-public-ability strong').filter({hasText:assistant}).count(),1);
+       }
+      }
+      await page.reload();await page.locator('.ar-hand').waitFor();assert.equal(await owned().count(),1);
+      await page.screenshot({path:join(output,'mobile-hired-assistant.png'),fullPage:true});
+     }
+     await choose(page,/^차례 마치기$/);
+     continue;
+    }
+    await choose(page,/^이번 라운드 패스$/);assert.equal(await active(),index,'Cleanup belongs to the passing player until confirmed.');
+    await page.getByRole('region',{name:'라운드 정리 손패',exact:true}).waitFor();await choose(page,/^패스 확정$/);
+    if(offset<playerCount-1)assert.equal(await active(),(index+1)%playerCount);
+   }
+   if(round===2||round===3){
+    const page=pages[playerCount-1];assert.equal(await active(),playerCount-1);
+    await choose(page,/^이번 라운드 패스$/);await choose(page,/^패스 확정$/);
+   }
+  }
+  let expectedScores,expectedWinner;
+  for(const [index,page] of pages.entries()){
+   await page.getByRole('region',{name:'탐험 결과',exact:true}).waitFor();assert.equal(await page.locator('.ar-result-cards article').count(),playerCount);
+   await page.locator('.ar-score-details summary').click();assert.equal(await page.locator('.ar-score-scroll tbody tr').count(),7);
+   const scores=await page.locator('.ar-score-scroll tfoot td').allTextContents(),winner=await page.locator('.ar-results h2').innerText();
+   assert.equal(scores.length,playerCount);
+   assert.equal(winner,names.at(-1)+'의 승리','Research breaks the otherwise equal starting-deck scores.');
+   if(index===0){expectedScores=scores;expectedWinner=winner;}else{assert.deepEqual(scores,expectedScores);assert.equal(winner,expectedWinner);assert.equal(await page.getByRole('button',{name:'새로운 탐험 준비 →',exact:true}).count(),0);}
+  }
+  assert.equal(await pages.at(-1).evaluate(()=>document.documentElement.scrollWidth),390);
+  await host.screenshot({path:join(output,'desktop-results.png'),fullPage:true});await pages.at(-1).screenshot({path:join(output,'mobile-results.png'),fullPage:true});
+  assert.equal(commands,playerCount*21+7);assert.deepEqual(errors,[]);complete=true;t.diagnostic(`${playerCount} players completed five rounds with ${commands} UI-confirmed actions.`);
+ });
+}
