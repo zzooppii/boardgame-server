@@ -291,3 +291,24 @@ test('Arnak journal handles empty history and renders public text safely',()=>{
  const escaped=renderToStaticMarkup(createElement(ArnakJournal,{history:[{...journalEntry(1,1),text:'<script>test</script>'}],players:[]}));
  assert.match(escaped,/&lt;script&gt;/);assert.doesNotMatch(escaped,/<script>/);
 });
+
+import { ArnakResults } from '../features/arnak/ArnakResults.js';
+import { ArnakResultSchema } from '@hangul-rummikub/shared';
+const resultFixture=()=>v.parse(ArnakResultSchema,{reason:'SCORED',winnerPlayerIds:['alice'],scores:['alice','bob'].map(playerId=>({playerId,research:10,temple:2,guardians:5,idols:3,slots:10,cards:4,fear:2,total:32}))});
+const resultPlayers=[{playerId:'alice',nickname:'앨리스'},{playerId:'bob',nickname:'밥'}];
+test('Arnak results honor server tie-break winners and totals without inferring a winner from tied scores',()=>{
+ const html=renderToStaticMarkup(createElement(ArnakResults,{result:resultFixture(),players:resultPlayers,self:'bob',isHost:false,disabled:false,onRematch(){}}));
+ assert.match(html,/앨리스의 승리/);assert.equal((html.match(/ar-result-winner/g)??[]).length,1);
+ assert.match(html,/탐험 완료 · 나/);assert.match(html,/−2/);assert.match(html,/scope="row">총점/);
+ assert.doesNotMatch(html,/새로운 탐험 준비 →/);assert.match(html,/방장이 새로운 탐험/);
+});
+test('Arnak results display shared winners and disable host rematch while disconnected or pending',()=>{
+ const result={...resultFixture(),winnerPlayerIds:resultPlayers.map(p=>v.parse(PlayerIdSchema,p.playerId))};
+ const html=renderToStaticMarkup(createElement(ArnakResults,{result,players:resultPlayers,self:'alice',isHost:true,disabled:true,onRematch(){}}));
+ assert.match(html,/앨리스 · 밥의 승리/);assert.equal((html.match(/ar-result-winner/g)??[]).length,2);
+ assert.match(html,/disabled=""/);
+});
+test('Arnak cancelled results do not present winners or a final scoring comparison',()=>{
+ const html=renderToStaticMarkup(createElement(ArnakResults,{result:{...resultFixture(),reason:'CANCELLED'},players:resultPlayers,self:'alice',isHost:true,disabled:false,onRematch(){}}));
+ assert.match(html,/탐험이 중단되었습니다/);assert.doesNotMatch(html,/의 승리|<table|ar-result-winner/);
+});
