@@ -28,6 +28,15 @@ test('Mars desktop/mobile: hand tools, keyboard ocean placement, reconnect and s
   const page=await context.newPage();page.setDefaultTimeout(15000);
   page.on('pageerror',e=>errors.push(e.message));
   await page.addInitScript(()=>{
+   // Drop only unsolicited snapshots to reproduce a real stale client revision.
+   // Command acknowledgements and state:sync still come from the actual server.
+   window.marsPauseSnapshots=false;
+   const NativeWebSocket=window.WebSocket;
+   window.WebSocket=class extends NativeWebSocket{
+    constructor(...args){super(...args);this.addEventListener('message',event=>{
+     if(window.marsPauseSnapshots&&typeof event.data==='string'&&event.data.includes('["state:snapshot",'))event.stopImmediatePropagation();
+    });}
+   };
    window.marsAudioStarts=0;
    const start=OscillatorNode.prototype.start;
    OscillatorNode.prototype.start=function(...args){window.marsAudioStarts++;return start.apply(this,args);};
@@ -45,7 +54,17 @@ test('Mars desktop/mobile: hand tools, keyboard ocean placement, reconnect and s
  await guest.getByRole('button',{name:'방 참가하기',exact:true}).click();
  await guest.locator('.tm-lobby').waitFor();
  await host.getByRole('button',{name:'테라포밍 시작 →'}).click();
- for(const page of pages)await page.getByRole('button',{name:'선택 확정',exact:true}).click();
+ await guest.locator('.tm-research').waitFor();
+ await guest.evaluate(()=>{window.marsPauseSnapshots=true;});
+ await host.getByRole('button',{name:'선택 확정',exact:true}).click();
+ await host.getByText('다른 기업의 선택을 기다립니다',{exact:true}).waitFor();
+ await guest.getByRole('button',{name:'선택 확정',exact:true}).click();
+ await guest.locator('.tm-research [role="alert"]').getByText('내 선택은 유지됩니다.',{exact:false}).waitFor();
+ assert.equal(await guest.locator('.tm-research .tm-card.selected').count(),10,'Rejected submission retains the initial selection.');
+ assert.equal(await guest.locator('.tm-action-panel [role="alert"]').count(),0,'The error is shown beside selection, not duplicated below the board.');
+ await guest.screenshot({path:join(output,'selection-retry.png'),fullPage:true});
+ await guest.evaluate(()=>{window.marsPauseSnapshots=false;});
+ await guest.getByRole('button',{name:'선택 확정',exact:true}).click();
  for(const page of pages){
   await page.locator('.tm-hand').waitFor();
   assert.equal(await page.locator('.tm-hand-row .tm-card').count(),10);

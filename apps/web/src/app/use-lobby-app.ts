@@ -890,7 +890,7 @@ export function useLobbyApp(): LobbyAppState {
       storedSessionForCurrentRoute()?.credential.roomCode !== session.credential.roomCode) throw new Error("게임 연결이 변경되었습니다.");
     if (!ack.ok) {
       void requestLatestSnapshot();
-      throw new MarsCommandRejected(getUserErrorMessage(ack.error.code));
+      throw new MarsCommandRejected(getUserErrorMessage(ack.error.code),ack.error.code);
     }
     applyWireSnapshot(ack.data.snapshot, session);
   }

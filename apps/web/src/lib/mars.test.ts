@@ -59,3 +59,20 @@ test('Mars action guide distinguishes payment cancellation, committed action pay
  g.privateState.offers[0]!.kind='EFFECT';assert.match(html(),/남은 효과/);
  g.activePlayerId=g.playerStates[1]!.playerId;assert.equal(html(),'');
 });
+
+import {MarsCommandRejected,marsRejectionMessage} from './mars-command-error.js';
+import {CommandNotice} from '../features/mars/CommandNotice.js';
+test('Mars setup/research revision conflicts explain manual retry without disguising other rejections',()=>{
+ const stale=new MarsCommandRejected('기존 상태 오류','STALE_GAME_REVISION');
+ assert.match(marsRejectionMessage(stale,{type:'RESEARCH',cardIds:[]}),/내 선택은 유지/);
+ assert.match(marsRejectionMessage(stale,{type:'SETUP',corporationId:'Beginner',cardIds:[]}),/다시 확정/);
+ assert.equal(marsRejectionMessage(stale,{type:'TAKE',actionId:'pass'}),'기존 상태 오류');
+ assert.equal(marsRejectionMessage(new MarsCommandRejected('구매 불가','RULE_VIOLATION'),{type:'RESEARCH',cardIds:[]}),'구매 불가');
+});
+test('Mars command notice distinguishes rejected choices from uncertain requests and disables offline retry',()=>{
+ const props={error:'다시 확인해주세요',uncertain:false,busy:false,connected:true,onRetry(){}};
+ assert.doesNotMatch(renderToStaticMarkup(createElement(CommandNotice,props)),/<button/);
+ const uncertain=renderToStaticMarkup(createElement(CommandNotice,{...props,uncertain:true,connected:false}));
+ assert.match(uncertain,/role="alert"/);assert.match(uncertain,/disabled=""/);assert.match(uncertain,/같은 요청/);
+ assert.equal(renderToStaticMarkup(createElement(CommandNotice,{...props,error:null})), '');
+});

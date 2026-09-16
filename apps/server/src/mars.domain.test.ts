@@ -79,3 +79,21 @@ test('Mars Mining Guild gains one production per metal placement, in addition to
 test('Mars Decomposers and Ecological Zone count both printed life tags including the played card itself',()=>{
  let s=ready();rich(s);s.oxygen=3;give(s,'Decomposers',s.activePlayerId,true);s.tiles.push({spaceId:'7-4',kind:'greenery',ownerId:s.activePlayerId,source:'greenery'});const c=give(s,'EcologicalZone');s=act(s,o=>o.kind==='CARD'&&o.targetId===c.tileId);s=settle(s);assert.equal(s.players[0]!.played.find(c=>c.definitionId==='Decomposers')!.resources,2);assert.equal(s.players[0]!.played.find(c=>c.definitionId==='EcologicalZone')!.resources,2);
 });
+
+test('Mars setup reveals only readiness until every corporation is selected and preserves owner reconnect projection',()=>{
+ let s=create(3);const owner=s.players[0]!,other=s.players[1]!,card=owner.research[0]!,corp=owner.corporations[0]!;
+ s=command(s,{type:'SETUP',corporationId:corp,cardIds:[card.tileId]},owner.playerId);
+ const mine=projection(s,owner.playerId),theirs=projection(s,other.playerId),hidden=theirs.playerStates.find(p=>p.playerId===owner.playerId)!;
+ assert.equal(hidden.corporationId,null);assert.deepEqual(hidden.resources,marsResources());assert.deepEqual(hidden.production,marsResources());assert.equal(hidden.ready,true);
+ assert.equal(JSON.stringify(theirs).includes(card.tileId),false);assert.equal(mine.playerStates.find(p=>p.playerId===owner.playerId)!.corporationId,corp);assert.ok(mine.privateState.hand.some(c=>c.tileId===card.tileId));
+ assert.deepEqual(projection(parseMarsState(structuredClone(s)),owner.playerId),mine);
+ for(const p of s.players.filter(p=>!p.ready))s=command(s,{type:'SETUP',corporationId:'Beginner',cardIds:[]},p.playerId);
+ assert.equal(projection(s,other.playerId).playerStates.find(p=>p.playerId===owner.playerId)!.corporationId,corp);
+});
+test('Mars cancelling an unpaid card preserves resources, private cards, special design and action allowance',()=>{
+ let s=ready();rich(s);const c=give(s,'PowerPlant');s.players[0]!.specialDesign=true;const before=structuredClone(s);
+ s=act(s,o=>o.kind==='CARD'&&o.targetId===c.tileId);const pending=projection(s);assert.equal(pending.privateState.payment?.cancelable,true);
+ assert.equal(projection(s,s.players[1]!.playerId).privateState.payment,null);
+ const invalid=structuredClone(s);assert.equal(applyMarsAction(s,s.activePlayerId,{type:'PAY',payment:{money:0,steel:0,titanium:0,heat:0}},now,s.transitionId,random).ok,false);assert.deepEqual(s,invalid);
+ s=act(s,o=>o.kind==='CANCEL');assert.equal(s.payment,null);assert.deepEqual(s.players,before.players);assert.deepEqual(s.history,before.history);assert.equal(s.actionsTaken,before.actionsTaken);assert.equal(s.activePlayerId,before.activePlayerId);assert.equal(s.revision,before.revision+2);
+});
