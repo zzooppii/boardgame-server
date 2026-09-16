@@ -12,6 +12,22 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 const require=createRequire(import.meta.url);
 
+async function assertCampControlContrast(button){
+ const ratios=await button.evaluate(element=>{
+  const luminance=color=>{
+   const channels=color.match(/[\d.]+/g).slice(0,3).map(Number).map(value=>{const s=value/255;return s<=0.04045?s/12.92:((s+0.055)/1.055)**2.4;});
+   return channels[0]*0.2126+channels[1]*0.7152+channels[2]*0.0722;
+  };
+  const background=luminance(getComputedStyle(element).backgroundColor);
+  return [element,element.querySelector('small')].filter(Boolean).map(node=>{
+   const foreground=luminance(getComputedStyle(node).color);
+   return (Math.max(background,foreground)+0.05)/(Math.min(background,foreground)+0.05);
+  });
+ });
+ assert.ok(ratios.every(ratio=>ratio>=4.5),`Camp control text contrast is too low: ${ratios.join(', ')}`);
+}
+
+
 test('Arnak desktop/mobile: cards, dig, cleanup, five rounds, resume, results, rematch, research, purchase and discovery', {timeout:240000}, async t=>{
  const url=process.env.ARNAK_BROWSER_URL;
  assert.ok(url,'Set ARNAK_BROWSER_URL to a disposable local server.');
@@ -298,9 +314,9 @@ test('Arnak desktop/mobile: cards, dig, cleanup, five rounds, resume, results, r
  assert.equal(await other.locator('.ar-hand .ar-card').count(),handBeforeOvercome-paymentCards);
  for(const peer of pages)assert.equal(await revealed(peer).locator('.ar-site-guardian').count(),0);
  const ownedGuardian=()=>other.locator('.ar-assistants[aria-label="내 조수와 수호자"]').getByRole('button').filter({hasText:guardianName});
- assert.match(await ownedGuardian().innerText(),/축복 사용 가능.*5 VP/);
+ assert.match(await ownedGuardian().innerText(),/축복 사용 가능.*5 VP/);await assertCampControlContrast(ownedGuardian());
  await other.reload();await other.locator('.ar-hand').waitFor();assert.match(await ownedGuardian().innerText(),/축복 사용 가능.*5 VP/);
- await ownedGuardian().click();await confirm(other);await settleEffects();assert.match(await ownedGuardian().innerText(),/축복 사용 완료.*5 VP/);
+ await ownedGuardian().click();await confirm(other);await settleEffects();assert.match(await ownedGuardian().innerText(),/축복 사용 완료.*5 VP/);await assertCampControlContrast(ownedGuardian());
  const beforeSafeReturn=await cardTotal(other);
  await finishTurn();await choose(other,/^이번 라운드 패스$/);await choose(other,/^패스 확정$/);
  assert.equal(await other.locator('.ar-roundbar li.current').innerText(),'IV');
@@ -435,7 +451,7 @@ for(const playerCount of [3,4]){
       const assistant=choices[0].replace(/^ϟ\s*/,'').replace(/ 고용$/,'');
       await hiring().first().getByRole('button').click();await confirm(page);
       const owned=()=>page.locator('.ar-assistants[aria-label="내 조수와 수호자"] button').filter({hasText:assistant});
-      assert.equal(await owned().count(),1);assert.match(await owned().innerText(),/☆.*사용 가능/s);
+      assert.equal(await owned().count(),1);assert.match(await owned().innerText(),/☆.*사용 가능/s);await assertCampControlContrast(owned());
       for(const peer of pages){
        assert.equal(await peer.locator('.ar-supply button').filter({hasText:assistant}).count(),0);
        if(peer!==page){

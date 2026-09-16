@@ -27,3 +27,14 @@
 .ar-journal summary{font-size:13px;font-weight:700}.ar-journal p{line-height:1.6}.ar-journal-filters{display:flex;flex-wrap:wrap;gap:8px;align-items:end}.ar-journal-filters label{flex:1;min-width:110px;display:flex;flex-direction:column;gap:5px}.ar-journal-filters select{width:100%;min-width:0;padding:8px;border:1px solid #ae986b;border-radius:6px;background:#f5ead0;color:#293d30;font:12px sans-serif}.ar-journal-filters select:focus-visible{outline:3px solid #257d80;outline-offset:2px}.ar-journal li span{overflow-wrap:anywhere;line-height:1.6}.ar-journal button{font-size:11px}
 
 .ar-expedition-results{background:linear-gradient(#ece1c5ed,#ece1c5fa),url('/images/arnak/camp.webp') center/cover}.ar-expedition-results .ar-result-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,160px),1fr));gap:12px;margin:22px 0}.ar-expedition-results .ar-result-cards article{min-width:0;margin:0;padding:18px;border:1px solid #b8a075;border-radius:9px;background:#f8efda}.ar-expedition-results .ar-result-cards .ar-result-winner{border:2px solid #927035;box-shadow:0 4px 16px #5e452e24;background:#fff2ce}.ar-result-badge{font:12px sans-serif;color:#5e6c42}.ar-score-details{text-align:left;margin:20px 0;padding:14px;background:#f5ead2;border:1px solid #b8a075;border-radius:8px}.ar-score-details summary{font-weight:700;font-size:14px}.ar-score-details p{font:12px/1.6 sans-serif}.ar-score-scroll{max-width:100%;overflow-x:auto;margin-top:12px}.ar-score-scroll:focus-visible{outline:3px solid #257d80;outline-offset:2px}.ar-score-scroll table{border-collapse:collapse;width:100%;min-width:420px;font:13px/1.5 sans-serif}.ar-score-scroll caption{text-align:left;font-size:12px;padding:6px 0 12px}.ar-score-scroll th,.ar-score-scroll td{padding:10px;border-bottom:1px solid #b8a07566;text-align:right}.ar-score-scroll th:first-child{text-align:left}.ar-score-scroll th small{display:block;font-size:10px;color:#55734b}.ar-score-scroll tfoot{font-weight:700;background:#e6dabd}.ar-score-penalty{color:#983d32}.ar-result-cards h3{overflow-wrap:anywhere}
+
+/* Light camp controls must not inherit the camp's light foreground. */
+.arnak-screen .ar-camp button{color:var(--ar-ink)}
+.arnak-screen .ar-assistants button{text-align:left;min-height:56px;max-width:100%}
+.ar-assistants button>span:last-child{padding:8px 0;line-height:1.4;overflow-wrap:anywhere}
+.ar-assistants button small{font-size:11px;line-height:1.4;color:#445143}
+.arnak-screen .ar-assistants button.ready{background:#f4e6bb;border:2px solid #b99645;outline:none}
+.arnak-screen .ar-assistants button.spent{background:#d1d3c4;border:1px dashed #69725c}
+.arnak-screen .ar-assistants button.ready:hover{background:#fff3d8}
+.arnak-screen .ar-assistants button.spent:hover{background:#e3e5d7}
+.arnak-screen .ar-assistants button:focus-visible{outline:3px solid #f4d58a;outline-offset:4px}
