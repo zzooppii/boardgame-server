@@ -1,6 +1,7 @@
 import * as v from 'valibot';
 import {GameIdSchema, PlayerIdSchema, TileIdSchema} from '../../identifiers.js';
-import {SpeakeasyOperationSchema} from './contracts.js';
+import {SpeakeasyOperationSchema, SpeakeasyBuildingKindSchema, SpeakeasyBuildingViewSchema, SpeakeasyDistrictIdSchema} from './contracts.js';
+import {SpeakeasyLucianoViewSchema} from './luciano.js';
 import {SpeakeasyRestaurantActionSchema, SpeakeasyDeckSchema} from './restaurant.js';
 
 export const SpeakeasyLocationSchema = v.picklist([
@@ -48,3 +49,30 @@ export const SpeakeasyTurnViewSchema = v.strictObject({
   }),
 });
 export type SpeakeasyTurnView = v.InferOutput<typeof SpeakeasyTurnViewSchema>;
+
+const level = v.pipe(count,v.minValue(1),v.maxValue(5));
+const truck = v.strictObject({tileId:TileIdSchema,district:v.nullable(SpeakeasyDistrictIdSchema),barrels:v.array(TileIdSchema)});
+/** Screen snapshot: visible board + authenticated player's personal board. No canonical state. */
+export const SpeakeasyBoardViewSchema = v.strictObject({
+  turn:SpeakeasyTurnViewSchema,
+  districts:v.pipe(v.array(v.strictObject({id:SpeakeasyDistrictIdSchema,blocked:v.boolean(),cop:v.boolean(),
+    slots:v.array(v.nullable(SpeakeasyBuildingViewSchema)),mobsterSlots:v.array(v.picklist([0,1,2])),mobsterStrength:v.nullable(count)})),v.length(16)),
+  trucks:v.array(v.strictObject({tileId:TileIdSchema,ownerId:PlayerIdSchema,district:SpeakeasyDistrictIdSchema,load:count})),
+  docks:v.array(v.strictObject({ownerId:PlayerIdSchema,zone:v.picklist([0,1,2]),space:count})),
+  placedBooks:v.array(v.strictObject({ownerId:PlayerIdSchema,goalId:v.string(),space:v.picklist([0,1])})),
+  self:v.strictObject({
+    levels:v.strictObject({VIP:level,PARTY:level,STILLS:level,FLEET:level,STRENGTH:level}),
+    leverageTokens:count,operations:SpeakeasyTurnViewSchema.entries.self.entries.hand,
+    reserves:v.array(v.strictObject({tileId:TileIdSchema,kind:SpeakeasyBuildingKindSchema,cost:count,group:v.nullable(v.picklist([0,1,2]))})),
+    vip:count,familyReserve:count,goons:count,stock:v.array(TileIdSchema),trucks:v.array(truck),
+    books:count,bookReserve:count,crates:v.array(count),
+    helpers:v.array(v.strictObject({tileId:TileIdSchema,bottle:v.string(),value:v.picklist([5,10,20]),used:v.boolean()})),
+    associate:v.nullable(v.strictObject({district:SpeakeasyDistrictIdSchema,strength:count,fee:count,defenseBonus:count,
+      protectionBonus:count,stillsImmune:v.boolean(),freeUseAvailable:v.boolean(),takeoverDiscount:count})),
+  }),
+  luciano:v.nullable(SpeakeasyLucianoViewSchema),
+  result:v.nullable(v.strictObject({winners:v.array(PlayerIdSchema),scores:v.array(v.strictObject({
+    playerId:PlayerIdSchema,total:count,buildingMoney:count,helperMoney:count,tieBreak:v.pipe(v.array(count),v.length(4)),
+  }))})),
+});
+export type SpeakeasyBoardView = v.InferOutput<typeof SpeakeasyBoardViewSchema>;

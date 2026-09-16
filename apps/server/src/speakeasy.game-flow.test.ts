@@ -504,3 +504,100 @@ test('Final scoring projection clears acting identity and per-turn prompts',()=>
   assert.deepEqual(view.self.drawDecks,[]);assert.equal(view.self.returnCount,0);
   assert.ok(!JSON.stringify(view).includes('mobster-'));
 });
+
+import {projectSpeakeasyBoard} from './games/speakeasy/application/board-projector.js';
+import {SpeakeasyBoardViewSchema} from '@hangul-rummikub/shared';
+test('Board snapshots validate for 2/3/4 players and keep personal boards scoped to the recipient',()=>{
+  for(const count of [2,3,4]) {
+    const s=setup(count);
+    for(const p of s.round.economy.players) {
+      const view=projectSpeakeasyBoard(s,p.playerId)!;
+      assert.deepEqual(parse(SpeakeasyBoardViewSchema,JSON.parse(JSON.stringify(view))),view);
+      assert.deepEqual(view.self.levels,p.levels);assert.deepEqual(view.self.reserves,p.reserves);
+      assert.deepEqual(view.self.operations,p.operations);assert.equal(view.turn.viewerId,p.playerId);
+      assert.equal(view.result,null);assert.equal(view.luciano,null);assert.equal(view.districts.length,16);
+      for(const other of s.round.economy.players.filter(q=>q.playerId!==p.playerId)) {
+        const wire=JSON.stringify(view);
+        for(const id of [...other.hand.map(c=>c.tileId),...other.reserves.map(c=>c.tileId),...other.operations.map(c=>c.tileId)]) assert.ok(!wire.includes(id));
+      }
+    }
+  }
+  assert.equal(projectSpeakeasyBoard(setup(),parse(PlayerIdSchema,'outsider')),null);
+});
+test('Board projection retains exact empty and mobster slots and recalculates police protection',()=>{
+  const s=setup(),e=s.round.economy,p=e.players[0]!,d=e.districts[0]!;
+  const piece=p.reserves.shift()!,barrel=e.barrelSupply.pop()!;
+  d.slots=[null,{piece,ownerId:a,familyId:null,barrelId:barrel},null];d.cop=true;d.mobsterSlots=[2];d.mobsterStrength=4;
+  e.districts[15]!.blocked=true;
+  const before=projectSpeakeasyBoard(s,b)!;
+  assert.equal(before.districts[0]!.slots.length,3);assert.equal(before.districts[0]!.slots[0],null);
+  assert.equal(before.districts[0]!.slots[1]!.tileId,piece.tileId);
+  assert.equal(before.districts[0]!.slots[1]!.operating,false);assert.equal(before.districts[0]!.slots[1]!.barrel,true);
+  assert.deepEqual(before.districts[0]!.mobsterSlots,[2]);assert.equal(before.districts[0]!.mobsterStrength,4);
+  assert.equal(before.districts[15]!.blocked,true);
+  d.slots[1]!.familyId=p.vip.pop()!;
+  const after=projectSpeakeasyBoard(s,b)!;
+  assert.equal(after.districts[0]!.slots[1]!.operating,true);assert.equal(after.districts[0]!.slots[1]!.protected,true);
+  assert.equal(after.districts[0]!.slots[1]!.barrel,true);
+  assert.ok(!JSON.stringify(after).includes(barrel));
+});
+test('Map trucks disclose position and load but not cargo identities; docks and books keep board coordinates',()=>{
+  const s=setup(),e=s.round.economy,p=e.players[0]!;
+  p.trucks[0]!.district=3;p.trucks[0]!.barrels.push(e.barrelSupply.pop()!,e.barrelSupply.pop()!);
+  e.docks.push({ownerId:a,familyId:p.vip.pop()!,zone:1,space:4});
+  p.books--;e.placedBooks.push({ownerId:a,goalId:'test-goal',space:1});
+  const view=projectSpeakeasyBoard(s,b)!;
+  assert.deepEqual(view.trucks,[{tileId:p.trucks[0]!.tileId,ownerId:a,district:3,load:2}]);
+  for(const id of p.trucks[0]!.barrels) assert.ok(!JSON.stringify(view).includes(id));
+  assert.deepEqual(view.docks,[{ownerId:a,zone:1,space:4}]);
+  assert.deepEqual(view.placedBooks,[{ownerId:a,goalId:'test-goal',space:1}]);
+  assert.deepEqual(projectSpeakeasyBoard(s,a)!.self.trucks,p.trucks);
+});
+test('Opponent private economy and unrevealed supplies cannot change the board snapshot',()=>{
+  const s=cityGame(),p=s.round.economy.players[1]!;
+  p.helpers.push({tileId:tile('secret-helper'),bottle:'private-bottle',value:5,used:false});
+  const before=projectSpeakeasyBoard(s,a),changed=structuredClone(s),other=changed.round.economy.players[1]!;
+  other.cash=999;other.safe=888;other.levels.VIP=5;other.leverageTokens=10;
+  other.hand.reverse();other.operations[0]!.leverage=9;other.helpers[0]!.bottle='different-bottle';
+  other.reserves.reverse();other.stock.push(changed.round.economy.barrelSupply.pop()!);
+  changed.round.decks.PARTY.reverse();changed.city.supply[0]![0]!.effectId='hidden-other-effect';
+  assert.deepEqual(projectSpeakeasyBoard(changed,a),before);
+  assert.ok(!JSON.stringify(before).includes('secret-helper'));
+});
+test('Board snapshot is detached, restoration-stable, and rejects corrupted canonical state',()=>{
+  const s=cityGame(),before=structuredClone(s),view=projectSpeakeasyBoard(s,a)!;
+  assert.deepEqual(projectSpeakeasyBoard(parseSpeakeasyGameFlow(JSON.parse(JSON.stringify(s))),a),view);
+  view.self.levels.VIP=5;view.self.reserves.pop();view.self.trucks[0]!.barrels.push(tile('local-only'));
+  view.districts[0]!.slots.pop();view.turn.self.hand.pop();
+  assert.deepEqual(s,before);
+  const bad=structuredClone(s);bad.round.economy.districts[0]!.slots[0]={piece:bad.round.economy.players[0]!.reserves[0]!,ownerId:a,familyId:null,barrelId:null};
+  assert.throws(()=>projectSpeakeasyBoard(bad,a));
+});
+test('Luciano board snapshot uses the same revision and revealed state without exposing remaining mobs',()=>{
+  let s=finishAct(setup());const piece=s.round.economy.players[0]!.reserves.shift()!;
+  s.round.economy.districts[0]!.slots[0]={piece,ownerId:a,familyId:null,barrelId:null};
+  s=war(s);s=value(advanceSpeakeasyMobWar(s,guard(s)));
+  const view=projectSpeakeasyBoard(s,b)!;
+  assert.equal(view.luciano!.phase,'DEFENSE');assert.equal(view.turn.actorId,a);
+  assert.equal(view.luciano!.revision,view.turn.revision);assert.equal(view.luciano!.self.playerId,b);
+  assert.equal(view.luciano!.districts[0]!.buildings[0]!.tileId,view.districts[0]!.slots[0]!.tileId);
+  const changed=structuredClone(s);changed.luciano!.deck[0]!.strength++;
+  assert.deepEqual(projectSpeakeasyBoard(changed,b),view);
+  assert.ok(!JSON.stringify(view).includes(changed.luciano!.deck[0]!.tileId));
+});
+test('Final results appear only after final settlement and preserve joint winners without revealing hands',()=>{
+  let s=setup();
+  for(let act=1;act<=4;act++) {
+    assert.equal(projectSpeakeasyBoard(s,a)!.result,null);
+    s=finishAct(s);
+    if(act<4) {s=finishWar(war(s));s=value(beginSpeakeasyNextAct(s,guard(s)));}
+  }
+  const view=projectSpeakeasyBoard(s,a)!;
+  assert.equal(view.turn.stage,'FINAL_SCORING');assert.deepEqual(view.result!.winners,[a,b]);
+  assert.deepEqual(view.result!.scores.map(p=>p.total),[45,45]);
+  assert.ok(view.result!.scores.every(p=>p.tieBreak.length===4));
+  // The fixture includes both deck-VIP-1 and deck-VIP-10: compare full encoded IDs, not prefixes.
+  assert.ok(view.turn.self.hand.some(card=>card.tileId===tile('deck-VIP-10')));
+  for(const card of s.round.economy.players[1]!.hand) assert.ok(!JSON.stringify(view).includes(JSON.stringify(card.tileId)));
+  assert.ok(!Object.hasOwn(view.result!.scores[1]!,'safe'));
+});
