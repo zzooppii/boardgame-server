@@ -23,6 +23,13 @@ export function ResourceReceipt({receipt}:{receipt:MarsResourceReceipt|null}){
 export function ActionGuide({game:g}:{game:MarsProjection}){
  if(g.phase==='FINISHED'||g.stage==='SETUP'||g.stage==='RESEARCH'||g.activePlayerId!==g.privateState.playerId)return null;
  if(g.privateState.cardChoice)return null;
+ if(g.privateState.offers.some(o=>o.id.startsWith('initial-award:')))return <div className="tm-action-guide" role="status"><strong>비토르의 첫 행동 · 기업상 무료 후원</strong><p>후원할 기업상을 선택하세요. 점수는 게임 종료 시 해당 기업상의 순위로 결정됩니다.</p></div>;
+ if(g.privateState.offers.some(o=>o.id.startsWith('instant:')))return <div className="tm-action-guide" role="status"><strong>손패에서 프로젝트 1장을 실행하세요</strong><p>프렐류드의 할인 또는 전역 조건 완화는 이번 프로젝트에만 적용됩니다. 카드 선택 후 지불을 확정하세요.</p></div>;
+ if(g.privateState.offers.some(o=>o.id.startsWith('prelude:')))return <div className="tm-action-guide" role="status"><strong>프렐류드 실행 순서를 선택하세요</strong><p>앞 카드에서 얻은 자원으로 다음 카드를 실행할 수 있습니다. 필수 효과를 실행할 수 없는 카드는 공개하고 버려 15 M€를 받습니다.</p></div>;
+ if(g.privateState.offers.some(o=>o.id.startsWith('olympus:')))return <div className="tm-action-guide" role="status"><strong>과학 태그 효과를 선택하세요</strong><p>과학 자원을 추가하거나 기존 과학 자원 1개로 카드 1장을 뽑습니다. 과학 태그가 여러 개면 각각 처리합니다.</p></div>;
+ if(g.privateState.offers.some(o=>o.id.startsWith('viral:')))return <div className="tm-action-guide" role="status"><strong>식물 또는 카드 자원을 선택하세요</strong><p>자원은 방금 낸 카드에만 추가할 수 있습니다. 대상 카드에 자원 칸이 없으면 식물을 얻습니다.</p></div>;
+ if(g.privateState.offers.some(o=>o.id.startsWith('copy-resource:')))return <div className="tm-action-guide" role="status"><strong>자원을 추가할 카드를 선택하세요</strong><p>이미 자원이 있는 내 카드에 같은 종류 1개를 추가합니다.</p></div>;
+ if(g.privateState.offers.some(o=>o.id.startsWith('energy-sale:')))return <div className="tm-action-guide" role="status"><strong>전환할 에너지 수량을 선택하세요</strong><p>선택한 에너지만큼 M€를 받습니다. 생산량은 변하지 않습니다.</p></div>;
  if(g.privateState.offers.some(o=>o.id.startsWith('transfer-energy:')))return <div className="tm-action-guide" role="status"><strong>에너지 생산을 이전할 기업을 선택하세요</strong><p>대상 생산 −1, 내 생산 +1입니다. 자기 대상은 변화가 없고, 모두의 생산이 0이면 내 생산 0을 유지합니다. 보유 에너지와 서식지 보호는 영향을 받지 않습니다.</p></div>;
  if(g.privateState.offers.some(o=>o.id.startsWith('reduce:')))return <div className="tm-action-guide" role="status"><strong>생산량을 줄일 기업을 선택하세요</strong><p>필수 효과로 생략할 수 없습니다. 자신도 선택할 수 있습니다. M€ 생산 하한은 -5, 다른 생산 하한은 0입니다. 보유 자원은 줄지 않으며 서식지 보호로 막을 수 없습니다.</p></div>;
  if(g.privateState.offers.some(o=>o.id.startsWith('attack-stock:')||o.id.startsWith('attack-card:')))return <div className="tm-action-guide" role="status"><strong>대상과 자원 수량을 확인하세요</strong><p>한 대상의 수량 하나를 선택한 뒤 확정하세요. 제거는 자원을 없애고, 탈취는 같은 수량을 가져옵니다. 생략할 수도 있습니다.</p></div>;

@@ -63,6 +63,22 @@ async function harness(t: TestContext, count = 2, initialGame: GameType = "TERRA
     return { server, host, members, lobby, connect, bootstrap, request, send, call, success, failure, sync, selection, readyAll };
 }
 function mars(s:PlatformSnapshotV2){if(s.game?.gameType!=='TERRAFORMING_MARS')throw new Error('Expected Mars');return s.game;}
+test('Mars corporate configuration is host-only, revision-scoped, idempotent, public and frozen after start',async t=>{
+ const h=await harness(t);let s=await h.sync();
+ const c=h.request('mars:configure',{corporateEra:true},{expectedRoomRevision:s.versions.roomRevision});
+ assert.equal(h.failure(await h.send(h.members[1]!.client,c)),'HOST_ONLY');
+ s=h.success(await h.send(h.host,c));assert.ok(s.room.gameType==='TERRAFORMING_MARS');assert.equal(s.room.settings?.corporateEra,true);
+ assert.equal(h.success(await h.send(h.host,c)).versions.roomRevision,s.versions.roomRevision);
+ assert.equal(h.failure(await h.send(h.host,{...c,requestId:'corporate-stale',payload:{corporateEra:false}})),'STALE_ROOM_REVISION');
+ const peer=await h.sync(h.members[1]!.client);assert.ok(peer.room.gameType==='TERRAFORMING_MARS');assert.equal(peer.room.settings?.corporateEra,true);
+ const configure=h.request('mars:configure',{corporateEra:false},{expectedRoomRevision:s.versions.roomRevision});
+ const start=h.request('game:start',{}, {expectedRoomRevision:s.versions.roomRevision});
+ const replies=await Promise.all([h.send(h.host,start),h.send(h.host,configure)]);
+ assert.equal(replies.filter(raw=>v.parse(StateSyncWireAckSchema,raw).ok).length,1);
+ s=await h.sync();if(!s.game)s=h.success(await h.call(h.host,'game:start',{}, {expectedRoomRevision:s.versions.roomRevision}));
+ assert.equal(h.failure(await h.call(h.host,'mars:configure',{corporateEra:true},{expectedRoomRevision:s.versions.roomRevision})),'INVALID_PHASE');
+ assert.equal(h.failure(await h.call(h.host,'mars:configure',{corporateEra:'true'},{expectedRoomRevision:s.versions.roomRevision})),'INVALID_PAYLOAD');
+});
 test('Mars sockets preserve private state, pending payment and idempotency across reconnect',async t=>{
  const h=await harness(t,3);let s=await h.sync();s=h.success(await h.call(h.host,'game:start',{}, {expectedRoomRevision:s.versions.roomRevision}));assert.equal(mars(s).playerStates.length,3);
  const act=async(client:Client,payload:unknown)=>{const g=mars(await h.sync(client));assert.ok(g.phase==='PLAYING');return h.call(client,'mars:act',payload,{gameId:g.gameId,expectedGameRevision:g.gameRevision,turnId:g.turnId});};
@@ -84,12 +100,13 @@ test('Mars sockets preserve private state, pending payment and idempotency acros
  assert.equal(first.oceans,1);assert.deepEqual(second,first,'Repeated placement must not charge or reward twice');
 });
 
-for(const count of [3,4,5])test(`Mars ${count}-player simultaneous research, reconnect and full game through scoring`,{timeout:180000},async t=>{
+for(const corporateEra of [false,true])for(const count of (corporateEra?[2,3,4,5]:[3,4,5]))test(`Mars ${corporateEra?'corporate':'base'} ${count}-player simultaneous research, reconnect and full game through scoring`,{timeout:180000},async t=>{
  const h=await harness(t,count);let s=await h.sync();
+ if(corporateEra)s=h.success(await h.call(h.host,'mars:configure',{corporateEra:true},{expectedRoomRevision:s.versions.roomRevision}));
  s=h.success(await h.call(h.host,'game:start',{}, {expectedRoomRevision:s.versions.roomRevision}));
  const commandFor=(g:ReturnType<typeof mars>,payload:unknown)=>{assert.equal(g.phase,'PLAYING');if(g.phase!=='PLAYING')throw new Error('Expected playing game');return h.request('mars:act',payload,{gameId:g.gameId,expectedGameRevision:g.gameRevision,turnId:g.turnId});};
  const freshAct=async(client:Client,payload:unknown)=>h.success(await h.send(client,commandFor(mars(await h.sync(client)),payload)));
- const setup=mars(s);
+ const setup=mars(s);assert.equal(setup.corporateEra,corporateEra);
  const replies=await Promise.all(h.members.map(m=>h.send(m.client,commandFor(setup,{type:'SETUP',corporationId:'Beginner',cardIds:[]}))));
  assert.equal(replies.filter(raw=>v.parse(StateSyncWireAckSchema,raw).ok).length,1,'Exactly one command may commit the shared revision.');
  for(const [i,raw] of replies.entries())if(!v.parse(StateSyncWireAckSchema,raw).ok){assert.equal(h.failure(raw),'STALE_GAME_REVISION');await freshAct(h.members[i]!.client,{type:'SETUP',corporationId:'Beginner',cardIds:[]});}
@@ -189,4 +206,35 @@ test('Mars private card choice sockets restore candidates and commit only once',
  const replay = mars(h.success(await h.send(resumed,command)));
  assert.deepEqual(replay,accepted);
  assert.equal(h.failure(await h.send(resumed,{...command,requestId:'private-choice-stale'})),'STALE_GAME_REVISION');
+});
+
+for(const corporateEra of [false,true])for(const count of [2,3,4,5])test(`Mars Prelude ${corporateEra?'with corporate':'base'} ${count}-player setup, reconnect and scoring`,{timeout:180000},async t=>{
+ const h=await harness(t,count);let snapshot=await h.sync();
+ snapshot=h.success(await h.call(h.host,'mars:configure',{corporateEra,prelude:true},{expectedRoomRevision:snapshot.versions.roomRevision}));
+ snapshot=h.success(await h.call(h.host,'game:start',{}, {expectedRoomRevision:snapshot.versions.roomRevision}));
+ const initial=await Promise.all(h.members.map(async m=>mars(await h.sync(m.client))));
+ const command=(g:ReturnType<typeof mars>,payload:unknown)=>{if(g.phase!=='PLAYING')throw new Error('Expected playing');return h.request('mars:act',payload,{gameId:g.gameId,expectedGameRevision:g.gameRevision,turnId:g.turnId});};
+ const fresh=async(client:Client,payload:unknown)=>mars(h.success(await h.send(client,command(mars(await h.sync(client)),payload))));
+ const inputs=initial.map(g=>({type:'SETUP',corporationId:'Beginner',cardIds:[],preludeIds:g.privateState.preludes!.slice(0,2).map(c=>c.tileId)}));
+ const replies=await Promise.all(h.members.map((m,i)=>h.send(m.client,command(initial[i]!,inputs[i]))));
+ assert.equal(replies.filter(r=>v.parse(StateSyncWireAckSchema,r).ok).length,1);
+ for(const [i,r] of replies.entries())if(!v.parse(StateSyncWireAckSchema,r).ok){assert.equal(h.failure(r),'STALE_GAME_REVISION');await fresh(h.members[i]!.client,inputs[i]);}
+ let current=mars(await h.sync());assert.equal(current.stage,'PRELUDE');assert.equal(current.prelude,true);
+ const owner=h.members.find(m=>m.playerId===current.activePlayerId)!;owner.client.disconnect();owner.client=await h.connect();
+ const restored=h.success(await h.call(owner.client,'session:resume',{credential:{...owner.credential,roomCode:snapshot.room.roomCode},lastSeenVersions:null}));
+ assert.equal(mars(restored).privateState.preludes?.length,2);
+ for(const member of h.members){const view=mars(await h.sync(member.client));for(const other of h.members.filter(m=>m!==member)){const hidden=mars(await h.sync(other.client)).privateState.preludes!;for(const c of hidden)assert.equal(JSON.stringify(view).includes(c.tileId),false);}}
+ let steps=0;
+ while(current.phase==='PLAYING'&&steps++<3000){
+  if(current.stage==='RESEARCH'){for(const member of h.members)current=await fresh(member.client,{type:'RESEARCH',cardIds:[]});continue;}
+  const actor=h.members.find(m=>m.playerId===current.activePlayerId)!;current=mars(await h.sync(actor.client));
+  if(current.privateState.payment){current=await fresh(actor.client,{type:'PAY',payment:{money:current.privateState.payment.cost,steel:0,titanium:0,heat:0}});continue;}
+  if(current.privateState.cardChoice){const choice=current.privateState.cardChoice;current=await fresh(actor.client,{type:'CHOOSE_CARDS',choiceId:choice.id,cardIds:choice.kind==='KEEP'?choice.cards.slice(0,choice.keepCount).map(c=>c.tileId):[]});continue;}
+  const offers=current.privateState.offers;
+  const choice=offers.find(o=>o.kind==='PLACE'||o.kind==='EFFECT')||offers.find(o=>o.id.startsWith('prelude:')||o.id.startsWith('instant:'))||offers.find(o=>o.id==='plants'&&current.oxygen<14)||offers.find(o=>o.id==='heat')||offers.find(o=>o.id==='project:aquifer')||offers.find(o=>o.id==='project:greenery'&&current.oxygen<14)||offers.find(o=>o.id==='project:asteroid')||offers.find(o=>o.id==='final-greenery')||offers.find(o=>o.kind==='END'||o.kind==='PASS');
+  assert.ok(choice,`${count} players ${current.stage} must continue`);
+  const request=command(current,{type:'TAKE',actionId:choice.id});current=mars(h.success(await h.send(actor.client,request)));
+  if(choice.id.startsWith('prelude:')){const replay=mars(h.success(await h.send(actor.client,request)));assert.equal(replay.gameRevision,current.gameRevision);assert.deepEqual(replay.playerStates,current.playerStates);}
+ }
+ assert.equal(current.phase,'FINISHED');if(current.phase==='FINISHED'){assert.equal(current.result.reason,'SCORED');assert.equal(current.result.scores.length,count);}
 });

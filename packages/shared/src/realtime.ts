@@ -606,6 +606,7 @@ export interface SnapshotWireClientToServerEvents {
   "patchwork:act": (command: Extract<PatchworkClientCommand,{kind:"patchwork:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "patchwork:configure": (command: Extract<PatchworkClientCommand,{kind:"patchwork:configure"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "arnak:act": (command: Extract<ArnakClientCommand,{kind:"arnak:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
+  "mars:configure": (command: Extract<MarsClientCommand,{kind:"mars:configure"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "mars:act": (command: Extract<MarsClientCommand,{kind:"mars:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "duel:configure": (command: Extract<DuelClientCommand,{kind:"duel:configure"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "duel:act": (command: Extract<DuelClientCommand,{kind:"duel:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;

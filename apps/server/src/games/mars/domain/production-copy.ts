@@ -4,7 +4,7 @@ const productionRules = new Set(['citiesEnergy', 'citiesIncome', 'plantTags', 'p
 /** Production boxes only. Placement rewards, immediate resources and passive triggers are excluded. */
 export function marsProductionBox(card: MarsDefinition, tiles: MarsProjection['tiles']): readonly MarsEffect[] {
     if (card.type === 'event' || !card.tags.includes('building')) return [];
-    if (card.id === 'MiningRights') {
+    if ((card.id === 'MiningRights' || card.id === 'MiningArea')) {
         const tile = tiles.find(t => t.source === card.id);
         const bonus = MARS_BOARD.find(b => b.id === tile?.spaceId)?.bonus;
         if (bonus?.includes('steel')) return [{ kind: 'production', resource: 'steel', amount: 1 }];

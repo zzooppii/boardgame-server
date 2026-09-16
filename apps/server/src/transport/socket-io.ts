@@ -3237,7 +3237,7 @@ function registerArnakHandlers(socket: RealtimeSocket, runtime: ApplicationRunti
 }
 import { MarsClientCommandSchema } from "@hangul-rummikub/shared";
 function registerMarsHandlers(socket: RealtimeSocket, runtime: ApplicationRuntime): void {
-  for (const event of ["mars:act"] as const) socket.on(event, (raw: unknown, acknowledge: (ack: StateSyncWireAck) => void) => {
+  for (const event of ["mars:act", "mars:configure"] as const) socket.on(event, (raw: unknown, acknowledge: (ack: StateSyncWireAck) => void) => {
     const receivedAt = runtime.clock.now(), command = parseNumberRematch(MarsClientCommandSchema, raw);
     if (!command.success || command.output.kind !== event) { acknowledgeIfPresent(acknowledge, failureAck(raw, INVALID_PAYLOAD_ERROR, receivedAt)); return; }
     void (async () => {

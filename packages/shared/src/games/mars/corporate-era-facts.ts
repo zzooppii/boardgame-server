@@ -1,4 +1,4 @@
-// Printed facts only. These cards are not part of the playable catalog yet.
+// Printed Corporate Era facts; executable definitions are assembled in corporate-era-catalog.ts.
 // Reference inventory: docs/TERRAFORMING_MARS_CORPORATE_ERA.md.
 import type { MarsResource } from './actions.js';
 

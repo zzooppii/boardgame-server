@@ -1,3 +1,4 @@
+import { MARS_CORPORATE_SPECIAL } from './corporate-era-special.js';
 import { MARS_CORPORATE_ERA_CARD_FACTS, type MarsCorporateCardFact } from './corporate-era-facts.js';
 import { MARS_CORPORATE_ERA_ECONOMIC_EFFECTS } from './corporate-era-economy.js';
 import { MARS_CORPORATE_ERA_ATTACK_EFFECTS } from './corporate-era-attacks.js';
@@ -9,7 +10,7 @@ import type { MarsEffect } from './catalog.js';
 import { MARS_CORPORATE_ERA_STANDARD_RULES } from './corporate-era-standard.js';
 
 type Execution = Readonly<{ effects: readonly MarsEffect[]; actions?: readonly MarsEffect[]; passive?: string }>;
-export type MarsPreparedCorporateCard = MarsCorporateCardFact & Execution;
+export type MarsPreparedCorporateCard = MarsCorporateCardFact & { id: typeof MARS_CORPORATE_ERA_CARD_FACTS[number]['id'] } & Execution;
 const immediate: Readonly<Record<string, readonly MarsEffect[]>> = {
     ...MARS_CORPORATE_ERA_ECONOMIC_EFFECTS,
     ...MARS_CORPORATE_ERA_ATTACK_EFFECTS,
@@ -28,7 +29,7 @@ const passive: Readonly<Record<string, string>> = {
     QuantumExtractor: '우주 태그 카드 비용 2 M€ 할인',
     MassConverter: '우주 태그 카드 비용 2 M€ 할인',
 };
-const execution: Record<string, Execution> = { ...MARS_CORPORATE_ERA_STANDARD_RULES };
+const execution: Record<string, Execution> = { ...MARS_CORPORATE_ERA_STANDARD_RULES, ...Object.fromEntries(Object.entries(MARS_CORPORATE_SPECIAL).map(([id, {name: _name, ...rules}]) => [id, rules])) };
 for (const [id, effects] of Object.entries(immediate)) execution[id] = { effects };
 for (const [id, description] of Object.entries(passive)) execution[id] = { ...(execution[id] ?? { effects: [] }), passive: description };
 for (const [id, actions] of Object.entries(MARS_CORPORATE_ERA_RESOURCE_ACTIONS)) execution[id] = { effects: [], actions };
@@ -36,7 +37,7 @@ execution.BusinessNetwork = { effects: MARS_CORPORATE_ERA_SELECTION_EFFECTS.Busi
 execution.InventorsGuild = { effects: [], actions: MARS_CORPORATE_ERA_SELECTION_ACTIONS.InventorsGuild };
 execution.MarsUniversity = { effects: [], passive: '과학 태그마다 손패 1장을 버리고 1장을 뽑을 수 있음. 자신의 태그 포함' };
 
-/** Prepared definitions only: never used as a partial expansion deck. */
+/** Complete Corporate Era definitions; the game selects the full expansion catalog at setup. */
 export const MARS_PREPARED_CORPORATE_CARDS: readonly MarsPreparedCorporateCard[] = MARS_CORPORATE_ERA_CARD_FACTS.flatMap(fact => {
     const rules = execution[fact.id];
     return rules ? [{ ...fact, ...rules }] : [];

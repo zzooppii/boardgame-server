@@ -29,6 +29,7 @@ test('Mars private choice: illustrations, selection, reconnect, mobile, heat pur
   await page.goto(url);pages.push(page);
  }
  const [host,guest]=pages;
+ const corporateEra=process.env.MARS_CORPORATE==='1';
  await host.getByLabel('닉네임',{exact:true}).fill('선택연구원');
  await host.locator('.game-option').filter({hasText:'테라포밍 마스'}).click();
  await host.getByRole('button',{name:'선택한 게임으로 방 만들기',exact:true}).click();
@@ -38,6 +39,13 @@ test('Mars private choice: illustrations, selection, reconnect, mobile, heat pur
  await guest.locator('#room-code').fill(code);
  await guest.getByRole('button',{name:'방 참가하기',exact:true}).click();
  await guest.locator('.tm-lobby').waitFor();
+ if(corporateEra){
+  assert.equal(await guest.getByRole('checkbox',{name:/기업시대/}).isDisabled(),true);
+  await host.getByRole('checkbox',{name:/기업시대/}).check();
+  await guest.getByText('프로젝트 208장',{exact:true}).waitFor();
+  await host.reload();await host.getByText('프로젝트 208장',{exact:true}).waitFor();assert.equal(await host.getByRole('checkbox',{name:/기업시대/}).isChecked(),true);
+  await host.screenshot({path:join(output,'corporate-lobby-desktop.png'),fullPage:true});
+ }
  await host.getByRole('button',{name:'테라포밍 시작 →'}).click();
  await host.getByRole('button',{name:'선택 확정',exact:true}).click();
  await host.getByText('다른 기업의 선택을 기다립니다',{exact:true}).waitFor();
@@ -177,7 +185,7 @@ test('Mars private choice: illustrations, selection, reconnect, mobile, heat pur
  await fixture({kind:'copyProduction'});const copyPage=ownerPage;
  await copyPage.getByText('복제할 생산량 상자를 선택하세요',{exact:true}).waitFor();
  await copyPage.reload();await copyPage.getByText('복제할 생산량 상자를 선택하세요',{exact:true}).waitFor();
- await copyPage.locator('.tm-offer').filter({hasText:'돔 분화구 생산량 복제'}).click();
+ await copyPage.locator('.tm-offer').filter({hasText:'돔 크레이터 생산량 복제'}).click();
  await copyPage.setViewportSize({width:320,height:740});assert.equal(await copyPage.evaluate(()=>document.documentElement.scrollWidth),320);
  await copyPage.screenshot({path:join(output,'production-copy-mobile.png'),fullPage:true});
  await copyPage.getByRole('button',{name:'행동 확정',exact:true}).click();
@@ -227,7 +235,7 @@ test('Mars private choice: illustrations, selection, reconnect, mobile, heat pur
  state.actionsTaken=0;state.revision++;state.transitionId=service.deps.ids.generateTurnId();
  const fishPrepared=await server.runtime.persistence.replace({candidate:transitionMars(room,parseMarsState(state),service.deps.clock.now()),expectedRoomRevision:room.roomRevision,expectedStorageRevision:room.storageRevision});assert.equal(fishPrepared.status,'REPLACED');await service.notify(room.roomId);
  await fishPage.getByRole('button',{name:'낸 카드',exact:true}).click();
- const fishCard=fishPage.locator('.tm-card').filter({has:fishPage.locator('.tm-card-top strong').filter({hasText:/^어류$/})});
+ const fishCard=fishPage.getByRole('button',{name:/^물고기 ·/});
  await fishCard.getByText('동물 1개당 1 VP',{exact:true}).waitFor();await fishCard.getByText('동물 1',{exact:true}).waitFor();
  await fishCard.click();await fishPage.getByRole('button',{name:'행동 확정',exact:true}).click();
  await fishCard.getByText('동물 2',{exact:true}).waitFor();
@@ -276,6 +284,24 @@ test('Mars private choice: illustrations, selection, reconnect, mobile, heat pur
  await transferPage.getByText('에너지 생산을 이전할 기업을 선택하세요',{exact:true}).waitFor({state:'detached'});
  room=await server.runtime.persistence.findByCode(code);state=parseMarsState(room.game.state);
  assert.ok(state.players.every(p=>p.production.energy===1));assert.deepEqual(state.players.map(p=>p.resources),energyStocks);
+ if(corporateEra){
+  const scienceOwner=state.players.find(p=>p.playerId===state.activePlayerId);let conference;
+  for(const zone of [state.deck,state.discard,...state.players.flatMap(p=>[p.hand,p.research,p.played])]){const index=zone.findIndex(c=>c.definitionId==='OlympusConference');if(index>=0){conference=zone.splice(index,1)[0];break;}}
+  assert.ok(conference);conference.resources=0;scienceOwner.hand.push(conference);scienceOwner.resources.money=100;scienceOwner.nextCardDiscount=0;state.actionsTaken=0;state.players.forEach(p=>p.handCount=p.hand.length);
+  state.revision++;state.transitionId=service.deps.ids.generateTurnId();
+  const readyScience=await server.runtime.persistence.replace({candidate:transitionMars(room,parseMarsState(state),service.deps.clock.now()),expectedRoomRevision:room.roomRevision,expectedStorageRevision:room.storageRevision});assert.equal(readyScience.status,'REPLACED');await service.notify(room.roomId);
+  const sciencePage=room.players.find(p=>p.playerId===scienceOwner.playerId).nickname==='선택연구원'?host:guest;
+  await sciencePage.getByLabel('카드 검색',{exact:true}).fill('Olympus');
+  await sciencePage.locator('.tm-hand-row .tm-card').filter({hasText:'Olympus Conference'}).click();await sciencePage.getByRole('button',{name:'행동 확정',exact:true}).click();
+  await sciencePage.getByRole('button',{name:'지불·실행 확정',exact:true}).click();
+  await sciencePage.getByText('과학 태그 효과를 선택하세요',{exact:true}).waitFor();await sciencePage.reload();await sciencePage.getByText('과학 태그 효과를 선택하세요',{exact:true}).waitFor();
+  await sciencePage.locator('.tm-offer').filter({hasText:'과학 자원 +1'}).click();await sciencePage.setViewportSize({width:320,height:740});assert.equal(await sciencePage.evaluate(()=>document.documentElement.scrollWidth),320);
+  await sciencePage.locator('.tm-confirm').screenshot({path:join(output,'olympus-self-trigger-mobile.png')});await sciencePage.getByRole('button',{name:'행동 확정',exact:true}).click();
+  await sciencePage.getByText('과학 태그 효과를 선택하세요',{exact:true}).waitFor({state:'detached'});
+  room=await server.runtime.persistence.findByCode(code);state=parseMarsState(room.game.state);assert.equal(state.players.find(p=>p.playerId===scienceOwner.playerId).played.find(c=>c.tileId===conference.tileId).resources,1);
+  await fixture({kind:'olympus'});await ownerPage.locator('.tm-offer').filter({hasText:'과학 자원 1 → 카드 1장'}).click();await ownerPage.getByRole('button',{name:'행동 확정',exact:true}).click();
+  await ownerPage.getByText('과학 태그 효과를 선택하세요',{exact:true}).waitFor({state:'detached'});
+ }
  assert.deepEqual(errors,[]);
  t.diagnostic(`Screenshots: ${output}`);
 });

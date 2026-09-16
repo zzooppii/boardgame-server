@@ -25,6 +25,8 @@ export function marsDiscountedCost(p: MarsEconomyPlayer, card: Pick<PrintedProje
     if (card.tags.includes('space')) for (const id of ['Shuttles', 'SpaceStation', 'QuantumExtractor', 'MassConverter']) if (has(p, id)) discount += 2;
     if (card.tags.includes('earth')) discount += (has(p, 'EarthOffice') ? 3 : 0) + (p.corporationId === 'Teractor' ? 3 : 0);
     if (card.tags.includes('power') && p.corporationId === 'Thorgate') discount += 3;
+    if(p.corporationId==='CheungShingMARS')discount+=2*card.tags.filter(t=>t==='building').length;
+    if(p.corporationId==='ValleyTrust')discount+=2*card.tags.filter(t=>t==='science').length;
     return Math.max(0, card.cost - discount - nextCardDiscount);
 }
 
@@ -54,14 +56,16 @@ export type MarsTagProductionRule = 'plantTags' | 'powerTags' | 'microbeTags' | 
 export function marsTagProduction(p: MarsEconomyPlayer, opponents: readonly MarsEconomyPlayer[], rule: MarsTagProductionRule) {
     const result = marsResources();
     switch (rule) {
-        case 'plantTags': result.plants = marsEconomyTags(p, 'plant'); break;
-        case 'powerTags': result.energy = marsEconomyTags(p, 'power'); break;
-        case 'microbeTags': result.plants = Math.floor(marsEconomyTags(p, 'microbe') / 2); break;
-        case 'nitrogen': result.plants = marsEconomyTags(p, 'plant') >= 3 ? 4 : 1; break;
-        case 'earthIncome': result.money = marsEconomyTags(p, 'earth'); break;
-        case 'buildingIncome': result.money = Math.floor(marsEconomyTags(p, 'building') / 2); break;
-        case 'spaceIncome': result.money = marsEconomyTags(p, 'space'); break;
+        case 'plantTags': result.plants = actionTags(p, 'plant'); break;
+        case 'powerTags': result.energy = actionTags(p, 'power'); break;
+        case 'microbeTags': result.plants = Math.floor(actionTags(p, 'microbe') / 2); break;
+        case 'nitrogen': result.plants = actionTags(p, 'plant') >= 3 ? 4 : 1; break;
+        case 'earthIncome': result.money = actionTags(p, 'earth'); break;
+        case 'buildingIncome': result.money = Math.floor(actionTags(p, 'building') / 2); break;
+        case 'spaceIncome': result.money = actionTags(p, 'space'); break;
         case 'opponentsSpaceIncome': result.money = opponents.reduce((sum, other) => sum + marsEconomyTags(other, 'space'), 0); break;
     }
     return result;
 }
+
+function actionTags(p:MarsEconomyPlayer,tag:string){return marsEconomyTags(p,tag)+marsEconomyTags(p,'wild');}

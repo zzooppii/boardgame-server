@@ -44,7 +44,7 @@ test('Mars herbivores trigger only for their owner and flooding resolves its own
 
 test('Mars Helion reserves mandatory heat costs before offering or paying for a card',()=>{let s=ready();const p=s.players[0]!;p.corporationId='Helion';p.resources.money=0;p.resources.heat=5;const c=give(s,'LocalHeatTrapping');assert.equal(marsOffers(s,p.playerId).some(o=>o.kind==='CARD'&&o.targetId===c.tileId),false);p.resources.money=1;s=act(s,o=>o.kind==='CARD'&&o.targetId===c.tileId);const before=structuredClone(s);assert.equal(applyMarsAction(s,p.playerId,{type:'PAY',payment:{money:0,steel:0,titanium:0,heat:1}},now,s.transitionId,random).ok,false);assert.deepEqual(s,before);s=command(s,{type:'PAY',payment:{money:1,steel:0,titanium:0,heat:0}});s=settle(s);assert.equal(s.players[0]!.resources.heat,0);assert.equal(s.players[0]!.resources.plants,4);});
 
-test('Mars action payment identifies the card by its readable name',()=>{let s=ready();rich(s);const c=give(s,'AquiferPumping',s.activePlayerId,true);s=act(s,o=>o.kind==='ACTION'&&o.targetId===c.tileId);assert.equal(projection(s).privateState.payment?.label,'대수층 펌프');assert.equal(projection(s).privateState.payment?.steel,true);});
+test('Mars action payment identifies the card by its readable name',()=>{let s=ready();rich(s);const c=give(s,'AquiferPumping',s.activePlayerId,true);s=act(s,o=>o.kind==='ACTION'&&o.targetId===c.tileId);assert.equal(projection(s).privateState.payment?.label,'지하수 개발');assert.equal(projection(s).privateState.payment?.steel,true);});
 
 test('Mars receiving available animal resources is mandatory, missing receivers may be skipped',()=>{
  let s=ready();rich(s);const fish=give(s,'Fish',s.activePlayerId,true),nitrogen=give(s,'ImportedNitrogen');

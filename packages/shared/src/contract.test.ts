@@ -4654,6 +4654,7 @@ test("runtime Socket.IO map은 Number events를 additive하게 제공하고 lega
     | "patchwork:act"
     | "patchwork:configure"
     | "arnak:act"
+    | "mars:configure"
     | "mars:act"
     | "duel:act"
     | "duel:configure"

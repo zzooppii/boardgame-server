@@ -1,11 +1,16 @@
+import { MARS_PRELUDE_FACTS, MARS_PRELUDE_PROJECT_FACTS, MARS_PRELUDE_CORPORATIONS } from './prelude.js';
+import { MARS_KOREAN_NAMES } from './korean-names.js';
+import { MARS_PREPARED_CORPORATE_CARDS } from './corporate-era-catalog.js';
+import type { MarsCorporateRequirement, MARS_CORPORATE_ERA_CARD_FACTS } from './corporate-era-facts.js';
 import { MARS_CARD_FACTS } from './card-facts.js';
 import { MARS_RESOURCE_NAMES, type MarsResource } from './actions.js';
 import type { MarsPlacementRule, MarsTileKind } from './board.js';
-export type MarsCardId = typeof MARS_CARD_FACTS[number]['id'];
+type BaseMarsCardId = typeof MARS_CARD_FACTS[number]['id'];
+export type MarsCardId = BaseMarsCardId | typeof MARS_CORPORATE_ERA_CARD_FACTS[number]['id'] | typeof MARS_PRELUDE_FACTS[number]['id'] | typeof MARS_PRELUDE_PROJECT_FACTS[number]['id'];
 export type MarsCardResource = 'animal' | 'microbe' | 'science' | 'fighter';
 export const MARS_CARD_RESOURCE_NAMES: Readonly<Record<string, string>> = { animal: '동물', microbe: '미생물', science: '과학', fighter: '전투기' };
 export type MarsResourceScore = Readonly<{ per: number; points: number }>;
-export type MarsEffect = {kind:'transferEnergyProduction'} | {kind:'attackStock';resource:MarsResource;amount:number;steal:boolean} | {kind:'removeCardResource';resource:MarsCardResource;amount:number} | {kind:'claimLand'} | {kind:'copyProduction'} | {kind:'protectHabitats'} | {kind:'exchangeCard'} | {kind:'nextCardDiscount';amount:8} | { kind: 'keepCards'; count: number; keep: number } | { kind: 'buyCard' } | {
+export type MarsEffect = {kind:'drawTag';tag:'plant'|'space';amount:number} | {kind:'instantProject';discount:number;ignoreGlobal:boolean} | {kind:'copyCardResource' | 'olympus' | 'viral' | 'energySale' | 'eventIncome' | 'jovianTr'} | {kind:'transferEnergyProduction'} | {kind:'attackStock';resource:MarsResource;amount:number;steal:boolean} | {kind:'removeCardResource';resource:MarsCardResource;amount:number} | {kind:'claimLand'} | {kind:'copyProduction'} | {kind:'protectHabitats'} | {kind:'exchangeCard'} | {kind:'nextCardDiscount';amount:8} | { kind: 'keepCards'; count: number; keep: number } | { kind: 'buyCard' } | {
     kind: 'stock' | 'production';
     resource: MarsResource;
     amount: number;
@@ -73,7 +78,7 @@ const choice = (...options: {
 }[]): MarsEffect => ({ kind: 'choice', options });
 const microbes = (amount: number, track: 'oxygen' | 'temperature' | 'tr'): MarsEffect => choice({ label: '미생물 1 추가', effects: [add('microbe', 1, true)] }, { label: `미생물 ${amount} 사용`, effects: [{ kind: 'consumeSelf', amount }, g(track)] });
 const r = (name: string, effects: readonly MarsEffect[] = [], actions?: readonly MarsEffect[], passive?: string): MarsRule => ({ name, effects, ...(actions ? { actions } : {}), ...(passive ? { passive } : {}) });
-const RULES: Record<MarsCardId, MarsRule> = {
+const RULES: Record<BaseMarsCardId, MarsRule> = {
     AdaptationTechnology: r('적응 기술', [], undefined, '전역 조건을 양방향으로 2단계 완화'),
     AdaptedLichen: r('적응된 지의류', [p('plants', 1)]),
     AdvancedEcosystems: r('발전된 생태계'),
@@ -213,6 +218,7 @@ const RULES: Record<MarsCardId, MarsRule> = {
     Zeppelins: r('비행선', [dynamic('citiesIncome')]),
 };
 export type MarsDefinition = {
+    corporateRequirements?: readonly MarsCorporateRequirement[];
     id: MarsCardId;
     name: string;
     englishName: string;
@@ -231,12 +237,32 @@ export type MarsDefinition = {
     resource: string | null;
     art: number;
 } & MarsRule;
-export const MARS_CARDS: readonly MarsDefinition[] = MARS_CARD_FACTS.map(f => { const tags: readonly string[] = f.id === 'MiningRights' ? ['building'] : f.tags; return { ...f, resourceScore: f.score === 'resources' ? { per: f.points, points: 1 } : null, ...RULES[f.id], englishName: f.name, tags, art: tags.includes('animal') ? 9 : tags.includes('microbe') ? 8 : tags.includes('plant') ? 1 : tags.includes('city') ? 0 : tags.includes('power') ? 6 : tags.includes('space') ? (f.type === 'event' ? 3 : 5) : tags.includes('science') ? 11 : tags.includes('building') ? 4 : 2 }; });
-export function marsCard(id: string): MarsDefinition { const c = MARS_CARDS.find(c => c.id === id); if (!c)
+export const MARS_CARDS: readonly MarsDefinition[] = MARS_CARD_FACTS.map(f => { const tags: readonly string[] = f.id === 'MiningRights' ? ['building'] : f.tags; return { ...f, resourceScore: f.score === 'resources' ? { per: f.points, points: 1 } : null, ...RULES[f.id], name: MARS_KOREAN_NAMES[f.id] ?? RULES[f.id].name, englishName: f.name, tags, art: tags.includes('animal') ? 9 : tags.includes('microbe') ? 8 : tags.includes('plant') ? 1 : tags.includes('city') ? 0 : tags.includes('power') ? 6 : tags.includes('space') ? (f.type === 'event' ? 3 : 5) : tags.includes('science') ? 11 : tags.includes('building') ? 4 : 2 }; });
+export const MARS_CORPORATE_CARDS: readonly MarsDefinition[] = MARS_PREPARED_CORPORATE_CARDS.map(c => ({
+    ...c, name: MARS_KOREAN_NAMES[c.id] ?? c.englishName, corporateRequirements: c.requirements,
+    requirements: c.requirements.map(r => r.kind === 'global' ? {kind:r.track,amount:r.amount,max:r.max} : {kind:r.kind === 'tag' ? r.tag : r.kind === 'production' ? `${MARS_RESOURCE_NAMES[r.resource]} 생산` : '전체 도시',amount:r.amount,max:false}),
+    score: c.score.kind === 'tag' ? c.score.tag : c.score.kind,
+    points: 'points' in c.score ? c.score.points : 0,
+    resourceScore: c.score.kind === 'resources' ? {per:c.score.per,points:c.score.points} : null,
+    art: c.tags.includes('microbe') ? 8 : c.tags.includes('city') ? 0 : c.tags.includes('power') ? 6 : c.tags.includes('space') ? 5 : c.tags.includes('science') ? 11 : c.tags.includes('building') ? 4 : 2,
+}));
+export const MARS_ALL_CARDS: readonly MarsDefinition[] = [...MARS_CARDS, ...MARS_CORPORATE_CARDS];
+export const MARS_PRELUDES: readonly MarsDefinition[] = MARS_PRELUDE_FACTS.map(f => ({cost:0,type:'prelude',score:'fixed',points:0,resourceScore:null,resource:null,requirements:[],art:marsPreludeArt(f.id,f.tags,f.effects),...(f.tags.some(t=>t==='wild')?{passive:'행동의 조건·효과·업적에 와일드 태그 사용. 태그 반응·기업상·종료 점수에는 제외'}:{}),...f}));
+export const MARS_PRELUDE_PROJECTS: readonly MarsDefinition[] = MARS_PRELUDE_PROJECT_FACTS.map(f => ({type:'automated',score:'fixed',points:0,resourceScore:null,resource:null,requirements:[],art:f.tags.some(t=>t==='science')?11:f.tags.some(t=>t==='microbe')?8:4,...f}));
+export function marsProjectCatalog(corporateEra = false, prelude = false): readonly MarsDefinition[] {return [...(corporateEra?MARS_ALL_CARDS:MARS_CARDS),...(prelude?MARS_PRELUDE_PROJECTS:[])];}
+export function marsCard(id: string): MarsDefinition { const c = [...MARS_ALL_CARDS,...MARS_PRELUDE_PROJECTS,...MARS_PRELUDES].find(c => c.id === id); if (!c)
     throw new Error('Unknown Mars card'); return c; }
-export const MARS_TAG_NAMES: Record<string, string> = { building: '건물', space: '우주', science: '과학', plant: '식물', animal: '동물', microbe: '미생물', earth: '지구', jovian: '목성', power: '에너지', city: '도시' };
+export const MARS_TAG_NAMES: Record<string, string> = { wild: '와일드', building: '건물', space: '우주', science: '과학', plant: '식물', animal: '동물', microbe: '미생물', earth: '지구', jovian: '목성', power: '에너지', city: '도시' };
 export function marsEffectText(e: MarsEffect): string {
     switch (e.kind) {
+        case 'drawTag': return `${MARS_TAG_NAMES[e.tag]} 태그 카드 ${e.amount}장까지 공개하며 찾기`;
+        case 'instantProject': return `손패 프로젝트 1장 즉시 실행 · ${e.ignoreGlobal?'전역 조건 무시':`${e.discount} M€ 할인`}`;
+        case 'copyCardResource': return '자원이 있는 내 카드에 같은 자원 +1';
+        case 'olympus': return '올림푸스 회의 · 과학 자원 추가 또는 카드 뽑기';
+        case 'viral': return '바이러스 강화제 · 식물 또는 방금 낸 카드의 자원 추가';
+        case 'energySale': return '원하는 에너지를 같은 수의 M€로 전환';
+        case 'eventIncome': return '모두가 낸 이벤트마다 M€ +1';
+        case 'jovianTr': return '이 카드를 포함한 내 목성 태그마다 TR +1';
         case 'attackStock': return `${e.steal?'상대 자원 탈취':'자원 제거'} · ${MARS_RESOURCE_NAMES[e.resource]} 최대 ${e.amount} (선택)`;
         case 'removeCardResource': return `카드 1장의 ${MARS_CARD_RESOURCE_NAMES[e.resource]} 최대 ${e.amount} 제거 (선택)`;
         case 'claimLand': return '빈 육지 1칸 예약 · 나만 타일 배치 가능';
@@ -247,7 +273,7 @@ export function marsEffectText(e: MarsEffect): string {
         case 'stock':
         case 'production': return `${MARS_RESOURCE_NAMES[e.resource]}${e.kind === 'production' ? ' 생산' : ''} ${e.amount >= 0 ? '+' : ''}${e.amount}`;
         case 'global': return `${{ oxygen: '산소', temperature: '기온', tr: 'TR' }[e.track]} +${e.amount}${e.track === 'tr' ? '' : '단계'}`;
-        case 'place': return `${{ city: '도시', greenery: '녹지', ocean: '해양', special: '특수 타일' }[e.tile]} 배치${e.rule === 'normal' ? '' : ` · ${{ oceanLand: '육지 칸', greeneryOcean: '해양 예약 칸', oceanSpecial: '해양 예약 칸', isolated: '다른 타일과 비인접', nextGreenery: '녹지 인접', twoCities: '도시 2개 이상 인접', volcano: '화산', mining: '강철·티타늄 보너스 칸', noctis: '녹티스 예약 칸', phobos: '포보스', ganymede: '가니메데' }[e.rule]}`}`;
+        case 'place': return `${{ city: '도시', greenery: '녹지', ocean: '해양', special: '특수 타일' }[e.tile]} 배치${e.rule === 'normal' ? '' : ` · ${{ nextCity: '도시 인접', miningArea: '내 타일 인접 금속 보너스 칸', oceanLand: '육지 칸', greeneryOcean: '해양 예약 칸', oceanSpecial: '해양 예약 칸', isolated: '다른 타일과 비인접', nextGreenery: '녹지 인접', twoCities: '도시 2개 이상 인접', volcano: '화산', mining: '강철·티타늄 보너스 칸', noctis: '녹티스 예약 칸', phobos: '포보스', ganymede: '가니메데' }[e.rule]}`}`;
         case 'keepCards': return `카드 ${e.count}장 열람 후 ${e.keep}장 선택`;
         case 'buyCard': return '카드 1장 열람 후 3 M€로 구매하거나 버리기';
         case 'draw': return `카드 ${e.amount}장 획득`;
@@ -269,12 +295,32 @@ export const MARS_CORPORATIONS = [
     { id: 'Helion', name: '헬리온', money: 42, tags: ['space'], art: 7, text: '열 생산 +3. M€ 대신 열을 1:1로 지불 가능' },
     { id: 'InterplanetaryCinematics', name: '인터플래너터리 시네마틱스', money: 30, tags: ['building'], art: 10, text: '강철 20. 이벤트 카드 실행 후 M€ 2 획득' },
     { id: 'Inventrix', name: '인벤트릭스', money: 45, tags: ['science'], art: 11, text: '첫 행동으로 카드 3장 획득. 전역 조건 양방향 2단계 완화' },
-    { id: 'MiningGuild', name: '마이닝 길드', money: 30, tags: ['building', 'building'], art: 4, text: '강철 5, 강철 생산 +1. 강철·티타늄 배치 보너스 획득 시 강철 생산 +1' },
-    { id: 'PhoboLog', name: '포보로그', money: 23, tags: ['space'], art: 5, text: '티타늄 10. 티타늄의 지불 가치는 4 M€' },
+    { id: 'MiningGuild', name: '광업협동조합', money: 30, tags: ['building', 'building'], art: 4, text: '강철 5, 강철 생산 +1. 강철·티타늄 배치 보너스 획득 시 강철 생산 +1' },
+    { id: 'PhoboLog', name: '포볼로그', money: 23, tags: ['space'], art: 5, text: '티타늄 10. 티타늄의 지불 가치는 4 M€' },
     { id: 'TharsisRepublic', name: '타르시스 공화국', money: 40, tags: ['building'], art: 0, text: '첫 행동으로 도시 배치. 화성 도시마다 M€ 생산 +1, 내가 도시를 배치하면 M€ 3 획득' },
     { id: 'Thorgate', name: '토르게이트', money: 48, tags: ['power'], art: 6, text: '에너지 생산 +1. 에너지 태그 카드와 일반 발전소 비용 3 M€ 할인' },
     { id: 'UnitedNationsMarsInitiative', name: '국제연합 화성계획', money: 40, tags: ['earth'], art: 11, text: '행동: 이번 세대 TR을 올렸다면 3 M€로 TR +1(세대당 1회)' },
 ] as const;
+export const MARS_ALL_CORPORATIONS = [...MARS_CORPORATIONS,
+    {id:'SaturnSystems',name:'새턴 시스템',money:42,tags:['jovian'],art:5,text:'티타늄 생산 +1. 누구든 목성 태그를 내면 내 M€ 생산 +1. 자기 기업 태그 포함'},
+    {id:'Teractor',name:'테렉터',money:60,tags:['earth'],art:10,text:'지구 태그 프로젝트 비용 3 M€ 할인'},
+];
 export function marsCorporation(id: string) { if (id === 'Beginner')
-    return { id: 'Beginner', name: '초보자 기업', money: 42, tags: [] as readonly string[], art: 10, text: '초기 카드 10장을 무료로 획득' }; const c = MARS_CORPORATIONS.find(c => c.id === id); if (!c)
+    return { id: 'Beginner', name: '초보자 기업', money: 42, tags: [] as readonly string[], art: 10, text: '초기 카드 10장을 무료로 획득' }; const c = [...MARS_ALL_CORPORATIONS,...MARS_PRELUDE_CORPORATIONS].find(c => c.id === id); if (!c)
     throw new Error('Unknown Mars corporation'); return c; }
+
+export function marsCorporationCatalog(corporateEra=false,prelude=false){return [...(corporateEra?MARS_ALL_CORPORATIONS:MARS_CORPORATIONS),...(prelude?MARS_PRELUDE_CORPORATIONS:[])];}
+
+function marsPreludeArt(id:string,tags:readonly string[],effects:readonly MarsEffect[]):number {
+ if(id.includes('Asteroid'))return 3;
+ if(effects.some(e=>e.kind==='place'&&e.tile==='city'))return 0;
+ if(tags.includes('science'))return 11;
+ if(tags.includes('plant')||effects.some(e=>e.kind==='place'&&e.tile==='greenery'))return 1;
+ if(tags.includes('microbe'))return 8;
+ if(effects.some(e=>e.kind==='place'&&e.tile==='ocean'))return 2;
+ if(tags.includes('space')||tags.includes('jovian'))return 5;
+ if(tags.includes('power'))return 6;
+ if(effects.some(e=>e.kind==='production'&&e.resource==='heat'))return 7;
+ if(tags.includes('building')||effects.some(e=>(e.kind==='stock'||e.kind==='production')&&['steel','titanium'].includes(e.resource)))return 4;
+ return 10;
+}

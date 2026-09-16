@@ -1,5 +1,5 @@
 export type MarsTileKind = 'city' | 'greenery' | 'ocean' | 'special';
-export type MarsPlacementRule = 'normal' | 'oceanLand' | 'greeneryOcean' | 'oceanSpecial' | 'isolated' | 'nextGreenery' | 'twoCities' | 'volcano' | 'mining' | 'noctis' | 'phobos' | 'ganymede';
+export type MarsPlacementRule = 'nextCity' | 'miningArea' | 'normal' | 'oceanLand' | 'greeneryOcean' | 'oceanSpecial' | 'isolated' | 'nextGreenery' | 'twoCities' | 'volcano' | 'mining' | 'noctis' | 'phobos' | 'ganymede';
 export type MarsSpace = {
     id: string;
     q: number;

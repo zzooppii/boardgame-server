@@ -1,21 +1,25 @@
+import { MARS_PRELUDES, marsProjectCatalog, marsCorporationCatalog } from '@hangul-rummikub/shared';
 import { marsBaseRequirements, marsRequirementReason } from './requirements.js';
 import { marsCanReduceProduction, marsEnergyProductionTargets } from './production-attacks.js';
 import { marsCardResourcePoints, marsAddedCardResources } from './card-resources.js';
 import { marsLandClaimsAreConsistent } from '@hangul-rummikub/shared';
 import { marsProductionBox } from './production-copy.js';
 import { marsCanRemoveResource } from './protection.js';
-import { marsScienceExchangeEffects } from './science.js';
+import { marsScienceExchangeEffects, marsCorporateTriggerEffects } from './science.js';
 import { marsEconomyTags, marsMetalValues, marsDiscountedCost, marsCardIncome, marsStandardProjectIncome, marsJovianProduction, marsTagProduction } from './economy.js';
 import { marsCorporationStart } from './corporation-start.js';
 import * as v from 'valibot';
-import { GameIdSchema, GameRevisionSchema, ServerTimeSchema, TurnIdSchema, MARS_CARDS, MARS_RESOURCES, MARS_BOARD, MARS_MILESTONES, MARS_AWARDS, MARS_CORPORATIONS, MarsPublicFields, MarsPlayerPublicSchema, MarsCardSchema, MarsCardChoiceSchema, PlayerIdSchema, MarsRefSchema, MarsCountSchema, MarsResultSchema, MarsActionSchema, marsResources, marsCard, marsAdjacent, marsEffectText, MARS_RESOURCE_NAMES, marsPaymentValue, type MarsEffect, type MarsDefinition, type MarsOffer, type MarsPlacementRule, type MarsTileKind, type GameId, type PlayerId, type TileId, type ServerTime, type TurnId } from '@hangul-rummikub/shared';
+import { GameIdSchema, GameRevisionSchema, ServerTimeSchema, TurnIdSchema, MARS_RESOURCES, MARS_BOARD, MARS_MILESTONES, MARS_AWARDS, MarsPublicFields, MarsPlayerPublicSchema, MarsCardSchema, MarsCardChoiceSchema, PlayerIdSchema, MarsRefSchema, MarsCountSchema, MarsResultSchema, MarsActionSchema, marsResources, marsCard, marsAdjacent, marsEffectText, MARS_RESOURCE_NAMES, marsPaymentValue, type MarsEffect, type MarsDefinition, type MarsOffer, type MarsPlacementRule, type MarsTileKind, type GameId, type PlayerId, type TileId, type ServerTime, type TurnId } from '@hangul-rummikub/shared';
 import type { RandomSource } from '../../../ports/system.js';
 const Resource = v.picklist(MARS_RESOURCES), CardResource = v.picklist(['animal', 'microbe', 'science', 'fighter']);
 const Effect: v.GenericSchema<MarsEffect> = v.lazy(() => v.variant('kind', [
+    v.strictObject({kind:v.literal('drawTag'),tag:v.picklist(['plant','space']),amount:MarsCountSchema}),
+    v.strictObject({kind:v.literal('instantProject'),discount:MarsCountSchema,ignoreGlobal:v.boolean()}),
+    ...(['copyCardResource','olympus','viral','energySale','eventIncome','jovianTr'] as const).map(kind => v.strictObject({kind:v.literal(kind)})),
     v.strictObject({ kind: v.literal('stock'), resource: Resource, amount: v.pipe(v.number(), v.safeInteger()) }),
     v.strictObject({ kind: v.literal('production'), resource: Resource, amount: v.pipe(v.number(), v.safeInteger()) }),
     v.strictObject({ kind: v.literal('global'), track: v.picklist(['oxygen', 'temperature', 'tr']), amount: MarsCountSchema }),
-    v.strictObject({ kind: v.literal('place'), tile: v.picklist(['city', 'greenery', 'ocean', 'special']), rule: v.picklist(['normal', 'oceanLand', 'greeneryOcean', 'oceanSpecial', 'isolated', 'nextGreenery', 'twoCities', 'volcano', 'mining', 'noctis', 'phobos', 'ganymede']) }),
+    v.strictObject({ kind: v.literal('place'), tile: v.picklist(['city', 'greenery', 'ocean', 'special']), rule: v.picklist(['nextCity', 'miningArea', 'normal', 'oceanLand', 'greeneryOcean', 'oceanSpecial', 'isolated', 'nextGreenery', 'twoCities', 'volcano', 'mining', 'noctis', 'phobos', 'ganymede']) }),
     v.pipe(v.strictObject({ kind: v.literal('keepCards'), count: v.pipe(MarsCountSchema, v.minValue(1), v.maxValue(4)), keep: v.pipe(MarsCountSchema, v.minValue(1), v.maxValue(4)) }), v.check(e => e.keep <= e.count)),
     v.strictObject({ kind: v.literal('buyCard') }),
     v.strictObject({ kind: v.literal('exchangeCard') }),
@@ -34,10 +38,10 @@ const Effect: v.GenericSchema<MarsEffect> = v.lazy(() => v.variant('kind', [
     v.strictObject({ kind: v.literal('dynamic'), rule: v.picklist(['citiesEnergy', 'citiesPlants', 'citiesMoney', 'citiesIncome', 'plantTags', 'powerTags', 'microbeTags', 'nitrogen', 'insulation', 'search', 'flooding', 'specialDesign', 'earthIncome', 'buildingIncome', 'spaceIncome', 'opponentsSpaceIncome']) }),
 ]));
 const Job = v.strictObject({ id: MarsCountSchema, source: MarsRefSchema, effect: Effect });
-const Player = v.strictObject({ ...MarsPlayerPublicSchema.entries, hand: v.array(MarsCardSchema), research: v.array(MarsCardSchema), corporations: v.array(MarsRefSchema), initialActionDone: v.boolean(), specialDesign: v.boolean(), nextCardDiscount: v.picklist([0, 8]) });
+const Player = v.strictObject({ ...MarsPlayerPublicSchema.entries, preludes:v.optional(v.array(MarsCardSchema),[]), preludeBonus:v.optional(v.boolean(),false), hand: v.array(MarsCardSchema), research: v.array(MarsCardSchema), corporations: v.array(MarsRefSchema), initialActionDone: v.boolean(), specialDesign: v.boolean(), nextCardDiscount: v.picklist([0, 8]) });
 const Payment = v.strictObject({ cost: MarsCountSchema, material: v.picklist(['none', 'steel', 'titanium', 'both']), source: MarsRefSchema, mode: v.picklist(['card', 'effect']), cardId: v.nullable(MarsRefSchema) });
 const { playerStates: _players, deckCount: _deck, discardCount: _discard, ...Public } = MarsPublicFields;
-const State = v.strictObject({ gameId: GameIdSchema, revision: GameRevisionSchema, rulesVersion: v.literal('mars-base-v1'), startedAt: ServerTimeSchema, finishedAt: v.nullable(ServerTimeSchema), phase: v.picklist(['PLAYING', 'FINISHED']), transitionId: TurnIdSchema, ...Public, players: v.array(Player), deck: v.array(MarsCardSchema), discard: v.array(MarsCardSchema), inventory: v.array(MarsCardSchema), frames: v.array(v.array(Job)), current: v.nullable(Job), payment: v.nullable(Payment), cardChoice: v.nullable(v.strictObject({ ownerId: PlayerIdSchema, view: MarsCardChoiceSchema })), nextJob: MarsCountSchema, actionInProgress: v.boolean(), lastSpace: v.nullable(MarsRefSchema), result: v.nullable(MarsResultSchema) });
+const State = v.strictObject({ gameId: GameIdSchema, revision: GameRevisionSchema, rulesVersion: v.literal('mars-base-v1'), startedAt: ServerTimeSchema, finishedAt: v.nullable(ServerTimeSchema), phase: v.picklist(['PLAYING', 'FINISHED']), transitionId: TurnIdSchema, ...Public, preludeDeck:v.optional(v.array(MarsCardSchema),[]), preludeDiscard:v.optional(v.array(MarsCardSchema),[]), preludeInventory:v.optional(v.array(MarsCardSchema),[]), players: v.array(Player), deck: v.array(MarsCardSchema), discard: v.array(MarsCardSchema), inventory: v.array(MarsCardSchema), frames: v.array(v.array(Job)), current: v.nullable(Job), payment: v.nullable(Payment), cardChoice: v.nullable(v.strictObject({ ownerId: PlayerIdSchema, view: MarsCardChoiceSchema })), nextJob: MarsCountSchema, actionInProgress: v.boolean(), lastSpace: v.nullable(MarsRefSchema), result: v.nullable(MarsResultSchema) });
 export type MarsState = v.InferOutput<typeof State>;
 type Person = MarsState['players'][number];
 type JobType = v.InferOutput<typeof Job>;
@@ -58,26 +62,30 @@ function sync(s: MarsState) { for (const p of s.players)
     p.handCount = p.hand.length; }
 function log(s: MarsState, kind: MarsState['history'][number]['kind'], text: string, id = s.activePlayerId) { s.history.push({ id: (s.history.at(-1)?.id ?? 0) + 1, generation: s.generation, playerId: id, kind, text }); s.history = s.history.slice(-120); }
 export function parseMarsState(input: unknown): MarsState {
-    const s = v.parse(State, input), ids = s.players.map(p => p.playerId), cards = [...s.deck, ...s.discard, ...s.players.flatMap(p => [...p.hand, ...p.research, ...p.played]), ...(s.cardChoice?.view.cards ?? [])];
+    const s = v.parse(State, input), ids = s.players.map(p => p.playerId), cards = [...s.deck, ...s.discard, ...s.players.flatMap(p => [...p.hand, ...p.research, ...p.played.filter(c=>marsCard(c.definitionId).type!=='prelude')]), ...(s.cardChoice?.view.cards ?? [])];
     if (ids.length < 2 || ids.length > 5 || new Set(ids).size !== ids.length || !ids.includes(s.activePlayerId) || !ids.includes(s.startingPlayerId))
         throw new Error('Invalid Mars roster');
     if (!marsLandClaimsAreConsistent(s, ids)) throw new Error('Invalid Mars land claims');
+    const catalog = marsProjectCatalog(s.corporateEra,s.prelude), size = catalog.length;
     const inventory = new Map(s.inventory.map(c => [c.tileId, c.definitionId]));
-    if (inventory.size !== 137 || s.inventory.length !== 137 || new Set(s.inventory.map(c => c.definitionId)).size !== 137 || cards.length !== 137 || new Set(cards.map(c => c.tileId)).size !== 137 || cards.some(c => inventory.get(c.tileId) !== c.definitionId))
+    if (inventory.size !== size || s.inventory.length !== size || new Set(s.inventory.map(c => c.definitionId)).size !== size || cards.length !== size || new Set(cards.map(c => c.tileId)).size !== size || cards.some(c => inventory.get(c.tileId) !== c.definitionId))
         throw new Error('Invalid Mars inventory');
-    for (const c of cards)
-        marsCard(c.definitionId);
+    for (const c of cards) if (!catalog.some(d => d.id === c.definitionId)) throw new Error('Card outside Mars variant');
     if (new Set(s.tiles.map(t => t.spaceId)).size !== s.tiles.length || s.tiles.some(t => !MARS_BOARD.some(b => b.id === t.spaceId) && !['phobos', 'ganymede'].includes(t.spaceId) || t.ownerId !== null && !ids.includes(t.ownerId) || t.kind === 'ocean' && t.ownerId !== null || t.kind !== 'ocean' && t.ownerId === null) || s.oceans !== s.tiles.filter(t => t.kind === 'ocean').length)
         throw new Error('Invalid Mars board');
-    if (s.temperature % 2 !== 0 || s.players.some(p => p.handCount !== p.hand.length) || s.players.some(p => p.corporationId !== null && !['Beginner', ...MARS_CORPORATIONS.map(c => c.id)].includes(p.corporationId)))
+    if (s.temperature % 2 !== 0 || s.players.some(p => p.handCount !== p.hand.length) || s.players.some(p => p.corporationId !== null && !['Beginner', ...marsCorporationCatalog(s.corporateEra,s.prelude).map(c => c.id)].includes(p.corporationId)))
         throw new Error('Invalid Mars player');
     if (s.phase === 'FINISHED' ? (s.finishedAt === null || s.result === null || s.frames.length > 0 || s.current !== null || s.payment !== null || s.cardChoice !== null) : (s.finishedAt !== null || s.result !== null))
         throw new Error('Invalid Mars lifecycle');
     if ([...s.milestones, ...s.awards].some(c => !ids.includes(c.playerId)) || new Set(s.milestones.map(c => c.id)).size !== s.milestones.length || new Set(s.awards.map(c => c.id)).size !== s.awards.length || s.milestones.some(c => !MARS_MILESTONES.some(m => m.id === c.id)) || s.awards.some(c => !MARS_AWARDS.some(a => a.id === c.id)))
         throw new Error('Invalid Mars claims');
     if (s.cardChoice?.view.kind === 'EXCHANGE' && active(s).hand.length === 0) throw new Error('Invalid empty exchange');
-    if (s.cardChoice && (s.cardChoice.ownerId !== s.activePlayerId || s.phase !== 'PLAYING' || s.stage !== 'ACTION' || s.payment !== null || s.current !== null || !s.actionInProgress || (s.cardChoice.view.kind === 'BUY' && s.cardChoice.view.canUseHeat !== (active(s).corporationId === 'Helion'))))
+    if (s.cardChoice && (s.cardChoice.ownerId !== s.activePlayerId || s.phase !== 'PLAYING' || !['ACTION','PRELUDE'].includes(s.stage) || s.payment !== null || s.current !== null || !s.actionInProgress || (s.cardChoice.view.kind === 'BUY' && s.cardChoice.view.canUseHeat !== (active(s).corporationId === 'Helion'))))
         throw new Error('Invalid Mars private card choice');
+    const preludes = [...s.preludeDeck,...s.preludeDiscard,...s.players.flatMap(p=>[...p.preludes,...p.played.filter(c=>marsCard(c.definitionId).type==='prelude')])];
+    const pi = new Map(s.preludeInventory.map(c=>[c.tileId,c.definitionId])), expected = s.prelude ? 35 : 0;
+    if (pi.size!==expected || s.preludeInventory.length!==expected || new Set(s.preludeInventory.map(c=>c.definitionId)).size!==expected || preludes.length!==expected || new Set(preludes.map(c=>c.tileId)).size!==expected || preludes.some(c=>pi.get(c.tileId)!==c.definitionId || !MARS_PRELUDES.some(d=>d.id===c.definitionId)) || preludes.some(c=>inventory.has(c.tileId))) throw new Error('Invalid Mars prelude inventory');
+    if (s.stage==='PRELUDE' && (!s.prelude || !s.players.every(p=>p.ready))) throw new Error('Invalid Mars prelude stage');
     const jobs = [...s.frames.flat(), ...(s.current ? [s.current] : [])];
     const jobIds = [...jobs.map(j => j.id), ...(s.cardChoice ? [s.cardChoice.view.id] : [])];
     if (new Set(jobIds).size !== jobIds.length || jobIds.some(id => id >= s.nextJob))
@@ -85,6 +93,8 @@ export function parseMarsState(input: unknown): MarsState {
     return s;
 }
 export function createMarsGame(input: {
+    corporateEra?: boolean;
+    prelude?: boolean;
     generateTileId(): TileId;
     gameId: GameId;
     playerIds: readonly PlayerId[];
@@ -95,9 +105,10 @@ export function createMarsGame(input: {
     const { random: r } = input;
     if (input.playerIds.length < 2 || input.playerIds.length > 5 || new Set(input.playerIds).size !== input.playerIds.length)
         throw new Error('Mars requires 2–5 players');
-    const inventory = MARS_CARDS.map(c => ({ tileId: input.generateTileId(), definitionId: c.id, resources: 0, usedGeneration: 0 })), deck = shuffled(inventory, r), corporations = shuffled(MARS_CORPORATIONS.map(c => c.id), r), first = r.nextInt(input.playerIds.length), order = [...input.playerIds.slice(first), ...input.playerIds.slice(0, first)];
-    const players = order.map(playerId => ({ playerId, protectedHabitats: false, corporationId: null, resources: marsResources(), production: marsResources({ money: 1, steel: 1, titanium: 1, plants: 1, energy: 1, heat: 1 }), tr: 20, handCount: 0, hand: [], research: deck.splice(0, 10), corporations: corporations.splice(0, 2), played: [], passed: false, ready: false, generationStartTr: 20, corporationUsedGeneration: 0, initialActionDone: false, specialDesign: false, nextCardDiscount: 0 as const }));
-    return parseMarsState({ gameId: input.gameId, revision: 0, rulesVersion: 'mars-base-v1', startedAt: input.now, finishedAt: null, phase: 'PLAYING', transitionId: input.turnId, generation: 1, stage: 'SETUP', activePlayerId: order[0], startingPlayerId: order[0], actionsTaken: 0, oxygen: 0, temperature: -30, oceans: 0, tiles: [], landClaims: [], milestones: [], awards: [], history: [], players, deck, discard: [], inventory, frames: [], current: null, payment: null, cardChoice: null, nextJob: 1, actionInProgress: false, lastSpace: null, result: null });
+    const inventory = marsProjectCatalog(input.corporateEra,input.prelude).map(c => ({ tileId: input.generateTileId(), definitionId: c.id, resources: 0, usedGeneration: 0 })), deck = shuffled(inventory, r), corporations = shuffled(marsCorporationCatalog(input.corporateEra,input.prelude).map(c => c.id), r), first = r.nextInt(input.playerIds.length), order = [...input.playerIds.slice(first), ...input.playerIds.slice(0, first)];
+    const preludeInventory = (input.prelude?MARS_PRELUDES:[]).map(c=>({tileId:input.generateTileId(),definitionId:c.id,resources:0,usedGeneration:0})), preludeDeck=shuffled(preludeInventory,r);
+    const players = order.map(playerId => ({ playerId, preludes:preludeDeck.splice(0,4), preludeBonus:false, protectedHabitats: false, corporationId: null, resources: marsResources(), production: input.corporateEra ? marsResources() : marsResources({ money: 1, steel: 1, titanium: 1, plants: 1, energy: 1, heat: 1 }), tr: 20, handCount: 0, hand: [], research: deck.splice(0, 10), corporations: corporations.splice(0, 2), played: [], passed: false, ready: false, generationStartTr: 20, corporationUsedGeneration: 0, initialActionDone: false, specialDesign: false, nextCardDiscount: 0 as const }));
+    return parseMarsState({ prelude:input.prelude??false,preludeInventory,preludeDeck,preludeDiscard:[], corporateEra: input.corporateEra ?? false, gameId: input.gameId, revision: 0, rulesVersion: 'mars-base-v1', startedAt: input.now, finishedAt: null, phase: 'PLAYING', transitionId: input.turnId, generation: 1, stage: 'SETUP', activePlayerId: order[0], startingPlayerId: order[0], actionsTaken: 0, oxygen: 0, temperature: -30, oceans: 0, tiles: [], landClaims: [], milestones: [], awards: [], history: [], players, deck, discard: [], inventory, frames: [], current: null, payment: null, cardChoice: null, nextJob: 1, actionInProgress: false, lastSpace: null, result: null });
 }
 function takeCards(s: MarsState, n: number, r: RandomSource): MarsState['deck'] {
     const cards: MarsState['deck'] = [];
@@ -126,13 +137,15 @@ export function marsSpaces(s: Pick<MarsState, 'tiles' | 'oceans' | 'landClaims'>
     spaces = spaces.filter(b => (rule === 'greeneryOcean' || rule === 'oceanSpecial' || tile === 'ocean' && rule !== 'oceanLand') ? b.ocean : !b.ocean);
     if (rule === 'volcano')
         spaces = spaces.filter(b => ['2-2', '3-1', '4-1', '5-1'].includes(b.id));
-    if (rule === 'mining')
+    if (rule === 'mining' || rule === 'miningArea')
         spaces = spaces.filter(b => b.bonus.some(k => k === 'steel' || k === 'titanium'));
+    if (rule === 'miningArea') spaces = spaces.filter(b => s.tiles.some(t => t.ownerId === owner && t.kind !== 'ocean' && marsAdjacent(b.id,t.spaceId)));
+    if (rule === 'nextCity') spaces = spaces.filter(b => s.tiles.some(t => t.kind === 'city' && marsAdjacent(b.id,t.spaceId)));
     if (rule === 'isolated')
         spaces = spaces.filter(b => !s.tiles.some(t => marsAdjacent(b.id, t.spaceId)));
     if (rule === 'nextGreenery')
         spaces = spaces.filter(b => s.tiles.some(t => t.kind === 'greenery' && marsAdjacent(b.id, t.spaceId)));
-    if (tile === 'city') {
+    if (tile === 'city' && rule !== 'volcano') {
         spaces = spaces.filter(b => { const n = s.tiles.filter(t => t.kind === 'city' && marsAdjacent(b.id, t.spaceId)).length; return rule === 'twoCities' ? n >= 2 : n === 0; });
     }
     if (tile === 'greenery' && rule === 'normal') {
@@ -147,6 +160,7 @@ function amountAvailable(p: Person, material = 'none'): number {
     return p.resources.money + (p.corporationId === 'Helion' ? p.resources.heat : 0) + (material === 'steel' || material === 'both' ? p.resources.steel * values.steelValue : 0) + (material === 'titanium' || material === 'both' ? p.resources.titanium * values.titaniumValue : 0);
 }
 export function marsCost(p: Person, c: MarsDefinition): number { return marsDiscountedCost(p, c, p.nextCardDiscount); }
+export function marsCurrentCardCost(s:MarsState,p:Person,c:MarsDefinition):number{return Math.max(0,marsCost(p,c)-(s.current?.effect.kind==='instantProject'?s.current.effect.discount:0));}
 function material(c: MarsDefinition): 'both' | 'steel' | 'titanium' | 'none' { return c.tags.includes('building') ? (c.tags.includes('space') ? 'both' : 'steel') : c.tags.includes('space') ? 'titanium' : 'none'; }
 function ownCard(p: Person, source: string) { return p.played.find(c => c.tileId === source); }
 function effectsPossible(s: MarsState, p: Person, effects: readonly MarsEffect[], source: string): boolean {
@@ -164,6 +178,8 @@ function effectsPossible(s: MarsState, p: Person, effects: readonly MarsEffect[]
         return false;
     return effects.every(e => { switch (e.kind) {
         case 'place': return e.tile === 'ocean' && s.oceans >= 9 || marsSpaces(s, p.playerId, e.tile, e.rule).length > 0;
+        case 'copyCardResource': return p.played.some(c => c.resources > 0 && marsCard(c.definitionId).resource !== null);
+        case 'energySale': return p.resources.energy > 0;
         case 'attackProduction': return s.players.some(t => marsCanReduceProduction(t.production, e.resource, e.amount));
         case 'pay': return amountAvailable(p, e.material) >= e.amount;
         case 'consumeSelf': return (ownCard(p, source)?.resources ?? 0) >= e.amount;
@@ -176,23 +192,27 @@ function effectsPossible(s: MarsState, p: Person, effects: readonly MarsEffect[]
     } });
 }
 export function marsCardReason(s: MarsState, p: Person, c: MarsDefinition): string | null {
-    const bonus = (p.corporationId === 'Inventrix' ? 2 : 0) + (has(p, 'AdaptationTechnology') ? 2 : 0) + (p.specialDesign ? 2 : 0);
-    const requirementFailure = marsRequirementReason(marsBaseRequirements(c.requirements), {
+    const instant = s.current?.effect.kind==='instantProject'?s.current.effect:null;
+    const bonus = (instant?.ignoreGlobal?50:0) + (p.corporationId === 'Inventrix' ? 2 : 0) + (has(p, 'AdaptationTechnology') ? 2 : 0) + (p.specialDesign ? 2 : 0);
+    const requirements=c.corporateRequirements ?? marsBaseRequirements(c.requirements);
+    const deficit=requirements.reduce((n,req)=>n+(req.kind==='tag'&& !('max' in req && req.max) ? Math.max(0,req.amount-marsTags(p,req.tag)):0),0);
+    if(marsTags(p,'wild')>0&&deficit>marsTags(p,'wild')){const failed=requirements.find(req=>req.kind==='tag'&& !('max' in req && req.max)&&marsTags(p,req.tag)<req.amount);if(failed?.kind==='tag')return `태그 조건: ${failed.tag} ${failed.amount} 이상 · 와일드 태그 부족`;}
+    const requirementFailure = marsRequirementReason(requirements, {
         oxygen: s.oxygen, temperature: s.temperature, oceans: s.oceans,
         cities: s.tiles.filter(t => t.kind === 'city').length,
         ownGreenery: s.tiles.filter(t => t.ownerId === p.playerId && t.kind === 'greenery').length,
-        production: p.production, globalAllowance: bonus, tagCount: tag => marsTags(p, tag),
+        production: p.production, globalAllowance: bonus, tagCount: tag => marsTags(p, tag) + marsTags(p, 'wild'),
     });
     if (requirementFailure) return requirementFailure;
     if (!effectsPossible(s, p, c.effects, ''))
         return '생산 감소·필수 자원·배치 조건을 충족하지 못합니다.';
     const available = {...p, resources: {...p.resources}};
     for (const e of c.effects) if (e.kind === 'stock' && e.amount < 0) available.resources[e.resource] += e.amount;
-    if (amountAvailable(available, material(c)) < marsCost(p, c))
+    if (amountAvailable(available, material(c)) + (c.tags.includes('plant') ? (p.played.find(c=>c.definitionId==='Psychrophiles')?.resources??0)*2:0) < Math.max(0,marsCost(p, c)-(instant?.discount??0)))
         return '지불할 자원이 부족합니다.';
     return null;
 }
-function enqueue(s: MarsState, effects: readonly MarsEffect[], source: string) { const after = effects.filter(e => e.kind === 'dynamic' && e.rule === 'flooding'), first = effects.filter(e => !after.includes(e)); if (after.length) {
+function enqueue(s: MarsState, effects: readonly MarsEffect[], source: string) { const after = effects.filter(e => e.kind==='instantProject' || e.kind === 'dynamic' && e.rule === 'flooding'), first = effects.filter(e => !after.includes(e)); if (after.length) {
     s.lastSpace = null;
     s.frames.push(after.map(effect => ({ id: s.nextJob++, source, effect })));
 } if (first.length)
@@ -238,7 +258,7 @@ function place(s: MarsState, p: Person, spaceId: string, e: Extract<MarsEffect, 
         p.resources.money += s.tiles.filter(t => t.kind === 'ocean' && marsAdjacent(t.spaceId, spaceId)).length * 2;
         if (p.corporationId === 'MiningGuild' && b.bonus.some(k => k === 'steel' || k === 'titanium'))
             p.production.steel++;
-        if (e.rule === 'mining') {
+        if (e.rule === 'mining' || e.rule === 'miningArea') {
             if (b.bonus.includes('steel'))
                 p.production.steel++;
             else
@@ -276,7 +296,9 @@ function place(s: MarsState, p: Person, spaceId: string, e: Extract<MarsEffect, 
     }
     log(s, 'PLACE', `${{ city: '도시', greenery: '녹지', ocean: '해양', special: '특수 타일' }[e.tile]} · ${b?.name ?? (spaceId === 'phobos' ? '포보스' : '가니메데')}`);
 }
-function playedTriggers(s: MarsState, p: Person, c: MarsDefinition) {
+function playedTriggers(s: MarsState, p: Person, c: MarsDefinition, r: RandomSource) {
+    if(p.corporationId==='Vitor' && (c.points>0 || !['fixed','none'].includes(c.score)))p.resources.money+=3;
+    if(p.corporationId==='PointLuna') draw(s,p,c.tags.filter(t=>t==='earth').length,r);
     const tags = c.tags;
     for (const card of p.played) {
         if (card.definitionId === 'Decomposers')
@@ -298,6 +320,8 @@ function payNegatives(p: Person, effects: readonly MarsEffect[]): readonly MarsE
 function executeSimple(s: MarsState, j: JobType, r: RandomSource): boolean {
     const e = j.effect, p = active(s), source = ownCard(p, j.source);
     switch (e.kind) {
+        case 'eventIncome': p.resources.money += s.players.reduce((n, owner) => n + owner.played.filter(c => marsCard(c.definitionId).type === 'event').length, 0); return true;
+        case 'jovianTr': p.tr += marsTags(p, 'jovian')+marsTags(p,'wild'); return true;
         case 'stock':
             p.resources[e.resource] += e.amount;
             return true;
@@ -313,8 +337,13 @@ function executeSimple(s: MarsState, j: JobType, r: RandomSource): boolean {
         case 'protectHabitats':
             p.protectedHabitats = true;
             return true;
+        case 'drawTag': {
+            const budget=s.deck.length+s.discard.length; let found=0; const rejected:MarsState['deck']=[];
+            for(let n=0;n<budget&&found<e.amount;n++){const c=takeCards(s,1,r)[0];if(!c)break;log(s,'ACTION',`공개 카드: ${marsCard(c.definitionId).name}`);if(marsCard(c.definitionId).tags.includes(e.tag)){p.hand.push(c);found++;}else rejected.push(c);}
+            s.discard.push(...rejected);return true;
+        }
         case 'exchangeCard':
-            if (p.hand.length) s.cardChoice = { ownerId: p.playerId, view: { id: j.id, label: 'Mars University · 손패 교환', kind: 'EXCHANGE', cards: [] } };
+            if (p.hand.length) s.cardChoice = { ownerId: p.playerId, view: { id: j.id, label: '화성 대학 · 손패 교환', kind: 'EXCHANGE', cards: [] } };
             return true;
         case 'keepCards':
         case 'buyCard': {
@@ -428,6 +457,11 @@ export function scoreMars(s: MarsState) {
                 case 'life':
                     cards += c.resources ? 3 : 0;
                     break;
+                case 'adjacentCities': {
+                    const tile = myTiles.find(t => t.source === d.id);
+                    if (tile) cards += s.tiles.filter(t => t.kind === 'city' && marsAdjacent(t.spaceId,tile.spaceId)).length;
+                    break;
+                }
                 case 'capital': {
                     const tile = myTiles.find(t => t.source === d.id);
                     if (tile)
@@ -516,6 +550,16 @@ function drain(s: MarsState, now: ServerTime, r: RandomSource) {
             }
             continue;
         }
+        if (s.stage==='PRELUDE') {
+            s.actionInProgress=false;
+            if(!active(s).preludes.length){
+                const next=s.players.findIndex(p=>p.playerId===s.activePlayerId)+1;
+                if(next<s.players.length)s.activePlayerId=s.players[next]!.playerId;
+                else {s.stage='ACTION';s.activePlayerId=s.startingPlayerId;}
+            }
+            return;
+        }
+        if(active(s).preludeBonus && active(s).preludes.length) return;
         if (s.actionInProgress) {
             s.actionInProgress = false;
             if (s.stage === 'ACTION') {
@@ -532,7 +576,7 @@ function milestoneEligible(s: MarsState, p: Person, id: string) { switch (id) {
     case 'terraformer': return p.tr >= 35;
     case 'mayor': return s.tiles.filter(t => t.ownerId === p.playerId && t.kind === 'city').length >= 3;
     case 'gardener': return s.tiles.filter(t => t.ownerId === p.playerId && t.kind === 'greenery').length >= 3;
-    case 'builder': return marsTags(p, 'building') >= 8;
+    case 'builder': return marsTags(p, 'building') + marsTags(p,'wild') >= 8;
     case 'planner': return p.hand.length >= 16;
     default: return false;
 } }
@@ -549,6 +593,10 @@ function choices(s: MarsState, viewer: PlayerId, now: ServerTime, r: RandomSourc
     }
     const j = s.current;
     if (j) {
+        if(j.effect.kind==='instantProject') {
+            for(const c of p.hand){const d=marsCard(c.definitionId);if(!marsCardReason(s,p,d))offer(`instant:${c.tileId}`,'CARD',c.tileId,d.name,'프렐류드 효과로 즉시 실행',Math.max(0,marsCost(p,d)-j.effect.discount),()=>{s.payment={cost:Math.max(0,marsCost(p,d)-(j.effect.kind==='instantProject'?j.effect.discount:0)),material:material(d),source:d.name,mode:'card',cardId:c.tileId};});}
+            return out;
+        }
         const e = j.effect, resolve = (fn: () => void) => () => { s.current = null; fn(); };
         if (e.kind === 'claimLand') {
             for (const id of marsClaimableSpaces(s))
@@ -586,6 +634,25 @@ function choices(s: MarsState, viewer: PlayerId, now: ServerTime, r: RandomSourc
                     offer(`attack-card:${card.tileId}:${n}`, 'EFFECT', target.playerId, `${marsCard(card.definitionId).name} 자원 ${n} 제거`, `카드 자원 ${card.resources} → ${card.resources - n} · 내 자원 획득 없음`, 0, resolve(() => { card.resources -= n; log(s, 'ATTACK', `${s.players.indexOf(target) + 1}번 기업 · ${marsCard(card.definitionId).name} 자원 ${n} 제거`); }));
                 }
             }
+        }
+        if (e.kind === 'copyCardResource') {
+            for (const card of p.played) if (card.resources > 0 && marsCard(card.definitionId).resource !== null)
+                offer(`copy-resource:${card.tileId}`, 'EFFECT', card.tileId, marsCard(card.definitionId).name, `같은 자원 ${card.resources} → ${card.resources + 1}`, 0, resolve(() => { card.resources++; }));
+        }
+        if (e.kind === 'energySale') {
+            for (let n = 1; n <= p.resources.energy; n++) offer(`energy-sale:${n}`, 'EFFECT', String(n), `에너지 ${n} → ${n} M€`, `에너지 ${p.resources.energy} → ${p.resources.energy - n} · M€ ${p.resources.money} → ${p.resources.money + n}`, 0, resolve(() => { p.resources.energy -= n; p.resources.money += n; }));
+        }
+        if (e.kind === 'olympus') {
+            const card = p.played.find(c => c.definitionId === 'OlympusConference');
+            if (card) {
+                offer('olympus:add','EFFECT',card.tileId,'과학 자원 +1',`과학 ${card.resources} → ${card.resources + 1}`,0,resolve(() => {card.resources++;}));
+                if (card.resources > 0) offer('olympus:draw','EFFECT',card.tileId,'과학 자원 1 → 카드 1장',`과학 ${card.resources} → ${card.resources - 1}`,0,resolve(() => {card.resources--;draw(s,p,1,r);}));
+            }
+        }
+        if (e.kind === 'viral') {
+            const card = ownCard(p,j.source), kind = card && marsCard(card.definitionId).resource;
+            offer('viral:plant','EFFECT','plants','식물 +1','보유 식물 1개 획득',0,resolve(() => {p.resources.plants++;}));
+            if (card && (kind === 'animal' || kind === 'microbe')) offer('viral:resource','EFFECT',card.tileId,`${marsCard(card.definitionId).name} 자원 +1`,`${card.resources} → ${card.resources + 1} · 방금 낸 카드에만 추가`,0,resolve(() => {card.resources++;}));
         }
         if (e.kind === 'transferEnergyProduction') {
             for (const targetId of marsEnergyProductionTargets(s.players, p.playerId)) {
@@ -653,6 +720,18 @@ function choices(s: MarsState, viewer: PlayerId, now: ServerTime, r: RandomSourc
     }
     const begin = (effects: readonly MarsEffect[], source: string) => { s.actionInProgress = true; const cost = effects.find(e => e.kind === 'pay'); if (cost?.kind === 'pay')
         s.payment = { cost: cost.amount, material: cost.material, source, mode: 'effect', cardId: null }; enqueue(s, payNegatives(p, effects.filter(e => e.kind !== 'pay')), source); };
+    if(s.stage==='PRELUDE' || p.preludeBonus){
+        for(const c of p.preludes){const d=marsCard(c.definitionId), payable=preludePossible(s,p,d);
+            offer(`prelude:${c.tileId}`,'CARD',c.tileId,d.name,payable?'프렐류드 실행 · 일반 행동 횟수 미사용':'필수 효과 실행 불가 · 공개하고 버려 15 M€ 획득',0,()=>{
+                p.preludes.splice(p.preludes.indexOf(c),1);
+                if(p.preludeBonus){s.preludeDiscard.push(...p.preludes);p.preludes=[];p.preludeBonus=false;}
+                s.actionInProgress=true;
+                if(!payable){s.preludeDiscard.push(c);p.resources.money+=15;log(s,'CARD',`${d.name} 실행 불가 · 15 M€ 환급`);return;}
+                p.played.push(c);begin([...d.effects,...marsScienceExchangeEffects(p,d),...marsCorporateTriggerEffects(p,d)],c.tileId);playedTriggers(s,p,d,r);log(s,'CARD',`${d.name} 프렐류드 실행`);
+            });
+        }
+        return out;
+    }
     if (s.stage === 'FINAL_GREENERY') {
         const plants = p.corporationId === 'EcoLine' ? 7 : 8;
         if (p.resources.plants >= plants && marsSpaces(s, p.playerId, 'greenery').length)
@@ -661,6 +740,14 @@ function choices(s: MarsState, viewer: PlayerId, now: ServerTime, r: RandomSourc
         return out;
     }
     if (!p.initialActionDone) {
+        if(p.corporationId==='ValleyTrust') {
+            offer('initial-prelude','ACTION','corporation','밸리 트러스트: 프렐류드 선택','3장 중 1장 실행 · 나머지는 버림',0,()=>{p.initialActionDone=true;p.preludeBonus=true;s.actionInProgress=true;p.preludes=s.preludeDeck.splice(0,3);});return out;
+        }
+        if(p.corporationId==='Vitor') {
+            if(s.awards.length>=3){offer('initial-award-skip','ACTION','corporation','기업상 후원 생략','기업상 3개가 모두 후원되었습니다.',0,()=>{p.initialActionDone=true;s.actionInProgress=true;});return out;}
+            for(const a of MARS_AWARDS)if(!s.awards.some(x=>x.id===a.id))offer(`initial-award:${a.id}`,'AWARD',a.id,`${a.name} 무료 후원`,a.detail,0,()=>{p.initialActionDone=true;s.awards.push({id:a.id,playerId:p.playerId});s.actionInProgress=true;log(s,'CLAIM',`비토르 무료 후원: ${a.name}`);});return out;
+        }
+
         if (p.corporationId === 'TharsisRepublic') {
             offer('initial-city', 'ACTION', 'corporation', '기업 첫 행동: 도시 배치', '무료로 도시를 배치합니다.', 0, () => { p.initialActionDone = true; begin([{ kind: 'place', tile: 'city', rule: 'normal' }], '기업 첫 도시'); });
             return out;
@@ -703,6 +790,10 @@ function choices(s: MarsState, viewer: PlayerId, now: ServerTime, r: RandomSourc
         if (d.actions && c.usedGeneration !== s.generation && effectsPossible(s, p, d.actions, c.tileId))
             offer(`action:${c.tileId}`, 'ACTION', c.tileId, `${d.name} 행동`, d.actions.map(marsEffectText).join(' · '), 0, () => { c.usedGeneration = s.generation; begin(d.actions!, c.tileId); log(s, 'ACTION', `${d.name} 행동 사용`); });
     }
+    if(p.corporationId==='RobinsonIndustries'&&p.corporationUsedGeneration!==s.generation&&amountAvailable(p)>=4){
+        const lowest=Math.min(...MARS_RESOURCES.map(k=>p.production[k]));
+        for(const resource of MARS_RESOURCES)if(p.production[resource]===lowest)offer(`robinson:${resource}`,'ACTION','corporation',`${MARS_RESOURCE_NAMES[resource]} 생산 +1`,'가장 낮은 생산량 · M€ 4 사용',4,()=>{p.corporationUsedGeneration=s.generation;begin([{kind:'pay',amount:4,material:'none'},{kind:'production',resource,amount:1}],'로빈슨 인더스트리');});
+    }
     if (p.corporationId === 'UnitedNationsMarsInitiative' && p.corporationUsedGeneration !== s.generation && p.tr > p.generationStartTr && amountAvailable(p) >= 3)
         offer('unmi', 'ACTION', 'corporation', '국제연합: TR +1', 'M€ 3 사용 · 이번 세대 TR 상승 필요', 3, () => { p.corporationUsedGeneration = s.generation; begin([{ kind: 'pay', amount: 3, material: 'none' }, { kind: 'global', track: 'tr', amount: 1 }], '국제연합 화성계획'); });
     if (s.milestones.length < 3 && amountAvailable(p) >= 8)
@@ -720,21 +811,33 @@ function choices(s: MarsState, viewer: PlayerId, now: ServerTime, r: RandomSourc
         offer('pass', 'PASS', 'pass', '이번 세대 패스', '이번 세대에는 더 행동하지 않습니다.', 0, () => { p.passed = true; log(s, 'PASS', '이번 세대 패스'); nextTurn(s, now, r); });
     return out;
 }
+function preludePossible(s:MarsState,p:Person,d:MarsDefinition):boolean {
+    if(!effectsPossible(s,p,d.effects,''))return false;
+    const immediate=d.effects.find(e=>e.kind==='instantProject');
+    if(immediate?.kind==='instantProject'){
+        const probe={...p,resources:{...p.resources},production:{...p.production},played:[...p.played]};
+        const prelude=p.preludes.find(c=>c.definitionId===d.id);if(prelude)probe.played.push(prelude);
+        for(const e of d.effects)if(e.kind==='production')probe.production[e.resource]+=e.amount;
+        return probe.hand.some(c=>!marsCardReason({...s,current:{id:0,source:d.id,effect:immediate}},probe,marsCard(c.definitionId)));
+    }
+    return true;
+}
 export function marsOffers(s: MarsState, viewer: PlayerId): MarsOffer[] { return choices(s, viewer, s.startedAt, { nextInt: () => 0 }).map(c => c.offer); }
-function selectCards(s: MarsState, p: Person, ids: readonly TileId[], corporationId?: string, heat = 0): boolean {
+function selectCards(s: MarsState, p: Person, ids: readonly TileId[], corporationId?: string, heat = 0, preludeIds: readonly TileId[] = [], r:RandomSource = {nextInt:()=>0}): boolean {
     if (p.ready || new Set(ids).size !== ids.length || ids.some(id => !p.research.some(c => c.tileId === id)))
         return false;
+    if(corporationId!==undefined && (s.prelude ? preludeIds.length!==2 || new Set(preludeIds).size!==2 || preludeIds.some(id=>!p.preludes.some(c=>c.tileId===id)) : preludeIds.length>0))return false;
     let kept = ids;
     if (corporationId !== undefined) {
         if (corporationId !== 'Beginner' && !p.corporations.includes(corporationId))
             return false;
-        const start = marsCorporationStart(corporationId, 'base');
+        const start = marsCorporationStart(corporationId, s.corporateEra ? 'corporate-era' : 'base');
         p.corporationId = corporationId;
         p.resources = start.resources;
         p.production = start.production;
         if (corporationId === 'Beginner')
             kept = p.research.map(c => c.tileId);
-        p.initialActionDone = !['Inventrix', 'TharsisRepublic'].includes(corporationId);
+        p.initialActionDone = !['Inventrix', 'TharsisRepublic','ValleyTrust','Vitor'].includes(corporationId);
     }
     const cost = corporationId === 'Beginner' ? 0 : kept.length * 3;
     if (heat > cost || heat > p.resources.heat || (heat > 0 && p.corporationId !== 'Helion') || p.resources.money < cost - heat)
@@ -744,11 +847,13 @@ function selectCards(s: MarsState, p: Person, ids: readonly TileId[], corporatio
     p.hand.push(...p.research.filter(c => kept.includes(c.tileId)));
     s.discard.push(...p.research.filter(c => !kept.includes(c.tileId)));
     p.research = [];
+    if(corporationId!==undefined){s.preludeDiscard.push(...p.preludes.filter(c=>!preludeIds.includes(c.tileId)));p.preludes=p.preludes.filter(c=>preludeIds.includes(c.tileId));}
     p.ready = true;
     log(s, corporationId !== undefined ? 'SETUP' : 'RESEARCH', '카드 선택 완료', p.playerId);
     if (s.players.every(p => p.ready)) {
-        s.stage = 'ACTION';
+        s.stage = corporationId!==undefined && s.prelude ? 'PRELUDE' : 'ACTION';
         s.activePlayerId = s.startingPlayerId;
+        if(corporationId!==undefined)for(const owner of s.players)if(owner.corporationId==='PointLuna')draw(s,owner,1,r);
         for (const p of s.players)
             p.generationStartTr = p.tr;
     }
@@ -769,7 +874,7 @@ export function applyMarsAction(current: MarsState, actor: PlayerId, input: unkn
         return { ok: false, reason: 'INVALID_PHASE' };
     let accepted = false;
     if (a.type === 'SETUP' && s.stage === 'SETUP')
-        accepted = selectCards(s, p, a.cardIds, a.corporationId);
+        accepted = selectCards(s, p, a.cardIds, a.corporationId,0,a.preludeIds??[],r);
     else if (a.type === 'RESEARCH' && s.stage === 'RESEARCH')
         accepted = selectCards(s, p, a.cardIds, undefined, a.heat ?? 0);
     else {
@@ -823,23 +928,26 @@ export function applyMarsAction(current: MarsState, actor: PlayerId, input: unkn
             const reserved = marsResources();
             if (card) for (const e of marsCard(card.definitionId).effects) if (e.kind === 'stock' && e.amount < 0) reserved[e.resource] -= e.amount;
             const remaining = {...p.resources, money:p.resources.money-spend.money, steel:p.resources.steel-spend.steel, titanium:p.resources.titanium-spend.titanium, heat:p.resources.heat-spend.heat};
-            const legal = MARS_RESOURCES.every(k => remaining[k] >= reserved[k]) && spend.money <= p.resources.money && spend.steel <= p.resources.steel && spend.titanium <= p.resources.titanium && spend.heat <= p.resources.heat && (!spend.steel || ['steel', 'both'].includes(payment.material)) && (!spend.titanium || ['titanium', 'both'].includes(payment.material)) && (!spend.heat || p.corporationId === 'Helion') && value >= payment.cost;
+            const microbes=spend.microbes??0, psychrophiles=p.played.find(c=>c.definitionId==='Psychrophiles');
+            const legal = (microbes===0 || !!card && marsCard(card.definitionId).tags.includes('plant') && !!psychrophiles && psychrophiles.resources>=microbes) && MARS_RESOURCES.every(k => remaining[k] >= reserved[k]) && spend.money <= p.resources.money && spend.steel <= p.resources.steel && spend.titanium <= p.resources.titanium && spend.heat <= p.resources.heat && (!spend.steel || ['steel', 'both'].includes(payment.material)) && (!spend.titanium || ['titanium', 'both'].includes(payment.material)) && (!spend.heat || p.corporationId === 'Helion') && value >= payment.cost;
             if (legal) {
                 for (const k of ['money', 'steel', 'titanium', 'heat'] as const)
                     p.resources[k] -= spend[k];
+                if(microbes&&psychrophiles)psychrophiles.resources-=microbes;
                 s.payment = null;
                 if (payment.mode === 'card') {
                     const c = p.hand.find(c => c.tileId === payment.cardId);
                     if (!c)
                         return { ok: false, reason: 'INVALID_ACTION' };
                     const d = marsCard(c.definitionId);
+                    if(s.current?.effect.kind==='instantProject')s.current=null;
                     p.hand.splice(p.hand.indexOf(c), 1);
                     p.played.push(c);
                     p.specialDesign = false;
                     p.nextCardDiscount = 0;
                     s.actionInProgress = true;
-                    enqueue(s, [...payNegatives(p, d.effects), ...marsScienceExchangeEffects(p, d)], c.tileId);
-                    playedTriggers(s, p, d);
+                    enqueue(s, [...payNegatives(p, d.effects), ...marsScienceExchangeEffects(p, d), ...marsCorporateTriggerEffects(p, d)], c.tileId);
+                    playedTriggers(s, p, d, r);
                     log(s, 'CARD', `${d.name} · 지불 ${value} M€ 가치`);
                 }
                 accepted = true;

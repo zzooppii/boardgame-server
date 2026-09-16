@@ -691,7 +691,7 @@ export const ArnakLobbyPlatformSnapshotV2Schema: v.GenericSchema<unknown, ArnakL
 export const ArnakPlayingPlatformSnapshotV2Schema: v.GenericSchema<unknown, ArnakPlayingPlatformSnapshotV2> = ArnakPlayingRaw;
 export const ArnakFinishedPlatformSnapshotV2Schema: v.GenericSchema<unknown, ArnakFinishedPlatformSnapshotV2> = ArnakFinishedRaw;
 const MarsOuter = { snapshotVersion: PlatformSnapshotVersionSchema, versions: PlatformSnapshotVersionsV2Schema, serverTime: ServerTimeSchema, self: PlatformSelfViewV2Schema };
-const MarsRoom = { roomId: RoomIdSchema, roomCode: RoomCodeSchema, gameType: v.literal("TERRAFORMING_MARS") };
+const MarsRoom = { settings: v.optional(v.strictObject({corporateEra:v.boolean(),prelude:v.optional(v.boolean())})), roomId: RoomIdSchema, roomCode: RoomCodeSchema, gameType: v.literal("TERRAFORMING_MARS") };
 const MarsPlayers = v.pipe(v.array(PlatformPlayerViewV2Schema), v.minLength(2), v.maxLength(5));
 const MarsLobbyRaw = v.pipe(v.strictObject({ ...MarsOuter, room: v.strictObject({ ...MarsRoom, phase: v.literal("LOBBY"),
   players: v.pipe(v.array(PlatformPlayerViewV2Schema), v.maxLength(10)) }), game: v.null() }),

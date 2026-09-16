@@ -26,14 +26,16 @@ export function useMarsSound(g: MarsProjection | null, connected: boolean) {
     catch {
         return 30;
     } });
+    const master = useRef<GainNode | null>(null),lastSelection=useRef(-Infinity);
     const context = useRef<AudioContext | null>(null), level = useRef(volume), previous = useRef<MarsProjection | null>(null), wasConnected = useRef(false);
     level.current = volume;
     function play(cue: MarsCue) {
         const c = context.current;
         if (!c || c.state !== 'running' || level.current === 0)
             return;
-        const start = c.currentTime, amp = level.current / 100 * .12;
-        const tone = (frequency: number, offset: number, duration: number, end = frequency, type: OscillatorType = 'sine') => { const osc = c.createOscillator(), gain = c.createGain(); osc.type = type; osc.frequency.setValueAtTime(frequency, start + offset); osc.frequency.exponentialRampToValueAtTime(end, start + offset + duration); gain.gain.setValueAtTime(.0001, start + offset); gain.gain.exponentialRampToValueAtTime(amp, start + offset + .015); gain.gain.exponentialRampToValueAtTime(.0001, start + offset + duration); osc.connect(gain); gain.connect(c.destination); osc.start(start + offset); osc.stop(start + offset + duration + .02); osc.onended = () => { osc.disconnect(); gain.disconnect(); }; };
+        if(cue==='SELECT'){if(c.currentTime-lastSelection.current<.08)return;lastSelection.current=c.currentTime;}
+        const start = c.currentTime, amp = .12;
+        const tone = (frequency: number, offset: number, duration: number, end = frequency, type: OscillatorType = 'sine') => { const osc = c.createOscillator(), gain = c.createGain(); osc.type = type; osc.frequency.setValueAtTime(frequency, start + offset); osc.frequency.exponentialRampToValueAtTime(end, start + offset + duration); gain.gain.setValueAtTime(.0001, start + offset); gain.gain.exponentialRampToValueAtTime(amp, start + offset + .015); gain.gain.exponentialRampToValueAtTime(.0001, start + offset + duration); osc.connect(gain); gain.connect(master.current ?? c.destination); osc.start(start + offset); osc.stop(start + offset + duration + .02); osc.onended = () => { osc.disconnect(); gain.disconnect(); }; };
         if (cue === 'WATER') {
             [420, 720, 520, 940].forEach((f, i) => tone(f, i * .055, .18, f * .7));
         }
@@ -73,12 +75,13 @@ export function useMarsSound(g: MarsProjection | null, connected: boolean) {
             tone(800, 0, .055, 680);
     }
     async function unlock() { try {
-        context.current ??= new AudioContext();
+        if(!context.current){context.current=new AudioContext();master.current=context.current.createGain();master.current.gain.value=level.current/100;master.current.connect(context.current.destination);}
         if (context.current.state === 'suspended')
             await context.current.resume();
     }
     catch { /* Audio can be unavailable; all interaction remains visible. */ } }
-    useEffect(() => { try {
+    useEffect(() => {const c=context.current,node=master.current;if(c&&node){node.gain.cancelScheduledValues(c.currentTime);node.gain.setTargetAtTime(volume/100,c.currentTime,.01);}
+        try {
         localStorage.setItem('mars-sound-volume', String(volume));
     }
     catch { /* Optional preference only. */ } }, [volume]);
@@ -87,6 +90,6 @@ export function useMarsSound(g: MarsProjection | null, connected: boolean) {
         if (f.cue)
             play(f.cue);
     } previous.current = g; wasConnected.current = connected; }, [g, connected]);
-    useEffect(() => () => { void context.current?.close().catch(() => undefined); context.current = null; }, []);
+    useEffect(() => () => { void context.current?.close().catch(() => undefined); context.current = null; master.current=null; }, []);
     return { volume, setVolume, play, unlock };
 }

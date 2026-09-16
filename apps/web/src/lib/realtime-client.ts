@@ -920,6 +920,7 @@ export class RealtimeClient {
     if (!parseRematch(MarsClientCommandSchema, command).success) return Promise.reject(new RealtimeClientError("INVALID_COMMAND"));
     return this.#emitAcknowledged(command.kind, command.requestId, acknowledge => {
       switch (command.kind) {
+        case "mars:configure": this.#socket.emit("mars:configure", command, acknowledge); break;
         case "mars:act": this.#socket.emit("mars:act", command, acknowledge); break;
       }
     }, validateStateSyncWireAck, ack => hasConsistentSnapshotAcknowledgement(ack) && this.#acceptAcknowledgementSnapshotVersion(ack));

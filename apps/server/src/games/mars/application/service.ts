@@ -59,7 +59,7 @@ export class MarsService {
                 if (!lease.isCurrent() || !room.players.every(p => lease.connectionStatusByPlayerId.get(p.playerId) === 'CONNECTED'))
                     return failure('PLAYERS_NOT_CONNECTED');
                 const now = d.clock.now(), gameId = d.ids.generateGameId(), turnId = d.ids.generateTurnId();
-                const state = createMarsGame({ generateTileId: () => d.ids.generateTileId(), gameId, playerIds: room.players.map(p => p.playerId), now, turnId, random: d.random });
+                const state = createMarsGame({ prelude:room.settings?.prelude ?? false, corporateEra: room.settings?.corporateEra ?? false, generateTileId: () => d.ids.generateTileId(), gameId, playerIds: room.players.map(p => p.playerId), now, turnId, random: d.random });
                 const roomRevision = v.parse(RoomRevisionSchema, room.roomRevision + 1), gameRevision = v.parse(GameRevisionSchema, 0);
                 const data = v.parse(GameStartSuccessDataSchema, { roomId: room.roomId, roomRevision, gameId, gameRevision, turnId });
                 const committed = await d.roomUnitOfWork.commit({ roomMutation: { kind: 'REPLACE', candidate: { ...room, phase: 'PLAYING', roomRevision, updatedAt: now, game: { gameId, gameRevision, startedAt: now, finishedAt: null, state } }, expectedRoomRevision: room.roomRevision, expectedStorageRevision: room.storageRevision }, sessionMutation: { kind: 'NONE' }, idempotency: { scopeKey, requestId: input.requestId, payloadFingerprint, terminalResult: data, createdAt: now } }, { isSatisfied: () => input.authorization.isCurrent() && lease.isCurrent() });
@@ -97,6 +97,20 @@ export class MarsService {
                     return failure('REQUEST_ID_REUSED');
                 if (prior.status === 'REPLAY') {
                     v.parse(Receipt, prior.record.terminalResult);
+                    return { ok: true as const };
+                }
+                if (c.kind === 'mars:configure') {
+                    if (room.phase !== 'LOBBY' || room.game)
+                        return failure('INVALID_PHASE');
+                    if (room.hostPlayerId !== input.actorPlayerId)
+                        return failure('HOST_ONLY');
+                    if (room.roomRevision !== c.expectedRoomRevision)
+                        return failure('STALE_ROOM_REVISION');
+                    const now = d.clock.now();
+                    const committed = await d.roomUnitOfWork.commit({ roomMutation: { kind: 'REPLACE', candidate: { ...room, settings: {corporateEra:c.payload.corporateEra,prelude:c.payload.prelude??false}, roomRevision: v.parse(RoomRevisionSchema, room.roomRevision + 1), updatedAt: now }, expectedRoomRevision: room.roomRevision, expectedStorageRevision: room.storageRevision }, sessionMutation: { kind: 'NONE' }, idempotency: { scopeKey, requestId: c.requestId, payloadFingerprint, terminalResult: { outcome: 'ACCEPTED' }, createdAt: now } }, { isSatisfied: () => input.authorization.isCurrent() });
+                    if (committed.status !== 'COMMITTED')
+                        return failure('STALE_ROOM_REVISION');
+                    changed = true;
                     return { ok: true as const };
                 }
                 if (!room.game || room.game.gameId !== c.gameId || room.game.state.revision !== c.expectedGameRevision)

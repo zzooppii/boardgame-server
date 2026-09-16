@@ -474,7 +474,9 @@ function cloneRoomWriteCandidate(
       validateRoomGameCoherence(shell.phase, shell.players, game, () => game === null ? null : adapter.inspectLifecycle(game));
       const departedPlayerIds = Object.freeze([...(candidate.departedPlayerIds ?? [])]);
       if (new Set(departedPlayerIds).size !== departedPlayerIds.length || departedPlayerIds.some(id => !shell.players.some(p => p.playerId === id)) || shell.phase === "LOBBY" && departedPlayerIds.length > 0) throw new Error("Invalid departed TERRAFORMING_MARS roster.");
-      return Object.freeze({...shell, gameType:"TERRAFORMING_MARS", game, departedPlayerIds});
+      const settings = v.parse(v.strictObject({corporateEra:v.boolean(),prelude:v.optional(v.boolean(),false)}), candidate.settings ?? {corporateEra:false});
+      if (game && ((game.state.corporateEra ?? false) !== settings.corporateEra || (game.state.prelude ?? false) !== (settings.prelude ?? false))) throw new Error('Mars settings do not match running game.');
+      return Object.freeze({...shell, gameType:"TERRAFORMING_MARS", settings, game, departedPlayerIds});
     }
     case "SEVEN_WONDERS_DUEL": {
       const adapter = new DuelGameStateAdapter(), game = candidate.game === null ? null : adapter.cloneAndValidate(candidate.game);

@@ -77,7 +77,7 @@ test('Mars command notice distinguishes rejected choices from uncertain requests
  assert.equal(renderToStaticMarkup(createElement(CommandNotice,{...props,error:null})), '');
 });
 
-import {MarsPaymentPanel} from '../features/mars/Payment.js';
+import {MarsPaymentPanel,marsPaymentMoneyTopUp} from '../features/mars/Payment.js';
 test('Mars payment panel renders server metal values instead of assuming two credits per steel',()=>{
  const g=game();g.privateState.payment={label:'금속 가치 검증',cost:11,steel:true,titanium:true,heat:false,steelValue:3,titaniumValue:5,cardId:null,cancelable:true};
  const html=renderToStaticMarkup(createElement(MarsPaymentPanel,{game:g,busy:false,onPay:()=>{}}));
@@ -171,4 +171,68 @@ test('Mars resource labels show fighters and distinguish one resource for two VP
 test('Mars production attack guide explains mandatory choice, self targeting and production floors',()=>{
  const g=game();g.privateState.offers=[{id:'reduce:mars-b',kind:'EFFECT',targetId:'mars-b',label:'M€ 생산 감소',detail:'-3 → -5',cost:0}];
  const html=renderToStaticMarkup(createElement(ActionGuide,{game:g}));assert.match(html,/필수 효과로 생략할 수 없습니다/);assert.match(html,/자신도 선택/);assert.match(html,/보유 자원은 줄지 않으며/);assert.match(html,/서식지 보호로 막을 수 없습니다/);
+});
+
+import {MARS_ALL_CARDS,MARS_PRELUDES,MARS_PRELUDE_PROJECTS} from '@hangul-rummikub/shared';
+import {MarsExpansionOptions} from '../features/mars/ExpansionOptions.js';
+
+test('Mars both expansion controls are independent and show full deck and corporation counts',()=>{
+ for(const enabled of [false,true])for(const prelude of [false,true]){const html=renderToStaticMarkup(createElement(MarsExpansionOptions,{enabled,prelude,disabled:false,onChange(){},onPreludeChange(){}}));assert.equal((html.match(/type="checkbox"/g)??[]).length,2);assert.match(html,new RegExp(String((enabled?208:137)+(prelude?7:0))));assert.match(html,/기업시대/);assert.match(html,/프렐류드/);}
+});
+test('Mars complete project and Prelude catalog has readable Korean titles and defined effect descriptions',()=>{
+ for(const c of [...MARS_ALL_CARDS,...MARS_PRELUDE_PROJECTS,...MARS_PRELUDES]){assert.match(c.name,/[가-힣]/,c.id);assert.ok(c.englishName);assert.doesNotMatch(marsCardDescription(c),/undefined|NaN/);}
+ assert.equal(marsCard('DomedCrater').name,'돔 크레이터');
+});
+test('Mars payment shows a bounded optional Psychrophiles microbe input only when offered by the server',()=>{
+ const g=game();g.privateState.payment={label:'식물 카드',cost:8,steel:false,titanium:false,heat:false,steelValue:2,titaniumValue:3,cardId:null,cancelable:true,microbes:3};
+ const html=renderToStaticMarkup(createElement(MarsPaymentPanel,{game:g,busy:false,onPay(){}}));assert.match(html,/지불할 미생물/);assert.match(html,/max="3"/);assert.match(html,/식물 태그 카드 전용/);
+ g.privateState.payment.microbes=0;assert.doesNotMatch(renderToStaticMarkup(createElement(MarsPaymentPanel,{game:g,busy:false,onPay(){}})),/지불할 미생물/);
+});
+
+
+test('Mars payment top-up preserves materials, honors metal and microbe values, and never exceeds money held',()=>{
+ const spend={money:99,steel:2,titanium:1,heat:1,microbes:2};
+ const before={...spend},info={cost:20,steelValue:3 as const,titaniumValue:5 as const};
+ assert.equal(marsPaymentMoneyTopUp(spend,info,42),4);
+ assert.deepEqual(spend,before);
+ assert.equal(marsPaymentMoneyTopUp(spend,info,2),2,'Insufficient cash remains visibly insufficient');
+ assert.equal(marsPaymentMoneyTopUp(spend,{...info,cost:5},42),0,'Materials may overpay; never suggest negative cash');
+ assert.equal(marsPaymentMoneyTopUp(spend,{...info,cost:0},42),0);
+ assert.equal(marsPaymentMoneyTopUp({...spend,microbes:undefined},info,42),8);
+ for(const bad of [-1,.5,NaN,Infinity,Number.MAX_SAFE_INTEGER])assert.equal(marsPaymentMoneyTopUp({...spend,steel:bad},info,42),null);
+});
+test('Mars payment assistance is explicit, announces totals and disables adjustment while submitting',()=>{
+ const g=game();g.privateState.payment={label:'식물 카드',cost:8,steel:false,titanium:false,heat:false,steelValue:2,titaniumValue:3,cardId:null,cancelable:true,microbes:3};
+ const html=renderToStaticMarkup(createElement(MarsPaymentPanel,{game:g,busy:false,onPay(){}}));
+ assert.match(html,/부족분 M€로 맞추기/);assert.match(html,/aria-live="polite"/);assert.match(html,/보유 3 · 지불 후 3 · 식물 태그 카드 전용/);
+ const pending=renderToStaticMarkup(createElement(MarsPaymentPanel,{game:g,busy:true,onPay(){}}));
+ assert.match(pending,/<button type="button" disabled="">부족분 M€로 맞추기/);
+ g.privateState.payment.microbes=0;
+ assert.doesNotMatch(renderToStaticMarkup(createElement(MarsPaymentPanel,{game:g,busy:false,onPay(){}})),/부족분 M€로 맞추기/);
+});
+
+
+import {marsPrintedRequirements} from '../features/mars/requirements.js';
+import {MarsCardView} from '../features/mars/cards.js';
+test('Mars printed conditions distinguish global units, maximums, tags, production and city requirements',()=>{
+ assert.equal(marsPrintedRequirements(marsCard('Psychrophiles')),'기온 -20°C 이하');
+ assert.equal(marsPrintedRequirements(marsCard('MartianSurvey')),'산소 4% 이하');
+ assert.equal(marsPrintedRequirements(marsCard('SpaceHotels')),'지구 태그 2개 이상');
+ assert.equal(marsPrintedRequirements(marsCard('AsteroidMiningConsortium')),'티타늄 생산 1 이상');
+ assert.equal(marsPrintedRequirements(marsCard('RadSuits')),'전체 도시 2개 이상');
+ assert.equal(marsPrintedRequirements(marsCard('PowerPlant')),'');
+ for(const card of [...MARS_ALL_CARDS,...MARS_PRELUDE_PROJECTS,...MARS_PRELUDES]){
+  const text=marsPrintedRequirements(card);
+  assert.equal(!!text,(card.corporateRequirements??card.requirements).length>0,card.id);
+  assert.doesNotMatch(text,/undefined|NaN|temperature|oxygen|production/);
+ }
+});
+test('Mars card face exposes printed requirements visually and to assistive technology before initial purchase',()=>{
+ const card={tileId:v.parse(TileIdSchema,'printed-conditions'),definitionId:'Psychrophiles',resources:0,usedGeneration:0};
+ const html=renderToStaticMarkup(createElement(MarsCardView,{card,onSelect(){}}));
+ assert.match(html,/class="tm-card-requirements"/);
+ assert.match(html,/aria-label="[^"]*인쇄 조건: 기온 -20°C 이하/);
+ assert.match(html,/<b>인쇄 조건<\/b> 기온 -20°C 이하/);
+ const noCondition=renderToStaticMarkup(createElement(MarsCardView,{card:{...card,definitionId:'PowerPlant'},onSelect(){}}));
+ assert.doesNotMatch(noCondition,/tm-card-requirements|인쇄 조건/);
 });

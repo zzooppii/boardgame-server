@@ -65,7 +65,7 @@ test("Web game catalog는 등록된 38개 게임을 같은 계층으로 공개�
     { gameType: "SEVEN_WONDERS_DUEL", displayName: "7 원더스 듀얼", description: "두 문명의 대결. 불가사의를 세우고 신과 원로원을 움직이세요. Pantheon · Agora 확장 포함." },
     { gameType: "PATCHWORK", displayName: "패치워크", description: "천 조각과 단추로 채워가는 나만의 퀼트. 시간과 공간을 겨루는 2인 퍼즐 보드게임." },
     { gameType: "ARNAK", displayName: "아르낙의 잊혀진 유적", description: "잊힌 섬을 탐험하고 수호자를 넘어 사원의 비밀을 밝히는 2–4인 덱 빌딩 탐험." },
-    { gameType: "TERRAFORMING_MARS", displayName: "테라포밍 마스", description: "붉은 행성에 바다와 숲, 도시를 만드는 2–5인 기업 경쟁. 기본 지도 · 기본판 137장." },
+    { gameType: "TERRAFORMING_MARS", displayName: "테라포밍 마스", description: "붉은 행성에 바다와 숲, 도시를 만드는 2–5인 기업 경쟁. 기본 지도 · 기업시대·프렐류드 선택." },
     { gameType: "TERRORSCAPE", displayName: "테러스케이프", description: "소리를 좇는 살인마와 탈출을 준비하는 생존자. 2~4인 비대칭 공포 게임 · 기본판 + Feral Instincts." },
   ]);
   assert.equal(Object.isFrozen(GAME_CATALOG[0]), true);

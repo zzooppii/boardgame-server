@@ -20,7 +20,7 @@ test('Mars Corporate Era printed inventory completes 208 unique numbered project
     assert.equal(fact('CEOsFavoriteProject').englishName, "CEO's Favorite Project");
     assert.equal(fact('InventorsGuild').englishName, "Inventors' Guild");
     for (const c of MARS_CORPORATE_ERA_CARD_FACTS) {
-        assert.throws(() => marsCard(c.id), /Unknown Mars card/);
+        assert.equal(marsCard(c.id).id, c.id); assert.equal(MARS_CARDS.some(base => base.id === c.id), false);
         assert.ok(Number.isSafeInteger(c.cost) && c.cost >= 0, c.id);
         assert.match(c.number, /^\d{3}$/);
         assert.ok(c.englishName.length > 0);
@@ -55,7 +55,7 @@ test('Mars Corporate Era preserves resource score multipliers, science tag multi
 test('Mars Corporate Era corporations record printed starts and passives but remain unavailable until implemented', () => {
     assert.equal(MARS_CORPORATE_ERA_CORPORATION_FACTS.length, 2);
     assert.equal(MARS_CORPORATIONS.length, 10);
-    for (const c of MARS_CORPORATE_ERA_CORPORATION_FACTS) assert.throws(() => marsCorporation(c.id), /Unknown Mars corporation/);
+    for (const c of MARS_CORPORATE_ERA_CORPORATION_FACTS) assert.equal(marsCorporation(c.id).id,c.id);
     const [saturn, teractor] = MARS_CORPORATE_ERA_CORPORATION_FACTS;
     assert.equal(saturn.money, 42);
     assert.deepEqual(saturn.production, { titanium: 1 });
@@ -84,7 +84,7 @@ test('Mars prepared economic effects have readable descriptions and remain outsi
     assert.equal(Object.keys(MARS_CORPORATE_ERA_ECONOMIC_EFFECTS).length, 26);
     for (const [id, effects] of Object.entries(MARS_CORPORATE_ERA_ECONOMIC_EFFECTS)) {
         fact(id);
-        assert.throws(() => marsCard(id), /Unknown Mars card/);
+        assert.equal(MARS_CARDS.some(c => c.id === id),false); assert.equal(marsCard(id).id,id);
         for (const effect of effects) assert.ok(marsEffectText(effect).length > 0, id);
     }
     assert.deepEqual(MARS_CORPORATE_ERA_ECONOMIC_EFFECTS.FuelFactory, [
@@ -118,9 +118,9 @@ test('Mars score-only corporate cards retain exact printed scores and have no in
 test('Mars prepared corporate definitions preserve all printed metadata and explicitly partition pending cards without changing the live deck',()=>{
  const ids=MARS_PREPARED_CORPORATE_CARDS.map(c=>c.id),all=[...ids,...MARS_PENDING_CORPORATE_CARD_IDS];
  assert.equal(new Set(all).size,71);assert.deepEqual([...all].sort(),MARS_CORPORATE_ERA_CARD_FACTS.map(c=>c.id).sort());
- for(const card of MARS_PREPARED_CORPORATE_CARDS){const {effects,actions,passive,...printed}=card;assert.deepEqual(printed,fact(card.id));if(!['InterstellarColonyShip','TransNeptuneProbe'].includes(card.id))assert.ok(effects.length||actions?.length||passive,card.id);assert.throws(()=>marsCard(card.id));}
- assert.equal(MARS_CARDS.length,137);assert.ok(MARS_PENDING_CORPORATE_CARD_IDS.includes('OlympusConference'));assert.ok(MARS_PENDING_CORPORATE_CARD_IDS.includes('ViralEnhancers'));
- assert.equal(ids.length,60);assert.equal(MARS_PENDING_CORPORATE_CARD_IDS.length,11);
+ for(const card of MARS_PREPARED_CORPORATE_CARDS){const {effects,actions,passive,...printed}=card;assert.deepEqual(printed,fact(card.id));if(!['InterstellarColonyShip','TransNeptuneProbe'].includes(card.id))assert.ok(effects.length||actions?.length||passive,card.id);assert.equal(marsCard(card.id).id,card.id);}
+ assert.equal(MARS_CARDS.length,137);assert.ok(ids.includes('OlympusConference'));assert.ok(ids.includes('ViralEnhancers'));
+ assert.equal(ids.length,71);assert.equal(MARS_PENDING_CORPORATE_CARD_IDS.length,0);
 });
 test('Mars assembled cards retain mandatory costs, active actions, passive discounts and printed resource scoring',()=>{
  const prepared=(id:string)=>{const card=MARS_PREPARED_CORPORATE_CARDS.find(c=>c.id===id);assert.ok(card,id);return card;};
@@ -138,4 +138,12 @@ test('Mars prepared economy cards include complete passive text and Business Net
  }
  const network=MARS_PREPARED_CORPORATE_CARDS.find(c=>c.id==='BusinessNetwork');assert.ok(network);
  assert.equal(network.cost,4);assert.deepEqual(network.tags,['earth']);assert.deepEqual(network.effects,[{kind:'production',resource:'money',amount:-1}]);assert.deepEqual(network.actions,[{kind:'buyCard'}]);
+});
+
+import {MARS_PRELUDES,MARS_PRELUDE_PROJECTS,marsProjectCatalog,marsCorporationCatalog} from './games/mars/catalog.js';
+test('Mars Prelude catalogs are independent, numbered and complete for all four lobby configurations',()=>{
+ assert.equal(MARS_PRELUDES.length,35);assert.equal(MARS_PRELUDE_PROJECTS.length,7);assert.equal(new Set([...MARS_PRELUDES,...MARS_PRELUDE_PROJECTS].map(c=>c.number)).size,42);
+ for(const ce of [false,true])for(const prelude of [false,true]){assert.equal(marsProjectCatalog(ce,prelude).length,(ce?208:137)+(prelude?7:0));assert.equal(marsCorporationCatalog(ce,prelude).length,(ce?12:10)+(prelude?5:0));}
+ assert.ok(v.safeParse(MarsActionSchema,{type:'SELL',cardIds:Array.from({length:215},(_,i)=>`sell-card-${i}`)}).success);
+ assert.equal(v.safeParse(MarsActionSchema,{type:'SELL',cardIds:Array.from({length:216},(_,i)=>`sell-card-${i}`)}).success,false);
 });
