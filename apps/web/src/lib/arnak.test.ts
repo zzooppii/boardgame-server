@@ -40,6 +40,22 @@ import { describeArnakEffect } from '../features/arnak/effect-description.js';
 import { ArnakCardDetail } from '../features/arnak/ArnakCardDetail.js';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { ArnakResearchTrack } from '../features/arnak/ArnakResearchTrack.js';
+import { ArnakResourceChips } from '../features/arnak/ArnakResourceChips.js';
+test('Arnak visual resource costs include names and quantities without zero-value costs',()=>{
+ const html=renderToStaticMarkup(createElement(ArnakResourceChips,{value:{coin:0,tablet:2,jewel:1}}));
+ assert.match(html,/aria-label="석판 2"/);assert.match(html,/aria-label="보석 1"/);assert.doesNotMatch(html,/금화/);
+ assert.equal((html.match(/<svg/g)??[]).length,2);
+});
+test('Arnak visual research separates payments, both token rewards, scores and unclaimed bonuses',()=>{
+ const render=(bonus:boolean)=>renderToStaticMarkup(createElement(ArnakResearchTrack,{game:{playerStates:[],researchBonuses:bonus?{'2R':'tablet'}:{}},target:'1L',available:new Set(['1L']),name:id=>id,onSelect(){}}));
+ const html=render(true);
+ assert.match(html,/연구 1L · 나침반 1 · 화살촉 1/);assert.match(html,/연구 8 · 금화 1 · 나침반 1 · 보석 1/);
+ assert.equal((html.match(/돋보기 보상/g)??[]).length,7);assert.equal((html.match(/수첩 보상/g)??[]).length,7);
+ assert.match(html,/조수 고용/);assert.match(html,/조수 승급/);assert.match(html,/유물 무료 획득/);
+ assert.match(html,/16점/);assert.match(html,/10점/);assert.match(html,/ar-node-bonus/);
+ assert.doesNotMatch(render(false),/ar-node-bonus/);
+});
 import { ArnakTravel } from '../features/arnak/ArnakTravel.js';
 test('Arnak travel badges name shoes, boats, cars and planes and retain repeated symbols', () => {
  const html=renderToStaticMarkup(createElement(ArnakTravel,{travel:['foot','car','car','boat','plane']}));

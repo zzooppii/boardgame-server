@@ -60,6 +60,18 @@ test('Arnak desktop/mobile: cards, dig, cleanup, five rounds, resume, results, r
  await host.getByRole('button',{name:'탐험 시작 →',exact:true}).click();
  for(const page of pages){await page.locator('.ar-hand').waitFor();assert.equal(await page.locator('.ar-hand .ar-card').count(),5);}
  for(const page of pages){
+  const research=page.locator('.ar-research-visual');
+  assert.equal(await research.locator('.ar-track-level').count(),9);
+  assert.equal(await research.locator('.ar-track-reward').count(),14);
+  const first=research.getByRole('button',{name:/^연구 1L ·/});
+  assert.equal(await first.locator('.ar-resource-chip[aria-label="나침반 1"]').count(),1);
+  assert.equal(await first.locator('.ar-resource-chip[aria-label="화살촉 1"]').count(),1);
+  for(const cell of await research.locator('.ar-research-row > button, .ar-track-reward').all())
+   assert.equal(await cell.evaluate(el=>el.scrollWidth<=el.clientWidth),true);
+ }
+ await host.locator('.ar-research-visual').screenshot({path:join(output,'research-track.png')});
+ await guest.locator('.ar-research-visual').screenshot({path:join(output,'mobile-research-track.png')});
+ for(const page of pages){
   for(const card of await page.locator('.ar-hand .ar-card, .ar-market .ar-card').all()){
    const travel=card.locator('.ar-travel');await travel.waitFor();
    assert.match(await travel.innerText(),/신발 · 도보|자동차|배|비행기/);
@@ -366,6 +378,13 @@ test('Arnak desktop/mobile: cards, dig, cleanup, five rounds, resume, results, r
     assert.deepEqual(await readResources(),{...beforeArtifact,compass:beforeArtifact.compass-artifactPrice});
     assert.equal(await cardTotal(other),cardsBeforeArtifact+1);
     await choose(other,/공포 받고 효과 적용$/);
+   }
+   // Draw effects are explicit choices; any following resource gain waits for them.
+   for(const effect of printedEffects.filter(text=>/^카드 \d+장 뽑기$/.test(text))){
+    const handBefore=await other.locator('.ar-hand .ar-card').count();
+    const deckBefore=Number((await other.locator('.ar-camp-heading p').innerText()).match(/덱 (\d+)장/)[1]);
+    await choose(other,/카드 \d+장 뽑기$/);
+    assert.equal(await other.locator('.ar-hand .ar-card').count(),handBefore+Math.min(Number(effect.match(/\d+/)[0]),deckBefore));
    }
    const afterArtifact=await readResources();
    for(const key of Object.keys(resourceNames)){
