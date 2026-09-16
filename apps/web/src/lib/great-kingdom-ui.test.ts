@@ -3,7 +3,7 @@ import test from 'node:test';
 import {createElement} from 'react';
 import {renderToStaticMarkup} from 'react-dom/server';
 import {parse,safeParse} from 'valibot';
-import {GreatKingdomLobbyPlatformSnapshotV2Schema,GreatKingdomPlayingPlatformSnapshotV2Schema,GreatKingdomFinishedPlatformSnapshotV2Schema,GreatKingdomClientCommandSchema,GameRevisionSchema,TurnIdSchema,greatKingdomCoordinate} from '@hangul-rummikub/shared';
+import {GreatKingdomLobbyPlatformSnapshotV2Schema,GreatKingdomPlayingPlatformSnapshotV2Schema,GreatKingdomFinishedPlatformSnapshotV2Schema,GreatKingdomClientCommandSchema,GameRevisionSchema,ServerTimeSchema,TurnIdSchema,greatKingdomCoordinate} from '@hangul-rummikub/shared';
 import {GreatKingdomScreen} from '../features/great-kingdom/GreatKingdomScreen.js';
 import {greatKingdomScope,greatKingdomSelection} from '../features/great-kingdom/ui.js';
 import {kingdomNewCue} from '../features/great-kingdom/sound.js';
@@ -50,4 +50,24 @@ test('GREAT_KINGDOM tied territory renders a draw and plays neither victory nor 
  assert.equal(kingdomNewCue({gameId:draw.game.gameId,revision:1,territory:0},draw.game,true,s.self.playerId),'DRAW');
  assert.equal(safeParse(GreatKingdomFinishedPlatformSnapshotV2Schema,{...draw,game:{...draw.game,result:{...draw.game.result,winnerPlayerIds:['b']}}}).success,false);
  assert.equal(safeParse(GreatKingdomPlayingPlatformSnapshotV2Schema,{...s,game:{...s.game,rulesVersion:'great-kingdom-base-v1',firstPlayerMargin:3}}).success,false);
+});
+
+test('GREAT_KINGDOM lobby exposes three AI levels and exactly five human timer choices',()=>{
+ const html=render(lobby(1));for(const text of ['AI 초급','AI 중급','AI 고급','친구와 대전','자동 패스'])assert.ok(html.includes(text));
+ assert.deepEqual([...html.matchAll(/<option value="(\d+)"/g)].map(m=>Number(m[1])),[0,60,120,180,300]);
+ const single=lobby(1),ai=parse(GreatKingdomLobbyPlatformSnapshotV2Schema,{...single,room:{...single.room,settings:{opponent:'HARD',turnSeconds:0}}});
+ assert.equal(getGameStartControl(ai,false).canStart,true);assert.equal(getGameStartControl(ai,true).canStart,false);
+ const aiHtml=render(ai);assert.match(aiHtml,/AI와 1인 대전/);assert.match(aiHtml,/AI 고급/);assert.doesNotMatch(aiHtml,/<select/);assert.match(aiHtml,/<button type="button" class="gk-primary">왕국 건설 시작/);
+ const guest=lobby();const guestHtml=render({...guest,self:{playerId:guest.room.players[1]!.playerId}});assert.match(guestHtml,/<select[^>]*disabled/);
+});
+test('GREAT_KINGDOM AI projection has one real room player and labels bot thinking without fake offline status',()=>{
+ const s=playing(),ai=parse(GreatKingdomPlayingPlatformSnapshotV2Schema,{...s,room:{...s.room,settings:{opponent:'MEDIUM',turnSeconds:0},players:[s.room.players[1]]},self:{playerId:'b'},game:{...s.game,settings:{opponent:'MEDIUM',turnSeconds:0},botPlayerId:'a',deadlineAt:1650}});
+ const html=render(ai);assert.match(html,/AI 중급/);assert.match(html,/AI 생각 중/);assert.doesNotMatch(html,/재접속 대기/);
+ assert.equal(safeParse(GreatKingdomPlayingPlatformSnapshotV2Schema,{...ai,room:{...ai.room,players:s.room.players}}).success,false);
+ assert.equal(safeParse(GreatKingdomPlayingPlatformSnapshotV2Schema,{...ai,game:{...ai.game,botPlayerId:'unknown'}}).success,false);
+});
+test('GREAT_KINGDOM countdown displays server deadline and blocks expired board input',()=>{
+ const s=playing();const timed=parse(GreatKingdomPlayingPlatformSnapshotV2Schema,{...s,game:{...s.game,settings:{opponent:'HUMAN',turnSeconds:60},deadlineAt:61000},room:{...s.room,settings:{opponent:'HUMAN',turnSeconds:60}}});
+ assert.match(render(timed),/남은 시간 1:00/);
+ const expired=render({...timed,serverTime:parse(ServerTimeSchema,61000)});assert.match(expired,/시간 종료 · 서버 판정 중/);assert.equal((expired.match(/class="gk-cell[^>]*disabled=""/g)??[]).length,81);
 });

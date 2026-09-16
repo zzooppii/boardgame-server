@@ -4659,6 +4659,7 @@ test("runtime Socket.IO map은 Number events를 additive하게 제공하고 lega
     | "duel:act"
     | "duel:configure"
     | "greatKingdom:act"
+    | "greatKingdom:configure"
     | "guryongtu:act"
     | "guryongtu:nextRound"
     | "arkNova:act"

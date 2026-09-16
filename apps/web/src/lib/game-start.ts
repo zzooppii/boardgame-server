@@ -1,3 +1,5 @@
+import {safeParse} from "valibot";
+import {GreatKingdomSettingsSchema} from "@hangul-rummikub/shared";
 import {
   PROTOCOL_VERSION,
   GAME_PLAYER_LIMITS,
@@ -16,6 +18,7 @@ export type GameStartControl = Readonly<{
 export type GameStartSnapshot = Readonly<{
   room: Readonly<{
     gameType?: GameType;
+    settings?: unknown;
     phase: "LOBBY" | "PLAYING" | "FINISHED";
     players: readonly Readonly<{
       playerId: string;
@@ -31,7 +34,8 @@ export function getGameStartControl(
   snapshot: GameStartSnapshot,
   commandPending: boolean,
 ): GameStartControl {
-  const { min: minPlayers, max: maxPlayers } = GAME_PLAYER_LIMITS[snapshot.room.gameType ?? "HANGUL_TILE"];
+  const kingdom = snapshot.room.gameType === "GREAT_KINGDOM" ? safeParse(GreatKingdomSettingsSchema, snapshot.room.settings) : null;
+  const { min: minPlayers, max: maxPlayers } = kingdom?.success && kingdom.output.opponent !== "HUMAN" ? {min:1,max:1} : GAME_PLAYER_LIMITS[snapshot.room.gameType ?? "HANGUL_TILE"];
   const self = snapshot.room.players.find(
     (player) => player.playerId === snapshot.self.playerId,
   );

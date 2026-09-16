@@ -8,7 +8,7 @@ import { SaboteurActionSchema } from "./games/saboteur/actions.js";
 import { JaipurActionSchema } from "./games/jaipur/actions.js";
 import { LoveLetterActionSchema } from "./games/love-letter/actions.js";
 import { GuryongtuActionSchema } from "./games/guryongtu/actions.js";
-import { GreatKingdomActionSchema } from "./games/great-kingdom/actions.js";
+import { GreatKingdomSettingsSchema, GreatKingdomActionSchema } from "./games/great-kingdom/actions.js";
 import { AzulActionSchema } from "./games/azul/actions.js";
 import { VegasActionSchema } from "./games/vegas/actions.js";
 import { BurgundyActionSchema, BurgundySettingsSchema } from "./games/burgundy/actions.js";
@@ -412,7 +412,8 @@ export const GuryongtuNextRoundCommandSchema = v.strictObject({ ...GuryongtuIden
 export const LostCitiesNextRoundCommandSchema = v.strictObject({ ...LostCitiesIdentity, kind: v.literal("lostCities:nextRound"), roundId: TurnIdSchema, payload: v.strictObject({}) });
 export const JaipurClientCommandSchema = v.variant("kind", [JaipurActCommandSchema, JaipurNextRoundCommandSchema]);
 export const LoveLetterClientCommandSchema = v.variant("kind", [LoveLetterActCommandSchema, LoveLetterNextRoundCommandSchema]);
-export const GreatKingdomClientCommandSchema = GreatKingdomActCommandSchema;
+export const GreatKingdomConfigureCommandSchema = v.strictObject({protocolVersion: ProtocolVersionSchema, requestId: RequestIdSchema, kind: v.literal("greatKingdom:configure"), expectedRoomRevision: RoomRevisionSchema, payload: GreatKingdomSettingsSchema});
+export const GreatKingdomClientCommandSchema = v.variant("kind", [GreatKingdomActCommandSchema, GreatKingdomConfigureCommandSchema]);
 export const GuryongtuClientCommandSchema = v.variant("kind", [GuryongtuActCommandSchema, GuryongtuNextRoundCommandSchema]);
 export const LostCitiesConfigureCommandSchema = v.strictObject({kind:v.literal("lostCities:configure"),protocolVersion:ProtocolVersionSchema,requestId:RequestIdSchema,expectedRoomRevision:RoomRevisionSchema,payload:LostCitiesSettingsSchema});
 export const LostCitiesClientCommandSchema = v.variant("kind", [LostCitiesConfigureCommandSchema, LostCitiesActCommandSchema, LostCitiesNextRoundCommandSchema]);

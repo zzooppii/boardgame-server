@@ -1,3 +1,4 @@
+import { GreatKingdomSettingsSchema, GREAT_KINGDOM_DEFAULT_SETTINGS } from "@hangul-rummikub/shared";
 import { CarcassonneSettingsSchema, CARCASSONNE_DEFAULT_SETTINGS } from "@hangul-rummikub/shared";
 import { PatchworkSettingsSchema } from "@hangul-rummikub/shared";
 import {HarmoniesSettingsSchema,HARMONIES_DEFAULT_SETTINGS} from "@hangul-rummikub/shared";
@@ -384,7 +385,9 @@ function cloneRoomWriteCandidate(
       validateRoomGameCoherence(shell.phase, shell.players, game, () => game === null ? null : adapter.inspectLifecycle(game));
       const departedPlayerIds = Object.freeze([...(candidate.departedPlayerIds ?? [])]);
       if (new Set(departedPlayerIds).size !== departedPlayerIds.length || departedPlayerIds.some(id => !shell.players.some(p => p.playerId === id)) || shell.phase === "LOBBY" && departedPlayerIds.length > 0) throw new Error("Invalid departed GREAT_KINGDOM roster.");
-      return Object.freeze({...shell, gameType:"GREAT_KINGDOM", game, departedPlayerIds});
+      const settings = v.parse(GreatKingdomSettingsSchema, candidate.settings ?? GREAT_KINGDOM_DEFAULT_SETTINGS);
+      if (game && (game.state.settings.opponent !== settings.opponent || game.state.settings.turnSeconds !== settings.turnSeconds)) throw new Error("Great Kingdom room settings mismatch.");
+      return Object.freeze({...shell, gameType:"GREAT_KINGDOM", settings, game, departedPlayerIds});
     }
     case "AZUL": {
       const adapter = new AzulGameStateAdapter(), game = candidate.game === null ? null : adapter.cloneAndValidate(candidate.game);
@@ -661,7 +664,8 @@ function validateRoomGameCoherence(
   }
 
   const playerIds = players.map((player) => player.playerId);
-  const participantIds: readonly string[] = "state" in game ? ("mode" in game.state && game.state.mode === "MULTIPLAYER" ? game.state.players.map(p=>p.playerId) : "playerId" in game.state ? [game.state.playerId] : "seatOrder" in game.state ? game.state.seatOrder : "mission" in game.state ? game.state.mission.trick.players.map(p => p.playerId) : game.state.rulesVersion === "duet-2025-ko-v1" ? game.state.players : game.state.players.map(p => p.playerId)) : game.turnOrder;
+  const kingdomBotId = "state" in game && "rulesVersion" in game.state && game.state.rulesVersion === "great-kingdom-base-v2" ? game.state.botPlayerId : null;
+  const participantIds: readonly string[] = "state" in game ? ("rulesVersion" in game.state && game.state.rulesVersion === "great-kingdom-base-v2" ? game.state.players.filter(p => p.playerId !== kingdomBotId).map(p => p.playerId) : "mode" in game.state && game.state.mode === "MULTIPLAYER" ? game.state.players.map(p=>p.playerId) : "playerId" in game.state ? [game.state.playerId] : "seatOrder" in game.state ? game.state.seatOrder : "mission" in game.state ? game.state.mission.trick.players.map(p => p.playerId) : game.state.rulesVersion === "duet-2025-ko-v1" ? game.state.players : game.state.players.map(p => p.playerId)) : game.turnOrder;
   if (
     playerIds.length !== participantIds.length ||
     new Set(playerIds).size !== playerIds.length ||

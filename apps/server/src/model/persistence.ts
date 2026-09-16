@@ -135,7 +135,7 @@ export type AvalonRoomRecord = RoomRecordBase & Readonly<{ gameType: "AVALON"; g
 import type { SplendorSettings } from "@hangul-rummikub/shared";
 export type SplendorRoomRecord = RoomRecordBase & Readonly<{ gameType: "SPLENDOR"; settings?: SplendorSettings; game: SplendorStoredGame | null; departedPlayerIds?: readonly PlayerId[] }>;
 export type GuryongtuRoomRecord = RoomRecordBase & Readonly<{ gameType: "GURYONGTU"; game: GuryongtuStoredGame | null; departedPlayerIds?: readonly PlayerId[] }>;
-export type GreatKingdomRoomRecord = RoomRecordBase & Readonly<{ gameType: "GREAT_KINGDOM"; game: GreatKingdomStoredGame | null; departedPlayerIds?: readonly PlayerId[] }>;
+export type GreatKingdomRoomRecord = RoomRecordBase & Readonly<{ settings?: import("@hangul-rummikub/shared").GreatKingdomSettings; gameType: "GREAT_KINGDOM"; game: GreatKingdomStoredGame | null; departedPlayerIds?: readonly PlayerId[] }>;
 export type TrainRoomRecord = RoomRecordBase & Readonly<{ gameType: "TRAIN"; settings?: TrainSettings; game: TrainStoredGame | null; departedPlayerIds?: readonly PlayerId[] }>;
 export type CenturyRoomRecord = RoomRecordBase & Readonly<{ gameType: "CENTURY"; game: CenturyStoredGame | null; departedPlayerIds?: readonly PlayerId[] }>;
 export type SpiritRoomRecord = RoomRecordBase & Readonly<{ gameType: "SPIRIT_ISLAND"; game: SpiritStoredGame | null; departedPlayerIds?: readonly PlayerId[] }>;

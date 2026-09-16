@@ -3,7 +3,7 @@ import test, { type TestContext } from "node:test";
 import { io, type Socket } from "socket.io-client";
 import * as v from "valibot";
 import {
-  SUPPORTED_GAME_TYPES, PlatformSnapshotV2Schema, SessionBootstrapAckSchema,
+  ServerTimeSchema, SUPPORTED_GAME_TYPES, PlatformSnapshotV2Schema, SessionBootstrapAckSchema,
   StateSyncWireAckSchema, RoomLeaveAckSchema, type GameType, type PlatformSnapshotV2,
 } from "@hangul-rummikub/shared";
 import { createApplicationRuntime } from "./composition-root.js";
@@ -116,4 +116,62 @@ test('GREAT_KINGDOM resume preserves board, old socket loses authority, explicit
 test('GREAT_KINGDOM default runtime starts without any scoring configuration',async t=>{
  const h=await harness(t),s=await start(h);assert.equal(s.room.phase,'PLAYING');
  assert.equal(greatKingdom(s).rulesVersion,'great-kingdom-base-v2');
+});
+
+async function configure(h:Harness, opponent:'HUMAN'|'EASY'|'MEDIUM'|'HARD', turnSeconds=0) {
+  const s=await h.sync();return h.success(await h.call(h.host,'greatKingdom:configure',{opponent,turnSeconds},{expectedRoomRevision:s.versions.roomRevision}));
+}
+test('GREAT_KINGDOM settings are host-only, strict, revision-scoped, replay-safe and frozen during play',async t=>{
+  const h=await harness(t),before=await h.sync();
+  const cmd=h.request('greatKingdom:configure',{opponent:'HUMAN',turnSeconds:60},{expectedRoomRevision:before.versions.roomRevision});
+  assert.equal(h.failure(await h.send(h.members[1]!.client,cmd)),'HOST_ONLY');
+  for(const turnSeconds of [-1,30,90,301,'60'])assert.equal(h.failure(await h.call(h.host,'greatKingdom:configure',{opponent:'HUMAN',turnSeconds},{expectedRoomRevision:before.versions.roomRevision})),'INVALID_PAYLOAD');
+  assert.equal(h.failure(await h.call(h.host,'greatKingdom:configure',{opponent:'EASY',turnSeconds:60},{expectedRoomRevision:before.versions.roomRevision})),'INVALID_PAYLOAD');
+  assert.equal(h.failure(await h.call(h.host,'greatKingdom:configure',{opponent:'EASY',turnSeconds:0},{expectedRoomRevision:before.versions.roomRevision})),'NOT_ENOUGH_PLAYERS');
+  const configured=h.success(await h.send(h.host,cmd));
+  assert.equal(configured.versions.roomRevision,before.versions.roomRevision+1);
+  assert.equal(h.success(await h.send(h.host,cmd)).versions.roomRevision,configured.versions.roomRevision);
+  assert.equal(h.failure(await h.send(h.host,{...cmd,requestId:'stale-settings'})),'STALE_ROOM_REVISION');
+  for(const seconds of [0,60,120,180,300]){const s=await configure(h,'HUMAN',seconds);assert.equal(s.room.gameType,'GREAT_KINGDOM');if(s.room.gameType==='GREAT_KINGDOM')assert.equal(s.room.settings.turnSeconds,seconds);}
+  const s=await start(h),g=greatKingdom(s);assert.equal(g.settings.turnSeconds,300);assert.ok(g.deadlineAt);
+  assert.equal(h.failure(await h.call(h.host,'greatKingdom:configure',{opponent:'HUMAN',turnSeconds:0},{expectedRoomRevision:s.versions.roomRevision})),'INVALID_PHASE');
+});
+test('GREAT_KINGDOM server deadlines reject late moves, ignore early/stale callbacks and apply exactly one automatic pass',async t=>{
+  const h=await harness(t);await configure(h,'HUMAN',60);const s=await start(h),g=greatKingdom(s);
+  if(g.phase!=='PLAYING'||g.deadlineAt===null)throw new Error();
+  const service=h.server.runtime.greatKingdomService!;
+  const deadlines=await h.server.runtime.persistence.listActiveTurnDeadlines(),d=deadlines.find(d=>d.roomId===s.room.roomId);assert.ok(d);
+  assert.equal((await service.timeout(d)).status,'NO_OP');
+  const guest=h.members[1]!,fresh=await h.connect();
+  const resumed=h.success(await h.call(fresh,'session:resume',{credential:{...guest.credential,roomCode:s.room.roomCode},lastSeenVersions:null}));guest.client=fresh;
+  assert.equal(greatKingdom(resumed).deadlineAt,g.deadlineAt);
+  const actor=h.members.find(m=>m.playerId===g.activePlayerId)!;
+  h.server.runtime.clock.now=()=>v.parse(ServerTimeSchema,g.deadlineAt!);
+  assert.equal(h.failure(await h.send(actor.client,action(h,s,{kind:'PLACE',position:0}))),'TURN_EXPIRED');
+  const results=await Promise.all([service.timeout(d),service.timeout(d)]);assert.deepEqual(results.map(r=>r.status).sort(),['APPLIED','NO_OP']);
+  const after=greatKingdom(await h.sync());assert.equal(after.gameRevision,1);assert.equal(after.consecutivePasses,1);assert.equal(after.deadlineAt,g.deadlineAt+60_000);
+  const second=(await h.server.runtime.persistence.listActiveTurnDeadlines()).find(d=>d.roomId===s.room.roomId);assert.ok(second);
+  h.server.runtime.clock.now=()=>second.deadlineAt;assert.equal((await service.timeout(second)).status,'APPLIED');
+  const finished=await h.sync(),f=greatKingdom(finished);assert.equal(f.phase,'FINISHED');if(f.phase!=='FINISHED')throw new Error();assert.equal(f.result.reason,'TERRITORY');assert.deepEqual(f.result.winnerPlayerIds,[]);assert.equal(f.deadlineAt,null);
+  const rematch=h.success(await h.send(h.host,h.selection(finished,'GREAT_KINGDOM')));if(rematch.room.gameType!=='GREAT_KINGDOM')throw new Error();assert.equal(rematch.room.settings.turnSeconds,60);
+  assert.equal((await service.timeout(second)).status,'NO_OP');
+});
+test('GREAT_KINGDOM each AI difficulty starts with one real human, makes legal moves and never becomes a session or host',async t=>{
+  for(const level of ['EASY','MEDIUM','HARD'] as const) await t.test(level,async t=>{
+    const h=await harness(t,1);await configure(h,level);
+    const outsider=await h.connect(),credential=await h.bootstrap(outsider);
+    assert.equal(h.failure(await h.call(outsider,'room:join',{bootstrapCredential:credential,nickname:'친구',roomCode:h.lobby.room.roomCode})),'ROOM_FULL');
+    let s=await start(h),g=greatKingdom(s);assert.equal(s.room.players.length,1);assert.equal(g.playerStates.length,2);assert.ok(g.botPlayerId);assert.equal(g.settings.opponent,level);
+    if(g.phase!=='PLAYING')throw new Error();
+    if(g.activePlayerId!==g.botPlayerId){s=h.success(await h.send(h.host,action(h,s,{kind:'PLACE',position:30})));g=greatKingdom(s);}
+    if(g.phase!=='PLAYING')throw new Error();assert.equal(g.activePlayerId,g.botPlayerId);
+    const d=(await h.server.runtime.persistence.listActiveTurnDeadlines()).find(d=>d.roomId===s.room.roomId);assert.ok(d);
+    h.server.runtime.clock.now=()=>d.deadlineAt;
+    assert.equal((await h.server.runtime.greatKingdomService!.timeout(d)).status,'APPLIED');
+    const after=greatKingdom(await h.sync());assert.equal(after.history.length,g.history.length+1);assert.equal(after.history.at(-1)!.playerId,g.botPlayerId);assert.equal(after.deadlineAt,null);
+    assert.equal((await h.server.runtime.greatKingdomService!.timeout(d)).status,'NO_OP');
+    assert.equal((await h.server.runtime.persistence.findById(s.room.roomId))!.players.length,1);
+    const latest=await h.sync();const left=v.parse(RoomLeaveAckSchema,await h.call(h.host,'room:leave',{}, {expectedRoomRevision:latest.versions.roomRevision,expectedGameRevision:latest.game?.gameRevision}));assert.ok(left.ok);
+    assert.equal((await h.server.runtime.greatKingdomService!.timeout(d)).status,'NO_OP');
+  });
 });

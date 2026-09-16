@@ -117,7 +117,10 @@ export function toScheduledTurnDeadline(
     if (game.state.rulesVersion === "jaipur-base-v1") throw new Error("Jaipur has no turn deadline.");
     if (game.state.rulesVersion === "love-letter-21-v1") throw new Error("LoveLetter has no turn deadline.");
     if (game.state.rulesVersion === "guryongtu-base-v1") throw new Error("Guryongtu has no turn deadline.");
-    if (game.state.rulesVersion === "great-kingdom-base-v2") throw new Error("GreatKingdom has no turn deadline.");
+    if (game.state.rulesVersion === "great-kingdom-base-v2") {
+      if (game.state.deadlineAt === null) throw new Error("GreatKingdom deadline missing.");
+      return {roomId,gameId:game.gameId,expectedGameRevision:game.gameRevision,turnId:game.state.transitionId,deadlineAt:game.state.deadlineAt};
+    }
     if (game.state.rulesVersion === "azul-base-v1") {
       if (game.state.deadlineAt === null) throw new Error("Azul deadline missing.");
       return {roomId,gameId:game.gameId,expectedGameRevision:game.gameRevision,turnId:game.state.transitionId,deadlineAt:game.state.deadlineAt};

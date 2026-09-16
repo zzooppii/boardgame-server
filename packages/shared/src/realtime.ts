@@ -589,6 +589,7 @@ export interface SnapshotWireClientToServerEvents {
   "jaipur:act": (command: Extract<JaipurClientCommand,{kind:"jaipur:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "loveLetter:act": (command: Extract<LoveLetterClientCommand,{kind:"loveLetter:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "guryongtu:act": (command: Extract<GuryongtuClientCommand,{kind:"guryongtu:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
+  "greatKingdom:configure": (command: Extract<GreatKingdomClientCommand,{kind:"greatKingdom:configure"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "greatKingdom:act": (command: Extract<GreatKingdomClientCommand,{kind:"greatKingdom:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "azul:act": (command: Extract<AzulClientCommand,{kind:"azul:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;
   "vegas:act": (command: Extract<VegasClientCommand,{kind:"vegas:act"}>, acknowledge: SocketAcknowledgement<StateSyncWireAck>) => void;

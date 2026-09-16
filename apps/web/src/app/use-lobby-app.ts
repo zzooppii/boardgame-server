@@ -3019,7 +3019,7 @@ export function useLobbyApp(): LobbyAppState {
     const client = clientRef.current;
     if (
       currentSnapshot === null ||
-      !getGameStartControl(currentSnapshot, false).canStart
+      !getGameStartControl(compatibleSnapshotRef.current?.kind === "PLATFORM_V2_GREAT_KINGDOM" ? compatibleSnapshotRef.current.platformSnapshot : currentSnapshot, false).canStart
     ) {
       return;
     }

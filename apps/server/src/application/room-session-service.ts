@@ -657,7 +657,7 @@ export class RoomSessionApplicationService {
         ROOM_NOT_JOINABLE_ERROR,
       );
     }
-    if (room.players.length >= GAME_PLAYER_LIMITS[room.gameType].max) {
+    if ((room.gameType === "GREAT_KINGDOM" && room.settings && room.settings.opponent !== "HUMAN") || room.players.length >= GAME_PLAYER_LIMITS[room.gameType].max) {
       return await this.#rejectAfterIdempotencyRecheck(
         prepared,
         fingerprint,

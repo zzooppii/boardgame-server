@@ -7,7 +7,7 @@ export type ScheduledTurnDispatchResult =
   | Readonly<{ status: "FAILED" }>;
 
 type ScheduledTurnCapability<
-  TGameType extends "PATCHWORK" | "HARMONIES" | "TRAIN" | "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "SPLENDOR" | "HALLI_GALLI" | "ISLAND_SETTLERS" | "SABOTEUR" | "LOST_CITIES" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE" | "SEVEN_WONDERS_DUEL",
+  TGameType extends "GREAT_KINGDOM" | "PATCHWORK" | "HARMONIES" | "TRAIN" | "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "SPLENDOR" | "HALLI_GALLI" | "ISLAND_SETTLERS" | "SABOTEUR" | "LOST_CITIES" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE" | "SEVEN_WONDERS_DUEL",
 > = Readonly<{
   gameType: TGameType;
   handleTurnTimeout(
@@ -28,6 +28,7 @@ export type ScheduledTurnRouterDependencies = Readonly<{
   numberTile: NumberTileScheduledTurnCapability;
   gemCard: GemCardScheduledTurnCapability;
   cityRole: CityRoleScheduledTurnCapability;
+  greatKingdom?: ScheduledTurnCapability<"GREAT_KINGDOM">;
   harmonies?: ScheduledTurnCapability<"HARMONIES">;
   azul?: ScheduledTurnCapability<"AZUL">;
   vegas?: ScheduledTurnCapability<"VEGAS">;
@@ -53,7 +54,7 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 }
 
 function isCapability<
-  TGameType extends "PATCHWORK" | "HARMONIES" | "TRAIN" | "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "SPLENDOR" | "HALLI_GALLI" | "ISLAND_SETTLERS" | "SABOTEUR" | "LOST_CITIES" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE" | "SEVEN_WONDERS_DUEL",
+  TGameType extends "GREAT_KINGDOM" | "PATCHWORK" | "HARMONIES" | "TRAIN" | "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "SPLENDOR" | "HALLI_GALLI" | "ISLAND_SETTLERS" | "SABOTEUR" | "LOST_CITIES" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE" | "SEVEN_WONDERS_DUEL",
 >(
   value: unknown,
   gameType: TGameType,
@@ -66,7 +67,7 @@ function isCapability<
 }
 
 function requireCapability<
-  TGameType extends "PATCHWORK" | "HARMONIES" | "TRAIN" | "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "SPLENDOR" | "HALLI_GALLI" | "ISLAND_SETTLERS" | "SABOTEUR" | "LOST_CITIES" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE" | "SEVEN_WONDERS_DUEL",
+  TGameType extends "GREAT_KINGDOM" | "PATCHWORK" | "HARMONIES" | "TRAIN" | "HANGUL_TILE" | "NUMBER_TILE" | "GEM_CARD" | "CITY_ROLE" | "DRAW_RELAY" | "SNEAKY_LUNCH" | "WOLF_NIGHT" | "LIAR_GAME" | "SPYFALL" | "SPLENDOR" | "HALLI_GALLI" | "ISLAND_SETTLERS" | "SABOTEUR" | "LOST_CITIES" | "AZUL" | "VEGAS" | "BURGUNDY" | "CARCASSONNE" | "SEVEN_WONDERS_DUEL",
 >(
   value: unknown,
   gameType: TGameType,
@@ -87,6 +88,7 @@ export class ScheduledTurnRouter {
   readonly #numberTile: NumberTileScheduledTurnCapability;
   readonly #gemCard: GemCardScheduledTurnCapability;
   readonly #cityRole: CityRoleScheduledTurnCapability;
+  readonly #greatKingdom: ScheduledTurnCapability<"GREAT_KINGDOM"> | undefined;
   readonly #harmonies: ScheduledTurnCapability<"HARMONIES"> | undefined;
   readonly #azul: ScheduledTurnCapability<"AZUL"> | undefined;
   readonly #vegas: ScheduledTurnCapability<"VEGAS"> | undefined;
@@ -108,6 +110,7 @@ export class ScheduledTurnRouter {
 
   constructor(dependencies: ScheduledTurnRouterDependencies) {
     this.#roomRepository = dependencies.roomRepository;
+    this.#greatKingdom = dependencies.greatKingdom;
     this.#harmonies=dependencies.harmonies;
     this.#azul = dependencies.azul;
     this.#vegas = dependencies.vegas;
@@ -154,7 +157,7 @@ export class ScheduledTurnRouter {
         case "JAIPUR": return { status: "NO_OP" };
         case "LOVE_LETTER": return { status: "NO_OP" };
         case "GURYONGTU": return { status: "NO_OP" };
-        case "GREAT_KINGDOM": return { status: "NO_OP" };
+        case "GREAT_KINGDOM": return this.#greatKingdom ? await this.#greatKingdom.handleTurnTimeout(input) : {status:"FAILED"};
         case "AZUL": return this.#azul ? await this.#azul.handleTurnTimeout(input) : {status:"FAILED"};
         case "VEGAS": return this.#vegas ? await this.#vegas.handleTurnTimeout(input) : {status:"FAILED"};
         case "BURGUNDY": return this.#burgundy ? await this.#burgundy.handleTurnTimeout(input) : {status:"FAILED"};

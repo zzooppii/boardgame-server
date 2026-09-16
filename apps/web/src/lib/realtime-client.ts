@@ -813,6 +813,7 @@ export class RealtimeClient {
     if (!parseRematch(GreatKingdomClientCommandSchema, command).success) return Promise.reject(new RealtimeClientError("INVALID_COMMAND"));
     return this.#emitAcknowledged(command.kind, command.requestId, acknowledge => {
       switch (command.kind) {
+        case "greatKingdom:configure": this.#socket.emit("greatKingdom:configure", command, acknowledge); break;
         case "greatKingdom:act": this.#socket.emit("greatKingdom:act", command, acknowledge); break;
       }
     }, validateStateSyncWireAck, ack => hasConsistentSnapshotAcknowledgement(ack) && this.#acceptAcknowledgementSnapshotVersion(ack));

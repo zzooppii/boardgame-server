@@ -54,7 +54,7 @@ export class RoomGameSelectionService {
             ...(room.liarPromptHistory === undefined ? {} : { liarPromptHistory: room.liarPromptHistory }),
             readyPlayerIds: [], roomRevision, createdAt: room.createdAt, updatedAt: now,
           };
-          candidate = command.payload.gameType === "GREAT_KINGDOM" ? {...lobby,gameType:"GREAT_KINGDOM"} : command.payload.gameType === "ARK_NOVA" ? { ...lobby, gameType: "ARK_NOVA" }
+          candidate = command.payload.gameType === "GREAT_KINGDOM" ? {...lobby,gameType:"GREAT_KINGDOM",...(room.gameType === "GREAT_KINGDOM" && room.settings ? {settings:room.settings} : {})} : command.payload.gameType === "ARK_NOVA" ? { ...lobby, gameType: "ARK_NOVA" }
             : command.payload.gameType === "AVALON" ? { ...lobby, gameType: "AVALON" }
             : command.payload.gameType === "SPACE_CREW"
             ? { ...lobby, gameType: "SPACE_CREW" }

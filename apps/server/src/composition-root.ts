@@ -808,7 +808,7 @@ export function createApplicationRuntime(
     if (room?.gameType === "GURYONGTU" && room.phase === "FINISHED" && room.game) await onGameFinished({ roomId, gameId: room.game.gameId });
   });
   const greatKingdomService = new GreatKingdomService({ roomRepository: persistence, roomUnitOfWork: persistence, idempotencyRepository: persistence,
-    roomMutationExecutor, presence: presenceReader, clock, ids: idGenerator, random: randomSource });
+    roomMutationExecutor, presence: presenceReader, clock, ids: idGenerator, random: randomSource, turnScheduler });
   const greatKingdomHostSuccession = new GreatKingdomHostSuccession(greatKingdomService.deps, roomId => greatKingdomService.notify(roomId));
   greatKingdomService.subscribe(async roomId => {
     const room = await persistence.findById(roomId);
@@ -1181,6 +1181,7 @@ export function createApplicationRuntime(
     onGameFinished, presenceLeaseReader: presenceReader,
   });
   scheduledTurnRouter = new ScheduledTurnRouter({
+    greatKingdom: {gameType:"GREAT_KINGDOM",handleTurnTimeout:input=>greatKingdomService.timeout(input)},
     duel: {gameType:"SEVEN_WONDERS_DUEL", handleTurnTimeout: input => duelService.timeout(input)},
     train: {gameType:"TRAIN", handleTurnTimeout: input => trainService.timeout(input)},
     patchwork: {gameType:"PATCHWORK", handleTurnTimeout: input => patchworkService.timeout(input)},

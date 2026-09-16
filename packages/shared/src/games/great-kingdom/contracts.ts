@@ -1,7 +1,7 @@
 import * as v from "valibot";
 import { GameIdSchema, PlayerIdSchema, TurnIdSchema } from "../../identifiers.js";
 import { GameRevisionSchema } from "../../protocol.js";
-import { GreatKingdomBoardSchema, GreatKingdomColorSchema, GreatKingdomPositionSchema } from "./actions.js";
+import { GreatKingdomBoardSchema, GreatKingdomColorSchema, GreatKingdomPositionSchema, GreatKingdomSettingsSchema, GREAT_KINGDOM_DEFAULT_SETTINGS } from "./actions.js";
 const count = v.pipe(v.number(), v.safeInteger(), v.minValue(0), v.maxValue(81));
 export const GreatKingdomMoveSchema = v.strictObject({
   move: v.pipe(v.number(), v.safeInteger(), v.minValue(1), v.maxValue(162)),
@@ -17,6 +17,9 @@ const Base = {
   gameType: v.literal("GREAT_KINGDOM"), gameId: GameIdSchema, gameRevision: GameRevisionSchema,
   rulesVersion: v.literal("great-kingdom-base-v2"),
 
+  settings: v.optional(GreatKingdomSettingsSchema, GREAT_KINGDOM_DEFAULT_SETTINGS),
+  botPlayerId: v.optional(v.nullable(PlayerIdSchema), null),
+  deadlineAt: v.optional(v.nullable(v.pipe(v.number(), v.safeInteger(), v.minValue(0))), null),
   board: GreatKingdomBoardSchema,
   territoryOwners: v.pipe(v.array(v.nullable(GreatKingdomColorSchema)), v.length(81)),
   playerStates: v.pipe(v.array(v.strictObject({playerId: PlayerIdSchema, color: GreatKingdomColorSchema,
@@ -30,6 +33,9 @@ export const GreatKingdomFinishedProjectionSchema = v.strictObject({...Base, pha
 export type GreatKingdomProjection = v.InferOutput<typeof GreatKingdomPlayingProjectionSchema> | v.InferOutput<typeof GreatKingdomFinishedProjectionSchema>;
 export function greatKingdomProjectionIsConsistent(g: GreatKingdomProjection): boolean {
   const ids = new Set(g.playerStates.map(p => p.playerId));
+  if ((g.settings.opponent === "HUMAN") !== (g.botPlayerId === null) || (g.botPlayerId !== null && !ids.has(g.botPlayerId))) return false;
+  if (g.phase === "FINISHED" && g.deadlineAt !== null) return false;
+  if (g.phase === "PLAYING" && ((g.settings.turnSeconds > 0 || g.activePlayerId === g.botPlayerId) !== (g.deadlineAt !== null))) return false;
   const castles = g.board.filter(c => c !== null);
   if (ids.size !== 2 || g.playerStates[0]?.color !== "BLUE" || g.playerStates[1]?.color !== "ORANGE" ||
     g.board[40]?.color !== "NEUTRAL" || castles.filter(c => c.color === "NEUTRAL").length !== 1 ||

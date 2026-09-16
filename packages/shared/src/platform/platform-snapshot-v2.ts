@@ -1,3 +1,4 @@
+import { GreatKingdomSettingsSchema, GREAT_KINGDOM_DEFAULT_SETTINGS } from "../games/great-kingdom/actions.js";
 import { CarcassonneSettingsSchema } from "../games/carcassonne/actions.js";
 import { PatchworkSettingsSchema } from "../games/patchwork/actions.js";
 import {HarmoniesSettingsSchema,HARMONIES_DEFAULT_SETTINGS} from "../games/harmonies/actions.js";
@@ -489,15 +490,19 @@ export const GuryongtuLobbyPlatformSnapshotV2Schema: v.GenericSchema<unknown, Gu
 export const GuryongtuPlayingPlatformSnapshotV2Schema: v.GenericSchema<unknown, GuryongtuPlayingPlatformSnapshotV2> = GuryongtuPlayingRaw;
 export const GuryongtuFinishedPlatformSnapshotV2Schema: v.GenericSchema<unknown, GuryongtuFinishedPlatformSnapshotV2> = GuryongtuFinishedRaw;
 const GreatKingdomOuter = { snapshotVersion: PlatformSnapshotVersionSchema, versions: PlatformSnapshotVersionsV2Schema, serverTime: ServerTimeSchema, self: PlatformSelfViewV2Schema };
-const GreatKingdomRoom = { roomId: RoomIdSchema, roomCode: RoomCodeSchema, gameType: v.literal("GREAT_KINGDOM") };
-const GreatKingdomPlayers = v.pipe(v.array(PlatformPlayerViewV2Schema), v.length(2));
+const GreatKingdomRoom = { settings: v.optional(GreatKingdomSettingsSchema, GREAT_KINGDOM_DEFAULT_SETTINGS), roomId: RoomIdSchema, roomCode: RoomCodeSchema, gameType: v.literal("GREAT_KINGDOM") };
+const GreatKingdomPlayers = v.pipe(v.array(PlatformPlayerViewV2Schema), v.minLength(1), v.maxLength(2));
+function matchingKingdomPlayers(s: {room: {players: readonly {playerId: string}[]}; game: {botPlayerId: string | null; playerStates: readonly {playerId: string}[]}}): boolean {
+  const humans = s.game.playerStates.filter(p => p.playerId !== s.game.botPlayerId);
+  return humans.length === s.room.players.length && humans.every(p => s.room.players.some(r => r.playerId === p.playerId)) && !s.room.players.some(p => p.playerId === s.game.botPlayerId);
+}
 const GreatKingdomLobbyRaw = v.pipe(v.strictObject({ ...GreatKingdomOuter, room: v.strictObject({ ...GreatKingdomRoom, phase: v.literal("LOBBY"),
   players: v.pipe(v.array(PlatformPlayerViewV2Schema), v.maxLength(10)) }), game: v.null() }),
   v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)));
 const GreatKingdomPlayingRaw = v.pipe(v.strictObject({ ...GreatKingdomOuter, room: v.strictObject({ ...GreatKingdomRoom, phase: v.literal("PLAYING"), players: GreatKingdomPlayers }), game: GreatKingdomPlayingProjectionSchema }),
-  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)), v.check(s => hasMatchingGamePlayers(s)), v.check(s => greatKingdomProjectionIsConsistent(s.game)));
+  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)), v.check(s => matchingKingdomPlayers(s)), v.check(s => greatKingdomProjectionIsConsistent(s.game)));
 const GreatKingdomFinishedRaw = v.pipe(v.strictObject({ ...GreatKingdomOuter, room: v.strictObject({ ...GreatKingdomRoom, phase: v.literal("FINISHED"), players: GreatKingdomPlayers }), game: GreatKingdomFinishedProjectionSchema }),
-  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)), v.check(s => hasMatchingGamePlayers(s)), v.check(s => greatKingdomProjectionIsConsistent(s.game)));
+  v.check(s => hasUniqueRoomPlayers(s)), v.check(s => containsSelfPlayer(s)), v.check(s => hasAtMostOneHost(s)), v.check(s => matchingKingdomPlayers(s)), v.check(s => greatKingdomProjectionIsConsistent(s.game)));
 export type GreatKingdomLobbyPlatformSnapshotV2 = v.InferOutput<typeof GreatKingdomLobbyRaw>;
 export type GreatKingdomPlayingPlatformSnapshotV2 = v.InferOutput<typeof GreatKingdomPlayingRaw>;
 export type GreatKingdomFinishedPlatformSnapshotV2 = v.InferOutput<typeof GreatKingdomFinishedRaw>;

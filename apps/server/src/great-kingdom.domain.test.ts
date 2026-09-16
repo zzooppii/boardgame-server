@@ -104,3 +104,24 @@ test('GREAT_KINGDOM simultaneous enclosure resolves opponent first and awards mo
   const end=play(before,39);assert.equal(end.phase,'FINISHED');if(end.phase!=='FINISHED')throw new Error();
   assert.deepEqual(end.result.winnerPlayerIds,[ids[1]]);assert.deepEqual(end.result.destroyedPositions,blue);
 });
+
+test('GREAT_KINGDOM AI levels find immediate siege, defend a threatened corner and never mutate input',async()=>{
+  const {chooseGreatKingdomAction}=await import('./games/great-kingdom/domain/ai.js');
+  // Blue wins by playing 9, enclosing the orange castle at 0.
+  const siege=play(play(initial(),1),0);
+  for(const level of ['EASY','MEDIUM','HARD'] as const){const before=structuredClone(siege);const action=await chooseGreatKingdomAction(siege,level,{nextInt:()=>0});assert.deepEqual(action,{kind:'PLACE',position:9});assert.deepEqual(siege,before);}
+  // Blue at 0 must extend to 9 after orange threatens from 1.
+  const threatened=play(play(initial(),0),1);
+  for(const level of ['MEDIUM','HARD'] as const){let yields=0;const action=await chooseGreatKingdomAction(threatened,level,{nextInt:()=>0},async()=>{yields++;});assert.deepEqual(action,{kind:'PLACE',position:9});assert.ok(yields>0);}
+});
+test('GREAT_KINGDOM AI finishes seeded games with canonical legal transitions and bounded work',async()=>{
+  const {chooseGreatKingdomAction}=await import('./games/great-kingdom/domain/ai.js');
+  for(const level of ['EASY','MEDIUM','HARD'] as const){let s=initial(),seed=42,moves=0;
+    const random={nextInt(max:number){seed=(seed*1664525+1013904223)>>>0;return seed%max;}};
+    while(s.phase==='PLAYING'){
+      let yields=0;const action=await chooseGreatKingdomAction(s,level,random,async()=>{yields++;});assert.ok(yields<=125);
+      s=play(s,action.kind==='PLACE'?action.position:null);assert.ok(++moves<=162);
+    }
+    assert.equal(s.phase,'FINISHED');
+  }
+});
