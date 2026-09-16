@@ -1,6 +1,6 @@
 # 시스템 아키텍처
 
-2026-09-16 스피크이지 개발: [SPEAKEASY_ARCHITECTURE.md](./SPEAKEASY_ARCHITECTURE.md)의 순수 경제 계산·홈 개발 미리보기·전용 그림과 음향 경계를 따른다. 실제 대국의 서비스·transport·projection 연결은 아직 구현하지 않았다.
+2026-09-17 스피크이지 개발: [SPEAKEASY_ARCHITECTURE.md](./SPEAKEASY_ARCHITECTURE.md)의 순수 규칙·수신자 projection·홈 미리보기와 내부 명령 서비스 경계를 따른다. 개발용 메모리 저장소에서 직렬화·상태/receipt 원자 저장을 검증하며, 공통 Room/Session/UoW adapter와 실제 transport·대국 연결은 아직 등록하지 않았다.
 
 2026-09-16 그레이트 킹덤 추가: [GREAT_KINGDOM_ARCHITECTURE.md](./GREAT_KINGDOM_ARCHITECTURE.md)의 2인 공개 보드·서버 영토/공성·화면/소리 경계를 따른다.
 

@@ -1,5 +1,6 @@
 import * as v from 'valibot';
-import {SpeakeasyPlaceCapoCommandSchema} from './locations.js';
+import {RequestIdSchema, GameIdSchema} from '../../identifiers.js';
+import {SpeakeasyPlaceCapoCommandSchema, SpeakeasyBoardViewSchema} from './locations.js';
 import {SpeakeasyDefenseCommandSchema} from './luciano.js';
 import {
   SpeakeasyRestaurantActionCommandSchema, SpeakeasyRestaurantFinishCommandSchema,
@@ -23,3 +24,22 @@ export const SpeakeasyPlayerCommandSchema = v.variant('type', [
   v.strictObject({type: v.literal('DEFEND'), command: SpeakeasyDefenseCommandSchema}),
 ]);
 export type SpeakeasyPlayerCommand = v.InferOutput<typeof SpeakeasyPlayerCommandSchema>;
+
+/** The authenticated room and player identity come from the transport context, not this body. */
+export const SpeakeasyCommandRequestSchema = v.strictObject({
+  requestId: RequestIdSchema,
+  action: SpeakeasyPlayerCommandSchema,
+});
+export const SpeakeasyCommandFailureSchema = v.strictObject({
+  ok: v.literal(false),
+  reason: v.picklist(['INVALID_PAYLOAD','UNAUTHENTICATED','INVALID_PHASE','STALE_GAME_REVISION',
+    'REQUEST_ID_REUSED','RULE_VIOLATION','INTERNAL_ERROR']),
+});
+/** On replay, acceptedRevision identifies the original commit; view is the current private snapshot. */
+export const SpeakeasyCommandReplySchema = v.union([
+  v.strictObject({ok: v.literal(true), requestId: RequestIdSchema, gameId: GameIdSchema,
+    acceptedRevision: v.pipe(v.number(),v.safeInteger(),v.minValue(0)), replayed: v.boolean(), view: SpeakeasyBoardViewSchema}),
+  SpeakeasyCommandFailureSchema,
+]);
+export type SpeakeasyCommandReply = v.InferOutput<typeof SpeakeasyCommandReplySchema>;
+export type SpeakeasyCommandFailure = v.InferOutput<typeof SpeakeasyCommandFailureSchema>;
