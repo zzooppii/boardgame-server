@@ -138,3 +138,45 @@ test('Luciano does not invent mobster buildings when the physical supply is exha
   assert.deepEqual(advanceSpeakeasyLuciano(s, s), {ok:false,reason:'CAPACITY'});
   assert.deepEqual(s, before);
 });
+
+
+test('Luciano permits police in blocked two-player districts through payout without opening them', () => {
+  const economy = built(example(), 'bar-0-0', a, 3);
+  for (const id of [2, 4, 8, 10, 16]) economy.districts[id - 1]!.blocked = true;
+  const seed = {...setup(economy), copDistricts: [2, 4, 8, 16]};
+  const before = structuredClone(seed);
+  let s = startSpeakeasyLuciano(seed);
+  while (s.phase !== 'COPS') s = advance(s);
+  assert.ok(seed.copDistricts.every(id => !s.economy.districts[id - 1]!.cop));
+  s = advance(s);
+  assert.equal(s.phase, 'PAYOUT');
+  s = parseSpeakeasyLuciano(JSON.parse(JSON.stringify(s)));
+  for (const id of seed.copDistricts) {
+    const district = s.economy.districts[id - 1]!;
+    assert.equal(district.cop, true);
+    assert.equal(district.blocked, true);
+    assert.deepEqual(district.slots, [null, null]);
+    assert.deepEqual(district.mobsterSlots, []);
+    assert.equal(projectSpeakeasyLuciano(s, a)!.districts[id - 1]!.cop, true);
+  }
+  const cash = s.economy.players[0]!.cash;
+  s = advance(s);
+  assert.equal(s.phase, 'COMPLETE');
+  assert.equal(s.economy.players[0]!.safe, 45); // One district each for player A and mobsters: fixture's second-place payout.
+  assert.equal(s.economy.players[0]!.cash, cash);
+  assert.deepEqual(seed, before);
+  assert.deepEqual(speakeasyInventory(s.economy), speakeasyInventory(economy));
+  assert.equal(buildSpeakeasy(s.economy, a, {pieceId: tile('bar-0-1'), district: 2, slot: 0,
+    goons: 0, useAssociate: false, freeAssociate: false, discardIds: []}, {kinds: ['SPEAKEASY'], upgrade: false}).ok, false);
+  assert.equal(advanceSpeakeasyLuciano(s, s).ok, false);
+});
+
+test('Luciano still rejects blocked mobster targets, duplicate police and already occupied police districts', () => {
+  const economy = example(); economy.districts[1]!.blocked = true;
+  const seed = {...setup(economy), copDistricts: [2]};
+  assert.throws(() => startSpeakeasyLuciano({...seed, districts: [1, 2]}));
+  assert.throws(() => startSpeakeasyLuciano({...seed, copDistricts: [2, 2]}));
+  assert.throws(() => startSpeakeasyLuciano({...seed, copDistricts: [17]}));
+  economy.districts[1]!.cop = true;
+  assert.throws(() => startSpeakeasyLuciano(seed));
+});

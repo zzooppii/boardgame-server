@@ -30,8 +30,9 @@ function validateSource(s: v.InferOutput<typeof SourceSchema>): void {
   const owners = new Set(s.economy.players.map(p => p.playerId));
   if (s.order.length !== owners.size || new Set(s.order).size !== owners.size || s.order.some(id => !owners.has(id))) throw new Error('Invalid Luciano order.');
   const expected = s.order.length === 2 ? [2, 2, 3][s.act - 1] : [3, 3, 4][s.act - 1];
+  // Rules v19c p.4: blocked two-player districts still receive police, but never mobsters.
   if (s.districts.length !== expected || new Set(s.districts).size !== expected ||
-    new Set(s.copDistricts).size !== s.copDistricts.length || [...s.districts, ...s.copDistricts].some(id => s.economy.districts[id - 1]!.blocked)) throw new Error('Invalid Luciano districts.');
+    new Set(s.copDistricts).size !== s.copDistricts.length || s.districts.some(id => s.economy.districts[id - 1]!.blocked)) throw new Error('Invalid Luciano districts.');
   speakeasyZonePayouts(s.economy, s.payoutTables);
 }
 
