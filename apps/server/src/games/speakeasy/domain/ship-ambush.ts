@@ -1,6 +1,6 @@
 import {speakeasyZone,type PlayerId,type SpeakeasyLocationChoice} from '@hangul-rummikub/shared';
 import {speakeasyCandidate,type SpeakeasyEconomy,type SpeakeasyPlayer} from './model.js';
-import {speakeasyOperating,speakeasyInfamy} from './economy.js';
+import {speakeasyOperating,speakeasyInfamy,quoteSpeakeasyPayment} from './economy.js';
 import type {SpeakeasyLocationProgram} from './location-program.js';
 type Choice=Extract<SpeakeasyLocationChoice,{kind:'AMBUSH'}>;
 type Rules=Extract<SpeakeasyLocationProgram['rows'][number][number],{kind:'AMBUSH'}>;
@@ -41,14 +41,17 @@ export function ambushSpeakeasyShip(original:SpeakeasyEconomy,actor:PlayerId,cho
     const returning=own.find(d=>d.familyId===choice.familyId);
     if(!returning||new Set(choice.borrowedFamilyIds).size!==choice.borrowedFamilyIds.length||choice.goons>p.goons.length) return 'INVALID_ACTION';
     const borrowed=choice.borrowedFamilyIds.map(id=>e.docks.find(d=>d.familyId===id&&d.ownerId!==actor&&d.zone===zone));
-    if(borrowed.some(d=>!d)||p.cash<borrowed.length) return 'INVALID_ACTION';
+    if(borrowed.some(d=>!d)) return 'INVALID_ACTION';
+    const payment=quoteSpeakeasyPayment(p.cash,p.safe,borrowed.length,choice.cashToSpend);
+    if(!payment.ok) return payment.reason;
     if(p.levels.STRENGTH*(own.length+borrowed.length)+choice.goons<=defense.byRemaining[ship.barrels.length]!) return 'INSUFFICIENT_STRENGTH';
     const buildings=e.districts.flatMap(d=>d.slots.flatMap(b=>b?.ownerId===actor&&speakeasyOperating(d.cop,b)?[b]:[]));
     const stills=buildings.some(b=>b.piece.kind==='STILLS'),empty=buildings.filter(b=>b.piece.kind!=='STILLS'&&b.barrelId===null);
     const destination=choice.destination;
     if((destination.kind==='BUILDING'&&!empty.some(b=>b.piece.tileId===destination.buildingId))||
       (destination.kind==='STILLS'&&!stills)||(destination.kind==='DISCARD'&&(stills||empty.length))) return 'INVALID_ACTION';
-    p.cash-=borrowed.length;
+    // FAQ Apr 2026 p1: laundering costs 2 safe dollars, but the owner receives only 1 cash.
+    p.cash-=payment.value.cash;p.safe-=payment.value.safe;
     for(const d of borrowed) e.players.find(other=>other.playerId===d!.ownerId)!.cash++;
     e.goonSupply.push(...p.goons.splice(0,choice.goons));
     p.cash+=income(e,p,ship.crate,zone);p.crates.push(ship.crate);ship.crate=e.crateSupply.shift()!;

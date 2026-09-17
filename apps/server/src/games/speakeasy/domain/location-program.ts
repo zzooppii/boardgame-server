@@ -1,14 +1,16 @@
 import * as v from 'valibot';
 import {SpeakeasyBuildingKindSchema,SpeakeasyDeckSchema,SpeakeasyLocationSchema,SpeakeasyOperationSchema,SpeakeasyCountSchema,SpeakeasyDistrictIdSchema,TileIdSchema} from '@hangul-rummikub/shared';
 const key=v.pipe(v.string(),v.minLength(1),v.maxLength(100));
+// Rules v19c p13, all five printed VIP capacity cells. Each parsed program owns its array.
+const vipCapacity=v.optional(v.pipe(v.array(SpeakeasyCountSchema),v.length(5)),()=>[1,2,2,3,4]);
 const action=v.variant('kind',[
   v.strictObject({id:key,kind:v.literal('BOOK')}),
   v.strictObject({id:key,kind:v.literal('CITY_TILE')}),
   v.strictObject({id:key,kind:v.literal('PAID_LEVEL'),operation:SpeakeasyDeckSchema}),
   v.strictObject({id:key,kind:v.literal('HELPER')}),
-  v.strictObject({id:key,kind:v.literal('AMBUSH'),vipCapacityByLevel:v.pipe(v.array(SpeakeasyCountSchema),v.length(5)),
+  v.strictObject({id:key,kind:v.literal('AMBUSH'),vipCapacityByLevel:vipCapacity,
     defenses:v.array(v.strictObject({shipId:TileIdSchema,byRemaining:v.pipe(v.array(SpeakeasyCountSchema),v.minLength(1),v.maxLength(41))}))}),
-  v.strictObject({id:key,kind:v.literal('FAMILY'),vipCapacityByLevel:v.pipe(v.array(SpeakeasyCountSchema),v.length(5)),
+  v.strictObject({id:key,kind:v.literal('FAMILY'),vipCapacityByLevel:vipCapacity,
     docks:v.pipe(v.array(v.strictObject({zone:v.picklist([0,1,2]),space:v.pipe(SpeakeasyCountSchema,v.maxValue(11))})),v.maxLength(36))}),
   v.strictObject({id:key,kind:v.literal('LEVEL'),operations:v.pipe(v.array(SpeakeasyOperationSchema),v.minLength(1),v.maxLength(5))}),
   v.strictObject({id:key,kind:v.literal('PRODUCE'),quantityByLevel:v.pipe(v.array(SpeakeasyCountSchema),v.length(5))}),

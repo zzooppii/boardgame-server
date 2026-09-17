@@ -460,14 +460,14 @@ test('Speakeasy ambush crate income precedes family return and cargo placement; 
   }
 });
 
-test('Speakeasy ambush cannot use safe money, wrong-zone or repeated borrowed members, or forged defense',()=>{
+test('Speakeasy ambush rejects insufficient funds, wrong-zone or repeated borrowed members, or forged defense',()=>{
   const {s,c}=ambushSetup(9,6),before=structuredClone(s);
   for(const choice of [{...ambushChoice(),borrowedFamilyIds:['family-1-0','family-1-0']},
     {...ambushChoice(),familyId:'family-1-0'},{...ambushChoice(),borrowedFamilyIds:['family-0-0']},
     {...ambushChoice(),defense:0},{...ambushChoice(),destination:{kind:'DISCARD'}}]) {
     assert.equal(prepareSpeakeasyPlayerCommand(s,a,body(s,'EXECUTE_LOCATION_ACTION',{actionId:'ambush',choice}),c).ok,false);assert.deepEqual(s,before);
   }
-  s.round.economy.players[0]!.cash=0;
+  s.round.economy.players[0]!.cash=0;s.round.economy.players[0]!.safe=1;
   assert.equal(prepareSpeakeasyPlayerCommand(s,a,body(s,'EXECUTE_LOCATION_ACTION',{actionId:'ambush',choice:ambushChoice()}),c).ok,false);
   s.round.economy.players[0]!.cash=15;s.round.economy.docks[1]!.zone=1;
   assert.equal(prepareSpeakeasyPlayerCommand(s,a,body(s,'EXECUTE_LOCATION_ACTION',{actionId:'ambush',choice:ambushChoice()}),c).ok,false);
@@ -865,4 +865,62 @@ test('Speakeasy displaced owner may decline the optional Park reward without gai
   const result=run(pending,'CHOOSE_PARK_BENEFIT',{choice:{kind:'SKIP'}},c,a);
   assert.deepEqual(result.candidate.round.economy,pending.round.economy);assert.deepEqual(result.candidate.city,pending.city);
   assert.equal(result.actorView.turn.stage,'LOCATION');assert.equal(result.actorView.turn.actorId,b);
+});
+
+test('Speakeasy FAQ allows safe-funded dock hire and gives its owner only one cash',()=>{
+  const {s,c}=ambushSetup(9,6);s.round.economy.players[0]!.cash=0;
+  const r=run(s,'EXECUTE_LOCATION_ACTION',{actionId:'ambush',choice:ambushChoice()},c),e=r.candidate.round.economy;
+  assert.equal(e.players[0]!.safe,28);assert.equal(e.players[0]!.cash,15,'crate income comes after hire');
+  assert.equal(e.players[1]!.cash,16);assert.equal(e.players[1]!.safe,30);
+  assert.equal(r.actorView.turn.stage,'FINISH_LOCATION');
+});
+
+test('Speakeasy dock hire permits explicit safe and mixed payment without using later crate income',()=>{
+  for(const cashToSpend of [0,1]) {
+    const {s,c}=ambushSetup(9,6),e=s.round.economy,other=e.players[1]!;
+    const second=other.familyReserve.shift()!;e.docks.push({ownerId:b,zone:0,space:2,familyId:second});
+    const r=run(s,'EXECUTE_LOCATION_ACTION',{actionId:'ambush',choice:{...ambushChoice(),borrowedFamilyIds:['family-1-0',second],cashToSpend}},c);
+    assert.equal(r.candidate.round.economy.players[0]!.cash,30-cashToSpend);
+    assert.equal(r.candidate.round.economy.players[0]!.safe,30-(2-cashToSpend)*2);
+    assert.equal(r.candidate.round.economy.players[1]!.cash,17);
+  }
+  const {s,c}=ambushSetup(9,6);s.round.economy.players[0]!.cash=0;s.round.economy.players[0]!.safe=1;
+  const before=structuredClone(s);
+  assert.equal(prepareSpeakeasyPlayerCommand(s,a,body(s,'EXECUTE_LOCATION_ACTION',{actionId:'ambush',choice:ambushChoice()}),c).ok,false);
+  assert.deepEqual(s,before,'cannot borrow against the crate reward');
+});
+
+test('Speakeasy invalid dock payment choices and late cargo failure preserve both players money',()=>{
+  const {s,c}=ambushSetup(9,6),before=structuredClone(s);
+  for(const cashToSpend of [-1,0.5,2,NaN,Infinity]) {
+    assert.equal(prepareSpeakeasyPlayerCommand(s,a,body(s,'EXECUTE_LOCATION_ACTION',{actionId:'ambush',choice:{...ambushChoice(),cashToSpend}}),c).ok,false);
+    assert.deepEqual(s,before);
+  }
+  const p=s.round.economy.players[0]!;p.cash=0;p.safe=2;
+  assert.equal(prepareSpeakeasyPlayerCommand(s,a,body(s,'EXECUTE_LOCATION_ACTION',{actionId:'ambush',choice:{...ambushChoice(),cashToSpend:1}}),c).ok,false);
+  const other=s.round.economy.players[1]!;other.stock.push(...s.round.economy.barrelSupply.splice(0),...s.round.economy.ships[0]!.barrels.splice(0));
+  s.locationActions!.program.rows=[[{id:'ambush',kind:'AMBUSH',vipCapacityByLevel:[1,2,2,3,4],defenses:[{shipId:tile('ship-a'),byRemaining:[0,0,0]}]}]];
+  const emptyBefore=structuredClone(s);
+  assert.equal(prepareSpeakeasyPlayerCommand(s,a,body(s,'EXECUTE_LOCATION_ACTION',{actionId:'ambush',choice:{...ambushChoice(),cashToSpend:0}}),c).ok,false);
+  assert.deepEqual(s,emptyBefore,'failed barrel supply rolls back safe payment, other owner income, crate, goons and family');
+});
+
+test('Speakeasy verified VIP capacity defaults govern family gain and ship return at all five levels',()=>{
+  const capacities=[1,2,2,3,4];
+  for(const level of [1,2,3,4,5]) {
+    const {s,c}=familySetup(),p=s.round.economy.players[0]!,capacity=capacities[level-1]!;
+    p.levels.VIP=level;p.familyReserve.push(...p.vip.splice(0));p.vip.push(...p.familyReserve.splice(0,capacity-1));
+    s.locationActions=parseLocationProgress({program:{location:'CONTRACTOR',rows:[[{id:'family',kind:'FAMILY',docks:[]}]]},completed:[]});
+    const r=run(s,'EXECUTE_LOCATION_ACTION',{actionId:'family',choice:{kind:'FAMILY',destination:{kind:'VIP'}}},c);
+    assert.equal(r.candidate.round.economy.players[0]!.vip.length,capacity);
+    p.vip.push(p.familyReserve.shift()!);
+    assert.equal(prepareSpeakeasyPlayerCommand(s,a,body(s,'EXECUTE_LOCATION_ACTION',{actionId:'family',choice:{kind:'FAMILY',destination:{kind:'VIP'}}}),c).ok,false);
+    for(const full of [false,true]) {
+      const {s:ship,c:cat}=ambushSetup(9,6),owner=ship.round.economy.players[0]!;
+      owner.levels.VIP=level;owner.familyReserve.push(...owner.vip.splice(0));owner.vip.push(...owner.familyReserve.splice(0,capacity-(full?0:1)));
+      ship.locationActions=parseLocationProgress({program:{location:'CONTRACTOR',rows:[[{id:'ambush',kind:'AMBUSH',defenses:[{shipId:'ship-a',byRemaining:[20,12,6]}]}]]},completed:[]});
+      const result=run(ship,'EXECUTE_LOCATION_ACTION',{actionId:'ambush',choice:ambushChoice()},cat).candidate.round.economy.players[0]!;
+      assert.equal(result.vip.length,capacity);assert.equal(result.familyReserve.includes(tile('family-0-0')),full);
+    }
+  }
 });

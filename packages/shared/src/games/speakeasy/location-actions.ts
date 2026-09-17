@@ -9,7 +9,7 @@ export const SpeakeasyLocationChoiceSchema=v.variant('kind',[
   v.strictObject({kind:v.literal('CITY_TILE'),column:v.picklist(['MIDDLE','RIGHT']),row:v.picklist([0,1,2]),refill:v.optional(v.picklist([0,1,2]))}),
   v.strictObject({kind:v.literal('PAID_LEVEL'),cardId:TileIdSchema,discardIds:v.pipe(v.array(TileIdSchema),v.maxLength(1))}),
   v.strictObject({kind:v.literal('HELPER'),cardId:TileIdSchema}),
-  v.strictObject({kind:v.literal('AMBUSH'),shipId:TileIdSchema,familyId:TileIdSchema,
+  v.strictObject({kind:v.literal('AMBUSH'),shipId:TileIdSchema,familyId:TileIdSchema,cashToSpend:v.optional(SpeakeasyCountSchema),
     borrowedFamilyIds:v.pipe(v.array(TileIdSchema),v.maxLength(36)),goons:v.pipe(SpeakeasyCountSchema,v.maxValue(6)),
     destination:v.variant('kind',[
       v.strictObject({kind:v.literal('BUILDING'),buildingId:TileIdSchema}),
