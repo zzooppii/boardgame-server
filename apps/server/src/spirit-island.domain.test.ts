@@ -1474,3 +1474,31 @@ test('Existing fear reveal logs gain public rules without guessing completion', 
  assert.match(message,/해결 기록 · 공포 카드/);assert.match(message,/현신이 있는 모든 지역에 방어 2/);
  assert.doesNotMatch(message,/해결 완료/);assert.equal(s.log[0]!.text,'믿음이 뿌리내리다 · 공포 수준 1');
 });
+
+for (const n of [1, 2]) test(`${n} spirits: earning fear cards raises terror before resolution and the last card wins`, () => {
+ const s=chosen(n), actor=s.players[0]!.playerId;
+ for(let earned=1;earned<=9;earned++) {
+  s.queue=[step('FEAR',actor,null,4*n),step('CHECK',actor)];settle(s);
+  assert.equal(s.fearEarned.length,earned);
+  assert.equal(s.fearDiscard.length,0);
+  assert.equal(s.terror,earned<3?1:earned<6?2:earned<9?3:4);
+  assert.equal(s.fear,0);
+  assert.equal(s.phase,earned===9?'FINISHED':'PLAYING');
+ }
+ assert.equal(s.result?.reason,'VICTORY');
+ assert.ok(s.lands.some(l=>l.pieces.some(p=>p.kind==='CITY')));
+});
+for (const terror of [1,2,3] as const) test(`terror ${terror}: only the required invader types block victory`,()=>{
+ const s=chosen();s.terror=terror;
+ for(const l of s.lands)l.pieces=[];
+ const l=s.lands[0]!;
+ for(const kind of ['EXPLORER','TOWN','CITY'] as const)makePiece(s,l,kind);
+ for(const kind of ['CITY','TOWN','EXPLORER'] as const){
+  s.queue=[step('CHECK',s.players[0]!.playerId)];settle(s);
+  assert.equal(s.phase,'PLAYING');
+  l.pieces=l.pieces.filter(p=>p.kind!==kind);
+  if(kind===(terror===3?'CITY':terror===2?'TOWN':'EXPLORER'))break;
+ }
+ s.queue=[step('CHECK',s.players[0]!.playerId)];settle(s);
+ assert.equal(s.result?.reason,'VICTORY');
+});

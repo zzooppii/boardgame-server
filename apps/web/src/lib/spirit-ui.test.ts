@@ -351,3 +351,17 @@ test('Invader board separates ordered actions, public terrain, hidden exploratio
  s.game.explore={stage:2,terrains:[],coastal:true};s.game.pending={choiceId:'choice',playerId:s.self.playerId,title:'심화 효과 선택',options:[]};
  html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));assert.match(html,/선택 효과 처리 중 · 현재 카드 배치/);assert.doesNotMatch(html,/카드 이동 완료/);assert.match(html,/<strong>해안<\/strong>/);
 });
+
+test('fear guidance explains earned thresholds and preserves scenario victory goals',()=>{
+ const s=playing();s.game.terror=2;
+ let html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));
+ assert.match(html,/현재 승리 목표 · 공포 수준 2/);
+ assert.match(html,/마을과 도시/);
+ for(const count of [3,6,9])assert.ok(html.includes(`누적 ${count}장`));
+ assert.match(html,/효과 해결까지 기다리지 않습니다/);
+ assert.match(html,/해결할 때의 공포 수준/);
+ s.game.settings.scenario='WARD';
+ html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));
+ assert.match(html,/모든 해안 수호/);
+ assert.match(html,/시나리오는 수준 상승 방식이나 승리 조건을 바꿀 수 있습니다/);
+});

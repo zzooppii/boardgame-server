@@ -160,3 +160,6 @@
 .si-invader-slot>p,.si-invader-flow{font-size:13px;line-height:1.8}
 .si-invader-board>small{font-size:12px;line-height:1.7;color:var(--si-dim)}
 @media(max-width:700px){.si-invader-slots{grid-template-columns:1fr}.si-invader-board{padding:14px}.si-invader-face{min-height:110px}}
+
+.si-fear-victory{grid-column:1/-1;padding:14px;border:1px solid #c5a6e577;border-radius:8px;background:#ffffff06}
+.si-fear-victory strong{color:#f0d394}.si-fear-victory summary{cursor:pointer;font-size:13px;line-height:1.8}.si-fear-victory ol{padding-left:24px;font-size:13px;line-height:1.9}
