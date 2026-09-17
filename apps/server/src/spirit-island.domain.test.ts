@@ -1,3 +1,4 @@
+import { SPIRIT_BOARDS, SPIRIT_BOARD_DATA, spiritBoardLinks, type SpiritBoard } from '@hangul-rummikub/shared';
 import { SPIRIT_BLIGHT, spiritDefinition, spiritBlightKeys, type SpiritBlightKey } from '@hangul-rummikub/shared';
 import { wallSupport } from './games/spirit-island/domain/blight.js';
 import { elements } from './games/spirit-island/domain/primitives.js';
@@ -15,7 +16,7 @@ import { powerSteps } from './games/spirit-island/domain/powers.js';
 import { step, makePiece, land, defense, presence, innateLevel, cardPower, health, countPieces } from './games/spirit-island/domain/primitives.js';
 const now = v.parse(ServerTimeSchema, 1000);
 let seq = 0;
-function setup(n = 1) { return createSpiritGame({ gameId: v.parse(GameIdSchema, 'spirit-test'), playerIds: Array.from({ length: n }, (_, i) => v.parse(PlayerIdSchema, `p${i}`)), now, transitionId: v.parse(TurnIdSchema, `turn-${++seq}`), id: () => `card-${++seq}`, shuffle: <T>(a: T[]) => a }); }
+function setup(n = 1, boards: readonly SpiritBoard[] = SPIRIT_BOARDS) { return createSpiritGame({ gameId: v.parse(GameIdSchema, 'spirit-test'), playerIds: Array.from({ length: n }, (_, i) => v.parse(PlayerIdSchema, `p${i}`)), now, transitionId: v.parse(TurnIdSchema, `turn-${++seq}`), id: () => `card-${++seq}`, shuffle: <T>(a: T[]) => a.length === 4 && a.every(x => SPIRIT_BOARDS.some(b => b === x)) ? [...a].sort((x,y) => boards.findIndex(b=>b===x)-boards.findIndex(b=>b===y)) : a }); }
 function apply(s: SpiritState, a: SpiritAction, actor = s.players[0]!.playerId) { const result = applySpiritAction(s, actor, a, now, v.parse(TurnIdSchema, `turn-${++seq}`)); assert.ok(result.ok, `Rejected ${JSON.stringify(a)} at ${s.stage}: ${JSON.stringify(s.queue[0])}`); return result.state; }
 function chosen(n = 1, spirit: SpiritId = 'RIVER') { let s = setup(n); for (const [i, p] of s.players.entries())
     s = apply(s, { kind: 'SELECT_SPIRIT', spirit: n === 1 ? spirit : SPIRITS[i]!.id }, p.playerId); return s; }
@@ -1377,4 +1378,75 @@ test('Flame: adjacent damage payment retains the original destruction reward',()
  s.flags.push(`power:${p.playerId}`);s.queue=[step('DAMAGE',p.playerId,'A1',1,'',null,['ADJACENT','BONUS_FEAR']),step('CHECK',p.playerId)];settle(s);
  const option=choiceOptions(s).find(o=>o.pieceId===town.id)!;assert.ok(option);s=apply(s,{kind:'CHOOSE',choiceId:`${s.transitionId}:${s.revision}`,optionId:option.id});s=drain(s);
  assert.equal(countPieces(land(s,'A6'),['TOWN']),0);assert.equal(s.players[0]!.energy,0);assert.equal(s.fear,2);parseSpiritState(s);
+});
+
+function boardOrders(remaining: readonly SpiritBoard[]): SpiritBoard[][] {
+ return remaining.length ? remaining.flatMap(b => boardOrders(remaining.filter(x=>x!==b)).map(tail=>[b,...tail])) : [[]];
+}
+test('Random island boards: all 64 ordered selections preserve setup, graph and projections', () => {
+ const seen = new Set<string>();
+ for (const order of boardOrders(SPIRIT_BOARDS)) for (let n=1;n<=4;n++) {
+  const boards=order.slice(0,n), key=boards.join(''); if(seen.has(key))continue; seen.add(key);
+  const s=setup(n,order); assert.deepEqual(s.players.map(p=>p.board),boards);
+  assert.deepEqual([...new Set(s.lands.map(l=>l.board))],boards);
+  assert.equal(s.lands.length,n*8); parseSpiritState(s);
+  for (const l of s.lands) {
+   const def=SPIRIT_BOARD_DATA[l.board]; assert.equal(l.terrain,def.terrains[l.number-1]);
+   assert.equal(countPieces(l,['DAHAN']),def.dahan[l.number-1]);
+   assert.equal(countPieces(l,['TOWN']),Number(l.number===def.town));
+   assert.equal(countPieces(l,['CITY']),Number(l.number===2));
+   assert.equal(l.blight,Number(l.number===def.blight));
+   assert.equal(new Set(l.adjacent).size,l.adjacent.length);
+   for(const id of l.adjacent)assert.ok(land(s,id).adjacent.includes(l.id));
+   for(const [a,b] of def.edges)if(a===l.number)assert.ok(l.adjacent.includes(`${l.board}${b}`));
+  }
+  const reached=new Set<string>(), pending=[s.lands[0]!.id];
+  while(pending.length){const id=pending.pop()!;if(reached.has(id))continue;reached.add(id);pending.push(...land(s,id).adjacent);}
+  assert.equal(reached.size,s.lands.length);
+  for(let i=0;i<n;i++)assert.ok(spiritProjectionIsConsistent(view(s,i)));
+  assert.deepEqual(parseSpiritState(JSON.parse(JSON.stringify(s))).players.map(p=>p.board),boards);
+ }
+ assert.equal(seen.size,64);
+ assert.deepEqual(spiritBoardLinks(4),spiritBoardLinks(SPIRIT_BOARDS));
+});
+for(const board of SPIRIT_BOARDS) test(`Random island ${board}: all ten spirits, Ocean setup and expansion/adversary placements`,()=>{
+ const order=[board,...SPIRIT_BOARDS.filter(b=>b!==board)];
+ for(const spirit of SPIRITS){
+  let s=setup(1,order);
+  if(spirit.expansion)s=apply(s,{kind:'CONFIGURE',settings:{...s.settings,expansion:'BRANCH_CLAW',progression:false,blightCard:true}});
+  s=drain(apply(s,{kind:'SELECT_SPIRIT',spirit:spirit.id}));
+  assert.equal(s.stage,'PREPARE');assert.ok(s.lands.every(l=>l.board===board));
+  assert.ok(s.lands.some(l=>presence(l,s.players[0]!.playerId)>0));
+  assert.equal(s.lands.length,spirit.id==='OCEAN'?9:8);parseSpiritState(s);assert.ok(spiritProjectionIsConsistent(view(s)));
+ }
+ let s=setup(1,order);
+ s=apply(s,{kind:'CONFIGURE',settings:{...s.settings,expansion:'BRANCH_CLAW',progression:false,blightCard:true,adversary:'FRANCE',level:3}});
+ assert.equal(land(s,`${board}2`).tokens.disease,1);assert.equal(countPieces(land(s,`${board}1`),['TOWN']),1);
+ s=drain(apply(s,{kind:'SELECT_SPIRIT',spirit:'RIVER'}));
+ s=drain(apply(s,{kind:'GROW',option:0}));
+ s=apply(s,{kind:'PLAY_CARDS',cardIds:[]});
+ let guard=30;
+ while(s.round===1&&s.phase==='PLAYING'){assert.ok(--guard>0);s=drain(apply(s,['PREPARE','FAST','SLOW'].includes(s.stage)?{kind:'READY',ready:true}:{kind:'ADVANCE'}));}
+ assert.equal(s.round,2);assert.equal(s.players[0]!.board,board);parseSpiritState(s);
+});
+test('Random island validation rejects unselected and duplicate boards',()=>{
+ const s=setup(2,['D','C','B','A']);
+ const duplicate=structuredClone(s);duplicate.players[1]!.board='D';assert.throws(()=>parseSpiritState(duplicate));
+ const unselected=structuredClone(s);unselected.destroyedBoards=['A'];assert.throws(()=>parseSpiritState(unselected));
+ const projection=view(s);projection.playerStates[1]!.board='D';assert.equal(spiritProjectionIsConsistent(projection),false);
+});
+
+test('Fear land choice projection explains the revealed card and frozen effect level before selecting a land', () => {
+ for (const level of [1,2,3] as const) {
+  const s=chosen();s.stage='FEAR';s.terror=level;s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'FEAR_CARD',null,['emigration'])];
+  settle(s);
+  assert.equal(s.queue[0]?.key,'FEAR_LAND');
+  const title=view(s).pending!.title;
+  assert.ok(title.includes('빨라지는 이주'));assert.ok(title.includes(`공포 ${level}`));
+  assert.ok(title.includes(level===1?'해안에서 탐험가 1개 제거':level===2?'해안에서 탐험가/마을 1개 제거':'원하는 지역에서 탐험가/마을 1개 제거'));
+  s.terror=3;assert.equal(view(s).pending!.title,title,'queued level remains authoritative');
+  const option=choiceOptions(s).find(o=>o.landId==='A2')!;
+  assert.ok(option);s.queue.shift();option.apply();
+  assert.match(view(s).pending!.title,/A2.*제거/);
+ }
 });

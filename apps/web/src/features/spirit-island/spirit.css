@@ -72,3 +72,60 @@
 @media(max-width:760px) { .si-scenario-panel { grid-template-columns:1fr; padding:16px; } }
 .si-scenario-badge { color:#fff1b4; background:#193b48; border:1px solid #d5c387; border-radius:6px; padding:2px 6px; font-weight:700; }
 .si-flame-badge { color:#ffdcad; border-color:#ed9b60; background:#623d2c; }
+
+/* Card deck is independent of speed and energy cost. Keep the label readable without color. */
+.si-card .si-card-kind{align-self:flex-start;margin:10px 12px 0;padding:3px 8px;border:1px solid currentColor;border-radius:5px;font-size:12px;font-weight:750;line-height:1.4}
+.si-card .si-card-kind-unique{color:#345247;background:#e1e9dc}
+.si-card .si-card-kind-minor{color:#27556a;background:#e0edf2}
+.si-card .si-card-kind-major{color:#623775;background:#eee1f3}
+.si-card .si-card-kind-scenario{color:#65471d;background:#f3e2bd}
+
+.spirit-screen .si-help{width:min(780px,calc(100vw - 24px));max-height:calc(100dvh - 32px);padding:0;border:1px solid #789287;border-radius:16px;background:#112f2c;color:#e7eee2;box-shadow:0 24px 80px #0009;text-align:left;font-size:15px;overflow:auto}
+.si-help::backdrop{background:#031817bb}
+.si-help-header{position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px 24px;background:#173a33;border-bottom:1px solid #78928742}
+.si-help-header h2{font-size:23px;margin:5px 0 0}.si-help-header button{flex-shrink:0}
+.si-help-body{padding:8px 24px 24px;line-height:1.8}.si-help-intro{font-size:16px}.si-help-note{padding:12px 16px;border-left:3px solid #edca84;background:#edca840b;color:#bed0c6;font-size:13px}
+.si-help-body details{border-bottom:1px solid #78928742;padding:16px 0}.si-help-body summary{cursor:pointer;font-weight:750;color:#edca84;line-height:1.6}.si-help-body p{margin:12px 0}.si-help-body ul,.si-help-steps{padding-left:24px}.si-help-body li{margin:10px 0}.si-help-steps li::marker{color:#edca84;font-weight:700}.si-help-steps p{margin:4px 0 14px}
+@media(max-width:520px){.si-help-header{padding:16px}.si-help-body{padding:4px 16px 20px}.si-help-header h2{font-size:20px}}
+
+.si-elements{flex-wrap:wrap}
+.si-elements .si-element-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 9px;border:1px solid #d9b86d66;border-radius:7px;background:#edca8410;color:#f0d394;line-height:1.3;white-space:nowrap}
+.si-element-icon{width:22px;height:22px;flex:none}.si-element-name{font-size:13px;font-weight:650}.si-element-count{font-size:16px;min-width:1ch;font-variant-numeric:tabular-nums}
+.si-elements .si-element-empty{color:#bdccc4;background:transparent;border-color:#78928742}
+.si-elements .si-element-name{padding:0;min-width:0}
+.si-card .si-elements{gap:5px;align-self:stretch;justify-content:flex-start}
+.si-card .si-element-badge{padding:3px 5px;gap:4px;background:#fff5;border-color:#74674655;color:#405044}
+.si-card .si-element-icon{width:18px;height:18px}.si-card .si-element-name{font-size:11px}
+
+/* Readable card reference beside growth choices. */
+.si-panel-content{min-width:0}
+.si-card-inventory{margin:18px 0;padding:14px;border:1px solid var(--si-line);border-radius:10px;background:#102b27}
+.si-card-inventory>summary{cursor:pointer;font-weight:700;color:var(--si-gold);line-height:1.7}
+.si-card-inventory h3{font-size:15px;margin:18px 0 5px}
+.si-card-inventory section+section{border-top:1px solid var(--si-line)}
+.si-inventory-card{flex:none;display:flex;flex-direction:column;gap:8px}
+.si-inventory-card .si-card{flex:1}
+.si-inventory-status{font-size:12px;color:var(--si-gold)}
+.si-inventory-empty{padding:10px;background:#ffffff05;border-radius:6px}
+.spirit-screen .si-card-reference:hover:not(:disabled){background:#eee4ce;transform:none}
+
+.si-active-effect{margin:16px 0;padding:18px 22px;background:#294438;border:1px solid #d9b86d88;border-left:4px solid var(--si-gold);border-radius:10px}
+.si-active-effect h2{font-size:18px;line-height:1.7;margin:7px 0;overflow-wrap:anywhere}
+.si-active-effect p{font-size:13px;color:var(--si-dim);line-height:1.7}
+.si-active-effect a{color:var(--si-gold);font-size:13px}
+
+.si-fear-panel{display:grid;grid-template-columns:1fr 1.2fr;gap:18px;margin:16px 0 24px;padding:20px;border:1px solid #bd9fdd77;border-radius:12px;background:linear-gradient(120deg,#302f40,#17342f)}
+.si-fear-panel h2,.si-fear-panel h3{font-size:16px;margin:0 0 10px}
+.si-fear-progress h2{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.si-fear-progress h2 strong{font-size:27px;color:#e2c8ff;font-variant-numeric:tabular-nums}
+.si-fear-progress progress{display:block;width:100%;height:16px;accent-color:#c3a0ed}
+.si-fear-tokens{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+.si-fear-tokens span{width:17px;height:17px;border:1px solid #b59ac8;border-radius:50%;background:#142528}
+.si-fear-tokens .si-fear-filled{background:#d6b6ff;box-shadow:0 0 8px #bd91ed77}
+.si-fear-panel p{font-size:13px;line-height:1.8;margin:8px 0}
+.si-fear-panel small{font-size:12px;color:#bfd0c8;line-height:1.7}
+.si-fear-earned{padding:14px;border-radius:8px;background:#ffffff08}
+.si-fear-earned strong{color:#f0d394}
+.si-fear-history{grid-column:1/-1;border-top:1px solid var(--si-line);padding-top:12px}
+.si-fear-history ol{display:flex;flex-wrap:wrap;gap:8px 24px;padding-left:22px;margin:0;font-size:13px;line-height:1.8}
+@media(max-width:700px){.si-fear-panel{grid-template-columns:1fr;padding:15px;gap:12px}}

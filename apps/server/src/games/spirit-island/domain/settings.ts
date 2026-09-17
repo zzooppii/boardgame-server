@@ -1,6 +1,6 @@
 import { setupRelics } from './forgotten-scenario.js';
 import { spiritBlightKeys } from '@hangul-rummikub/shared';
-import { SPIRIT_BOARDS, SPIRIT_EVENT_KEYS, spiritFearTiers, type SpiritSettings, type PlayerId } from '@hangul-rummikub/shared';
+import { SPIRIT_EVENT_KEYS, spiritFearTiers, type SpiritSettings, type PlayerId } from '@hangul-rummikub/shared';
 import type { SpiritState } from './state.js';
 import { spiritFearKeys } from './resolver.js';
 import { cardPower, requireRule, makePiece, land, countPieces, presence, step, event } from './primitives.js';
@@ -18,7 +18,7 @@ export function configureSpirit(s: SpiritState, settings: SpiritSettings, shuffl
  if(settings.scenario==='WARD')s.fearTiers[2]=s.fearDeck.length-s.fearTiers[0]!-s.fearTiers[1]!;
  if(settings.blightCard) {s.blightDeck=shuffle(spiritBlightKeys(settings.expansion??'CORE'));s.blightCard=s.blightDeck.shift()??'SPIRAL';s.blightPool=2*s.players.length+1;s.blightTotal=s.blightPool+s.lands.reduce((n,l)=>n+l.blight,0);}
  if(settings.scenario==='BLITZ'){s.blightPool+=s.players.length;s.blightTotal+=s.players.length;}
- for(const board of SPIRIT_BOARDS.slice(0,s.players.length)) {
+ for(const board of s.players.map(p=>p.board)) {
   if(settings.expansion==='BRANCH_CLAW') {
    const area=s.lands.find(l=>l.board===board&&l.number>0&&l.pieces.length===0&&l.blight===0);
    requireRule(area);area.tokens.beasts++;land(s,`${board}2`).tokens.disease++;

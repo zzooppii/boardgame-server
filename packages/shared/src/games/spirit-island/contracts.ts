@@ -38,6 +38,8 @@ export function spiritProjectionIsConsistent(g: SpiritProjection): boolean {
     const ids = new Set(g.playerStates.map(p => p.playerId)), self = g.playerStates.find(p => p.playerId === g.privateState.playerId), lands = new Set(g.lands.map(l => l.id));
     if (ids.size !== g.playerStates.length || !self || JSON.stringify(self.hand) !== JSON.stringify(g.privateState.hand) || g.fearPool !== ids.size * (g.settings.adversary==='ENGLAND'&&g.settings.level===6?5:4) || g.fear >= g.fearPool || g.lands.filter(l => l.number > 0).length !== (ids.size - g.destroyedBoards.length) * 8 || lands.size !== g.lands.length)
         return false;
+    const boards = g.playerStates.map(p => p.board);
+    if (new Set(boards).size !== boards.length || g.lands.some(l => !boards.includes(l.board)) || g.destroyedBoards.some(b => !boards.includes(b))) return false;
     if(new Set(g.destroyedBoards).size!==g.destroyedBoards.length || g.destroyedBoards.length>ids.size || g.lands.some(l=>g.destroyedBoards.includes(l.board)))return false;
     if(g.ravageRedirects.some(id=>!lands.has(id)))return false;
     if (g.lands.some(l => l.adjacent.some(id => !lands.has(id)) || l.presence.some(p => !ids.has(p.playerId))))

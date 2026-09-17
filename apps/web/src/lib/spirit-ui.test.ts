@@ -1,3 +1,5 @@
+import { ElementBadge } from '../features/spirit-island/ElementBadge.js';
+import { SPIRIT_ELEMENTS, SPIRIT_ELEMENT_LABELS } from '@hangul-rummikub/shared';
 import { SPIRIT_BRANCH_FEAR, SPIRIT_BRANCH_FEAR_KEYS } from '@hangul-rummikub/shared';
 import { ravagePreview, spiritCardDraft } from '../features/spirit-island/presentation.js';
 import assert from 'node:assert/strict';
@@ -195,4 +197,121 @@ test('Spirit UI draft keeps surviving cards and resets a removed ward before an 
  const g=playing().game,p=g.playerStates[0]!,a=p.hand[0]!,b=p.hand[1]!;g.settings.scenario='WARD';
  assert.deepEqual(spiritCardDraft(g,p.hand,[a.cardId,b.cardId],a.cardId),{ids:[a.cardId,b.cardId],ward:a.cardId,cost:SPIRIT_POWERS.find(c=>c.key===b.key)!.cost});
  assert.deepEqual(spiritCardDraft(g,[b],[a.cardId,b.cardId,b.cardId],a.cardId),{ids:[b.cardId],ward:null,cost:SPIRIT_POWERS.find(c=>c.key===b.key)!.cost});
+});
+
+ test('Spirit cards identify their deck independently of cost and speed in a mixed hand', () => {
+ const s = playing();
+ const powers = ['RIVER', 'MINOR', 'MAJOR'].map(deck => {
+ const power = SPIRIT_POWERS.find(p => p.deck === deck);
+ assert.ok(power);
+ return power;
+ });
+ const hand = powers.map(p => ({cardId: p.key, key: p.key}));
+ s.game.playerStates[0]!.hand = hand;
+ s.game.privateState.hand = hand;
+ const html = renderToStaticMarkup(createElement(SpiritScreen, {...handlers, snapshot:s}));
+ for (const [kind,label] of [['unique','고유 능력'],['minor','보조 능력'],['major','주요 능력']]) {
+ assert.ok(html.includes(`si-card-kind-${kind}">${label}</span>`));
+ }
+ });
+
+test('Spirit help is available beside invite in lobby and play without replacing the board', () => {
+ for (const snapshot of [lobby(), playing()]) {
+ const html = renderToStaticMarkup(createElement(SpiritScreen, {...handlers, snapshot}));
+ assert.match(html, /초대 링크<\/button><button type="button" aria-haspopup="dialog">게임 방법<\/button>/);
+ assert.match(html, /<dialog class="si-help" aria-labelledby="si-help-title">/);
+ assert.doesNotMatch(html, /<dialog[^>]*\sopen(?:[\s=>])/);
+ for (const title of ['오염은 언제 생기고, 무엇이 나쁜가요?', '오염을 없애거나 예방하는 법', '침략자를 없애거나 행동을 막는 법', '승리와 패배']) assert.ok(html.includes(title), title);
+ assert.match(html, /게임 방법 닫기/);
+ if (snapshot.game) assert.match(html, /class="si-land si-terrain-/);
+ }
+});
+
+test('Spirit map renders the assigned solo board instead of assuming A',()=>{
+ for(const board of ['B','C','D'] as const){
+  const s=playing();s.game.playerStates[0]!.board=board;
+  const links=spiritBoardLinks([board]);
+  s.game.lands=s.game.lands.map(l=>({...l,id:`${board}${l.number}`,board,terrain:SPIRIT_BOARD_DATA[board].terrains[l.number-1]!,adjacent:links.flatMap(([a,b])=>a===`${board}${l.number}`?[b]:b===`${board}${l.number}`?[a]:[])}));
+  const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));
+  assert.ok(html.includes(`aria-label="${board} 섬 구역"`));assert.ok(!html.includes('aria-label="A 섬 구역"'));
+  assert.equal((html.match(/class="si-land si-terrain-/g)??[]).length,8);
+ }
+});
+
+test('Spirit elements always expose names, counts and distinct SVG shapes without hovering',()=>{
+ const icons=new Set<string>();
+ for(const element of SPIRIT_ELEMENTS){
+  const html=renderToStaticMarkup(createElement(ElementBadge,{element,count:2}));
+  assert.ok(html.includes(`aria-label="${SPIRIT_ELEMENT_LABELS[element]} 2개"`));
+  assert.ok(html.includes(`class="si-element-name">${SPIRIT_ELEMENT_LABELS[element]}</span>`));
+  assert.match(html,/class="si-element-count">2<\/b>/);
+  icons.add(html.match(/<svg.*?<\/svg>/)![0]);
+  const card=renderToStaticMarkup(createElement(ElementBadge,{element}));assert.ok(!card.includes('si-element-count'));
+ }
+ assert.equal(icons.size,8);
+ const s=playing();s.game.playerStates[0]!.elements=['SUN','EARTH','EARTH','PLANT'];
+ const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));
+ assert.match(html,/aria-label="땅 2개"/);assert.match(html,/aria-label="물 0개"/);
+ assert.match(html,/si-element-empty/);
+});
+
+test('Growth exposes readable hand and discard cards before choosing growth, then reflects reclaim', () => {
+ const s=playing(),p=s.game.playerStates[0]!;
+ p.grown=false;
+ const used=p.hand.splice(0,2);p.discard=used;s.game.privateState.hand=p.hand;
+ let html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));
+ const inventory=html.slice(html.indexOf('<details class="si-card-inventory"'),html.indexOf('<div class="si-growth">'));
+ assert.match(inventory,/open=""/);
+ assert.match(inventory,/손패 2장 · 회수 대기 2장 · 이번 라운드 0장/);
+ for(const card of [...p.hand,...used]) {
+  const power=SPIRIT_POWERS.find(c=>c.key===card.key)!;
+  assert.ok(inventory.includes(power.title));assert.ok(inventory.includes(power.description));
+ }
+ assert.equal((inventory.match(/<article /g)??[]).length,4);
+ assert.doesNotMatch(inventory,/<button/);
+ assert.match(inventory,/회수 효과로 손에 가져와야/);
+ p.hand.push(...p.discard);p.discard=[];p.grown=true;
+ html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));
+ assert.match(html,/손패 4장 · 회수 대기 0장/);
+ assert.match(html,/회수 대기 중인 카드가 없습니다/);
+ assert.doesNotMatch(html,/<details class="si-card-inventory" open/);
+ assert.match(html,/카드 준비 확정/);
+});
+
+test('Card reference separates resolved and waiting played cards and remains available in invader stages', () => {
+ const s=playing(),p=s.game.playerStates[0]!;
+ p.played=p.hand.splice(0,2);p.resolved=[p.played[0]!.cardId];s.game.privateState.hand=p.hand;s.game.stage='RAVAGE';
+ let html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));
+ assert.match(html,/손패 2장 · 회수 대기 0장 · 이번 라운드 2장/);
+ assert.match(html,/능력 사용 완료/);assert.match(html,/능력 사용 대기/);
+ p.discard.push(...p.played);p.played=[];p.resolved=[];p.grown=false;s.game.stage='PREPARE';
+ html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));
+ assert.match(html,/손패 2장 · 회수 대기 2장 · 이번 라운드 0장/);
+ p.discard.push(...p.hand);p.hand=[];s.game.privateState.hand=[];
+ html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));
+ assert.match(html,/손에 남은 카드가 없습니다/);
+});
+
+test('Pending effect name and rule are visible above the map and in the confirmation panel', () => {
+ const s=playing();s.game.stage='FEAR';
+ const title='빨라지는 이주 · 공포 1 · 각자 해안에서 탐험가 1개 제거.';
+ s.game.pending={choiceId:'fear-choice',playerId:s.self.playerId,title,options:[{id:'o0',label:'A2',landId:'A2',pieceId:null}]};
+ const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));
+ const notice=html.indexOf('aria-label="현재 해결 중인 효과"');
+ assert.ok(notice>=0&&notice<html.indexOf('class="si-table-layout"'));
+ assert.ok(html.slice(notice,html.indexOf('class="si-table-layout"')).includes(title));
+ assert.ok(html.slice(html.indexOf('id="si-current-choice"')).includes(title));
+ assert.match(html,/선택지 확인 ↓/);
+});
+
+test('Fear progress explains actual threshold, earned cards after reset, and phase timing', () => {
+ const s=playing(),render=()=>renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));
+ s.game.fear=3;s.game.log=[{id:1,kind:'FEAR',text:'공포 +3',playerId:s.self.playerId,landId:null}];
+ let html=render();assert.match(html,/공포 <b>1개<\/b> 더 모으면/);assert.match(html,/최근 공포 기록/);assert.match(html,/공포 \+3/);
+ assert.match(html,/aria-label="다음 공포 카드까지 모은 공포" max="4" value="3"/);
+ s.game.fear=0;s.game.earnedFearCount=1;html=render();assert.match(html,/해결 대기 <strong>1장/);assert.match(html,/이번 라운드.*공포 단계/);assert.match(html,/공포 수치가 0으로 돌아가도/);
+ s.game.stage='SLOW';html=render();assert.match(html,/다음 라운드.*공포 단계/);
+ s.game.stage='FEAR';html=render();assert.match(html,/현재 해결 중인 카드는 대기 장수에서 빠집니다/);
+ s.game.fearPool=10;s.game.fear=6;html=render();assert.match(html,/공포 <b>4개<\/b> 더 모으면/);
+ s.game.settings.scenario='RITUAL';html=render();assert.match(html,/공포 카드 효과를 실행하지 않습니다/);assert.doesNotMatch(html,/class="si-fear-timing"/);
 });

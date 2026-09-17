@@ -99,7 +99,7 @@ export function choiceTitle(e: SpiritStep): string {
  if(franceTitles[e.key])return franceTitles[e.key]!;
  if(blightTitles[e.key])return blightTitles[e.key]!;
  if(e.key==='BCF_DISCORD_ATTACK')return `${e.land} 불화 · ${e.tags.includes('SOURCE:CITY')?'도시':e.tags.includes('SOURCE:TOWN')?'마을':'탐험가'}의 동시 공격 · 다른 침략자에게 남은 피해 ${e.n}`;
- if(e.key==='BCF_LAND')return `${SPIRIT_FEAR_NAMES[e.tags[0]??'']} · 공포 ${e.n} · ${SPIRIT_FEAR_HELP[e.tags[0]??'']?.[e.n-1]??'지역 선택'}`;
+ if(e.key==='FEAR_LAND'||e.key==='BCF_LAND')return `${SPIRIT_FEAR_NAMES[e.tags[0]??'']} · 공포 ${e.n} · ${SPIRIT_FEAR_HELP[e.tags[0]??'']?.[e.n-1]??'지역 선택'}`;
  if(e.key==='BCE3_PROTECT'&&e.tags[1]==='RAVAGE')return '현신 2개를 희생해 이 보드의 추가 파괴를 막을까요?';
  if(e.key==='BCE3_BLIGHT'&&e.tags[1]==='CITY')return '도시가 있는 지역에 오염을 놓으세요';
  const titles:Record<string,string>={BCE14_ATTACK:'건물이 가장 많은 해안 중 공격받을 지역을 고르세요',BCE14_BEAST:'야수를 오염 없는 인접 지역으로 옮기세요',BCE14_DAHAN:'다한을 옮겨 피해를 주거나 생략하세요',BCE12_REMOVE:'이 보드에서 제거할 야수 1개를 고르세요',BCE12_PUSH:'내 정령이 야수 1개를 밀거나 이동을 생략합니다',BCE11_CARDS:'처리할 느린 카드를 고르세요 · 순서는 자유입니다',BCE11_CARD:'이 카드를 버릴까요, 비용을 내고 유지할까요?',BCE11_SACRIFICE:'내 현신 2개를 고른 뒤 희생을 확정하세요',BCE11_USE:'유지한 카드를 지금 사용하거나 느린 단계까지 기다리세요',BCE11_RAID:'다른 정령과 겹치지 않는 다한 습격 지역을 고르세요',BCE10_EXPLORE:'침략자·다한이 없는 지역에 탐험가를 놓으세요',BCE10_ROUSE:'지금 사용할 느린 능력을 고르거나 생략하세요',BCE10_TARGET:'느린 능력의 대상과 임계값을 고르세요',BCE9_TERRAIN:'표시되지 않은 지형 하나에서 추가 파괴합니다',BCE9_EXPLORE:'탐험가 대신 마을을 놓을 탐험 지역을 고르세요',BCE9_BEAST:'오염 없고 마을 있는 지역에 야수를 놓으세요',BCE8_CHOICE:'다한에게 어떤 대응을 권할까요?',BCE8_DAHAN:'침략자 보복으로 다한 피해 2를 받을 지역을 고르세요',BCE8_BLIGHT:'건물이 2개 이상인 지역에 오염을 놓으세요',BCE8_TOWN:'다한이 농사를 가르칠 지역에 마을을 놓으세요',BCE7_PUSH:'다한 지역의 탐험가를 인접 지역으로 미세요',BCE7_CONVERT:'마을로 교체할 다한을 고르세요',BCE7_DISEASE:'내 정령이 질병을 놓을 도시 지역을 고르세요',BCE7_TOWN:'마을이 없는 지역에 마을을 놓으세요',BCE7_JUNGLE:'오염 없는 밀림에 야수를 놓으세요',BCE7_WILDS:'다한 지역에 야생을 놓으세요',BCE6_ASSIMILATE:'도시의 영향을 받는 다한 한 개를 마을로 교체하세요',BCE6_REPRISAL:'다한이 보복 피해 3을 받을 지역을 고르세요',BCE6_OFFENSIVE:'다한·건물이 각각 2개 이상인 공세 지역을 고르세요',BCE5_PITS:'오염이 2개 이상인 지역을 고르세요 · 연쇄 없음',BCE5_DISEASE:'이번 단계에 건설을 막지 않는 질병을 놓으세요',BCE5_GROW:'새 다한이 태어날 밀림·습지 지역을 고르세요',BCE4_ROOTS:'마을로 바뀔 내륙 탐험가를 고르세요',BCE4_SEARCH:'탐험가가 이주할 빈 지역을 고르세요',BCE4_SURGE:'내륙으로 이동할 해안 마을을 고르세요',BCE4_SURGE_NEXT:'한 번 더 내륙으로 이동할까요?',BCE4_POPULATION:'마을이 늘어날 지역을 고르세요',BCE4_FADE:'내 정령이 감당할 힘의 쇠퇴를 고르세요',BCE4_HUNT:'야수가 사냥할 오염 없는 지역을 고르세요',BCE4_GRIM:'질병의 피해를 받을 지역을 고르세요',BCE4_SANDFEVER:'산·모래 중 건물이 가장 많은 지역을 고르세요',BCE4_DRIVE:'다한 지역의 침략자를 밀어낼까요?',BCE3_PROTECT:'현신을 희생해 이 보드의 오염 확산을 막을까요?',BCE3_PLEDGE:'희생할 현신을 고른 뒤 확정하세요',BCE3_BLIGHT:'오염 지역에 인접한 지역을 고르세요',BCE3_PREY:'야수가 탐험가를 사냥할 지역을 고르세요',BCE3_BEAST:'야수가 없는 보드 하나에 야수를 놓으세요',BCE3_DAHAN:'새 다한이 태어날 지역을 고르세요',BCE2_DIASPORA:'침략자가 가장 많은 지역을 고르세요',BCE2_DISPERSE:'각 인접 지역으로 하나씩 밀어내세요',BCE2_DISCOVERY:'탐험가가 찾아올 성소를 고르세요',BCE2_UPGRADE:'도시로 바뀔 마을을 고르세요',BCE2_PROWL:'야수의 공포 또는 이동을 해결하세요',BCE2_RETREAT:'다한이 함께 떠날 출발지와 목적지를 고르세요',BCE2_DISEASE:'밀림·습지 중 건물이 가장 많은 지역에 질병을 놓으세요',BCE2_TEND:'다한이 돌보는 지역의 오염을 제거하세요',BCE2_COMING:'새 다한이 태어날 산·모래 지역을 고르세요',BCE2_FORTIFY:'침략자 행동에 없는 지형을 골라 추가 건설하세요',BCE_REVEAL:'공개된 이벤트를 함께 읽고 진행하세요',BCE_CHOICE:'팀과 의논해 이벤트의 대응을 고르세요',BCE_PAY:'원소·카드·에너지로 비용을 분담하세요 · 확정 전에는 소모되지 않습니다',BCE_DISEASE:'서로 다른 보드에서 질병이 퍼질 지역을 고르세요',BCE_BLIGHT_LAND:'이벤트로 오염을 추가할 지역을 고르세요',BCE_BEAST_LAND:'야수가 나타날 지역을 고르세요',BCE_PRESENCE:'다한과 함께하는 지역에 현신을 추가할까요?',BCM_RAVAGE_ORDER:'파괴를 먼저 해결할 지역을 고르세요',BCM_FIREVINE_SOURCE:'불덩굴이 뻗어 나올 모래 지역을 고르세요',BCM_FIRE_FLOOD_SOURCE:'두 대상의 사거리를 잴 공통 성소를 고르세요',BCM_FIRE_FLOOD_SECOND:'홍수가 덮칠 두 번째 지역을 고르세요',BCM_FIRE_FLOOD_BONUS:'추가 피해 4를 받을 지역을 고르세요',BCM_REPEAT:'능력을 반복할 지역을 고르세요',BCM_CALAMITY_REMOVE:'토큰을 제거하고 쌓인 공포·피해를 확정하세요',BCM_UNLOCK_PLAY:'새 주요 능력의 준비 비용을 선택하세요',BCM_SINK_RESCUE:'가라앉는 섬에서 살아남은 다한을 옮기세요',BCM_FLOW_MOVE:'이동할 현신과 목적지를 고르세요',BCM_FLOW_CARRY:'현신과 함께 이동할 기물을 고르세요',OCEAN_SETUP:'바다와 이어질 시작 해안을 고르세요',FOLLOW_DAHAN:'이동한 기물을 따라갈 현신을 선택하세요',FANGS_SETUP:'야수가 있는 시작 지역을 고르세요',GREEN_STOP:'현신을 희생해 침략자 행동을 막을까요?',HEART_SETUP:'지켜낼 섬의 심장을 고르세요',HEART_PRESENCE:'심장 가까이에 시작 현신을 놓으세요',RITUAL_ENERGY:'의식에 기여할 에너지를 선택하세요',RITUAL_PRESENCE:'의식에 희생할 현신을 선택하세요',BLITZ_EXPLORE:'추가 탐험가가 들어올 지역을 고르세요',MIDNIGHT_PLAY:'꿈에서 얻은 주요 능력을 즉시 준비할까요?'};
@@ -108,14 +108,26 @@ export function choiceTitle(e: SpiritStep): string {
     case 'DAMAGE': return `피해 ${e.n} 남음 · 피해를 받을 기물을 선택하세요`;
     case 'MOVE': return `${e.key === 'GATHER' ? '모으기' : '밀기'} · 최대 ${e.n}개 · 기물과 목적지를 선택하세요`;
     case 'DESTROY': return `파괴할 기물을 선택하세요 · ${e.n >= 1000 ? '모두' : e.n + '개'}`;
-    case 'REMOVE': return '제거할 침략자를 선택하세요';
+    case 'REMOVE': return `${e.land ?? ''} · ${selectedKinds(e).map(k=>labels[k]).join('/')} ${e.n}개 제거 · 기물을 선택하세요`;
     case 'REPLACE': return '교체할 기물을 선택하세요';
     case 'PRESENCE': return '현신을 꺼낼 트랙과 놓을 지역을 선택하세요';
     case 'BLIGHT': return '오염이 번질 인접 지역을 선택하세요';
     case 'GAIN': return '획득할 능력 종류를 선택하세요';
     case 'FORGET': return '주요 능력 획득 · 잊을 카드 1장을 선택하세요';
     case 'OPTION': return '이번에 사용할 효과를 선택하세요';
-    case 'LAND': return '효과를 적용할 지역을 선택하세요';
+    case 'LAND': {
+        const effects: Record<string, readonly [string, string]> = {
+            TIDAL: ['tidal-boon', '대상 정령의 현신이 있는 지역에서 마을 1개와 다한 최대 2개 밀기'],
+            MANTLE: ['mantle-of-dread', '대상 정령의 현신이 있는 지역에서 탐험가 최대 1개와 마을 최대 1개 밀기'],
+            REPEAT_LAND_PAIN: ['the-land-thrashes-in-furious-pain', '인접한 오염 지역에서 원소 조건 없이 능력 반복'],
+            REPEAT_WINDS: ['winds-of-rust-and-atrophy', '성소 기준 사거리 안의 지역에 원소 조건 없이 능력 반복'],
+            CLEAN_ADJACENT: ['infinite-vitality', '대상 또는 인접 지역의 오염 1개 제거'],
+            WINGS: ['wrap-in-wings-of-sunlight', '다한 최대 5개를 옮길 다른 지역 선택 · 목적지 방어 5'],
+            RENEWAL: ['blazing-renewal', `사거리 2 이내에 파괴된 현신 최대 2개 복원 · 복원하면 각 마을/도시에 피해 2${e.n ? ` · 추가 피해 ${e.n}` : ''}`],
+        };
+        const effect = effects[e.key];
+        return effect ? `${spiritPower(effect[0]).title} · ${effect[1]}` : '효과를 적용할 지역을 선택하세요';
+    }
     default: return e.key === 'TAKE_CARD' ? '획득할 능력 카드 선택' : e.key === 'ELEMENTS' ? `원소 ${e.n}개 더 선택` : e.key === 'GROWTH' ? '성장 효과를 원하는 순서로 처리하세요' : e.key === 'CONSTANCY_RECLAIM' ? '손으로 회수할 사용 카드 선택' : '다음 선택을 확인하세요';
 } }
 export function choiceOptions(s: SpiritState, shuffle: <T>(values:T[])=>T[] = values=>values): SpiritOption[] {
