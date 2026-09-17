@@ -19,6 +19,7 @@ export const SpeakeasyPlayerCommandSchema = v.variant('type', [
   v.strictObject({type: v.literal('PLACE_CAPO'), command: SpeakeasyPlaceCapoCommandSchema}),
   v.strictObject({type: v.literal('CHOOSE_RESTAURANT_ACTION'), command: SpeakeasyRestaurantActionCommandSchema}),
   v.strictObject({type: v.literal('FINISH_RESTAURANT_ACTION'), command: SpeakeasyRestaurantFinishCommandSchema}),
+  v.strictObject({type: v.literal('USE_HELPER'), command: SpeakeasyRestaurantCardCommandSchema}),
   v.strictObject({type: v.literal('PLAY_OPERATION'), command: SpeakeasyRestaurantCardCommandSchema}),
   v.strictObject({type: v.literal('USE_CITY_TILE'), command: SpeakeasyCityTileCommandSchema}),
   v.strictObject({type: v.literal('PLACE_BOOK'), command: SpeakeasyRestaurantBookCommandSchema}),

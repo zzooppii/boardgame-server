@@ -17,7 +17,7 @@ import {ruleFailure, speakeasyInventory, type SpeakeasyEconomy, type SpeakeasyRu
 const Space = v.strictObject({id: v.pipe(v.string(), v.minLength(1), v.maxLength(100)), location: SpeakeasyLocationSchema});
 const Capos = v.strictObject({playerId: PlayerIdSchema, available: v.array(TileIdSchema), retired: v.array(TileIdSchema),
   placed: v.array(v.strictObject({tileId: TileIdSchema, spaceId: Space.entries.id}))});
-const State = v.strictObject({locationActions:v.nullable(SpeakeasyLocationProgressSchema), awaitingCityReturn: v.boolean(), city: CityTilesSchema, round: v.unknown(), spaces: v.array(Space), capos: v.array(Capos),
+const State = v.strictObject({helperUses:v.optional(v.array(v.strictObject({playerId:PlayerIdSchema,cardId:TileIdSchema,act:v.picklist([1,2,3,4]),round:v.pipe(v.number(),v.safeInteger(),v.minValue(1),v.maxValue(4))})),()=>[]),locationActions:v.nullable(SpeakeasyLocationProgressSchema), awaitingCityReturn: v.boolean(), city: CityTilesSchema, round: v.unknown(), spaces: v.array(Space), capos: v.array(Capos),
   active: v.nullable(v.strictObject({playerId: PlayerIdSchema, capoId: TileIdSchema, spaceId: Space.entries.id, restaurant: v.nullable(RestaurantChoicesSchema)})),
   luciano: v.nullable(v.unknown()), history: v.array(v.unknown())});
 export type SpeakeasyGameFlow = Omit<v.InferOutput<typeof State>, 'round' | 'luciano' | 'history'> & {
@@ -49,6 +49,9 @@ export function parseSpeakeasyGameFlow(input: unknown): SpeakeasyGameFlow {
     if(!s.active||s.active.restaurant||s.spaces.find(p=>p.id===s.active!.spaceId)?.location!==s.locationActions.program.location||
       (r.phase==='DRAW_OPERATION'&&availableLocationActions(s.locationActions).length)) throw new Error('Invalid location progress.');
   }
+  if(new Set(s.helperUses.map(h=>`${h.act}:${h.round}:${h.playerId}`)).size!==s.helperUses.length||new Set(s.helperUses.map(h=>h.cardId)).size!==s.helperUses.length||s.helperUses.some(h=>
+    h.round>SPEAKEASY_ROUNDS[h.act-1]!||h.act>r.clock.act||(h.act===r.clock.act&&h.round>r.clock.round)||
+    !r.economy.players.find(p=>p.playerId===h.playerId)?.helpers.some(card=>card.tileId===h.cardId&&card.used))) throw new Error('Invalid helper history.');
   const occupied: string[] = [];
   for (const p of s.capos) {
     const expected = terminal ? r.clock.round : r.clock.round - 1 +

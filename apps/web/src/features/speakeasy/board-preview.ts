@@ -4,7 +4,7 @@ import {SpeakeasyBoardViewSchema, type SpeakeasyBoardView} from '@hangul-rummiku
 /** Fixed display fixture projected from the server's synthetic economy; never official setup. */
 export function createSpeakeasyBoardPreview():SpeakeasyBoardView {
   return parse(SpeakeasyBoardViewSchema,{
-  "ports": [], "ships": [], "turn": {
+  "helperMarket": {"cards": [], "deckCount": 0}, "ports": [], "ships": [], "turn": {
     "locationActions": null,
     "gameId": "speakeasy-board-preview",
     "revision": 0,
@@ -549,7 +549,7 @@ export function createSpeakeasyBoardPreview():SpeakeasyBoardView {
     "books": 2,
     "bookReserve": 7,
     "crates": [],
-    "helpers": [],
+    "usableHelperIds": [], "helpers": [],
     "associate": null
   },
   "luciano": null,

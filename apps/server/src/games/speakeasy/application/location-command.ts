@@ -1,3 +1,4 @@
+import {takeSpeakeasyHelper} from '../domain/helper-actions.js';
 import {ambushSpeakeasyShip} from '../domain/ship-ambush.js';
 import {resolveSpeakeasyFamily} from '../domain/family-actions.js';
 import {resolveSpeakeasyLevel} from './level-command.js';
@@ -40,6 +41,7 @@ export function resolveSpeakeasyLocation(s:SpeakeasyGameFlow,actor:PlayerId,inpu
   let outcome:SpeakeasyRuleResult<SpeakeasyEconomy>;
   const player=candidate.round.economy.players.find(p=>p.playerId===actor)!;
   switch(choice.kind) {
+    case 'HELPER': outcome=takeSpeakeasyHelper(candidate.round.economy,actor,choice.cardId);break;
     case 'AMBUSH': {
       if(action.kind!=='AMBUSH') return ruleFailure('INVALID_ACTION');
       outcome=ambushSpeakeasyShip(candidate.round.economy,actor,choice,action);break;

@@ -1,3 +1,4 @@
+import {canUseSpeakeasyHelper} from '../domain/helper-actions.js';
 import * as v from 'valibot';
 import {SpeakeasyBoardViewSchema, type SpeakeasyBoardView, type PlayerId} from '@hangul-rummikub/shared';
 import {parseSpeakeasyGameFlow, type SpeakeasyGameFlow} from '../domain/game-flow.js';
@@ -17,6 +18,7 @@ export function projectSpeakeasyBoard(original:SpeakeasyGameFlow,viewer:PlayerId
   const self=economy.players.find(p=>p.playerId===viewer)!;
   return v.parse(SpeakeasyBoardViewSchema,{
     turn:projectSpeakeasyTurn(s,viewer),
+    helperMarket:{cards:economy.helperDisplay.map(h=>({tileId:h.tileId,bottle:h.bottle,value:h.value})),deckCount:economy.helperDeck.length},
     ports:economy.ports,ships:economy.ships.map(ship=>({tileId:ship.tileId,port:ship.port,barrels:ship.barrels.length,crate:ship.crate??null,prices:ship.prices})),
     districts:economy.districts.map(d=>({id:d.id,blocked:d.blocked,cop:d.cop,
       slots:d.slots.map(b=>b?{tileId:b.piece.tileId,ownerId:b.ownerId,kind:b.piece.kind,
@@ -32,6 +34,7 @@ export function projectSpeakeasyBoard(original:SpeakeasyGameFlow,viewer:PlayerId
       vip:self.vip.length,familyReserve:self.familyReserve.length,goons:self.goons.length,
       stock:self.stock,trucks:self.trucks.map(t=>({tileId:t.tileId,district:t.district,barrels:t.barrels})),
       books:self.books,bookReserve:self.bookReserve,crates:self.crates,
+      usableHelperIds:canUseSpeakeasyHelper(s,viewer)?self.helpers.filter(h=>!h.used).map(h=>h.tileId):[],
       helpers:self.helpers.map(h=>({tileId:h.tileId,bottle:h.bottle,value:h.value,used:h.used})),
       associate:self.associate?{district:self.associate.district,strength:self.associate.strength,fee:self.associate.fee,
         defenseBonus:self.associate.defenseBonus,protectionBonus:self.associate.protectionBonus,

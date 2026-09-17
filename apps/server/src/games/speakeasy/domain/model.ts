@@ -14,6 +14,7 @@ const Building = v.strictObject({piece: BuildingPiece, ownerId: PlayerIdSchema,
   familyId: v.nullable(TileIdSchema), barrelId: v.nullable(TileIdSchema)});
 const Associate = v.strictObject({district: SpeakeasyDistrictIdSchema, strength: count, fee: count,
   defenseBonus: count, protectionBonus: count, stillsImmune: v.boolean(), freeUseAvailable: v.boolean(), takeoverDiscount: count});
+const Helper = v.strictObject({tileId: TileIdSchema, bottle: v.pipe(v.string(), v.minLength(1), v.maxLength(50)), value: v.picklist([5, 10, 20]), used: v.boolean()});
 const Player = v.strictObject({
   playerId: PlayerIdSchema, cash: count, safe: count,
   levels: v.strictObject({VIP: level, PARTY: level, STILLS: level, FLEET: level, STRENGTH: level}),
@@ -23,11 +24,12 @@ const Player = v.strictObject({
   trucks: v.pipe(v.array(v.strictObject({tileId: TileIdSchema, district: v.nullable(SpeakeasyDistrictIdSchema), barrels: v.pipe(ids, v.maxLength(2))})), v.length(2)),
   books: v.pipe(count, v.maxValue(10)), bookReserve: v.pipe(count, v.maxValue(10)),
   cityTileCount: count, crates: v.array(v.pipe(count, v.minValue(1), v.maxValue(18))),
-  helpers: v.array(v.strictObject({tileId: TileIdSchema, bottle: v.pipe(v.string(), v.minLength(1), v.maxLength(50)), value: v.picklist([5, 10, 20]), used: v.boolean()})),
+  helpers: v.array(Helper),
   associate: v.nullable(Associate),
 });
 
 export const SpeakeasyEconomySchema = v.strictObject({
+  helperDisplay:v.optional(v.array(Helper),()=>[]),helperDeck:v.optional(v.array(Helper),()=>[]),
   crateSupply:v.optional(v.array(v.pipe(count,v.minValue(1),v.maxValue(18))),()=>[]),
   ports: v.optional(v.pipe(v.array(SpeakeasyDistrictIdSchema),v.maxLength(16)),()=>[]),
   ships: v.optional(v.array(v.strictObject({tileId:TileIdSchema,port:SpeakeasyDistrictIdSchema,barrels:ids,crate:v.optional(v.pipe(count,v.minValue(1),v.maxValue(18))),
@@ -52,11 +54,13 @@ export const ruleFailure = (reason: SpeakeasyFailure): {ok: false; reason: Speak
 /** Internal economic slice. It deliberately does not assert that a full base-game catalog is available. */
 export function parseSpeakeasyEconomy(input: unknown): SpeakeasyEconomy {
   const s = v.parse(SpeakeasyEconomySchema, input);
+  if([...s.helperDisplay,...s.helperDeck].some(h=>h.used)) throw new Error('Used helper in market.');
   const owners = new Set(s.players.map(p => p.playerId));
   if (owners.size !== s.players.length || s.districts.some((d, i) => d.id !== i + 1)) throw new Error('Invalid Speakeasy identities.');
   const pieces: string[] = [...s.barrelSupply, ...s.goonSupply, ...s.discardedCards.map(c => c.tileId)];
   if(new Set(s.ports).size!==s.ports.length||new Set(s.ships.map(ship=>ship.port)).size!==s.ships.length||
     (s.ships.length>0&&s.ships.length>=s.ports.length)||s.ships.some(ship=>!s.ports.includes(ship.port)||ship.barrels.length>ship.prices.length)) throw new Error('Invalid ship configuration.');
+  for(const helper of [...s.helperDisplay,...s.helperDeck]) pieces.push(helper.tileId);
   for(const ship of s.ships) pieces.push(ship.tileId,...ship.barrels);
   for (const p of s.players) {
     pieces.push(...p.vip, ...p.familyReserve, ...p.removedFamily, ...p.goons, ...p.stock,
@@ -85,6 +89,7 @@ export function parseSpeakeasyEconomy(input: unknown): SpeakeasyEconomy {
 
 export function speakeasyInventory(s: SpeakeasyEconomy): string[] {
   const pieces = [...s.barrelSupply, ...s.goonSupply, ...s.discardedCards.map(c => c.tileId), ...s.docks.map(d => d.familyId)];
+  for(const helper of [...s.helperDisplay,...s.helperDeck]) pieces.push(helper.tileId);
   for(const ship of s.ships) pieces.push(ship.tileId,...ship.barrels);
   for (const p of s.players) pieces.push(...p.vip, ...p.familyReserve, ...p.removedFamily, ...p.goons, ...p.stock,
     ...p.reserves.map(b => b.tileId), ...p.removedBuildings.map(b => b.tileId), ...p.hand.map(c => c.tileId),

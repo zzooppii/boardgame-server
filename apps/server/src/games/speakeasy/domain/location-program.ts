@@ -3,6 +3,7 @@ import {SpeakeasyBuildingKindSchema,SpeakeasyDeckSchema,SpeakeasyLocationSchema,
 const key=v.pipe(v.string(),v.minLength(1),v.maxLength(100));
 const action=v.variant('kind',[
   v.strictObject({id:key,kind:v.literal('BOOK')}),
+  v.strictObject({id:key,kind:v.literal('HELPER')}),
   v.strictObject({id:key,kind:v.literal('AMBUSH'),vipCapacityByLevel:v.pipe(v.array(SpeakeasyCountSchema),v.length(5)),
     defenses:v.array(v.strictObject({shipId:TileIdSchema,byRemaining:v.pipe(v.array(SpeakeasyCountSchema),v.minLength(1),v.maxLength(41))}))}),
   v.strictObject({id:key,kind:v.literal('FAMILY'),vipCapacityByLevel:v.pipe(v.array(SpeakeasyCountSchema),v.length(5)),

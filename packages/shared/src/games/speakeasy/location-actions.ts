@@ -3,9 +3,10 @@ import {GameIdSchema,TileIdSchema} from '../../identifiers.js';
 import {SpeakeasyDistrictIdSchema,SpeakeasyCountSchema,SpeakeasyOperationSchema} from './contracts.js';
 const key=v.pipe(v.string(),v.minLength(1),v.maxLength(100));
 const guard={gameId:GameIdSchema,revision:v.pipe(v.number(),v.safeInteger(),v.minValue(0))};
-export const SpeakeasyLocationActionKindSchema=v.picklist(['BOOK','GOONS','PROTECT','OPERATION','BUILD','PRODUCE','DELIVER','SELL','LEVEL','FAMILY','AMBUSH']);
+export const SpeakeasyLocationActionKindSchema=v.picklist(['BOOK','GOONS','PROTECT','OPERATION','BUILD','PRODUCE','DELIVER','SELL','LEVEL','FAMILY','AMBUSH','HELPER']);
 export const SpeakeasyLocationChoiceSchema=v.variant('kind',[
   v.strictObject({kind:v.literal('BOOK')}),
+  v.strictObject({kind:v.literal('HELPER'),cardId:TileIdSchema}),
   v.strictObject({kind:v.literal('AMBUSH'),shipId:TileIdSchema,familyId:TileIdSchema,
     borrowedFamilyIds:v.pipe(v.array(TileIdSchema),v.maxLength(36)),goons:v.pipe(SpeakeasyCountSchema,v.maxValue(6)),
     destination:v.variant('kind',[

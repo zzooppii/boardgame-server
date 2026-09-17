@@ -1,3 +1,4 @@
+import {speakeasyFinalScores} from './games/speakeasy/domain/scoring.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {parse} from 'valibot';
@@ -515,4 +516,90 @@ test('Speakeasy empty-ship ambush uses supply and missing barrel restores all re
   e.players[1]!.stock.push(...e.barrelSupply.splice(0));const before=structuredClone(s);
   assert.equal(prepareSpeakeasyPlayerCommand(s,a,body(s,'EXECUTE_LOCATION_ACTION',{actionId:'ambush',choice:ambushChoice()}),c).ok,false);
   assert.deepEqual(s,before);
+});
+
+function helperSetup() {
+  const s=setup(),p=s.round.economy.players[0]!;
+  const card=(id:string)=>({tileId:tile(id),bottle:'example-bottle',value:5 as const,used:false});
+  p.helpers=[card('helper-owned'),card('helper-second')];
+  s.round.economy.players[1]!.helpers=[card('helper-opponent')];
+  s.round.economy.helperDisplay=[card('helper-display')];s.round.economy.helperDeck=[card('helper-hidden')];
+  const program:SpeakeasyLocationProgram={location:'CONTRACTOR',rows:[[{id:'helper',kind:'HELPER'}]]};
+  const c:SpeakeasyCommandCatalog={...catalog(s),locations:new Map(s.spaces.map(space=>[space.id,program])),
+    helpers:new Map(p.helpers.map(h=>[h.tileId,state=>{state.economy.players[0]!.cash+=3;return {ok:true,value:state};}]))};
+  return {s,c};
+}
+
+test('Speakeasy helper use happens once before Capo placement and leaves the card for final bottle scoring',()=>{
+  const {s,c}=helperSetup();
+  const r=run(s,'USE_HELPER',{cardId:'helper-owned'},c);
+  assert.equal(r.candidate.round.economy.players[0]!.cash,18);assert.equal(r.candidate.round.economy.players[0]!.helpers[0]!.used,true);
+  assert.equal(r.candidate.capos[0]!.available.length,4);assert.equal(r.candidate.active,null);
+  assert.deepEqual(r.actorView.self.usableHelperIds,[]);assert.equal(r.actorView.turn.stage,'PLACE_CAPO');
+  for(const cardId of ['helper-owned','helper-second']) assert.equal(prepareSpeakeasyPlayerCommand(r.candidate,a,body(r.candidate,'USE_HELPER',{cardId}),c).ok,false);
+  const placed=enter(r.candidate,c);
+  assert.equal(prepareSpeakeasyPlayerCommand(placed,a,body(placed,'USE_HELPER',{cardId:'helper-second'}),c).ok,false);
+  assert.equal(placed.round.economy.players[0]!.helpers.length,2);
+  assert.equal(speakeasyFinalScores(placed.round.economy).find(p=>p.playerId===a)!.helperMoney,5);
+});
+
+test('Speakeasy helper acquisition takes a visible card and immediately replenishes the same display slot',()=>{
+  const {s,c}=helperSetup(),active=enter(s,c);
+  const r=run(active,'EXECUTE_LOCATION_ACTION',{actionId:'helper',choice:{kind:'HELPER',cardId:'helper-display'}},c);
+  assert.equal(r.candidate.round.economy.players[0]!.helpers.at(-1)!.tileId,tile('helper-display'));
+  assert.deepEqual(r.actorView.helperMarket,{cards:[{tileId:tile('helper-hidden'),bottle:'example-bottle',value:5}],deckCount:0});
+  assert.equal(r.actorView.turn.stage,'FINISH_LOCATION');assert.deepEqual(r.actorView.self.usableHelperIds,[]);
+  assert.equal(prepareSpeakeasyPlayerCommand(active,a,body(active,'EXECUTE_LOCATION_ACTION',{actionId:'helper',choice:{kind:'HELPER',cardId:'helper-hidden'}}),c).ok,false);
+});
+
+test('Speakeasy helper ownership, actor, revision and missing effects are checked before benefit',()=>{
+  const {s,c}=helperSetup(),before=structuredClone(s);
+  for(const cardId of ['helper-opponent','helper-display','missing']) assert.equal(prepareSpeakeasyPlayerCommand(s,a,body(s,'USE_HELPER',{cardId}),c).ok,false);
+  assert.equal(prepareSpeakeasyPlayerCommand(s,b,body(s,'USE_HELPER',{cardId:'helper-opponent'}),c).ok,false);
+  assert.equal(prepareSpeakeasyPlayerCommand(s,a,body(s,'USE_HELPER',{cardId:'helper-owned'}),{...c,helpers:new Map()}).ok,false);
+  assert.equal(prepareSpeakeasyPlayerCommand(s,a,{type:'USE_HELPER',command:{gameId,revision:99,cardId:'helper-owned'}},c).ok,false);
+  assert.deepEqual(s,before);
+});
+
+test('Speakeasy helper failure or malformed effect rolls back used marker, reward and turn allowance',()=>{
+  const {s,c}=helperSetup(),before=structuredClone(s),effects=new Map(c.helpers),input=body(s,'USE_HELPER',{cardId:'helper-owned'});
+  effects.set(tile('helper-owned'),state=>{state.economy.players[0]!.cash=999;return {ok:false,reason:'CAPACITY'};});
+  assert.equal(prepareSpeakeasyPlayerCommand(s,a,input,{...c,helpers:effects}).ok,false);
+  effects.set(tile('helper-owned'),state=>{state.economy.players[0]!.helpers[0]!.used=false;return {ok:true,value:state};});
+  assert.throws(()=>prepareSpeakeasyPlayerCommand(s,a,input,{...c,helpers:effects}));
+  effects.set(tile('helper-owned'),state=>{state.decks.PARTY.shift();return {ok:true,value:state};});
+  assert.throws(()=>prepareSpeakeasyPlayerCommand(s,a,input,{...c,helpers:effects}));assert.deepEqual(s,before);
+});
+
+test('Speakeasy helper draw effect preserves deck privacy and depleted helper deck does not lose a displayed card',()=>{
+  const {s,c}=helperSetup(),effects=new Map(c.helpers);
+  effects.set(tile('helper-owned'),state=>{state.economy.players[0]!.hand.push(state.decks.PARTY.shift()!);return {ok:true,value:state};});
+  const r=run(s,'USE_HELPER',{cardId:'helper-owned'},{...c,helpers:effects});
+  assert.equal(r.actorView.turn.self.hand.at(-1)!.tileId,tile('deck-PARTY-0'));
+  assert.ok(!JSON.stringify(r.actorView).includes('helper-hidden'));assert.ok(!JSON.stringify(r.actorView).includes('helper-opponent'));
+  s.round.economy.players[1]!.helpers.push(...s.round.economy.helperDeck.splice(0));const active=enter(s,c),before=structuredClone(active);
+  assert.equal(prepareSpeakeasyPlayerCommand(active,a,body(active,'EXECUTE_LOCATION_ACTION',{actionId:'helper',choice:{kind:'HELPER',cardId:'helper-display'}}),c).ok,false);
+  assert.deepEqual(active,before);
+});
+
+test('Speakeasy helper allowance renews next round while receipts and used cards prevent duplicate benefits',async()=>{
+  const {s,c}=helperSetup(),roomId=parse(RoomIdSchema,'helper-room'),store=new InMemorySpeakeasyCommandStore();
+  store.add(roomId,s,exampleActPlans());
+  const service=new SpeakeasyCommandService({store,executor:new KeyedSerialExecutor(),clock:{now:()=>parse(ServerTimeSchema,1)},catalog:c});
+  const context=(actorPlayerId:PlayerId)=>({roomId,actorPlayerId,authorization:{isCurrent:()=>true}});
+  async function send(actor:PlayerId,type:string,fields:object={}) {
+    const state=(await store.read(roomId))!.state,request={requestId:`helper-${state.round.revision}`,action:body(state,type,fields)};
+    const reply=await service.command(context(actor),request);assert.ok(reply.ok,JSON.stringify(reply));return {request,reply};
+  }
+  const first=await send(a,'USE_HELPER',{cardId:'helper-owned'}),before=await store.read(roomId);
+  const replay=await service.command(context(a),first.request);assert.ok(replay.ok);assert.equal(replay.replayed,true);assert.deepEqual(await store.read(roomId),before);
+  for(const [index,actor] of [a,b].entries()) {
+    await send(actor,'PLACE_CAPO',{capoId:`capo-${index}-0`,spaceId:`office-${index}`});
+    await send(actor,'SKIP_LOCATION_ACTION',{actionId:'helper'});await send(actor,'FINISH_LOCATION_ACTIONS');await send(actor,'DRAW_OPERATION',{deck:'VIP'});
+  }
+  const next=(await store.read(roomId))!.state;assert.equal(next.round.clock.round,2);
+  assert.equal(prepareSpeakeasyPlayerCommand(next,a,body(next,'USE_HELPER',{cardId:'helper-owned'}),c).ok,false);
+  await send(a,'USE_HELPER',{cardId:'helper-second'});
+  assert.equal((await store.read(roomId))!.state.round.economy.players[0]!.cash,21);
+  assert.equal((await store.read(roomId))!.state.helperUses.length,2);
 });

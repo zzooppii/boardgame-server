@@ -62,6 +62,7 @@ export const SpeakeasyFixedGoalViewSchema = v.strictObject({
 export type SpeakeasyFixedGoalView = v.InferOutput<typeof SpeakeasyFixedGoalViewSchema>;
 /** Screen snapshot: visible board + authenticated player's personal board. No canonical state. */
 export const SpeakeasyBoardViewSchema = v.strictObject({
+  helperMarket:v.strictObject({cards:v.array(v.strictObject({tileId:TileIdSchema,bottle:v.string(),value:v.picklist([5,10,20])})),deckCount:count}),
   ports:v.array(SpeakeasyDistrictIdSchema),
   ships:v.array(v.strictObject({tileId:TileIdSchema,port:SpeakeasyDistrictIdSchema,barrels:SpeakeasyCountSchema,crate:v.nullable(SpeakeasyCountSchema),prices:v.array(SpeakeasyCountSchema)})),
   turn:SpeakeasyTurnViewSchema,
@@ -77,6 +78,7 @@ export const SpeakeasyBoardViewSchema = v.strictObject({
     reserves:v.array(v.strictObject({tileId:TileIdSchema,kind:SpeakeasyBuildingKindSchema,cost:count,group:v.nullable(v.picklist([0,1,2]))})),
     vip:count,familyReserve:count,goons:count,stock:v.array(TileIdSchema),trucks:v.array(truck),
     books:count,bookReserve:count,crates:v.array(count),
+    usableHelperIds:v.array(TileIdSchema),
     helpers:v.array(v.strictObject({tileId:TileIdSchema,bottle:v.string(),value:v.picklist([5,10,20]),used:v.boolean()})),
     associate:v.nullable(v.strictObject({district:SpeakeasyDistrictIdSchema,strength:count,fee:count,defenseBonus:count,
       protectionBonus:count,stillsImmune:v.boolean(),freeUseAvailable:v.boolean(),takeoverDiscount:count})),

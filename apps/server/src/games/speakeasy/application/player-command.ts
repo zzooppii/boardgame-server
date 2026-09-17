@@ -1,3 +1,4 @@
+import {useSpeakeasyHelper,type SpeakeasyHelperEffect} from '../domain/helper-actions.js';
 import type {SpeakeasyDockBenefit} from '../domain/family-actions.js';
 import type {SpeakeasyInfamyBenefit} from './level-command.js';
 import {safeParse} from 'valibot';
@@ -17,6 +18,7 @@ import {speakeasyFixedBookGoals} from '../domain/fixed-goals.js';
 
 /** Validated server catalog only. Instance IDs resolve to server handlers, never client effects. */
 export type SpeakeasyCommandCatalog = Readonly<{
+  helpers?: ReadonlyMap<TileId,SpeakeasyHelperEffect>;
   operations: ReadonlyMap<TileId, OperationEffects>;
   city: readonly CityTileEffect[];
   /** Verified tile goals for this game. Printed board goals are added internally. */
@@ -59,6 +61,7 @@ export function prepareSpeakeasyPlayerCommand(original: SpeakeasyGameFlow, actor
 function dispatch(s: SpeakeasyGameFlow, actor: PlayerId, input: SpeakeasyPlayerCommand,
   catalog: SpeakeasyCommandCatalog): SpeakeasyRuleResult<SpeakeasyGameFlow> {
   switch (input.type) {
+    case 'USE_HELPER': return useSpeakeasyHelper(s,actor,input.command.cardId,catalog.helpers);
     case 'PLACE_CAPO':
       if (s.spaces.find(space => space.id === input.command.spaceId)?.location !== 'RESTAURANT') return placeAtSpeakeasyLocation(s,actor,input,catalog);
       return placeSpeakeasyCapo(s, actor, input.command);
