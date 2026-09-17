@@ -5,6 +5,7 @@ import {SpeakeasyBoardViewSchema, type SpeakeasyBoardView} from '@hangul-rummiku
 export function createSpeakeasyBoardPreview():SpeakeasyBoardView {
   return parse(SpeakeasyBoardViewSchema,{
   "turn": {
+    "locationActions": null,
     "gameId": "speakeasy-board-preview",
     "revision": 0,
     "viewerId": "sp-player-a",

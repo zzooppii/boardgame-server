@@ -1,4 +1,5 @@
 import * as v from 'valibot';
+import {availableLocationActions} from '../domain/location-program.js';
 import {SpeakeasyTurnViewSchema, type SpeakeasyTurnView, type PlayerId} from '@hangul-rummikub/shared';
 import {parseSpeakeasyGameFlow, type SpeakeasyGameFlow} from '../domain/game-flow.js';
 import {cityReturnsNeeded} from '../domain/city-tiles.js';
@@ -8,7 +9,7 @@ function stage(s: SpeakeasyGameFlow): SpeakeasyTurnView['stage'] {
   if (s.awaitingCityReturn) return 'RETURN_CITY';
   if (s.round.phase !== 'PLAYING') return s.round.phase;
   if (!s.active) return 'PLACE_CAPO';
-  if (!s.active.restaurant) return 'LOCATION';
+  if (!s.active.restaurant) return s.locationActions&&!availableLocationActions(s.locationActions).length?'FINISH_LOCATION':'LOCATION';
   if (s.active.restaurant.completed.length === 2) return 'FINISH_LOCATION';
   return s.active.restaurant.current ? 'RESTAURANT_ACTION' : 'RESTAURANT_CHOICE';
 }
@@ -36,6 +37,9 @@ export function projectSpeakeasyTurn(original: SpeakeasyGameFlow, viewer: Player
       occupants:s.capos.flatMap(p => p.placed.filter(c => c.spaceId === space.id).map(c => ({playerId:p.playerId,capoId:c.tileId})))})),
     active:s.active ? {playerId:s.active.playerId,capoId:s.active.capoId,spaceId:s.active.spaceId} : null,
     restaurant:s.active?.restaurant ?? null,
+    locationActions:s.locationActions?{rows:s.locationActions.program.rows.map(row=>row.map(a=>({id:a.id,kind:a.kind,
+      status:s.locationActions!.completed.includes(a.id)?'DONE':availableLocationActions(s.locationActions!).some(next=>next.id===a.id)?'AVAILABLE':'WAITING'}))),
+      canFinish:r.phase==='PLAYING'&&s.active?.playerId===viewer&&availableLocationActions(s.locationActions).length===0}:null,
     market:{middle:s.city.middle.map(pile => ({count:pile.length,top:pile[0] ?? null})),
       right:s.city.right, supplyCounts:s.city.supply.map(pile => pile.length)},
     self:{cash:self.cash,safe:self.safe,availableCapos:s.capos.find(p => p.playerId === viewer)!.available,

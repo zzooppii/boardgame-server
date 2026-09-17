@@ -1,4 +1,5 @@
 import * as v from 'valibot';
+import {SpeakeasyLocationActionsViewSchema} from './location-actions.js';
 import {GameIdSchema, PlayerIdSchema, TileIdSchema} from '../../identifiers.js';
 import {SpeakeasyOperationSchema, SpeakeasyBuildingKindSchema, SpeakeasyBuildingViewSchema, SpeakeasyDistrictIdSchema} from './contracts.js';
 import {SpeakeasyLucianoViewSchema} from './luciano.js';
@@ -34,6 +35,7 @@ export const SpeakeasyTurnViewSchema = v.strictObject({
     completed:v.array(SpeakeasyRestaurantActionSchema),
     current:v.nullable(v.strictObject({action:SpeakeasyRestaurantActionSchema,used:count})),
   })),
+  locationActions:v.nullable(SpeakeasyLocationActionsViewSchema),
   market: v.strictObject({
     middle:v.pipe(v.array(v.strictObject({count,top:v.nullable(cityTile)})),v.length(3)),
     right:v.pipe(v.array(v.nullable(cityTile)),v.length(3)),

@@ -1,4 +1,5 @@
 import * as v from 'valibot';
+import {SpeakeasyLocationActionCommandSchema,SpeakeasyLocationSkipCommandSchema,SpeakeasyLocationFinishCommandSchema} from './location-actions.js';
 import {RequestIdSchema, GameIdSchema} from '../../identifiers.js';
 import {SpeakeasyPlaceCapoCommandSchema, SpeakeasyBoardViewSchema} from './locations.js';
 import {SpeakeasyDefenseCommandSchema} from './luciano.js';
@@ -12,6 +13,9 @@ import {
  * Server settlement, arbitrary economy replacement and unresolved location completion are not commands.
  */
 export const SpeakeasyPlayerCommandSchema = v.variant('type', [
+  v.strictObject({type:v.literal('EXECUTE_LOCATION_ACTION'),command:SpeakeasyLocationActionCommandSchema}),
+  v.strictObject({type:v.literal('SKIP_LOCATION_ACTION'),command:SpeakeasyLocationSkipCommandSchema}),
+  v.strictObject({type:v.literal('FINISH_LOCATION_ACTIONS'),command:SpeakeasyLocationFinishCommandSchema}),
   v.strictObject({type: v.literal('PLACE_CAPO'), command: SpeakeasyPlaceCapoCommandSchema}),
   v.strictObject({type: v.literal('CHOOSE_RESTAURANT_ACTION'), command: SpeakeasyRestaurantActionCommandSchema}),
   v.strictObject({type: v.literal('FINISH_RESTAURANT_ACTION'), command: SpeakeasyRestaurantFinishCommandSchema}),

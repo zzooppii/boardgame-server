@@ -193,3 +193,5 @@ export * from "./games/mars/prelude.js";
 export * from './games/speakeasy/commands.js';
 export * from './games/speakeasy/setup.js';
 export * from './games/speakeasy/practice.js';
+
+export * from './games/speakeasy/location-actions.js';

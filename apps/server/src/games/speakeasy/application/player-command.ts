@@ -1,4 +1,6 @@
 import {safeParse} from 'valibot';
+import {placeAtSpeakeasyLocation,resolveSpeakeasyLocation} from './location-command.js';
+import type {SpeakeasyLocationProgram} from '../domain/location-program.js';
 import {SpeakeasyPlayerCommandSchema, type SpeakeasyPlayerCommand, type SpeakeasyBoardView,
   type PlayerId, type TileId} from '@hangul-rummikub/shared';
 import {parseSpeakeasyGameFlow, placeSpeakeasyCapo, chooseSpeakeasyRestaurantAction,
@@ -7,7 +9,7 @@ import {parseSpeakeasyGameFlow, placeSpeakeasyCapo, chooseSpeakeasyRestaurantAct
   returnSpeakeasyTurnCityTiles, defendSpeakeasyGame, type SpeakeasyGameFlow} from '../domain/game-flow.js';
 import {type SpeakeasyRuleResult, ruleFailure} from '../domain/model.js';
 import type {OperationEffects, RestaurantBookGoal} from '../domain/restaurant-actions.js';
-import type {CityTileEffect} from '../domain/city-tiles.js';
+import type {CityTileEffect,CityEffectState} from '../domain/city-tiles.js';
 import {projectSpeakeasyBoard} from './board-projector.js';
 import {speakeasyFixedBookGoals} from '../domain/fixed-goals.js';
 
@@ -17,6 +19,8 @@ export type SpeakeasyCommandCatalog = Readonly<{
   city: readonly CityTileEffect[];
   /** Verified tile goals for this game. Printed board goals are added internally. */
   goals: readonly RestaurantBookGoal[];
+  locations?: ReadonlyMap<string,SpeakeasyLocationProgram>;
+  buildingBenefits?: ReadonlyMap<TileId,(s:CityEffectState,actor:PlayerId)=>SpeakeasyRuleResult<CityEffectState>>;
 }>;
 export type PreparedSpeakeasyCommand =
   | {ok: true; candidate: SpeakeasyGameFlow; actorView: SpeakeasyBoardView}
@@ -51,9 +55,10 @@ function dispatch(s: SpeakeasyGameFlow, actor: PlayerId, input: SpeakeasyPlayerC
   catalog: SpeakeasyCommandCatalog): SpeakeasyRuleResult<SpeakeasyGameFlow> {
   switch (input.type) {
     case 'PLACE_CAPO':
-      // Other locations have no verified effect queue yet. Do not strand a Capo or bypass effects.
-      if (s.spaces.find(space => space.id === input.command.spaceId)?.location !== 'RESTAURANT') return ruleFailure('INVALID_ACTION');
+      if (s.spaces.find(space => space.id === input.command.spaceId)?.location !== 'RESTAURANT') return placeAtSpeakeasyLocation(s,actor,input,catalog);
       return placeSpeakeasyCapo(s, actor, input.command);
+    case 'EXECUTE_LOCATION_ACTION': case 'SKIP_LOCATION_ACTION': case 'FINISH_LOCATION_ACTIONS':
+      return resolveSpeakeasyLocation(s,actor,input,catalog);
     case 'CHOOSE_RESTAURANT_ACTION': return chooseSpeakeasyRestaurantAction(s, actor, input.command);
     case 'FINISH_RESTAURANT_ACTION': return finishSpeakeasyRestaurantAction(s, actor, input.command);
     case 'PLAY_OPERATION': {
