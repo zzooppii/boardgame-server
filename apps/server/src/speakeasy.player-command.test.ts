@@ -191,3 +191,32 @@ test('Speakeasy defense command authorizes the current defender and returns only
   assert.equal(result.candidate.round.economy.districts[0]!.slots[0],null);
   assert.deepEqual(prepareSpeakeasyPlayerCommand(result.candidate,a,command(result.candidate,'DEFEND',fields),empty),denied);
 });
+
+for (const count of [2, 3, 4]) test(`Speakeasy ${count}-player command uses printed fixed goals without injected payout data`, () => {
+  let s = setup(count);
+  s.round.economy.players[0]!.crates = [1, 2, 3];
+  s = choose(enter(s), 'BOOKS');
+  const before = structuredClone(s), input = command(s, 'PLACE_BOOK', {goalId: 'fixed:docks:1', space: 0});
+  assert.deepEqual(prepareSpeakeasyPlayerCommand(s, b, input, empty), denied);
+  assert.deepEqual(prepareSpeakeasyPlayerCommand(s, a, command(s, 'PLACE_BOOK', {goalId: 'fixed:docks:1', space: 0, payout: 999}), empty), denied);
+  const next = run(s, a, 'PLACE_BOOK', {goalId: 'fixed:docks:1', space: 0});
+  assert.equal(next.round.economy.players[0]!.safe, 45);
+  assert.deepEqual(prepareSpeakeasyPlayerCommand(next, a, input, empty), denied);
+  assert.deepEqual(s, before);
+  s = run(next, a, 'PLACE_BOOK', {goalId: 'fixed:docks:2', space: 0});
+  s = run(s, a, 'PLACE_BOOK', {goalId: 'fixed:docks:3', space: 0});
+  assert.equal(s.round.economy.players[0]!.safe, 75);
+  assert.equal(s.round.economy.players[0]!.books, 0);
+  s = skip(close(s), 'CITY_TILES'); s = run(s, a, 'FINISH_RESTAURANT');
+  assert.equal(s.round.phase, 'DRAW_OPERATION');
+  s = run(s, a, 'DRAW_OPERATION', {deck: 'VIP'});
+  assert.equal(s.round.clock.order[s.round.clock.seat], b);
+});
+
+test('Speakeasy rejects server catalog overrides of printed fixed goal IDs atomically', () => {
+  const s = choose(enter(setup()), 'BOOKS'), before = structuredClone(s);
+  const catalog: SpeakeasyCommandCatalog = {...empty, goals: [{id: 'fixed:infamy:10',
+    requirement: {kind: 'INFAMY', minimum: 1}, payout: 999, bonus: value => ({ok: true, value})}]};
+  assert.throws(() => prepareSpeakeasyPlayerCommand(s, a, command(s, 'PLACE_BOOK', {goalId: 'fixed:infamy:10', space: 0}), catalog));
+  assert.deepEqual(s, before);
+});

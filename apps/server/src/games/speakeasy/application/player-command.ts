@@ -9,11 +9,13 @@ import {type SpeakeasyRuleResult, ruleFailure} from '../domain/model.js';
 import type {OperationEffects, RestaurantBookGoal} from '../domain/restaurant-actions.js';
 import type {CityTileEffect} from '../domain/city-tiles.js';
 import {projectSpeakeasyBoard} from './board-projector.js';
+import {speakeasyFixedBookGoals} from '../domain/fixed-goals.js';
 
 /** Validated server catalog only. Instance IDs resolve to server handlers, never client effects. */
 export type SpeakeasyCommandCatalog = Readonly<{
   operations: ReadonlyMap<TileId, OperationEffects>;
   city: readonly CityTileEffect[];
+  /** Verified tile goals for this game. Printed board goals are added internally. */
   goals: readonly RestaurantBookGoal[];
 }>;
 export type PreparedSpeakeasyCommand =
@@ -61,7 +63,7 @@ function dispatch(s: SpeakeasyGameFlow, actor: PlayerId, input: SpeakeasyPlayerC
       return playSpeakeasyRestaurantCard(s, actor, input.command, effects);
     }
     case 'USE_CITY_TILE': return playSpeakeasyCityTile(s, actor, input.command, catalog.city);
-    case 'PLACE_BOOK': return cookSpeakeasyRestaurantBook(s, actor, input.command, catalog.goals);
+    case 'PLACE_BOOK': return cookSpeakeasyRestaurantBook(s, actor, input.command, [...speakeasyFixedBookGoals(), ...catalog.goals]);
     case 'FINISH_RESTAURANT':
       // finishSpeakeasyLocation is a server hook; authorize the actor and restrict its public use.
       if (s.active?.playerId !== actor || !s.active.restaurant || s.round.phase !== 'PLAYING') return ruleFailure('INVALID_ACTION');
