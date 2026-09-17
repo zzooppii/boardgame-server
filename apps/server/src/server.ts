@@ -1,3 +1,4 @@
+import {registerSpeakeasyPractice} from './games/speakeasy/practice/http.js';
 import { statSync } from "node:fs";
 import {
   createServer as createNodeServer,
@@ -133,6 +134,7 @@ function isAllowedSocketIoOrigin(request: IncomingMessage): boolean {
 
 export function createHttpServer(options: CreateHttpServerOptions = {}) {
   const app = express();
+  registerSpeakeasyPractice(app);
 
   app.get("/health", (_request, response) => {
     response.status(200).json({ ok: true });

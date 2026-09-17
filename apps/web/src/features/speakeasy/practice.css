@@ -1,0 +1,68 @@
+.sp-root.sp-practice {background:#0c1c1a;color:#e9dfcb;color-scheme:dark;--practice-line:#c6a26442;max-width:1600px;margin:auto;padding-bottom:40px;}
+.sp-practice button {min-height:44px;border:1px solid var(--practice-line);border-radius:8px;background:#172b2a;color:#f3e5ce;padding:10px 15px;cursor:pointer;font:inherit;}
+.sp-practice button:hover:not(:disabled),.sp-practice button[aria-pressed=true] {background:#34584d;border-color:#d4af70;}
+.sp-practice button:focus-visible,.sp-practice summary:focus-visible {outline:3px solid #f2c97f;outline-offset:3px;}
+.sp-practice button:disabled {opacity:.5;cursor:wait;}
+.sp-practice-intro,.sp-practice-start,.sp-practice-status,.sp-practice-results,.sp-practice-layout,.sp-practice-log,.sp-practice-error {margin:20px 28px;}
+.sp-practice-intro h1 {font-family:Georgia,serif;font-size:clamp(28px,4vw,46px);margin:8px 0;}
+.sp-practice-intro details {max-width:900px;background:#142321;border:1px solid var(--practice-line);border-radius:8px;padding:14px;line-height:1.8;}
+.sp-practice-intro summary {cursor:pointer;color:#e6c28a;}
+.sp-practice-intro li {margin:8px 0;}
+.sp-practice-audio,.sp-practice-audio label {display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:12px;}
+.sp-practice-audio input {width:120px;accent-color:#d4af70;}
+.sp-practice-start {text-align:center;border:1px solid var(--practice-line);padding:40px 24px;border-radius:16px;background:radial-gradient(ellipse at top,#29483f,#0b1817);}
+.sp-practice-start>svg {width:140px;height:120px;}
+.sp-practice-start h2 {font-size:30px;line-height:1.5;}
+.sp-practice-start p {max-width:640px;margin:20px auto;line-height:1.8;color:#cabfae;}
+.sp-practice-start button,.sp-practice-confirm button:first-of-type {background:#d5af72;color:#132421;font-weight:800;}
+.sp-practice-status {display:flex;flex-wrap:wrap;gap:12px 24px;border:1px solid var(--practice-line);padding:18px;border-radius:10px;background:#182925;}
+.sp-practice-status strong {color:#e6c28a;}
+.sp-practice-layout {display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:24px;align-items:start;}
+.sp-practice-map {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;}
+.sp-practice-map>button {padding:10px;display:flex;flex-direction:column;align-items:stretch;min-height:180px;background:#10211f;}
+.sp-practice-district-number {display:flex;justify-content:space-between;font-family:Georgia,serif;font-size:24px;color:#c9a66e;}
+.sp-practice-district-number svg,.sp-practice-truck svg,.sp-practice-lots>span>span svg {width:22px;height:22px;}
+.sp-practice-lots {display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:8px;flex:1;}
+.sp-practice-lots>span {border:1px dashed #b19e6d42;border-radius:6px;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:4px;background:#0b1817;}
+.sp-practice-lots>span>svg {width:100%;max-width:64px;height:64px;}
+.sp-practice-lots small {font-size:11px;line-height:1.4;}
+.sp-practice-lots .sp-owner-0 {border-bottom:3px solid #69c8b0;}
+.sp-practice-lots .sp-owner-2 {border-bottom:3px solid #b094dc;}
+.sp-practice-lots .is-closed {background:repeating-linear-gradient(135deg,#332d30 0px,#332d30 5px,#172321 5px,#172321 10px);}
+.sp-practice-truck {display:flex;justify-content:center;gap:6px;align-items:center;font-size:12px;padding-top:5px;}
+.sp-practice-actions {background:#172722;border:1px solid var(--practice-line);border-radius:12px;padding:20px;position:sticky;top:12px;}
+.sp-practice-actions nav {display:flex;flex-wrap:wrap;gap:6px;}
+.sp-practice-actions nav button {padding:8px 12px;}
+.sp-practice-actions nav small {color:#b0cbbb;}
+.sp-practice-options {max-height:280px;overflow:auto;margin:15px 0;display:grid;gap:8px;}
+.sp-practice-options>button {display:flex;flex-direction:column;text-align:left;gap:7px;}
+.sp-practice-options small,.sp-practice-options>p {line-height:1.6;color:#c4beae;}
+.sp-practice-filter {margin-top:12px;width:100%;}
+.sp-practice-confirm {border-top:1px solid #d2ac6d;padding-top:14px;}
+.sp-practice-confirm p,.sp-practice-end p {line-height:1.7;}
+.sp-practice-confirm button,.sp-practice-end button {margin:4px;}
+.sp-practice-end {border-top:1px solid var(--practice-line);padding-top:14px;margin-top:14px;}
+.sp-practice-end>button {width:calc(100% - 8px);}
+.sp-practice-log {border-top:1px solid var(--practice-line);padding-top:18px;}
+.sp-practice-log ol {display:grid;grid-template-columns:1fr 1fr;gap:10px 32px;color:#b9c4b9;padding-left:24px;font-size:14px;}
+.sp-practice-error {color:#ffba9d;}
+.sp-practice-error:empty {display:none;}
+.sp-practice-results {background:#25382b;border:1px solid #d4af70;border-radius:12px;padding:24px;}
+.sp-practice-results>div {display:flex;justify-content:space-between;gap:15px;flex-wrap:wrap;padding:14px 0;}
+.sp-practice-results b {font-size:24px;color:#efd09b;}
+.sp-practice-overlay {position:fixed;inset:0;background:#000b;display:grid;place-items:center;z-index:200;padding:20px;}
+.sp-practice-overlay>section {max-width:450px;border:1px solid #d4af70;background:#152723;padding:24px;border-radius:12px;}
+.sp-practice-overlay button {margin:6px;}
+@media(max-width:1050px){.sp-practice-layout{grid-template-columns:minmax(0,1fr) 310px;gap:14px;}.sp-practice-map{gap:6px;}.sp-practice-lots{grid-template-columns:1fr;}.sp-practice-lots>span>svg{height:48px;}.sp-practice-map>button{padding:6px;}}
+@media(max-width:760px){.sp-practice-layout{grid-template-columns:1fr;}.sp-practice-intro,.sp-practice-start,.sp-practice-status,.sp-practice-results,.sp-practice-layout,.sp-practice-log,.sp-practice-error{margin:16px 12px;}.sp-practice-actions{position:static;}.sp-practice-map{grid-template-columns:repeat(4,minmax(0,1fr));}.sp-practice-map>button{min-height:172px;padding:4px;}.sp-practice-lots small{font-size:10px;}.sp-practice-district-number{font-size:19px;}.sp-practice-truck{font-size:10px;flex-wrap:wrap;gap:2px;}.sp-practice-log ol{grid-template-columns:1fr;}.sp-practice-status{gap:12px;font-size:14px;}.sp-practice-header{flex-wrap:wrap;}.sp-practice .sp-board-heading{flex-wrap:wrap;}.sp-practice-lots>span{padding:2px;}.sp-practice-start h2{font-size:24px;}}
+@media(prefers-reduced-motion:reduce){.sp-practice *{scroll-behavior:auto!important;transition:none!important;animation:none!important;}}
+
+.sp-practice .sp-eyebrow {color:#aabdaa;}
+.sp-practice .sp-owner-0 {color:#8fdbc3;}
+.sp-practice .sp-owner-2 {color:#c8abe5;}
+.sp-practice .sp-rule-note {color:#bdbdab;margin-top:12px;}
+.sp-root.sp-practice h1,.sp-root.sp-practice h2,.sp-root.sp-practice h3 {color:#f0e3c8;}
+.sp-root.sp-practice p,.sp-root.sp-practice button {word-break:keep-all;overflow-wrap:anywhere;}
+.sp-practice-start {background:linear-gradient(#112620da,#0b1817eb),url('/images/speakeasy/jazz-club.png') center/cover;}
+.sp-practice .sp-practice-jump {display:none;}
+@media(max-width:760px){.sp-practice .sp-practice-jump{display:block;margin:12px 0;width:100%;}.sp-practice .sp-header{padding:12px;flex-wrap:wrap;}.sp-practice .sp-wordmark{font-size:20px;letter-spacing:3px;}}

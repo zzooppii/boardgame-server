@@ -1,9 +1,11 @@
+import {SpeakeasyPractice} from './SpeakeasyPractice.js';
 import {useEffect, useRef, useState, type KeyboardEvent} from 'react';
 import {SPEAKEASY_BUILDING_LABELS, SPEAKEASY_OPERATION_LABELS, type SpeakeasyOperation} from '@hangul-rummikub/shared';
 import {SpeakeasyBuildingArt, SpeakeasyToken} from './art.js';
 import {SPEAKEASY_PREVIEW_SCENES, speakeasyPreviewBuildings, speakeasyPreviewOperating, speakeasyDistrictFocus} from './preview-scenes.js';
 import {useSpeakeasyAudio} from './sound.js';
 import './speakeasy.css';
+import './practice.css';
 import {SpeakeasyCityPreview} from './SpeakeasyCityPreview.js';
 import {SpeakeasyBoardPanel} from './SpeakeasyBoardPanel.js';
 import {createSpeakeasyBoardPreview} from './board-preview.js';
@@ -13,9 +15,9 @@ const names = ['나', '노랑 패밀리', '보라 패밀리'];
 const zones = [{name: '다운타운', english: 'DOWNTOWN', from: 1, to: 6}, {name: '미드타운', english: 'MIDTOWN', from: 7, to: 12}, {name: '업타운', english: 'UPTOWN', from: 13, to: 16}];
 const operations: readonly SpeakeasyOperation[] = ['VIP', 'PARTY', 'STILLS', 'FLEET', 'STRENGTH'];
 
-/** Presentation-only guided scenes. This component never emits a game command or determines game outcomes. */
+/** Entry point opens a server-authoritative training match; legacy guided scenes remain separate. */
 export default function SpeakeasyPreview({onExit}: {onExit(): void}) {
-  const [mode, setMode] = useState<'SCENES'|'CITY'|'BOARD'>('SCENES');
+  const [mode, setMode] = useState<'SCENES'|'CITY'|'BOARD'|'PRACTICE'>('PRACTICE');
   const [boardPreview] = useState(()=>readSpeakeasyBoardView(createSpeakeasyBoardPreview(),'speakeasy-board-preview','sp-player-a'));
   const [sceneIndex, setSceneIndex] = useState(0), [selected, setSelected] = useState<number | null>(null), [applied, setApplied] = useState(false);
   const [help, setHelp] = useState(false), [showSafe, setShowSafe] = useState(false), [mobileTab, setMobileTab] = useState<'MAP' | 'PLAYER'>('MAP');
@@ -45,6 +47,7 @@ export default function SpeakeasyPreview({onExit}: {onExit(): void}) {
     if (revision !== interactionRevision.current) return;
     interactionRevision.current++; audio.play(scene.cue); setApplied(true); setStatus(scene.after);
   }
+  if(mode==='PRACTICE')return <SpeakeasyPractice onExit={onExit}/>;
   const completed = applied ? scene.after : scene.before;
   return <main className="sp-root" onPointerDown={() => void audio.unlock()} onKeyDown={() => void audio.unlock()}>
     <header className="sp-header"><button type="button" className="sp-back" onClick={onExit}>← 게임 목록</button><div className="sp-wordmark">SPEAKEASY<span>MANHATTAN · 1920</span></div><span className="sp-preview-tag">개발 미리보기</span></header>

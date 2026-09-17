@@ -326,9 +326,9 @@ export function HomeScreen(props: HomeScreenProps) {
       </section>
 
       <section className="entry-card" aria-labelledby="speakeasy-preview-heading">
-        <h2 id="speakeasy-preview-heading">스피크이지 · 개발 미리보기</h2>
-        <p className="field-help">맨해튼의 주점과 개인판, 건설·운송·판매의 조작과 효과음을 체험하세요. 고정된 예시이며 온라인 대국은 아직 준비 중입니다.</p>
-        <button className="secondary-button" type="button" onClick={() => setSpeakeasyPreview(true)}>스피크이지 체험하기</button>
+        <h2 id="speakeasy-preview-heading">스피크이지 · 연습 대국</h2>
+        <p className="field-help">컴퓨터 상대와 건설·생산·운송·판매를 선택하며 11턴을 플레이하세요. 원작과 다른 연습 규칙을 사용합니다.</p>
+        <button className="secondary-button" type="button" onClick={() => setSpeakeasyPreview(true)}>스피크이지 플레이</button>
       </section>
 
       <p className="live-region" aria-live="polite">
