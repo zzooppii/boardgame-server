@@ -8,7 +8,7 @@ import {parseLocationProgress,availableLocationActions} from '../domain/location
 import {commitSpeakeasyRoundEconomy,speakeasyEffectivePosition} from '../domain/round-lifecycle.js';
 import {buildSpeakeasy,hireSpeakeasyGoons,protectSpeakeasy,produceSpeakeasy,deliverSpeakeasy,sellSpeakeasy,speakeasyInfamy} from '../domain/economy.js';
 import {playRestaurantOperation} from '../domain/restaurant-actions.js';
-import {cityTileDefinitions} from '../domain/city-tiles.js';
+import {cityTileDefinitions,takeAvailableCityTile} from '../domain/city-tiles.js';
 import {speakeasyCandidate,ruleFailure,type SpeakeasyRuleResult,type SpeakeasyEconomy} from '../domain/model.js';
 import type {SpeakeasyCommandCatalog} from './player-command.js';
 
@@ -41,6 +41,10 @@ export function resolveSpeakeasyLocation(s:SpeakeasyGameFlow,actor:PlayerId,inpu
   let outcome:SpeakeasyRuleResult<SpeakeasyEconomy>;
   const player=candidate.round.economy.players.find(p=>p.playerId===actor)!;
   switch(choice.kind) {
+    case 'CITY_TILE': {
+      const taken=takeAvailableCityTile(candidate.city,actor,choice.column,choice.row,choice.refill);
+      if(!taken.ok) return taken;candidate.city=taken.value;outcome={ok:true,value:candidate.round.economy};break;
+    }
     case 'HELPER': outcome=takeSpeakeasyHelper(candidate.round.economy,actor,choice.cardId);break;
     case 'AMBUSH': {
       if(action.kind!=='AMBUSH') return ruleFailure('INVALID_ACTION');

@@ -2,7 +2,7 @@ import * as v from 'valibot';
 import {availableLocationActions} from '../domain/location-program.js';
 import {SpeakeasyTurnViewSchema, type SpeakeasyTurnView, type PlayerId} from '@hangul-rummikub/shared';
 import {parseSpeakeasyGameFlow, type SpeakeasyGameFlow} from '../domain/game-flow.js';
-import {cityReturnsNeeded} from '../domain/city-tiles.js';
+import {cityReturnsNeeded,speakeasyCityTileLimit} from '../domain/city-tiles.js';
 import {speakeasyDefenseActor} from '../domain/luciano.js';
 
 function stage(s: SpeakeasyGameFlow): SpeakeasyTurnView['stage'] {
@@ -28,7 +28,7 @@ export function projectSpeakeasyTurn(original: SpeakeasyGameFlow, viewer: Player
     s.luciano ? speakeasyDefenseActor(s.luciano) : null;
   const returning = currentStage === 'RETURN_CITY' && actorId === viewer;
   const played = s.active?.playerId === viewer ? s.city.played : [];
-  const excess = held.length - played.length > 4;
+  const excess = held.length - played.length > speakeasyCityTileLimit(r.economy,viewer);
   return v.parse(SpeakeasyTurnViewSchema, {
     gameId:r.gameId, revision:r.revision, viewerId:viewer,
     act:r.clock.act, round:r.clock.round, stage:currentStage, actorId,
@@ -47,7 +47,7 @@ export function projectSpeakeasyTurn(original: SpeakeasyGameFlow, viewer: Player
       cityTiles:held.map(tile => ({tileId:tile.tileId,effectId:tile.effectId,used:played.includes(tile.tileId)})),
       drawDecks:currentStage === 'DRAW_OPERATION' && actorId === viewer ?
         (['VIP','PARTY','STILLS','FLEET'] as const).filter(deck => r.decks[deck].length > 0) : [],
-      returnCount:returning ? cityReturnsNeeded(s.city,viewer) : 0,
+      returnCount:returning ? cityReturnsNeeded(s.city,viewer,speakeasyCityTileLimit(r.economy,viewer)) : 0,
       mandatoryReturnIds:returning ? played : [],
       eligibleReturnIds:returning ? held.filter(tile => excess || played.includes(tile.tileId)).map(tile => tile.tileId) : [],
       firstReturnRows:returning ? ([0,1,2] as const).filter(row => s.city.middle[row]!.length === Math.min(...s.city.middle.map(p => p.length))) : [],

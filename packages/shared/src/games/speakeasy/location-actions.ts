@@ -3,9 +3,10 @@ import {GameIdSchema,TileIdSchema} from '../../identifiers.js';
 import {SpeakeasyDistrictIdSchema,SpeakeasyCountSchema,SpeakeasyOperationSchema} from './contracts.js';
 const key=v.pipe(v.string(),v.minLength(1),v.maxLength(100));
 const guard={gameId:GameIdSchema,revision:v.pipe(v.number(),v.safeInteger(),v.minValue(0))};
-export const SpeakeasyLocationActionKindSchema=v.picklist(['BOOK','GOONS','PROTECT','OPERATION','BUILD','PRODUCE','DELIVER','SELL','LEVEL','FAMILY','AMBUSH','HELPER','PAID_LEVEL']);
+export const SpeakeasyLocationActionKindSchema=v.picklist(['BOOK','GOONS','PROTECT','OPERATION','BUILD','PRODUCE','DELIVER','SELL','LEVEL','FAMILY','AMBUSH','HELPER','PAID_LEVEL','CITY_TILE']);
 export const SpeakeasyLocationChoiceSchema=v.variant('kind',[
   v.strictObject({kind:v.literal('BOOK')}),
+  v.strictObject({kind:v.literal('CITY_TILE'),column:v.picklist(['MIDDLE','RIGHT']),row:v.picklist([0,1,2]),refill:v.optional(v.picklist([0,1,2]))}),
   v.strictObject({kind:v.literal('PAID_LEVEL'),cardId:TileIdSchema,discardIds:v.pipe(v.array(TileIdSchema),v.maxLength(1))}),
   v.strictObject({kind:v.literal('HELPER'),cardId:TileIdSchema}),
   v.strictObject({kind:v.literal('AMBUSH'),shipId:TileIdSchema,familyId:TileIdSchema,

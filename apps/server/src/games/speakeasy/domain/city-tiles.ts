@@ -47,15 +47,21 @@ export function takeAvailableCityTile(original: SpeakeasyCityTiles, actor: Playe
   }
   return {ok:true,value:parseCityTiles(s)};
 }
-export function cityReturnsNeeded(s: SpeakeasyCityTiles, actor: PlayerId): number {
+export function speakeasyCityTileLimit(e:SpeakeasyEconomy,actor:PlayerId):number {
+  const player=e.players.find(p=>p.playerId===actor);
+  if(!player) throw new Error('Missing city tile owner.');
+  return 4+player.crates.filter(c=>c===7||c===8).length;
+}
+export function cityReturnsNeeded(s: SpeakeasyCityTiles, actor: PlayerId,limit=4): number {
+  if(!Number.isSafeInteger(limit)||limit<4||limit>6) throw new Error('Invalid city tile limit.');
   const owned=s.held.find(p=>p.playerId===actor)?.tiles.length ?? 0;
-  return s.played.length+Math.max(0,owned-s.played.length-4);
+  return s.played.length+Math.max(0,owned-s.played.length-limit);
 }
 /** Ordered placements preserve the player's choice among equally short piles. */
 export function returnCityTiles(original: SpeakeasyCityTiles, actor: PlayerId,
-  placements: readonly {tileId:TileId;row:0|1|2}[]): SpeakeasyRuleResult<SpeakeasyCityTiles> {
+  placements: readonly {tileId:TileId;row:0|1|2}[],limit=4): SpeakeasyRuleResult<SpeakeasyCityTiles> {
   const s=parseCityTiles(original), owner=s.held.find(p=>p.playerId===actor);
-  if(!owner || placements.length!==cityReturnsNeeded(s,actor) || new Set(placements.map(p=>p.tileId)).size!==placements.length ||
+  if(!owner || placements.length!==cityReturnsNeeded(s,actor,limit) || new Set(placements.map(p=>p.tileId)).size!==placements.length ||
     s.played.some(id=>!placements.some(p=>p.tileId===id))) return ruleFailure('INVALID_ACTION');
   for(const p of placements) {
     const at=owner.tiles.findIndex(t=>t.tileId===p.tileId);

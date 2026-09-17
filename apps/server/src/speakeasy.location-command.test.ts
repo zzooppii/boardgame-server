@@ -655,3 +655,71 @@ test('Speakeasy paid increase can be skipped and missing or failed infamy reward
   const skipped=skip(s,'extra-level',c);assert.deepEqual(skipped.round.economy,s.round.economy);
   assert.equal(run(skipped,'FINISH_LOCATION_ACTIONS',{},c).actorView.turn.stage,'DRAW_OPERATION');
 });
+
+test('Speakeasy crate city limits keep five or six tiles after the mandatory draw',()=>{
+  for(const crates of [[7],[8],[7,8]]) {
+    const initial=setup();initial.round.economy.players[0]!.crates=crates;
+    let s=enter(initial);s.city.held[0]!.tiles=Array.from({length:4+crates.length},(_,i)=>({tileId:tile(`limit-${i}`),effectId:'example'}));
+    s.round.economy.players[0]!.cityTileCount=s.city.held[0]!.tiles.length;
+    for(const id of ['book','goons','build','protect','card']) s=skip(s,id);
+    s=run(s,'FINISH_LOCATION_ACTIONS').candidate;
+    const r=run(s,'DRAW_OPERATION',{deck:'VIP'});
+    assert.equal(r.actorView.turn.actorId,b);assert.equal(r.candidate.awaitingCityReturn,false);
+    assert.equal(r.candidate.city.held[0]!.tiles.length,4+crates.length);
+    assert.doesNotThrow(()=>parseSpeakeasyGameFlow(r.candidate));
+  }
+});
+
+function cityAcquireSetup(crates:number[]=[]) {
+  const s=setup();s.round.economy.players[0]!.crates=crates;
+  const city=(id:string)=>({tileId:tile(id),effectId:'example'});
+  s.city.middle[0]=[city('city-top'),city('city-covered')];s.city.right[1]=city('city-right');s.city.supply[2]=[city('city-hidden')];
+  const program:SpeakeasyLocationProgram={location:'CONTRACTOR',rows:[[{id:'city',kind:'CITY_TILE'}]]};
+  const c={...catalog(s),locations:new Map(s.spaces.map(space=>[space.id,program]))};
+  return {s:enter(s,c),c};
+}
+
+test('Speakeasy city pickup takes exposed middle tile without refilling or exposing buried supply',()=>{
+  const {s,c}=cityAcquireSetup(),r=run(s,'EXECUTE_LOCATION_ACTION',{actionId:'city',choice:{kind:'CITY_TILE',column:'MIDDLE',row:0}},c);
+  assert.equal(r.candidate.city.held[0]!.tiles[0]!.tileId,tile('city-top'));
+  assert.equal(r.candidate.city.middle[0]![0]!.tileId,tile('city-covered'));assert.equal(r.candidate.city.supply[2]!.length,1);
+  assert.equal(r.actorView.turn.self.cityTiles[0]!.tileId,tile('city-top'));
+  assert.ok(!JSON.stringify(r.actorView).includes('city-hidden'));assert.equal(r.actorView.turn.stage,'FINISH_LOCATION');
+});
+
+test('Speakeasy right city pickup refills from the chosen stack and invalid choices roll back',()=>{
+  const {s,c}=cityAcquireSetup(),before=structuredClone(s);
+  for(const choice of [
+    {kind:'CITY_TILE',column:'RIGHT',row:1},{kind:'CITY_TILE',column:'RIGHT',row:1,refill:0},
+    {kind:'CITY_TILE',column:'MIDDLE',row:0,refill:2},{kind:'CITY_TILE',column:'MIDDLE',row:2},
+    {kind:'CITY_TILE',column:'RIGHT',row:1,refill:2,tileId:'city-hidden'},
+  ]) {assert.equal(prepareSpeakeasyPlayerCommand(s,a,body(s,'EXECUTE_LOCATION_ACTION',{actionId:'city',choice}),c).ok,false);assert.deepEqual(s,before);}
+  const r=run(s,'EXECUTE_LOCATION_ACTION',{actionId:'city',choice:{kind:'CITY_TILE',column:'RIGHT',row:1,refill:2}},c);
+  assert.equal(r.candidate.city.held[0]!.tiles[0]!.tileId,tile('city-right'));assert.equal(r.candidate.city.right[1]!.tileId,tile('city-hidden'));
+  assert.equal(r.candidate.city.supply[2]!.length,0);assert.equal(r.candidate.round.economy.players[0]!.cityTileCount,1);
+});
+
+test('Speakeasy city pickup above the crate-adjusted limit returns exactly the excess after drawing',()=>{
+  const {s:initial,c}=cityAcquireSetup([7]);let s=initial;
+  s.city.held[0]!.tiles=Array.from({length:5},(_,i)=>({tileId:tile(`owned-city-${i}`),effectId:'example'}));s.round.economy.players[0]!.cityTileCount=5;
+  s=run(s,'EXECUTE_LOCATION_ACTION',{actionId:'city',choice:{kind:'CITY_TILE',column:'MIDDLE',row:0}},c).candidate;
+  s=run(s,'FINISH_LOCATION_ACTIONS',{},c).candidate;
+  const drawn=run(s,'DRAW_OPERATION',{deck:'VIP'},c);assert.equal(drawn.actorView.turn.stage,'RETURN_CITY');assert.equal(drawn.actorView.turn.self.returnCount,1);
+  assert.equal(drawn.actorView.turn.self.eligibleReturnIds.length,6);
+  assert.equal(prepareSpeakeasyPlayerCommand(drawn.candidate,a,body(drawn.candidate,'RETURN_CITY_TILES',{placements:[{tileId:'city-top',row:1},{tileId:'owned-city-0',row:2}]}),c).ok,false);
+  const returned=run(drawn.candidate,'RETURN_CITY_TILES',{placements:[{tileId:'city-top',row:1}]},c);
+  assert.equal(returned.candidate.city.held[0]!.tiles.length,5);assert.equal(returned.actorView.turn.actorId,b);
+});
+
+test('Speakeasy crate capacity never exempts played city tiles from mandatory return',()=>{
+  const initial=setup();initial.spaces[0]!.location='RESTAURANT';initial.round.economy.players[0]!.crates=[7];
+  let s=run(initial,'PLACE_CAPO',{capoId:'capo-0-0',spaceId:'office-0',restaurant:{position:0,discardIds:['hand-0-0']}}).candidate;
+  s.city.held[0]!.tiles=Array.from({length:7},(_,i)=>({tileId:tile(`played-limit-${i}`),effectId:'example'}));s.round.economy.players[0]!.cityTileCount=7;
+  s.city.played=[tile('played-limit-0'),tile('played-limit-1')];s.active!.restaurant={completed:['CITY_TILES','BOOKS'],current:null};
+  s=run(s,'FINISH_RESTAURANT').candidate;
+  const drawn=run(s,'DRAW_OPERATION',{deck:'VIP'});
+  assert.equal(drawn.actorView.turn.self.returnCount,2);assert.deepEqual(drawn.actorView.turn.self.eligibleReturnIds,[tile('played-limit-0'),tile('played-limit-1')]);
+  assert.deepEqual(drawn.actorView.turn.self.mandatoryReturnIds,[tile('played-limit-0'),tile('played-limit-1')]);
+  const returned=run(drawn.candidate,'RETURN_CITY_TILES',{placements:[{tileId:'played-limit-0',row:0},{tileId:'played-limit-1',row:1}]});
+  assert.equal(returned.candidate.city.held[0]!.tiles.length,5);assert.equal(returned.candidate.city.played.length,0);
+});
