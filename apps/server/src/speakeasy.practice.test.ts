@@ -123,3 +123,51 @@ test('Feedback groups only the last command, survives log trimming, and is detac
   view.feedback.events.push('tamper');view.feedback.delta.cash=999;
   assert.ok(!s.feedback!.events.includes('tamper'));assert.notEqual(s.feedback!.delta.cash,999);
 });
+
+test('Settlement forecast follows the three remaining police events and disappears before final scoring',()=>{
+  let s=startPractice(ids());
+  const expected=[4,4,4,4,7,7,7,10,10,10,null];
+  for(const turn of expected){
+    const forecast=projectPractice(s).settlement;
+    assert.equal(forecast?.turn??null,turn);
+    if(forecast)assert.equal(forecast.district,turn===4?4:turn===7?8:12);
+    s=act(s,{type:'END_TURN'});
+  }
+  assert.equal(s.finished,true);assert.equal(projectPractice(s).settlement,null);
+});
+test('Unprotected buildings lose projected income after police, and the forecast matches actual payment',()=>{
+  let s=startPractice(ids());s=act(s,{type:'BUILD',kind:'SPEAKEASY',district:4,slot:0});
+  while(s.turn<4)s=act(s,{type:'END_TURN'});
+  const before=projectPractice(s),id=s.economy.districts[3]!.slots[0]!.piece.tileId;
+  assert.deepEqual(before.settlement,{turn:4,district:4,income:10,atRisk:[id]});
+  const next=projectPractice(act(s,{type:'END_TURN'}));
+  assert.equal(next.safe-before.safe,before.settlement!.income);
+  assert.equal(next.districts[3]!.slots[0]!.operating,false);
+  assert.equal(next.settlement!.turn,7);
+});
+test('Protection updates the forecast for the exact building, without mutating or leaking opponent resources',()=>{
+  let s=startPractice(ids());s=act(s,{type:'BUILD',kind:'SPEAKEASY',district:4,slot:0});
+  s=act(s,{type:'BUILD',kind:'SPEAKEASY',district:4,slot:1});s=act(s,{type:'END_TURN'});
+  const [a,b]=s.economy.districts[3]!.slots;assert.ok(a&&b);
+  const forecast=projectPractice(s).settlement!;assert.deepEqual(forecast.atRisk,[a.piece.tileId,b.piece.tileId]);
+  forecast.atRisk.pop();assert.equal(projectPractice(s).settlement!.atRisk.length,2);
+  const baseline=projectPractice(s).settlement;s.economy.players[1]!.cash+=100;s.economy.players[1]!.safe+=100;
+  assert.deepEqual(projectPractice(s).settlement,baseline);
+  s=act(s,{type:'PROTECT',buildingId:a.piece.tileId});
+  assert.deepEqual(projectPractice(s).settlement,{turn:4,district:4,income:15,atRisk:[b.piece.tileId]});
+  while(s.turn<4)s=act(s,{type:'END_TURN'});
+  const before=projectPractice(s),after=projectPractice(act(s,{type:'END_TURN'}));
+  assert.equal(after.safe-before.safe,15);
+});
+test('Later forecasts account for already closed buildings and restore income after protection',()=>{
+  let s=startPractice(ids());s=act(s,{type:'BUILD',kind:'SPEAKEASY',district:4,slot:0});
+  s=act(s,{type:'BUILD',kind:'SPEAKEASY',district:8,slot:0});
+  while(s.turn<5)s=act(s,{type:'END_TURN'});
+  const old=s.economy.districts[3]!.slots[0]!,upcoming=s.economy.districts[7]!.slots[0]!;
+  assert.deepEqual(projectPractice(s).settlement,{turn:7,district:8,income:10,atRisk:[upcoming.piece.tileId]});
+  s=act(s,{type:'PROTECT',buildingId:old.piece.tileId});
+  assert.equal(projectPractice(s).settlement!.income,15);
+  while(s.turn<7)s=act(s,{type:'END_TURN'});
+  const before=projectPractice(s),after=projectPractice(act(s,{type:'END_TURN'}));
+  assert.equal(after.safe-before.safe,before.settlement!.income);
+});

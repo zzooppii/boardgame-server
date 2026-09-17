@@ -138,16 +138,27 @@ function botTurn(s:PracticeGame) {
     s.log.push(`컴퓨터 · ${choice.label}`);s.economy=outcome.value;
   }
 }
+const practiceSettlements=[{turn:4,district:4},{turn:7,district:8},{turn:10,district:12}] as const;
+function practiceIncome(economy:SpeakeasyEconomy,actor:PlayerId,policeDistrict?:number):number {
+  return economy.districts.flatMap(d=>d.slots.filter(b=>b?.ownerId===actor&&speakeasyOperating(d.cop||d.id===policeDistrict,b))).length*5;
+}
+function nextSettlement(s:PracticeGame):SpeakeasyPracticeView['settlement'] {
+  const next=s.finished?undefined:practiceSettlements.find(item=>item.turn>=s.turn);
+  if(!next)return null;
+  return {...next,income:practiceIncome(s.economy,s.player,next.district),atRisk:s.economy.districts
+    .filter(d=>d.id===next.district&&!d.cop).flatMap(d=>d.slots.flatMap(b=>b?.ownerId===s.player&&b.familyId===null?[b.piece.tileId]:[]))};
+}
 export function actPractice(original:PracticeGame,actor:PlayerId,input:unknown):PracticeGame|null {
   const parsed=safeParse(SpeakeasyPracticeCommandSchema,input);
   if(!parsed.success||actor!==original.player||original.finished||parsed.output.gameId!==original.gameId||parsed.output.revision!==original.revision)return null;
   const action=parsed.output.action,s:PracticeGame={...original,economy:parseSpeakeasyEconomy(original.economy),log:[...original.log]};
   if(action.type==='END_TURN'){
     botTurn(s);
-    if([4,7,10].includes(s.turn)){
-      const district=s.turn===4?4:s.turn===7?8:12;s.economy.districts[district-1]!.cop=true;
+    const settlement=practiceSettlements.find(item=>item.turn===s.turn);
+    if(settlement){
+      const district=settlement.district;s.economy.districts[district-1]!.cop=true;
       s.log.push(`경찰 · ${district}구역 진입`);
-      for(const p of s.economy.players){const income=s.economy.districts.flatMap(d=>d.slots.filter(b=>b?.ownerId===p.playerId&&speakeasyOperating(d.cop,b))).length*5;p.safe+=income;s.log.push(`${p.playerId===s.player?'나':'컴퓨터'} · 지역 정산 금고 +$${income}`);}
+      for(const p of s.economy.players){const income=practiceIncome(s.economy,p.playerId);p.safe+=income;s.log.push(`${p.playerId===s.player?'나':'컴퓨터'} · 지역 정산 금고 +$${income}`);}
     }
     if(s.turn===11){s.finished=true;s.actionsLeft=0;s.log.push('11턴 종료 · 최종 정산');}
     else {s.turn++;s.actionsLeft=2;s.log.push(`${s.turn}턴 · 나의 차례`);}
@@ -167,5 +178,5 @@ export function projectPractice(s:PracticeGame):SpeakeasyPracticeView {
     cash:p.cash,safe:p.safe,stock:p.stock.length,family:p.vip.length,truck:{district:p.trucks[0]!.district,load:p.trucks[0]!.barrels.length},
     districts:s.economy.districts.map(d=>({id:d.id,cop:d.cop,slots:d.slots.map(b=>b?{tileId:b.piece.tileId,ownerId:b.ownerId,kind:b.piece.kind,protected:b.familyId!==null,barrel:b.barrelId!==null,operating:speakeasyOperating(d.cop,b)}:null)})),
     reserves:(['SPEAKEASY','NIGHTCLUB'] as const).map(kind=>({kind,count:p.reserves.filter(b=>b.kind===kind).length})),
-    choices:practiceChoices(s),feedback:s.feedback,log:s.log,scores:s.finished?speakeasyFinalScores(s.economy).map(p=>({playerId:p.playerId,cash:p.cash,safe:p.safe,buildings:p.buildingMoney,total:p.total,winner:winners.includes(p.playerId)})):[]});
+    settlement:nextSettlement(s),choices:practiceChoices(s),feedback:s.feedback,log:s.log,scores:s.finished?speakeasyFinalScores(s.economy).map(p=>({playerId:p.playerId,cash:p.cash,safe:p.safe,buildings:p.buildingMoney,total:p.total,winner:winners.includes(p.playerId)})):[]});
 }

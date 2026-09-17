@@ -38,6 +38,7 @@ export const SpeakeasyPracticeViewSchema = v.strictObject({
   cash:count,safe:count,stock:count,family:count,
   truck:v.strictObject({district:v.nullable(district),load:count}),
   districts:v.array(v.strictObject({id:district,cop:v.boolean(),slots:v.array(v.nullable(SpeakeasyBuildingViewSchema))})),
+  settlement:v.nullable(v.strictObject({turn:v.picklist([4,7,10]),district,income:count,atRisk:v.array(TileIdSchema)})),
   reserves:v.array(v.strictObject({kind:SpeakeasyBuildingKindSchema,count})),
   /** Only executable choices, computed by the authoritative server. */
   choices:v.array(v.strictObject({label:v.string(),detail:v.string(),action:SpeakeasyPracticeActionSchema,

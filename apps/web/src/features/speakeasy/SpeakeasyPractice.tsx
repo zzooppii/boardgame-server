@@ -2,6 +2,7 @@ import {useEffect,useRef,useState} from 'react';
 import {safeParse} from 'valibot';
 import {SPEAKEASY_PRACTICE_RULES,SpeakeasyPracticeReplySchema,SpeakeasyPracticeViewSchema,SPEAKEASY_BUILDING_LABELS,
   type SpeakeasyPracticeView,type SpeakeasyPracticeAction} from '@hangul-rummikub/shared';
+import {PracticeSettlement} from './PracticeSettlement.js';
 import {PracticeBusiness} from './PracticeBusiness.js';
 import {PracticeGuide} from './PracticeGuide.js';
 import {practiceDistrictChoices,practiceDistrictFilter} from './practice-guide.js';
@@ -68,6 +69,10 @@ export function SpeakeasyPractice({onExit}:{onExit():void}) {
     }finally{pending.current=false;if(mounted.current)setBusy(false);}
   }
   function choose(choice:SpeakeasyPracticeView['choices'][number]){setSelected(choice);setEndConfirm(false);audio.play('SELECT');actionPanel.current?.scrollIntoView({block:'nearest',behavior:'auto'});}
+  function inspectChoice(choice:SpeakeasyPracticeView['choices'][number]) {
+    if(pending.current)return;setDistrict(null);setFilter(choice.action.type);choose(choice);
+    actionPanel.current?.scrollIntoView({block:'start'});actionPanel.current?.focus({preventScroll:true});
+  }
   const own=(owner:string)=>owner===view?.viewerId?'나':'컴퓨터';
   const scopedChoices=practiceDistrictChoices(view?.choices??[],district);
   const visible=scopedChoices.filter(c=>c.action.type===filter);
@@ -93,11 +98,9 @@ export function SpeakeasyPractice({onExit}:{onExit():void}) {
     {!view?<section className="sp-practice-start"><SpeakeasyBuildingArt kind="SPEAKEASY"/><h2>증류소 하나, 주점 하나.<br/>이제 첫 잔을 팔 차례입니다.</h2><p>생산 → 운송 → 판매 순서로 시작해 보세요. 행동을 고르면 적용 전에 비용과 결과를 확인할 수 있습니다.</p><button type="button" disabled={busy} onClick={()=>void start()}>{busy?'테이블 준비 중…':'연습 대국 시작'}</button></section>:<>
       <section className="sp-practice-status" aria-label="현재 진행"><strong>{view.finished?'최종 정산':`${view.turn} / 11턴`}</strong><span>남은 행동 {view.actionsLeft} / 2</span><span>현금 ${view.cash}</span><span>금고 ${view.safe}</span><span>저장 주류 {view.stock}</span><span>조직원 {view.family}</span></section>
       {view.finished&&<section ref={results} tabIndex={-1} className="sp-practice-results" aria-label="최종 결과"><p className="sp-eyebrow">THE NIGHT IS YOURS</p><h2>{view.scores.filter(s=>s.winner).length>1?'두 패밀리가 공동 승리했습니다':view.scores.find(s=>s.playerId===view.viewerId)?.winner?'당신의 패밀리가 승리했습니다':'컴퓨터 패밀리가 승리했습니다'}</h2><p>동점은 보호 건물 수, 전체 건물 수, 남은 조직원 수로 판정합니다. 끝까지 같으면 공동 승리입니다.</p>{view.scores.map(s=><div key={s.playerId}><strong>{own(s.playerId)} {s.winner?'· 승자':''}</strong><span>현금 ${s.cash} + 금고 ${s.safe} + 보호 건물 ${s.buildings}</span><b>${s.total}</b></div>)}<button type="button" disabled={busy} onClick={()=>void start()}>새 연습 대국</button></section>}
+      <PracticeSettlement view={view} busy={busy} onInspect={inspectChoice}/>
       <PracticeGuide view={view} busy={busy} onOpen={openGuide}/>
-      <PracticeBusiness key={view.gameId} view={view} busy={busy} onInspect={choice=>{
-        if(pending.current)return;setDistrict(null);setFilter(choice.action.type);choose(choice);
-        actionPanel.current?.scrollIntoView({block:'start'});actionPanel.current?.focus({preventScroll:true});
-      }}/>
+      <PracticeBusiness key={view.gameId} view={view} busy={busy} onInspect={inspectChoice}/>
       <div className="sp-practice-layout"><section><div className="sp-board-heading"><div><p className="sp-eyebrow">YOUR TRAINING CITY</p><h2>밤의 도시</h2></div><span>연습용 격자 · 상하좌우 연결</span></div><p>청록은 나 · 보라는 컴퓨터 · 구역을 선택하면 가능한 행동을 모아 볼 수 있습니다.</p>
         <button type="button" className="sp-practice-jump" onClick={()=>{actionPanel.current?.scrollIntoView({block:'start'});actionPanel.current?.focus({preventScroll:true});}}>행동 선택으로 ↓</button><div ref={mapPanel} tabIndex={-1} className="sp-practice-map" role="group" aria-label="연습 지도">{view.districts.map(d=><button type="button" key={d.id} className={[selected?.preview.targets.some(t=>t.district===d.id)?'is-target':'',selected?.preview.route.includes(d.id)?'is-route':''].join(' ')} aria-pressed={district===d.id} aria-label={`${d.id}구역${selected?.preview.targets.some(t=>t.district===d.id)?' · 선택한 행동 대상':''}${selected?.preview.route.includes(d.id)?' · 이동 경로':''}${d.cop?' · 경찰':''} · ${d.slots.map((b,i)=>b?`${i+1}번 칸 ${own(b.ownerId)} ${SPEAKEASY_BUILDING_LABELS[b.kind]}${b.protected?' 보호됨':''}${b.barrel?' 주류 있음':''}${b.operating?'':' 영업 중단'}`:`${i+1}번 빈칸`).join(', ')}`} onKeyDown={event=>{
           const delta=event.key==='ArrowRight'?1:event.key==='ArrowLeft'?-1:event.key==='ArrowDown'?4:event.key==='ArrowUp'?-4:0;
