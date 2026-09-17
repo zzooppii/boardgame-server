@@ -9,11 +9,14 @@ import {parseSpeakeasyEconomy, SpeakeasyEconomySchema, speakeasyInventory,
 import {speakeasyZonePayouts} from './scoring.js';
 
 const MobsterSchema = v.strictObject({tileId: TileIdSchema, strength: count, modifier: v.pipe(v.number(), v.safeInteger(), v.minValue(-10000), v.maxValue(10000))});
+export const SpeakeasyActPlanSchema = v.strictObject({
+  districts: v.array(SpeakeasyDistrictIdSchema), deck: v.array(MobsterSchema),
+  copDistricts: v.array(SpeakeasyDistrictIdSchema), payoutTables: v.array(v.array(count)),
+});
 const revision = v.pipe(v.number(), v.safeInteger(), v.minValue(0), v.maxValue(Number.MAX_SAFE_INTEGER - 1));
 const SourceSchema = v.strictObject({gameId: GameIdSchema, revision, act: v.picklist([1, 2, 3]),
   order: v.pipe(v.array(PlayerIdSchema), v.minLength(2), v.maxLength(4)), economy: SpeakeasyEconomySchema,
-  districts: v.array(SpeakeasyDistrictIdSchema), deck: v.array(MobsterSchema),
-  copDistricts: v.array(SpeakeasyDistrictIdSchema), payoutTables: v.array(v.array(count))});
+  ...SpeakeasyActPlanSchema.entries});
 const StateSchema = v.strictObject({...SourceSchema.entries,
   phase: SpeakeasyLucianoPhaseSchema, nextIndex: count,
   current: v.nullable(v.strictObject({district: SpeakeasyDistrictIdSchema, mobster: MobsterSchema, pending: v.array(TileIdSchema)})),

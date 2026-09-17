@@ -1,5 +1,6 @@
 import type {RoomId} from '@hangul-rummikub/shared';
 import {parseSpeakeasyGameFlow, type SpeakeasyGameFlow} from '../domain/game-flow.js';
+import {prepareSpeakeasyActPlans} from '../application/advance-game.js';
 import type {SpeakeasyCommandStore, SpeakeasyStoreCommit, SpeakeasyStoreResult,
   StoredSpeakeasyGame, SpeakeasyReceipt} from '../ports/command-store.js';
 
@@ -10,9 +11,10 @@ export class InMemorySpeakeasyCommandStore implements SpeakeasyCommandStore {
   readonly #games = new Map<RoomId, StoredSpeakeasyGame>();
   #version = 0;
 
-  add(roomId: RoomId, state: SpeakeasyGameFlow): void {
+  add(roomId: RoomId, state: SpeakeasyGameFlow, plans: unknown): void {
     if (this.#games.has(roomId)) throw new Error('Speakeasy room already exists.');
-    this.#games.set(roomId, {roomId,version:this.nextVersion(),status:'PLAYING',state:parseSpeakeasyGameFlow(state),receipts:[]});
+    const actPlans = prepareSpeakeasyActPlans(state, plans);
+    this.#games.set(roomId, {roomId,version:this.nextVersion(),status:'PLAYING',state:parseSpeakeasyGameFlow(state),actPlans,receipts:[]});
   }
   close(roomId: RoomId): void {
     const record = this.#games.get(roomId);
@@ -36,7 +38,7 @@ export class InMemorySpeakeasyCommandStore implements SpeakeasyCommandStore {
     }
     if (record.version !== change.expectedVersion) return {status:'STALE'};
     const candidate = parseSpeakeasyGameFlow(change.candidate);
-    if (candidate.round.revision !== record.state.round.revision + 1 ||
+    if (candidate.round.revision <= record.state.round.revision ||
       candidate.round.clock.order.length !== record.state.round.clock.order.length ||
       candidate.round.clock.order.some(id=>!record.state.round.clock.order.includes(id))) throw new Error('Invalid Speakeasy storage transition.');
     const receipt: SpeakeasyReceipt = {actorId:change.actorId,requestId:change.requestId,fingerprint:change.fingerprint,

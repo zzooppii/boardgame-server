@@ -1,5 +1,6 @@
 import type {RoomId, PlayerId, RequestId, ServerTime} from '@hangul-rummikub/shared';
 import type {SpeakeasyGameFlow} from '../domain/game-flow.js';
+import type {SpeakeasyActPlans} from '../application/advance-game.js';
 
 /** Internal records only. Never include this record, receipts or fingerprints in a wire projection. */
 export type SpeakeasyReceipt = Readonly<{
@@ -7,7 +8,7 @@ export type SpeakeasyReceipt = Readonly<{
 }>;
 export type StoredSpeakeasyGame = Readonly<{
   roomId: RoomId; version: number; status: 'PLAYING'|'CLOSED';
-  state: SpeakeasyGameFlow; receipts: readonly SpeakeasyReceipt[];
+  state: SpeakeasyGameFlow; actPlans: SpeakeasyActPlans; receipts: readonly SpeakeasyReceipt[];
 }>;
 export type SpeakeasyStoreCommit = Readonly<{
   roomId: RoomId; expectedVersion: number; actorId: PlayerId; requestId: RequestId;

@@ -21,3 +21,12 @@ export function example(playerCount = 2): SpeakeasyEconomy {
     docks: [], barrelSupply: Array.from({length: 40}, (_, i) => tile(`barrel-${i}`)),
     goonSupply: Array.from({length: 22}, (_, i) => tile(`supply-goon-${i}`)), discardedCards: [], placedBooks: []});
 }
+
+/** Synthetic schedules and payouts for transition tests, not an official component catalog. */
+export function exampleActPlans() {
+  return [[1,2],[3,4],[5,6,7]].map((districts,i)=>({districts,
+    copDistricts:Array.from({length:4},(_,n)=>i*4+n+1),
+    deck:districts.map((_,n)=>({tileId:tile(`scheduled-${i}-${n}`),strength:1,modifier:0})),
+    payoutTables:[[12,8,4,2,1],[12,8,4,2,1],[12,8,4,2,1]],
+  }));
+}

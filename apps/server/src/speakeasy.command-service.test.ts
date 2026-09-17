@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {parse, safeParse} from 'valibot';
 import {GameIdSchema, RoomIdSchema, RequestIdSchema, ServerTimeSchema, PlayerIdSchema,
   SpeakeasyCommandRequestSchema, SpeakeasyCommandReplySchema} from '@hangul-rummikub/shared';
-import {a,b,example,tile} from './speakeasy.fixture.js';
+import {a,b,example,tile,exampleActPlans} from './speakeasy.fixture.js';
 import {startSpeakeasyRoundLifecycle} from './games/speakeasy/domain/round-lifecycle.js';
 import {startSpeakeasyGameFlow} from './games/speakeasy/domain/game-flow.js';
 import {SpeakeasyCommandService, type SpeakeasyCommandContext} from './games/speakeasy/application/command-service.js';
@@ -25,7 +25,7 @@ function setup(gameId='service-game') {
 }
 function harness(catalog=empty) {
   const store=new InMemorySpeakeasyCommandStore(),executor=new KeyedSerialExecutor<typeof roomId>();
-  store.add(roomId,setup());
+  store.add(roomId,setup(),exampleActPlans());
   const clock={now:()=>now};
   const make=(port:SpeakeasyCommandStore=store)=>new SpeakeasyCommandService({store:port,executor,clock,catalog});
   const context:SpeakeasyCommandContext={roomId,actorPlayerId:a,authorization:{isCurrent:()=>true}};
@@ -158,7 +158,7 @@ test('Speakeasy queued commands stop after room closure and another room remains
   const h=harness(),gate=deferred(),started=deferred();
   const held=h.executor.run(roomId,async()=>{started.release();await gate.promise;});await started.promise;
   const pending=h.service.command(h.context,place());
-  const otherRoom=parse(RoomIdSchema,'other-room');h.store.add(otherRoom,setup('other-game'));
+  const otherRoom=parse(RoomIdSchema,'other-room');h.store.add(otherRoom,setup('other-game'),exampleActPlans());
   assert.ok((await h.service.snapshot({...h.context,roomId:otherRoom})).ok);
   h.store.close(roomId);gate.release();await held;
   assert.deepEqual(await pending,fail('INVALID_PHASE'));
@@ -194,8 +194,8 @@ test('Speakeasy reads and replies are detached and game replacement cannot repla
   assert.equal((await h.store.read(roomId))!.state.round.economy.players[0]!.cash,15);
   assert.equal((await h.store.read(roomId))!.state.round.economy.players[0]!.safe,30);
   assert.equal((await h.store.read(roomId))!.state.round.economy.players[0]!.hand.length,3);
-  assert.throws(()=>h.store.add(roomId,setup()),/already exists/);
-  h.store.remove(roomId);assert.equal(await h.store.read(roomId),null);h.store.add(roomId,setup('next-game'));
+  assert.throws(()=>h.store.add(roomId,setup(),exampleActPlans()),/already exists/);
+  h.store.remove(roomId);assert.equal(await h.store.read(roomId),null);h.store.add(roomId,setup('next-game'),exampleActPlans());
   assert.deepEqual(await h.service.command(h.context,input),fail('STALE_GAME_REVISION'));
   assert.equal((await h.store.read(roomId))!.receipts.length,0);
 });
@@ -222,7 +222,7 @@ test('Speakeasy receipt fingerprints preserve ordered choices rather than sortin
 test('Speakeasy storage versions prevent an old candidate committing after remove and re-add',async()=>{
   const h=harness();const result=await h.service.command(h.context,place());assert.ok(result.ok);
   const saved=(await h.store.read(roomId))!,receipt=saved.receipts[0]!;
-  h.store.remove(roomId);h.store.add(roomId,setup());
+  h.store.remove(roomId);h.store.add(roomId,setup(),exampleActPlans());
   const before=await h.store.read(roomId);
   const commit=await h.store.commit({roomId,expectedVersion:0,actorId:a,requestId:receipt.requestId,
     fingerprint:receipt.fingerprint,candidate:saved.state,at:now},h.context.authorization);

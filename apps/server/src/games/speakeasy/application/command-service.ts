@@ -8,6 +8,7 @@ import type {Clock} from '../../../ports/system.js';
 import type {SpeakeasyCommandStore, StoredSpeakeasyGame, SpeakeasyReceipt} from '../ports/command-store.js';
 import {prepareSpeakeasyPlayerCommand, type SpeakeasyCommandCatalog} from './player-command.js';
 import {projectSpeakeasyBoard} from './board-projector.js';
+import {advanceSpeakeasyToDecision} from './advance-game.js';
 
 export type SpeakeasyCommandContext = Readonly<{
   roomId: RoomId; actorPlayerId: PlayerId;
@@ -56,11 +57,14 @@ export class SpeakeasyCommandService {
         const fingerprint=createHash('sha256').update(canonical(request.action)).digest('hex');
         const prior=record.receipts.find(r=>r.actorId===context.actorPlayerId && r.requestId===request.requestId);
         if (prior) return prior.fingerprint===fingerprint ? accepted(record,prior,context.actorPlayerId,true) : failure('REQUEST_ID_REUSED');
+        if (record.state.round.phase === 'FINAL_SCORING') return failure('INVALID_PHASE');
         if (record.state.round.revision!==request.action.command.revision) return failure('STALE_GAME_REVISION');
         const prepared=prepareSpeakeasyPlayerCommand(record.state,context.actorPlayerId,request.action,d.catalog);
         if (!prepared.ok) return failure('RULE_VIOLATION');
+        const advanced = advanceSpeakeasyToDecision(prepared.candidate, record.actPlans);
+        if (!advanced.ok) return failure('RULE_VIOLATION');
         const committed=await d.store.commit({roomId:context.roomId,expectedVersion:record.version,actorId:context.actorPlayerId,
-          requestId:request.requestId,fingerprint,candidate:prepared.candidate,at:parse(ServerTimeSchema,d.clock.now())},context.authorization);
+          requestId:request.requestId,fingerprint,candidate:advanced.value,at:parse(ServerTimeSchema,d.clock.now())},context.authorization);
         if (!context.authorization.isCurrent()) return failure('UNAUTHENTICATED');
         switch (committed.status) {
           case 'COMMITTED': case 'REPLAY': return accepted(committed.record,committed.receipt,context.actorPlayerId,committed.status==='REPLAY');
