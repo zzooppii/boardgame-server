@@ -1,3 +1,4 @@
+import type {SpeakeasyInfamyBenefit} from './level-command.js';
 import {safeParse} from 'valibot';
 import {placeAtSpeakeasyLocation,resolveSpeakeasyLocation} from './location-command.js';
 import type {SpeakeasyLocationProgram} from '../domain/location-program.js';
@@ -19,6 +20,8 @@ export type SpeakeasyCommandCatalog = Readonly<{
   city: readonly CityTileEffect[];
   /** Verified tile goals for this game. Printed board goals are added internally. */
   goals: readonly RestaurantBookGoal[];
+  /** Every reachable infamy space must explicitly define a resolved benefit or null (no benefit). */
+  infamyBenefits?: ReadonlyMap<number,SpeakeasyInfamyBenefit|null>;
   locations?: ReadonlyMap<string,SpeakeasyLocationProgram>;
   buildingBenefits?: ReadonlyMap<TileId,(s:CityEffectState,actor:PlayerId)=>SpeakeasyRuleResult<CityEffectState>>;
 }>;

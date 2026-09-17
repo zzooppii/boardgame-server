@@ -1,8 +1,9 @@
 import * as v from 'valibot';
-import {SpeakeasyBuildingKindSchema,SpeakeasyDeckSchema,SpeakeasyLocationSchema,SpeakeasyCountSchema,SpeakeasyDistrictIdSchema,TileIdSchema} from '@hangul-rummikub/shared';
+import {SpeakeasyBuildingKindSchema,SpeakeasyDeckSchema,SpeakeasyLocationSchema,SpeakeasyOperationSchema,SpeakeasyCountSchema,SpeakeasyDistrictIdSchema,TileIdSchema} from '@hangul-rummikub/shared';
 const key=v.pipe(v.string(),v.minLength(1),v.maxLength(100));
 const action=v.variant('kind',[
   v.strictObject({id:key,kind:v.literal('BOOK')}),
+  v.strictObject({id:key,kind:v.literal('LEVEL'),operations:v.pipe(v.array(SpeakeasyOperationSchema),v.minLength(1),v.maxLength(5))}),
   v.strictObject({id:key,kind:v.literal('PRODUCE'),quantityByLevel:v.pipe(v.array(SpeakeasyCountSchema),v.length(5))}),
   v.strictObject({id:key,kind:v.literal('SELL'),limitByLevel:v.pipe(v.array(SpeakeasyCountSchema),v.length(5)),
     pricesByInfamy:v.pipe(v.array(v.strictObject({speakeasy:SpeakeasyCountSchema,premium:SpeakeasyCountSchema})),v.length(21))}),

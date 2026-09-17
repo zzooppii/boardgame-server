@@ -1,3 +1,4 @@
+import {resolveSpeakeasyLevel} from './level-command.js';
 import type {PlayerId,SpeakeasyPlayerCommand} from '@hangul-rummikub/shared';
 import {parseSpeakeasyGameFlow,placeSpeakeasyCapo,finishSpeakeasyLocation,type SpeakeasyGameFlow} from '../domain/game-flow.js';
 import {parseLocationProgress,availableLocationActions} from '../domain/location-program.js';
@@ -32,9 +33,11 @@ export function resolveSpeakeasyLocation(s:SpeakeasyGameFlow,actor:PlayerId,inpu
   }
   const choice=input.command.choice;
   if(choice.kind!==action.kind) return ruleFailure('INVALID_ACTION');
+  if(choice.kind==='LEVEL'&&action.kind==='LEVEL') return resolveSpeakeasyLevel(candidate,actor,input.command,action,catalog);
   let outcome:SpeakeasyRuleResult<SpeakeasyEconomy>;
   const player=candidate.round.economy.players.find(p=>p.playerId===actor)!;
   switch(choice.kind) {
+    case 'LEVEL': return ruleFailure('INVALID_ACTION');
     case 'PRODUCE': {
       if(action.kind!=='PRODUCE') return ruleFailure('INVALID_ACTION');
       outcome=produceSpeakeasy(candidate.round.economy,actor,action.quantityByLevel[player.levels.STILLS-1]!);break;

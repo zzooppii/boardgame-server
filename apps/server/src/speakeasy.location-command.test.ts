@@ -215,3 +215,70 @@ test('Speakeasy server delivery graph and level tables must be complete and unam
   }
   assert.throws(()=>parseLocationProgress({program:{...program,rows:[[{id:'produce',kind:'PRODUCE',quantityByLevel:[1]}]]},completed:[]}));
 });
+
+function levelSetup(operation:'VIP'|'STRENGTH'='VIP',level=4) {
+  const s=setup();s.round.economy.players[0]!.levels[operation]=level;
+  const program:SpeakeasyLocationProgram={location:'CONTRACTOR',rows:[[{id:'level',kind:'LEVEL',operations:[operation]}]]};
+  const c:SpeakeasyCommandCatalog={...catalog(s),locations:new Map(s.spaces.map(space=>[space.id,program])),
+    infamyBenefits:new Map(Array.from({length:20},(_,i)=>[i+6,null]))};
+  return {s:enter(s,c),c};
+}
+
+test('Speakeasy level action pays hand cards, raises infamy and resolves reward before completion',()=>{
+  const {s,c}=levelSetup();const benefits=new Map(c.infamyBenefits);
+  // Synthetic benefit draws the top card; paid cards must already be at the deck bottom.
+  benefits.set(15,(state,actor)=>{
+    assert.equal(state.decks.PARTY.at(-1)!.tileId,tile('hand-0-0'));
+    state.economy.players.find(p=>p.playerId===actor)!.hand.push(state.decks.PARTY.shift()!);
+    return {ok:true,value:state};
+  });
+  const result=run(s,'EXECUTE_LOCATION_ACTION',{actionId:'level',choice:{kind:'LEVEL',operation:'VIP',discardIds:['hand-0-0']}},{...c,infamyBenefits:benefits});
+  const p=result.candidate.round.economy.players[0]!;
+  assert.equal(p.levels.VIP,5);assert.equal(Object.values(p.levels).reduce((a,b)=>a+b,0),15);
+  assert.equal(p.hand.length,4);assert.equal(p.hand.at(-1)!.tileId,tile('deck-PARTY-0'));
+  assert.equal(result.actorView.turn.stage,'FINISH_LOCATION');assert.equal(result.candidate.round.economy.discardedCards.length,0);
+});
+
+test('Speakeasy strength level four costs one card and level five costs two',()=>{
+  for(const [level,cost] of [[3,1],[4,2]] as const) {
+    const {s,c}=levelSetup('STRENGTH',level);
+    for(const discardIds of [[],['hand-0-0','hand-0-0'],['installed-0'],['hand-1-0']]) {
+      assert.equal(prepareSpeakeasyPlayerCommand(s,a,body(s,'EXECUTE_LOCATION_ACTION',{actionId:'level',choice:{kind:'LEVEL',operation:'STRENGTH',discardIds}}),c).ok,false);
+    }
+    const r=run(s,'EXECUTE_LOCATION_ACTION',{actionId:'level',choice:{kind:'LEVEL',operation:'STRENGTH',discardIds:Array.from({length:cost},(_,i)=>`hand-0-${i}`)}},c);
+    assert.equal(r.candidate.round.economy.players[0]!.levels.STRENGTH,level+1);
+    assert.equal(r.candidate.round.decks.PARTY.length,12+cost);
+  }
+});
+
+test('Speakeasy level action rejects missing benefits, forbidden tracks and maximum levels atomically',()=>{
+  const {s,c}=levelSetup(),before=structuredClone(s);
+  const input=body(s,'EXECUTE_LOCATION_ACTION',{actionId:'level',choice:{kind:'LEVEL',operation:'VIP',discardIds:['hand-0-0']}});
+  assert.equal(prepareSpeakeasyPlayerCommand(s,a,input,{...c,infamyBenefits:new Map()}).ok,false);
+  for(const choice of [{kind:'LEVEL',operation:'STRENGTH',discardIds:['hand-0-0']},
+    {kind:'LEVEL',operation:'VIP',discardIds:[]},{kind:'LEVEL',operation:'VIP',discardIds:['hand-0-0'],amount:2}]) {
+    assert.equal(prepareSpeakeasyPlayerCommand(s,a,body(s,'EXECUTE_LOCATION_ACTION',{actionId:'level',choice}),c).ok,false);
+  }
+  assert.deepEqual(s,before);
+  const max=levelSetup('VIP',5);
+  assert.equal(prepareSpeakeasyPlayerCommand(max.s,a,body(max.s,'EXECUTE_LOCATION_ACTION',{actionId:'level',choice:{kind:'LEVEL',operation:'VIP',discardIds:['hand-0-0']}}),max.c).ok,false);
+});
+
+test('Speakeasy failed or malformed infamy benefits restore the paid card and uncompleted action',()=>{
+  const {s,c}=levelSetup(),before=structuredClone(s),input=body(s,'EXECUTE_LOCATION_ACTION',{actionId:'level',choice:{kind:'LEVEL',operation:'VIP',discardIds:['hand-0-0']}});
+  const benefits=new Map(c.infamyBenefits);
+  benefits.set(15,state=>{state.decks.PARTY.shift();state.economy.players[0]!.cash=999;return {ok:false,reason:'CAPACITY'};});
+  assert.equal(prepareSpeakeasyPlayerCommand(s,a,input,{...c,infamyBenefits:benefits}).ok,false);assert.deepEqual(s,before);
+  benefits.set(15,state=>{state.decks.PARTY.shift();return {ok:true,value:state};});
+  assert.throws(()=>prepareSpeakeasyPlayerCommand(s,a,input,{...c,infamyBenefits:benefits}));assert.deepEqual(s,before);
+  benefits.set(15,state=>{state.economy.players[0]!.levels.PARTY++;return {ok:true,value:state};});
+  assert.throws(()=>prepareSpeakeasyPlayerCommand(s,a,input,{...c,infamyBenefits:benefits}));assert.deepEqual(s,before);
+});
+
+test('Speakeasy lower levels require no discard and an explicitly empty infamy benefit can complete',()=>{
+  const {s,c}=levelSetup('VIP',2);
+  const result=run(s,'EXECUTE_LOCATION_ACTION',{actionId:'level',choice:{kind:'LEVEL',operation:'VIP',discardIds:[]}},c);
+  assert.equal(result.candidate.round.economy.players[0]!.levels.VIP,3);
+  assert.equal(result.candidate.round.economy.players[0]!.hand.length,4);
+  assert.equal(prepareSpeakeasyPlayerCommand(result.candidate,a,body(result.candidate,'EXECUTE_LOCATION_ACTION',{actionId:'level',choice:{kind:'LEVEL',operation:'VIP',discardIds:[]}}),c).ok,false);
+});

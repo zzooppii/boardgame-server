@@ -1,11 +1,12 @@
 import * as v from 'valibot';
 import {GameIdSchema,TileIdSchema} from '../../identifiers.js';
-import {SpeakeasyDistrictIdSchema,SpeakeasyCountSchema} from './contracts.js';
+import {SpeakeasyDistrictIdSchema,SpeakeasyCountSchema,SpeakeasyOperationSchema} from './contracts.js';
 const key=v.pipe(v.string(),v.minLength(1),v.maxLength(100));
 const guard={gameId:GameIdSchema,revision:v.pipe(v.number(),v.safeInteger(),v.minValue(0))};
-export const SpeakeasyLocationActionKindSchema=v.picklist(['BOOK','GOONS','PROTECT','OPERATION','BUILD','PRODUCE','DELIVER','SELL']);
+export const SpeakeasyLocationActionKindSchema=v.picklist(['BOOK','GOONS','PROTECT','OPERATION','BUILD','PRODUCE','DELIVER','SELL','LEVEL']);
 export const SpeakeasyLocationChoiceSchema=v.variant('kind',[
   v.strictObject({kind:v.literal('BOOK')}),
+  v.strictObject({kind:v.literal('LEVEL'),operation:SpeakeasyOperationSchema,discardIds:v.pipe(v.array(TileIdSchema),v.maxLength(2))}),
   v.strictObject({kind:v.literal('PRODUCE')}),
   v.strictObject({kind:v.literal('SELL'),buildingIds:v.pipe(v.array(TileIdSchema),v.minLength(1),v.maxLength(12))}),
   v.strictObject({kind:v.literal('DELIVER'),steps:v.pipe(v.array(v.variant('kind',[
