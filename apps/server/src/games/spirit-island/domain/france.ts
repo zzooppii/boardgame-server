@@ -51,7 +51,7 @@ export function franceAutomatic(s:SpiritState,e:SpiritStep):boolean {
   // Draw the next event first, then count three cards above the recurring rebellion.
   s.currentEvent=null;prepend(s,step('SPECIAL',e.actor,null,0,'BCE_START',null,e.n?['REBELLION_RETURN']:[]));return true;
  }
- if(e.key==='FR_FEAR_END'){s.flags=s.flags.filter(f=>f!=='fear-action'&&!f.startsWith('france-fear:'));return true;}
+ if(e.key==='FR_FEAR_END'){if(e.tags[0])event(s,'FEAR',`해결 완료 · ${e.tags[0]}`,e.actor);s.flags=s.flags.filter(f=>f!=='fear-action'&&!f.startsWith('france-fear:'));return true;}
  if(e.key==='FR_SETUP_END'){s.flags=s.flags.filter(f=>f!=='setup-active');return true;}
  return false;
 }

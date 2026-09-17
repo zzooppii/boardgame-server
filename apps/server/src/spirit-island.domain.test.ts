@@ -1450,3 +1450,27 @@ test('Fear land choice projection explains the revealed card and frozen effect l
   assert.match(view(s).pending!.title,/A2.*제거/);
  }
 });
+
+test('Automatic belief fear records the effect, actual defended lands and completion', () => {
+ const s=chosen();s.stage='FEAR';s.terror=1;s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'FEAR_CARD',null,['belief'])];
+ const affected=s.lands.filter(l=>l.presence.length).map(l=>({id:l.id,defend:l.defend}));
+ settle(s);
+ const log=view(s).log.filter(e=>e.kind==='FEAR');
+ assert.ok(log.some(e=>e.text.includes('해결 중')&&e.text.includes('현신이 있는 모든 지역에 방어 2')));
+ assert.ok(log.some(e=>e.text.includes('해결 완료')&&e.text.includes('믿음이 뿌리내리다')&&e.text.includes('공포 수준 1')));
+ for(const l of affected){assert.equal(land(s,l.id).defend,l.defend+2);assert.ok(log.some(e=>e.text.includes('방어 +2 적용 완료')&&e.text.includes(l.id)));}
+ assert.ok(log.every(e=>e.text.length<=300));
+});
+
+test('Fear completion is not announced before a required land and piece choice', () => {
+ const s=chosen();s.stage='FEAR';s.terror=1;s.queue=[step('SPECIAL',s.players[0]!.playerId,null,0,'FEAR_CARD',null,['emigration'])];
+ settle(s);assert.equal(s.queue[0]?.key,'FEAR_LAND');
+ assert.ok(!s.log.some(e=>e.text.startsWith('해결 완료')));
+});
+
+test('Existing fear reveal logs gain public rules without guessing completion', () => {
+ const s=chosen();s.log=[{id:1,kind:'FEAR',text:'믿음이 뿌리내리다 · 공포 수준 1',playerId:s.players[0]!.playerId,landId:null}];
+ const message=view(s).log[0]!.text;
+ assert.match(message,/해결 기록 · 공포 카드/);assert.match(message,/현신이 있는 모든 지역에 방어 2/);
+ assert.doesNotMatch(message,/해결 완료/);assert.equal(s.log[0]!.text,'믿음이 뿌리내리다 · 공포 수준 1');
+});

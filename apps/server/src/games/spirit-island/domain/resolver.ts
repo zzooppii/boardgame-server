@@ -816,10 +816,11 @@ function fearLandSteps(s: SpiritState, e: SpiritStep, id: string): SpiritStep[] 
 }
 function resolveFear(s: SpiritState, e: SpiritStep) {
     const key = e.tags[0]!, level = s.terror, a = e.actor;
-    s.flags.push('fear-action');prepend(s,step('SPECIAL',a,null,0,'FR_FEAR_END'));
+    const explanation = `${s.round}라운드 · 공포 카드 ${SPIRIT_FEAR_NAMES[key]} · 공포 수준 ${level} · ${SPIRIT_FEAR_HELP[key]?.[level-1] ?? ''}`;
+    s.flags.push('fear-action');prepend(s,step('SPECIAL',a,null,0,'FR_FEAR_END',null,[explanation]));
     s.fearDiscard.push(key);
     s.flags = s.flags.filter(f => !f.startsWith('fear-used:'));
-    event(s, 'FEAR', `${SPIRIT_FEAR_NAMES[key]} · 공포 수준 ${level}`, a);
+    event(s, 'FEAR', `해결 중 · ${explanation}`, a);
     if(branchFear(s,e,key,level))return;
     if (key === 'scapegoats') {
         for (const l of s.lands) {
@@ -851,8 +852,9 @@ function resolveFear(s: SpiritState, e: SpiritStep) {
         return;
     }
     if (key === 'belief' && level <= 2) {
-        for (const l of s.lands.filter(l => l.presence.length))
-            l.defend += 2;
+        const affected = s.lands.filter(l => l.presence.length);
+        for (const l of affected) l.defend += 2;
+        event(s, 'FEAR', affected.length ? `방어 +2 적용 완료 · ${affected.map(l=>l.id).join(', ')} · 이번 라운드` : '방어 +2 적용 대상 없음 · 현신이 있는 지역 없음', a);
         if (level === 2)
             for (const p of s.players)
                 p.energy += s.lands.filter(l => sacred(s, l, p.playerId) && invaders(l).length > 0).length;

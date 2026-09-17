@@ -3,7 +3,9 @@ import type { SpiritProjection } from '@hangul-rummikub/shared';
 export function FearPanel({ game: g }: { game: SpiritProjection }) {
  const ritual = g.settings.scenario === 'RITUAL';
  const nextRound = ['RAVAGE', 'BUILD', 'EXPLORE', 'SLOW', 'TIME'].includes(g.stage);
- const recent = g.log.filter(entry => entry.kind === 'FEAR').slice(-3);
+ const fearLog = g.log.filter(entry => entry.kind === 'FEAR');
+ const latestCard = fearLog.filter(entry=>entry.text.includes(' · 공포 카드 ')).at(-1);
+ const recent = fearLog.filter(entry=>!entry.text.includes(' · 공포 카드 ')).slice(-3);
  return <section id="si-fear-status" className="si-fear-panel" aria-label="공포 축적과 카드 실행 안내">
   <div className="si-fear-progress">
    <h2>공포 모으기 <strong>{g.fear} / {g.fearPool}</strong></h2>
@@ -18,6 +20,7 @@ export function FearPanel({ game: g }: { game: SpiritProjection }) {
    {!ritual ? <p className="si-fear-timing">빠른 능력 → <b>공포 카드 실행</b> → 파괴{g.settings.expansion==='BRANCH_CLAW'?' · 확장판은 공포 카드 전에 이벤트를 해결합니다.':''}</p> : null}
    <small>공포 수치가 0으로 돌아가도 획득한 카드는 사라지지 않습니다.</small>
   </div>
+  {latestCard ? <article className="si-fear-effect" aria-label="최근 공포 카드 효과" aria-live="polite"><h3>최근 공포 카드 효과</h3><p>{latestCard.text}</p><small>해결 대기 0장은 남은 카드가 없다는 뜻입니다. 지난 라운드의 기록은 현재 적용 중인 효과와 다를 수 있습니다.</small></article> : null}
   <div className="si-fear-history"><h3>최근 공포 기록</h3>{recent.length ? <ol>{recent.map(e=><li key={e.id}>{e.text}</li>)}</ol> : <p>능력 효과나 마을·도시 파괴로 공포를 얻으면 여기에 표시됩니다.</p>}</div>
  </section>;
 }

@@ -315,3 +315,39 @@ test('Fear progress explains actual threshold, earned cards after reset, and pha
  s.game.fearPool=10;s.game.fear=6;html=render();assert.match(html,/공포 <b>4개<\/b> 더 모으면/);
  s.game.settings.scenario='RITUAL';html=render();assert.match(html,/공포 카드 효과를 실행하지 않습니다/);assert.doesNotMatch(html,/class="si-fear-timing"/);
 });
+
+test('Preparation shows carried balance, income separately, and paid-card budget without charging twice', () => {
+ const s=playing(),p=s.game.playerStates[0]!;p.energy=7;p.grown=false;s.game.round=2;
+ let html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));
+ assert.match(html,/현재 보유 에너지 · 이월분 포함<\/span><strong>7/);
+ assert.match(html,/현재 트랙 수입 · 라운드당/);assert.match(html,/쓰지 않은 에너지는 다음 라운드에도 남습니다/);
+ assert.doesNotMatch(html,/이 선택 확정 후 잔액/);
+ const paid=p.hand.find(c=>SPIRIT_POWERS.find(power=>power.key===c.key)!.cost>0)!;
+ p.hand=p.hand.filter(c=>c!==paid);p.played=[paid];s.game.privateState.hand=p.hand;p.grown=true;
+ const paidCost=SPIRIT_POWERS.find(power=>power.key===paid.key)!.cost;
+ html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));
+ assert.ok(html.includes(`카드 준비에 쓸 수 있는 에너지</dt><dd>${7+paidCost}`));
+ assert.match(html,/이 선택 확정 후 잔액<\/dt><dd>7/);
+ assert.match(html,/수입을 다시 더하지 않습니다/);
+ s.game.stage='FAST';html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));
+ assert.doesNotMatch(html,/aria-label="성장과 준비 에너지 안내"/);
+});
+
+test('Resolved automatic fear remains explained even with no queued cards', () => {
+ const s=playing();s.game.stage='RAVAGE';s.game.earnedFearCount=0;
+ s.game.log=[{id:1,kind:'FEAR',text:'방어 +2 적용 완료 · A5 · 이번 라운드',playerId:s.self.playerId,landId:null},{id:2,kind:'FEAR',text:'해결 완료 · 2라운드 · 공포 카드 믿음이 뿌리내리다 · 공포 수준 1 · 현신이 있는 모든 지역에 방어 2.',playerId:s.self.playerId,landId:null}];
+ const html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));
+ assert.match(html,/aria-label="최근 공포 카드 효과"/);assert.match(html,/현신이 있는 모든 지역에 방어 2/);assert.match(html,/방어 \+2 적용 완료 · A5/);assert.match(html,/해결 대기 0장은 남은 카드가 없다는 뜻/);
+});
+
+test('Invader board separates ordered actions, public terrain, hidden exploration and next-round tracks', () => {
+ const s=playing();s.game.ravage=null;s.game.build={stage:1,terrains:['WETLAND'],coastal:false};
+ let html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));
+ const board=html.slice(html.indexOf('aria-label="침략자 보드"'),html.indexOf('id="si-fear-status"'));
+ assert.ok(board.indexOf('1. 약탈 (파괴)')<board.indexOf('2. 건설'));assert.ok(board.indexOf('2. 건설')<board.indexOf('3. 탐험'));
+ assert.match(board,/카드 없음/);assert.match(board,/이 칸의 기본 행동은 없습니다/);assert.match(board,/습지/);assert.match(board,/A2 · A5/);assert.match(board,/미공개/);assert.match(board,/탐험할 때 공개/);
+ s.game.stage='BUILD';html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));assert.match(html,/aria-label="건설" aria-current="step"/);
+ s.game.stage='SLOW';html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));assert.match(html,/카드 이동 완료 · 다음 라운드 대비/);
+ s.game.explore={stage:2,terrains:[],coastal:true};s.game.pending={choiceId:'choice',playerId:s.self.playerId,title:'심화 효과 선택',options:[]};
+ html=renderToStaticMarkup(createElement(SpiritScreen,{...handlers,snapshot:s}));assert.match(html,/선택 효과 처리 중 · 현재 카드 배치/);assert.doesNotMatch(html,/카드 이동 완료/);assert.match(html,/<strong>해안<\/strong>/);
+});
