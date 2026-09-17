@@ -83,6 +83,7 @@ export function produceSpeakeasy(original: SpeakeasyEconomy, ownerId: PlayerId, 
 /** A complete delivery draft commits together. No teleportation between trucks or buildings. */
 export type SpeakeasyDeliveryStep =
   | Readonly<{kind: 'MOVE'; truckId: TileId; district: number}>
+  | Readonly<{kind: 'BUY'; truckId: TileId; shipId: TileId; count: number; cashToSpend?: number|undefined}>
   | Readonly<{kind: 'LOAD'; truckId: TileId; count: number}>
   | Readonly<{kind: 'UNLOAD'; truckId: TileId; buildingId: TileId}>;
 export function deliverSpeakeasy(original: SpeakeasyEconomy, ownerId: PlayerId, steps: readonly SpeakeasyDeliveryStep[],
@@ -103,6 +104,21 @@ export function deliverSpeakeasy(original: SpeakeasyEconomy, ownerId: PlayerId, 
           movement.set(truck.tileId, spent);
         }
         truck.district = step.district;
+      } else if (step.kind === 'BUY') {
+        const ship=s.ships.find(ship=>ship.tileId===step.shipId);
+        if(!ship||truck.district!==ship.port) return 'INVALID_ACTION';
+        if(!natural(step.count)||step.count<1||step.count>2||truck.barrels.length+step.count>2) return 'CAPACITY';
+        let cost=0;
+        for(let i=0;i<step.count;i++) {
+          cost+=ship.prices[Math.max(0,ship.barrels.length-1)]!;
+          const barrel=ship.barrels.length?ship.barrels.pop():s.barrelSupply.shift();
+          if(!barrel) return 'CAPACITY';truck.barrels.push(barrel);
+        }
+        const failed=pay(p,cost,step.cashToSpend);if(failed) return failed;
+        const port=s.ports.indexOf(ship.port);
+        const next=Array.from({length:s.ports.length-1},(_,i)=>s.ports[(port+i+1)%s.ports.length]!)
+          .find(d=>!s.ships.some(other=>other.port===d));
+        if(next===undefined) return 'INVALID_ACTION';ship.port=next;
       } else if (step.kind === 'LOAD') {
         if (!natural(step.count) || step.count < 1 || truck.barrels.length + step.count > 2 || p.stock.length < step.count) return 'CAPACITY';
         const district = s.districts.find(d => d.id === truck.district);

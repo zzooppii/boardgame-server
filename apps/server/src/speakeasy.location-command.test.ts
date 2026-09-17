@@ -357,3 +357,73 @@ test('Speakeasy dock bonus can draw a card while input cannot override reward or
   const empty=structuredClone(s);empty.round.economy.players[0]!.removedFamily.push(...empty.round.economy.players[0]!.familyReserve.splice(0));
   assert.equal(prepareSpeakeasyPlayerCommand(empty,a,body(empty,'EXECUTE_LOCATION_ACTION',{actionId:'family',choice:dockChoice()}),c).ok,false);
 });
+
+function shipSetup() {
+  const {s,c}=logistics();
+  s.round.economy.ports=[1,2,3,4];
+  s.round.economy.ships=[{tileId:tile('ship-a'),port:1,barrels:s.round.economy.barrelSupply.splice(0,2),prices:[6,5]},
+    {tileId:tile('ship-b'),port:2,barrels:[],prices:[7]}];
+  return {s:skip(s,'produce',c),c};
+}
+const buy=(count=2)=>({kind:'BUY',truckId:'truck-0-0',shipId:'ship-a',count});
+
+test('Speakeasy truck buys rightmost barrels and ship skips occupied ports after the whole purchase',()=>{
+  const {s,c}=shipSetup();
+  const result=run(s,'EXECUTE_LOCATION_ACTION',{actionId:'deliver',choice:{kind:'DELIVER',steps:[move(1),buy(),move(2),unload]}},c);
+  const e=result.candidate.round.economy;
+  assert.equal(e.players[0]!.cash,4);assert.equal(e.ships[0]!.port,3);assert.equal(e.ships[0]!.barrels.length,0);
+  assert.equal(e.players[0]!.trucks[0]!.barrels.length,1);assert.equal(e.districts[1]!.slots[0]!.barrelId,tile('barrel-1'));
+  assert.deepEqual(result.actorView.ports,[1,2,3,4]);
+  assert.deepEqual(result.actorView.ships[0],{tileId:tile('ship-a'),port:3,barrels:0,prices:[6,5]});
+  assert.ok(!JSON.stringify(result.actorView.ships).includes('barrel-'));
+  result.actorView.ships[0]!.prices[0]=999;assert.equal(e.ships[0]!.prices[0],6);
+});
+
+test('Speakeasy empty ship loads supply at leftmost price, supports safe payment and wraps clockwise',()=>{
+  const {s,c}=shipSetup(),ship=s.round.economy.ships[0]!;
+  s.round.economy.barrelSupply.push(...ship.barrels.splice(0));ship.port=4;
+  const result=run(s,'EXECUTE_LOCATION_ACTION',{actionId:'deliver',choice:{kind:'DELIVER',steps:[move(4),{...buy(),cashToSpend:2}]}},c);
+  const e=result.candidate.round.economy;
+  assert.equal(e.players[0]!.cash,13);assert.equal(e.players[0]!.safe,10);
+  assert.equal(e.ships[0]!.port,1);assert.equal(e.ships[0]!.barrels.length,0);assert.equal(e.players[0]!.trucks[0]!.barrels.length,2);
+});
+
+test('Speakeasy partial ship stock uses supply for second barrel and can be bought again from a second truck',()=>{
+  const {s,c}=shipSetup(),ship=s.round.economy.ships[0]!;
+  s.round.economy.barrelSupply.push(ship.barrels.pop()!);
+  const result=run(s,'EXECUTE_LOCATION_ACTION',{actionId:'deliver',choice:{kind:'DELIVER',steps:[move(1),buy(),move(3,'truck-0-1'),{...buy(1),truckId:'truck-0-1'}]}},c);
+  assert.equal(result.candidate.round.economy.ships[0]!.port,4);
+  assert.equal(result.candidate.round.economy.players[0]!.cash,0);assert.equal(result.candidate.round.economy.players[0]!.safe,24);
+});
+
+test('Speakeasy ship purchase rejects wrong location, excess cargo, forged prices and failures after payment atomically',()=>{
+  const {s,c}=shipSetup(),before=structuredClone(s);
+  for(const steps of [[move(2),buy()],[move(1),{...buy(),truckId:'truck-1-0'}],
+    [move(1),{...buy(),count:3}],[move(1),{...buy(),price:0}],
+    [move(1),buy(),move(4)],[move(1),buy(),move(3),buy(1)]]) {
+    assert.equal(prepareSpeakeasyPlayerCommand(s,a,body(s,'EXECUTE_LOCATION_ACTION',{actionId:'deliver',choice:{kind:'DELIVER',steps}}),c).ok,false);
+    assert.deepEqual(s,before);
+  }
+  s.round.economy.players[0]!.cash=0;s.round.economy.players[0]!.safe=0;
+  assert.equal(prepareSpeakeasyPlayerCommand(s,a,body(s,'EXECUTE_LOCATION_ACTION',{actionId:'deliver',choice:{kind:'DELIVER',steps:[move(1),buy()]}}),c).ok,false);
+  assert.equal(s.round.economy.ships[0]!.barrels.length,2);
+});
+
+test('Speakeasy ship configuration rejects occupied ports, missing prices and duplicate barrel instances',()=>{
+  const {s}=shipSetup();
+  for(const alter of [
+    (f:SpeakeasyGameFlow)=>{f.round.economy.ships[1]!.port=1;},
+    (f:SpeakeasyGameFlow)=>{f.round.economy.ports=[1,2];},
+    (f:SpeakeasyGameFlow)=>{f.round.economy.ships[0]!.prices=[];},
+    (f:SpeakeasyGameFlow)=>{f.round.economy.ships[0]!.barrels[0]=f.round.economy.barrelSupply[0]!;},
+    (f:SpeakeasyGameFlow)=>{f.round.economy.ports=[1,2,3,3];},
+  ]) {const invalid=structuredClone(s);alter(invalid);assert.throws(()=>parseSpeakeasyGameFlow(invalid));}
+});
+
+test('Speakeasy exhausted barrel supply rolls back a mixed ship and supply purchase',()=>{
+  const {s,c}=shipSetup(),e=s.round.economy;
+  e.players[1]!.stock.push(...e.barrelSupply.splice(0),e.ships[0]!.barrels.pop()!);
+  const before=structuredClone(s);
+  assert.equal(prepareSpeakeasyPlayerCommand(s,a,body(s,'EXECUTE_LOCATION_ACTION',{actionId:'deliver',choice:{kind:'DELIVER',steps:[move(1),buy()]}}),c).ok,false);
+  assert.deepEqual(s,before);
+});

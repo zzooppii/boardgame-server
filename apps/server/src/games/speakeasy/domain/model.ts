@@ -28,6 +28,9 @@ const Player = v.strictObject({
 });
 
 export const SpeakeasyEconomySchema = v.strictObject({
+  ports: v.optional(v.pipe(v.array(SpeakeasyDistrictIdSchema),v.maxLength(16)),()=>[]),
+  ships: v.optional(v.array(v.strictObject({tileId:TileIdSchema,port:SpeakeasyDistrictIdSchema,barrels:ids,
+    prices:v.pipe(v.array(count),v.minLength(1),v.maxLength(40))})),()=>[]),
   players: v.pipe(v.array(Player), v.minLength(2), v.maxLength(4)),
   districts: v.pipe(v.array(v.strictObject({id: SpeakeasyDistrictIdSchema, blocked: v.boolean(), cop: v.boolean(),
     slots: v.pipe(v.array(v.nullable(Building)), v.minLength(2), v.maxLength(3)),
@@ -51,6 +54,9 @@ export function parseSpeakeasyEconomy(input: unknown): SpeakeasyEconomy {
   const owners = new Set(s.players.map(p => p.playerId));
   if (owners.size !== s.players.length || s.districts.some((d, i) => d.id !== i + 1)) throw new Error('Invalid Speakeasy identities.');
   const pieces: string[] = [...s.barrelSupply, ...s.goonSupply, ...s.discardedCards.map(c => c.tileId)];
+  if(new Set(s.ports).size!==s.ports.length||new Set(s.ships.map(ship=>ship.port)).size!==s.ships.length||
+    (s.ships.length>0&&s.ships.length>=s.ports.length)||s.ships.some(ship=>!s.ports.includes(ship.port)||ship.barrels.length>ship.prices.length)) throw new Error('Invalid ship configuration.');
+  for(const ship of s.ships) pieces.push(ship.tileId,...ship.barrels);
   for (const p of s.players) {
     pieces.push(...p.vip, ...p.familyReserve, ...p.removedFamily, ...p.goons, ...p.stock,
       ...p.reserves.map(b => b.tileId), ...p.removedBuildings.map(b => b.tileId),
@@ -78,6 +84,7 @@ export function parseSpeakeasyEconomy(input: unknown): SpeakeasyEconomy {
 
 export function speakeasyInventory(s: SpeakeasyEconomy): string[] {
   const pieces = [...s.barrelSupply, ...s.goonSupply, ...s.discardedCards.map(c => c.tileId), ...s.docks.map(d => d.familyId)];
+  for(const ship of s.ships) pieces.push(ship.tileId,...ship.barrels);
   for (const p of s.players) pieces.push(...p.vip, ...p.familyReserve, ...p.removedFamily, ...p.goons, ...p.stock,
     ...p.reserves.map(b => b.tileId), ...p.removedBuildings.map(b => b.tileId), ...p.hand.map(c => c.tileId),
     ...p.operations.map(c => c.tileId), ...p.helpers.map(h => h.tileId), ...p.trucks.flatMap(t => [t.tileId, ...t.barrels]));

@@ -1,7 +1,7 @@
 import * as v from 'valibot';
 import {SpeakeasyLocationActionsViewSchema} from './location-actions.js';
 import {GameIdSchema, PlayerIdSchema, TileIdSchema} from '../../identifiers.js';
-import {SpeakeasyOperationSchema, SpeakeasyBuildingKindSchema, SpeakeasyBuildingViewSchema, SpeakeasyDistrictIdSchema} from './contracts.js';
+import {SpeakeasyCountSchema, SpeakeasyOperationSchema, SpeakeasyBuildingKindSchema, SpeakeasyBuildingViewSchema, SpeakeasyDistrictIdSchema} from './contracts.js';
 import {SpeakeasyLucianoViewSchema} from './luciano.js';
 import {SpeakeasyRestaurantActionSchema, SpeakeasyDeckSchema} from './restaurant.js';
 
@@ -62,6 +62,8 @@ export const SpeakeasyFixedGoalViewSchema = v.strictObject({
 export type SpeakeasyFixedGoalView = v.InferOutput<typeof SpeakeasyFixedGoalViewSchema>;
 /** Screen snapshot: visible board + authenticated player's personal board. No canonical state. */
 export const SpeakeasyBoardViewSchema = v.strictObject({
+  ports:v.array(SpeakeasyDistrictIdSchema),
+  ships:v.array(v.strictObject({tileId:TileIdSchema,port:SpeakeasyDistrictIdSchema,barrels:SpeakeasyCountSchema,prices:v.array(SpeakeasyCountSchema)})),
   turn:SpeakeasyTurnViewSchema,
   districts:v.pipe(v.array(v.strictObject({id:SpeakeasyDistrictIdSchema,blocked:v.boolean(),cop:v.boolean(),
     slots:v.array(v.nullable(SpeakeasyBuildingViewSchema)),mobsterSlots:v.array(v.picklist([0,1,2])),mobsterStrength:v.nullable(count)})),v.length(16)),

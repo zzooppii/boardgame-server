@@ -4,7 +4,7 @@ import {SpeakeasyBoardViewSchema, type SpeakeasyBoardView} from '@hangul-rummiku
 /** Fixed display fixture projected from the server's synthetic economy; never official setup. */
 export function createSpeakeasyBoardPreview():SpeakeasyBoardView {
   return parse(SpeakeasyBoardViewSchema,{
-  "turn": {
+  "ports": [], "ships": [], "turn": {
     "locationActions": null,
     "gameId": "speakeasy-board-preview",
     "revision": 0,

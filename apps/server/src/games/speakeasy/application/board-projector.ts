@@ -17,6 +17,7 @@ export function projectSpeakeasyBoard(original:SpeakeasyGameFlow,viewer:PlayerId
   const self=economy.players.find(p=>p.playerId===viewer)!;
   return v.parse(SpeakeasyBoardViewSchema,{
     turn:projectSpeakeasyTurn(s,viewer),
+    ports:economy.ports,ships:economy.ships.map(ship=>({tileId:ship.tileId,port:ship.port,barrels:ship.barrels.length,prices:ship.prices})),
     districts:economy.districts.map(d=>({id:d.id,blocked:d.blocked,cop:d.cop,
       slots:d.slots.map(b=>b?{tileId:b.piece.tileId,ownerId:b.ownerId,kind:b.piece.kind,
         protected:b.familyId!==null,barrel:b.barrelId!==null,operating:speakeasyOperating(d.cop,b)}:null),
