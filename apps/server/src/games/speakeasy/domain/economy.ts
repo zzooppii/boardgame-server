@@ -183,6 +183,18 @@ export function raiseSpeakeasyLevel(original: SpeakeasyEconomy, ownerId: PlayerI
   });
 }
 
+/** Optional printed extra increase: one hand card plus the normal level-five entry cost. */
+export function raisePaidSpeakeasyLevel(original:SpeakeasyEconomy,ownerId:PlayerId,operation:Exclude<SpeakeasyOperation,'STRENGTH'>,
+  cardId:TileId,discardIds:readonly TileId[]):SpeakeasyRuleResult<SpeakeasyEconomy> {
+  return speakeasyCandidate(original,s=>{
+    const p=s.players.find(p=>p.playerId===ownerId);
+    if(!p||!discard(p,s,[cardId])) return 'INVALID_ACTION';
+    const raised=raiseSpeakeasyLevel(s,ownerId,operation,discardIds);
+    if(!raised.ok) return raised.reason;
+    Object.assign(s,raised.value);return null;
+  });
+}
+
 export function hireSpeakeasyGoons(original: SpeakeasyEconomy, ownerId: PlayerId, count: number, free: boolean, cashToSpend?: number): SpeakeasyRuleResult<SpeakeasyEconomy> {
   return speakeasyCandidate(original, s => {
     const p = s.players.find(p => p.playerId === ownerId);

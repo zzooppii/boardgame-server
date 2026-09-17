@@ -603,3 +603,55 @@ test('Speakeasy helper allowance renews next round while receipts and used cards
   assert.equal((await store.read(roomId))!.state.round.economy.players[0]!.cash,21);
   assert.equal((await store.read(roomId))!.state.helperUses.length,2);
 });
+
+function paidLevelSetup(level=3) {
+  const s=setup();s.round.economy.players[0]!.levels.FLEET=level;
+  const program:SpeakeasyLocationProgram={location:'CONTRACTOR',rows:[[{id:'extra-level',kind:'PAID_LEVEL',operation:'FLEET'}]]};
+  const c:SpeakeasyCommandCatalog={...catalog(s),locations:new Map(s.spaces.map(space=>[space.id,program])),
+    infamyBenefits:new Map(Array.from({length:20},(_,i)=>[i+6,null]))};
+  return {s:enter(s,c),c};
+}
+const paidChoice=(discardIds:string[]=[])=>({kind:'PAID_LEVEL',cardId:'hand-0-0',discardIds});
+
+test('Speakeasy optional paid level discards any hand card and raises only the server-indicated operation',()=>{
+  const {s,c}=paidLevelSetup(),r=run(s,'EXECUTE_LOCATION_ACTION',{actionId:'extra-level',choice:paidChoice()},c);
+  const p=r.candidate.round.economy.players[0]!;
+  assert.equal(p.levels.FLEET,4);assert.equal(p.levels.PARTY,2);assert.equal(p.hand.length,3);
+  assert.equal(r.candidate.round.decks.PARTY.at(-1)!.tileId,tile('hand-0-0'));
+  assert.equal(r.actorView.turn.stage,'FINISH_LOCATION');
+  assert.equal(prepareSpeakeasyPlayerCommand(r.candidate,a,body(r.candidate,'EXECUTE_LOCATION_ACTION',{actionId:'extra-level',choice:paidChoice()}),c).ok,false);
+});
+
+test('Speakeasy paid level five needs two distinct hand cards and returns both before the infamy reward',()=>{
+  const {s,c}=paidLevelSetup(4),benefits=new Map(c.infamyBenefits);
+  benefits.set(14,(state,actor)=>{
+    assert.deepEqual(state.decks.PARTY.slice(-2).map(card=>card.tileId),[tile('hand-0-0'),tile('hand-0-1')]);
+    state.economy.players.find(p=>p.playerId===actor)!.hand.push(state.decks.PARTY.shift()!);return {ok:true,value:state};
+  });
+  const r=run(s,'EXECUTE_LOCATION_ACTION',{actionId:'extra-level',choice:paidChoice(['hand-0-1'])},{...c,infamyBenefits:benefits});
+  assert.equal(r.candidate.round.economy.players[0]!.levels.FLEET,5);assert.equal(r.candidate.round.economy.players[0]!.hand.length,3);
+  assert.equal(r.candidate.round.economy.players[0]!.hand.at(-1)!.tileId,tile('deck-PARTY-0'));
+  for(const choice of [paidChoice(),paidChoice(['hand-0-0']),paidChoice(['installed-0']),paidChoice(['hand-1-0'])]) {
+    assert.equal(prepareSpeakeasyPlayerCommand(s,a,body(s,'EXECUTE_LOCATION_ACTION',{actionId:'extra-level',choice}),c).ok,false);
+  }
+});
+
+test('Speakeasy paid increase rejects installed/opponent cards, forged tracks, excess costs and maximum level',()=>{
+  const {s,c}=paidLevelSetup(),before=structuredClone(s);
+  for(const choice of [{...paidChoice(),cardId:'installed-0'},{...paidChoice(),cardId:'hand-1-0'},
+    {...paidChoice(),operation:'STRENGTH'},paidChoice(['hand-0-1'])]) {
+    assert.equal(prepareSpeakeasyPlayerCommand(s,a,body(s,'EXECUTE_LOCATION_ACTION',{actionId:'extra-level',choice}),c).ok,false);assert.deepEqual(s,before);
+  }
+  const max=paidLevelSetup(5);
+  assert.equal(prepareSpeakeasyPlayerCommand(max.s,a,body(max.s,'EXECUTE_LOCATION_ACTION',{actionId:'extra-level',choice:paidChoice(['hand-0-1'])}),max.c).ok,false);
+  assert.throws(()=>parseLocationProgress({program:{location:'CONTRACTOR',rows:[[{id:'extra',kind:'PAID_LEVEL',operation:'STRENGTH'}]]},completed:[]}));
+});
+
+test('Speakeasy paid increase can be skipped and missing or failed infamy reward rolls back both cards',()=>{
+  const {s,c}=paidLevelSetup(4),before=structuredClone(s),input=body(s,'EXECUTE_LOCATION_ACTION',{actionId:'extra-level',choice:paidChoice(['hand-0-1'])});
+  assert.equal(prepareSpeakeasyPlayerCommand(s,a,input,{...c,infamyBenefits:new Map()}).ok,false);
+  const benefits=new Map(c.infamyBenefits);benefits.set(14,state=>{state.economy.players[0]!.cash=999;return {ok:false,reason:'CAPACITY'};});
+  assert.equal(prepareSpeakeasyPlayerCommand(s,a,input,{...c,infamyBenefits:benefits}).ok,false);assert.deepEqual(s,before);
+  const skipped=skip(s,'extra-level',c);assert.deepEqual(skipped.round.economy,s.round.economy);
+  assert.equal(run(skipped,'FINISH_LOCATION_ACTIONS',{},c).actorView.turn.stage,'DRAW_OPERATION');
+});

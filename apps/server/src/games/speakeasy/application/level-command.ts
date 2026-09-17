@@ -1,5 +1,5 @@
 import type {PlayerId,SpeakeasyPlayerCommand} from '@hangul-rummikub/shared';
-import {raiseSpeakeasyLevel,speakeasyInfamy} from '../domain/economy.js';
+import {raiseSpeakeasyLevel,raisePaidSpeakeasyLevel,speakeasyInfamy} from '../domain/economy.js';
 import {parseSpeakeasyGameFlow,type SpeakeasyGameFlow} from '../domain/game-flow.js';
 import {commitSpeakeasyRoundEconomy} from '../domain/round-lifecycle.js';
 import {cityTileInventory,cityTileDefinitions,type CityEffectState} from '../domain/city-tiles.js';
@@ -11,7 +11,7 @@ type EffectState=CityEffectState & {decks:SpeakeasyGameFlow['round']['decks']};
 /** Server-resolved benefit only. Unresolved player choices must fail, never silently disappear. */
 export type SpeakeasyInfamyBenefit=(state:EffectState,actor:PlayerId)=>SpeakeasyRuleResult<EffectState>;
 type Command=Extract<SpeakeasyPlayerCommand,{type:'EXECUTE_LOCATION_ACTION'}>['command'];
-type Action=Extract<SpeakeasyLocationProgram['rows'][number][number],{kind:'LEVEL'}>;
+type Action=Extract<SpeakeasyLocationProgram['rows'][number][number],{kind:'LEVEL'|'PAID_LEVEL'}>;
 function inventory(s:SpeakeasyGameFlow) {
   return JSON.stringify([...speakeasyInventory(s.round.economy),...cityTileInventory(s.city),
     ...Object.values(s.round.decks).flatMap(deck=>deck.map(card=>card.tileId))].sort());
@@ -20,9 +20,12 @@ function inventory(s:SpeakeasyGameFlow) {
 export function resolveSpeakeasyLevel(original:SpeakeasyGameFlow,actor:PlayerId,command:Command,
   action:Action,catalog:SpeakeasyCommandCatalog):SpeakeasyRuleResult<SpeakeasyGameFlow> {
   const choice=command.choice;
-  if(choice.kind!=='LEVEL'||!action.operations.includes(choice.operation)) return ruleFailure('INVALID_ACTION');
   const s=parseSpeakeasyGameFlow(original);
-  const raised=raiseSpeakeasyLevel(s.round.economy,actor,choice.operation,choice.discardIds);
+  const raised=choice.kind==='LEVEL'&&action.kind==='LEVEL'&&action.operations.includes(choice.operation)
+    ?raiseSpeakeasyLevel(s.round.economy,actor,choice.operation,choice.discardIds)
+    :choice.kind==='PAID_LEVEL'&&action.kind==='PAID_LEVEL'
+      ?raisePaidSpeakeasyLevel(s.round.economy,actor,action.operation,choice.cardId,choice.discardIds)
+      :ruleFailure('INVALID_ACTION');
   if(!raised.ok) return raised;
   const infamy=speakeasyInfamy(raised.value.players.find(p=>p.playerId===actor)!);
   if(!catalog.infamyBenefits?.has(infamy)) return ruleFailure('INVALID_ACTION');

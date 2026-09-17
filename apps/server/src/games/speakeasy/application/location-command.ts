@@ -37,7 +37,7 @@ export function resolveSpeakeasyLocation(s:SpeakeasyGameFlow,actor:PlayerId,inpu
   const choice=input.command.choice;
   if(choice.kind!==action.kind) return ruleFailure('INVALID_ACTION');
   if(choice.kind==='FAMILY'&&action.kind==='FAMILY') return resolveSpeakeasyFamily(candidate,actor,input.command,action,catalog.dockBenefits);
-  if(choice.kind==='LEVEL'&&action.kind==='LEVEL') return resolveSpeakeasyLevel(candidate,actor,input.command,action,catalog);
+  if((choice.kind==='LEVEL'&&action.kind==='LEVEL')||(choice.kind==='PAID_LEVEL'&&action.kind==='PAID_LEVEL')) return resolveSpeakeasyLevel(candidate,actor,input.command,action,catalog);
   let outcome:SpeakeasyRuleResult<SpeakeasyEconomy>;
   const player=candidate.round.economy.players.find(p=>p.playerId===actor)!;
   switch(choice.kind) {
@@ -46,7 +46,7 @@ export function resolveSpeakeasyLocation(s:SpeakeasyGameFlow,actor:PlayerId,inpu
       if(action.kind!=='AMBUSH') return ruleFailure('INVALID_ACTION');
       outcome=ambushSpeakeasyShip(candidate.round.economy,actor,choice,action);break;
     }
-    case 'FAMILY': case 'LEVEL': return ruleFailure('INVALID_ACTION');
+    case 'FAMILY': case 'LEVEL': case 'PAID_LEVEL': return ruleFailure('INVALID_ACTION');
     case 'PRODUCE': {
       if(action.kind!=='PRODUCE') return ruleFailure('INVALID_ACTION');
       outcome=produceSpeakeasy(candidate.round.economy,actor,action.quantityByLevel[player.levels.STILLS-1]!);break;
