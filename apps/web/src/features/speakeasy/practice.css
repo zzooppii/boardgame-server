@@ -14,7 +14,7 @@
 .sp-practice-start>svg {width:140px;height:120px;}
 .sp-practice-start h2 {font-size:30px;line-height:1.5;}
 .sp-practice-start p {max-width:640px;margin:20px auto;line-height:1.8;color:#cabfae;}
-.sp-practice-start button,.sp-practice-confirm button:first-of-type {background:#d5af72;color:#132421;font-weight:800;}
+.sp-practice-start button,.sp-practice-confirm button:not(.sp-practice-map-link):first-of-type {background:#d5af72;color:#132421;font-weight:800;}
 .sp-practice-status {display:flex;flex-wrap:wrap;gap:12px 24px;border:1px solid var(--practice-line);padding:18px;border-radius:10px;background:#182925;}
 .sp-practice-status strong {color:#e6c28a;}
 .sp-practice-layout {display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:24px;align-items:start;}
@@ -66,3 +66,20 @@
 .sp-practice-start {background:linear-gradient(#112620da,#0b1817eb),url('/images/speakeasy/jazz-club.png') center/cover;}
 .sp-practice .sp-practice-jump {display:none;}
 @media(max-width:760px){.sp-practice .sp-practice-jump{display:block;margin:12px 0;width:100%;}.sp-practice .sp-header{padding:12px;flex-wrap:wrap;}.sp-practice .sp-wordmark{font-size:20px;letter-spacing:3px;}}
+
+.sp-practice .sp-practice-map>button.is-route {border-color:#89cce1;box-shadow:inset 0 0 0 1px #89cce1;background:#17333a;}
+.sp-practice .sp-practice-map>button.is-target {border-color:#f5c779;box-shadow:inset 0 0 0 2px #f5c779;}
+.sp-practice .sp-practice-lots>.is-target-lot {border:2px solid #f5c779;background:#43391f;}
+.sp-practice-route-marker,.sp-practice-target-label {font-size:11px;font-weight:700;margin-top:4px;color:#a6e8ff;}
+.sp-practice-target-label {color:#ffe0a3;}
+.sp-practice-route-summary {padding:12px;border:1px solid #89cce1;border-radius:8px;color:#c0edfa;line-height:1.7;}
+.sp-practice-deltas {list-style:none;display:flex;flex-wrap:wrap;gap:6px;padding:0;margin:12px 0;font-size:13px;}
+.sp-practice-deltas li {padding:6px 8px;border-radius:6px;background:#0c1c1a;color:#bfc9be;}
+.sp-practice-deltas .is-gain {color:#a2e7bd;}
+.sp-practice-deltas .is-spend {color:#ffd09c;}
+.sp-practice-feedback {border:1px solid #7daf91;border-radius:8px;padding:12px;margin:14px 0;background:#20362c;}
+.sp-practice-feedback h3 {margin:6px 0;font-size:16px;}
+.sp-practice-feedback>ul:not(.sp-practice-deltas) {padding-left:18px;font-size:13px;line-height:1.7;margin-bottom:0;}
+.sp-practice .sp-practice-map-link {background:transparent;border-style:dashed;font-size:13px;}
+.sp-practice-confirm button:nth-last-child(2) {background:#d5af72;color:#132421;font-weight:800;}
+.sp-practice-map:focus-visible {outline:3px solid #f2c97f;outline-offset:4px;}

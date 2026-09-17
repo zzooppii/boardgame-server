@@ -28,6 +28,10 @@ export const SpeakeasyPracticeCommandSchema = v.strictObject({
   gameId:GameIdSchema, revision:count, requestId:v.pipe(v.string(),v.minLength(1),v.maxLength(100)),action:SpeakeasyPracticeActionSchema,
 });
 export type SpeakeasyPracticeCommand = v.InferOutput<typeof SpeakeasyPracticeCommandSchema>;
+export const SpeakeasyPracticeResourceChangeSchema = v.strictObject({
+  cash:v.pipe(v.number(),v.safeInteger()),safe:v.pipe(v.number(),v.safeInteger()),
+  stock:v.pipe(v.number(),v.safeInteger()),family:v.pipe(v.number(),v.safeInteger()),truckLoad:v.pipe(v.number(),v.safeInteger()),
+});
 export const SpeakeasyPracticeViewSchema = v.strictObject({
   gameId:GameIdSchema,revision:count,viewerId:PlayerIdSchema,opponentId:PlayerIdSchema,
   turn:v.pipe(count,v.minValue(1),v.maxValue(11)),actionsLeft:v.pipe(count,v.maxValue(2)),finished:v.boolean(),
@@ -36,7 +40,9 @@ export const SpeakeasyPracticeViewSchema = v.strictObject({
   districts:v.array(v.strictObject({id:district,cop:v.boolean(),slots:v.array(v.nullable(SpeakeasyBuildingViewSchema))})),
   reserves:v.array(v.strictObject({kind:SpeakeasyBuildingKindSchema,count})),
   /** Only executable choices, computed by the authoritative server. */
-  choices:v.array(v.strictObject({label:v.string(),detail:v.string(),action:SpeakeasyPracticeActionSchema})),
+  choices:v.array(v.strictObject({label:v.string(),detail:v.string(),action:SpeakeasyPracticeActionSchema,
+    preview:v.strictObject({route:v.array(district),targets:v.array(v.strictObject({district,slot:v.nullable(v.picklist([0,1]))})),delta:SpeakeasyPracticeResourceChangeSchema})})),
+  feedback:v.nullable(v.strictObject({title:v.string(),delta:SpeakeasyPracticeResourceChangeSchema,events:v.array(v.string())})),
   log:v.array(v.string()),
   scores:v.array(v.strictObject({playerId:PlayerIdSchema,cash:count,safe:count,buildings:count,total:count,winner:v.boolean()})),
 });

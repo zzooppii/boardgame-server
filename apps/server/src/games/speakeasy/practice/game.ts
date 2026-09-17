@@ -6,7 +6,7 @@ import {buildSpeakeasy,produceSpeakeasy,deliverSpeakeasy,sellSpeakeasy,protectSp
 import {speakeasyFinalScores,speakeasyWinners} from '../domain/scoring.js';
 
 export type PracticeGame = {gameId:SpeakeasyPracticeView['gameId'];revision:number;turn:number;actionsLeft:number;finished:boolean;
-  player:PlayerId;bot:PlayerId;economy:SpeakeasyEconomy;log:string[]};
+  player:PlayerId;bot:PlayerId;economy:SpeakeasyEconomy;log:string[];feedback:SpeakeasyPracticeView['feedback']};
 /** Injected opaque IDs; no test fixture or original component catalog is reused. */
 export function startPractice(id:()=>string):PracticeGame {
   const tile=()=>parse(TileIdSchema,id()),player=parse(PlayerIdSchema,id()),bot=parse(PlayerIdSchema,id());
@@ -25,7 +25,7 @@ export function startPractice(id:()=>string):PracticeGame {
     economy.districts[i===0?1:15]!.slots[0]={piece:bar,ownerId:p.playerId,familyId:null,barrelId:null};
   });
   return {gameId:parse(GameIdSchema,id()),revision:0,turn:1,actionsLeft:2,finished:false,player,bot,
-    economy:parseSpeakeasyEconomy(economy),log:['연습 시작 · 생산 → 운송 → 판매로 수익을 만들어 보세요.']};
+    economy:parseSpeakeasyEconomy(economy),feedback:null,log:['연습 시작 · 생산 → 운송 → 판매로 수익을 만들어 보세요.']};
 }
 const edges:readonly (readonly [number,number])[]=Array.from({length:16},(_,i)=>i+1).flatMap(n=>[
   ...(n%4!==0?[[n,n+1] as const]:[]),...(n<=12?[[n,n+4] as const]:[])]);
@@ -94,6 +94,25 @@ function label(s:SpeakeasyEconomy,action:SpeakeasyPracticeAction):string {
   const b=d.slots.find(b=>b?.piece.tileId===action.buildingId)!;
   return `${d.id}구역 ${SPEAKEASY_BUILDING_LABELS[b.piece.kind]} ${action.type==='DELIVER'?'배달':action.type==='SELL'?'판매':'보호'}`;
 }
+/** Deltas come from the same validated candidate used for execution, never UI estimates. */
+function resourceChange(before:SpeakeasyEconomy,after:SpeakeasyEconomy,actor:PlayerId) {
+  const a=before.players.find(p=>p.playerId===actor)!,b=after.players.find(p=>p.playerId===actor)!;
+  return {cash:b.cash-a.cash,safe:b.safe-a.safe,stock:b.stock.length-a.stock.length,
+    family:b.vip.length-a.vip.length,truckLoad:b.trucks[0]!.barrels.length-a.trucks[0]!.barrels.length};
+}
+function preview(s:SpeakeasyEconomy,after:SpeakeasyEconomy,actor:PlayerId,action:SpeakeasyPracticeAction):SpeakeasyPracticeView['choices'][number]['preview'] {
+  const at=s.players.find(p=>p.playerId===actor)!.trucks[0]!.district;
+  const moves=action.type==='MOVE'?(at===null?[action.district]:path(at,action.district)):
+    action.type==='DELIVER'?delivery(s,actor,action.buildingId)?.route??[]:[];
+  const route=action.type==='MOVE'||action.type==='DELIVER'?[...(at===null?[]:[at]),...moves]:[];
+  const targets:SpeakeasyPracticeView['choices'][number]['preview']['targets']=[];
+  if(action.type==='MOVE')targets.push({district:action.district,slot:null});
+  else if(action.type==='BUILD')targets.push({district:action.district,slot:action.slot});
+  else for(const d of s.districts)d.slots.forEach((b,slot)=>{
+    if(b&&(slot===0||slot===1)&&(action.type==='PRODUCE'?b.ownerId===actor&&b.piece.kind==='STILLS'&&speakeasyOperating(d.cop,b):'buildingId' in action&&b.piece.tileId===action.buildingId))targets.push({district:d.id,slot});
+  });
+  return {route,targets,delta:resourceChange(s,after,actor)};
+}
 export function practiceChoices(s:PracticeGame,actor=s.player):SpeakeasyPracticeView['choices'] {
   if(s.finished||s.actionsLeft===0)return [];
   return candidates(s.economy,actor).flatMap(action=>{
@@ -103,7 +122,7 @@ export function practiceChoices(s:PracticeGame,actor=s.player):SpeakeasyPractice
     const detail=action.type==='MOVE'?`경로 ${[p.trucks[0]!.district??'진입',...(p.trucks[0]!.district===null?[action.district]:path(p.trucks[0]!.district,action.district))].join(' → ')}`:action.type==='BUILD'?`현금 $${p.cash-after.cash} · 금고 $${p.safe-after.safe} 지불`:
       action.type==='DELIVER'?`이동 경로 ${[p.trucks[0]!.district??'진입',...(delivery(s.economy,actor,action.buildingId)?.route??[])].join(' → ')} · 도착 건물에 주류 1개`:
       action.type==='SELL'?`현금 +$${after.cash-p.cash}`:action.type==='PROTECT'?'조직원 1명 · 경찰 진입 후에도 영업 · 최종 점수 획득':`저장 주류 +${after.stock.length-p.stock.length}`;
-    return [{action,label:label(s.economy,action),detail}];
+    return [{action,label:label(s.economy,action),detail,preview:preview(s.economy,outcome.value,actor,action)}];
   });
 }
 function botTurn(s:PracticeGame) {
@@ -137,7 +156,10 @@ export function actPractice(original:PracticeGame,actor:PlayerId,input:unknown):
     const outcome=effect(s.economy,actor,action);if(!outcome.ok)return null;
     s.log.push(`나 · ${label(s.economy,action)}`);s.economy=outcome.value;s.actionsLeft--;
   }
-  s.economy=parseSpeakeasyEconomy(s.economy);s.revision++;s.log=s.log.slice(-60);return s;
+  s.economy=parseSpeakeasyEconomy(s.economy);s.revision++;
+  s.feedback={title:action.type==='END_TURN'?`${original.turn}턴 종료${s.finished?' · 최종 정산':''}`:label(original.economy,action),
+    delta:resourceChange(original.economy,s.economy,actor),events:s.log.slice(original.log.length)};
+  s.log=s.log.slice(-60);return s;
 }
 export function projectPractice(s:PracticeGame):SpeakeasyPracticeView {
   const p=s.economy.players.find(p=>p.playerId===s.player)!,winners=s.finished?speakeasyWinners(s.economy):[];
@@ -145,5 +167,5 @@ export function projectPractice(s:PracticeGame):SpeakeasyPracticeView {
     cash:p.cash,safe:p.safe,stock:p.stock.length,family:p.vip.length,truck:{district:p.trucks[0]!.district,load:p.trucks[0]!.barrels.length},
     districts:s.economy.districts.map(d=>({id:d.id,cop:d.cop,slots:d.slots.map(b=>b?{tileId:b.piece.tileId,ownerId:b.ownerId,kind:b.piece.kind,protected:b.familyId!==null,barrel:b.barrelId!==null,operating:speakeasyOperating(d.cop,b)}:null)})),
     reserves:(['SPEAKEASY','NIGHTCLUB'] as const).map(kind=>({kind,count:p.reserves.filter(b=>b.kind===kind).length})),
-    choices:practiceChoices(s),log:s.log,scores:s.finished?speakeasyFinalScores(s.economy).map(p=>({playerId:p.playerId,cash:p.cash,safe:p.safe,buildings:p.buildingMoney,total:p.total,winner:winners.includes(p.playerId)})):[]});
+    choices:practiceChoices(s),feedback:s.feedback,log:s.log,scores:s.finished?speakeasyFinalScores(s.economy).map(p=>({playerId:p.playerId,cash:p.cash,safe:p.safe,buildings:p.buildingMoney,total:p.total,winner:winners.includes(p.playerId)})):[]});
 }

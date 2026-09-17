@@ -84,3 +84,42 @@ test('Truck movement has a server-checked range and preserves cargo when reposit
   assert.equal(actPractice(s,s.player,command),null);
   s=act(s,{type:'MOVE',district:5});assert.equal(projectPractice(s).truck.district,5);assert.equal(projectPractice(s).truck.load,1);
 });
+
+test('Every advertised preview matches authoritative execution, including safe spending and delivery routes',()=>{
+  let s=startPractice(ids());s.economy.players[0]!.cash=1;
+  for(let turn=0;turn<11;turn++){
+    for(const choice of practiceChoices(s)){
+      const before=projectPractice(s),after=projectPractice(act(s,choice.action));
+      assert.deepEqual(choice.preview.delta,{cash:after.cash-before.cash,safe:after.safe-before.safe,
+        stock:after.stock-before.stock,family:after.family-before.family,truckLoad:after.truck.load-before.truck.load});
+      assert.deepEqual(after.feedback?.delta,choice.preview.delta);
+      assert.equal(after.feedback?.events.length,1);
+      const route=choice.preview.route;
+      for(let i=1;i<route.length;i++){
+        const a=route[i-1]!,b=route[i]!;
+        assert.equal(Math.abs(Math.floor((a-1)/4)-Math.floor((b-1)/4))+Math.abs((a-1)%4-(b-1)%4),1);
+      }
+      if(route.length)assert.equal(route.at(-1),after.truck.district);
+      for(const target of choice.preview.targets){
+        if(choice.action.type==='BUILD')assert.equal(after.districts[target.district-1]!.slots[target.slot!]!.kind,choice.action.kind);
+        else if('buildingId' in choice.action)assert.equal(before.districts[target.district-1]!.slots[target.slot!]!.tileId,choice.action.buildingId);
+      }
+    }
+    const choices=practiceChoices(s),choice=choices.find(c=>c.action.type==='DELIVER')??choices.find(c=>c.action.type==='PRODUCE');
+    if(choice)s=act(s,choice.action);
+    s=act(s,{type:'END_TURN'});
+  }
+});
+test('Feedback groups only the last command, survives log trimming, and is detached from state',()=>{
+  let s=startPractice(ids());assert.equal(projectPractice(s).feedback,null);
+  s.log=Array.from({length:60},(_,i)=>`old-${i}`);
+  while(s.turn<4)s=act(s,{type:'END_TURN'});
+  const before=projectPractice(s);s=act(s,{type:'END_TURN'});
+  const view=projectPractice(s);assert.ok(view.feedback);
+  assert.equal(view.feedback.title,'4턴 종료');assert.equal(view.feedback.delta.safe,view.safe-before.safe);
+  assert.ok(view.feedback.events.includes('경찰 · 4구역 진입'));
+  assert.equal(view.feedback.events.filter(e=>e.startsWith('컴퓨터 ·')&&!e.includes('정산')).length,2);
+  assert.ok(view.feedback.events.every(e=>!e.startsWith('old-')));
+  view.feedback.events.push('tamper');view.feedback.delta.cash=999;
+  assert.ok(!s.feedback!.events.includes('tamper'));assert.notEqual(s.feedback!.delta.cash,999);
+});
