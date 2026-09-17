@@ -83,3 +83,19 @@
 .sp-practice .sp-practice-map-link {background:transparent;border-style:dashed;font-size:13px;}
 .sp-practice-confirm button:nth-last-child(2) {background:#d5af72;color:#132421;font-weight:800;}
 .sp-practice-map:focus-visible {outline:3px solid #f2c97f;outline-offset:4px;}
+
+.sp-practice-guide {margin:20px 28px;border:1px solid var(--practice-line);border-radius:12px;background:#142923;padding:18px;}
+.sp-practice-guide summary {color:#f3d6a3;font-weight:700;cursor:pointer;min-height:24px;}
+.sp-practice-guide>p {line-height:1.7;color:#c4cebf;}
+.sp-practice-guide ol {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));list-style:none;gap:12px;padding:0;}
+.sp-practice-guide li {border:1px solid var(--practice-line);border-radius:8px;padding:14px;background:#10221e;}
+.sp-practice-guide li.is-next {border-color:#e2bb76;background:#263c2d;}
+.sp-practice-guide li>div {display:flex;align-items:center;gap:10px;}
+.sp-practice-guide svg,.sp-practice-guide-money {width:28px;height:28px;}
+.sp-practice-guide-money {color:#e5be7f;font:700 24px Georgia;text-align:center;}
+.sp-practice-guide li p {font-size:14px;line-height:1.6;color:#c4cebf;}
+.sp-practice-guide li button {width:100%;font-size:14px;}
+.sp-practice-guide button:disabled {cursor:default;}
+.sp-practice-guide small,.sp-practice-scope {color:#b3c7b8;font-size:13px;line-height:1.6;}
+.sp-practice-guide small {display:block;margin-top:12px;}
+@media(max-width:760px){.sp-practice-guide{margin:16px 12px;padding:14px;}.sp-practice-guide ol{grid-template-columns:1fr;gap:8px;}.sp-practice-guide li{padding:12px;}.sp-practice-guide li p{margin:8px 0;}}
