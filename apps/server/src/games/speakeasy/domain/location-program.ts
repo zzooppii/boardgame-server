@@ -1,8 +1,14 @@
 import * as v from 'valibot';
-import {SpeakeasyBuildingKindSchema,SpeakeasyDeckSchema,SpeakeasyLocationSchema} from '@hangul-rummikub/shared';
+import {SpeakeasyBuildingKindSchema,SpeakeasyDeckSchema,SpeakeasyLocationSchema,SpeakeasyCountSchema,SpeakeasyDistrictIdSchema,TileIdSchema} from '@hangul-rummikub/shared';
 const key=v.pipe(v.string(),v.minLength(1),v.maxLength(100));
 const action=v.variant('kind',[
   v.strictObject({id:key,kind:v.literal('BOOK')}),
+  v.strictObject({id:key,kind:v.literal('PRODUCE'),quantityByLevel:v.pipe(v.array(SpeakeasyCountSchema),v.length(5))}),
+  v.strictObject({id:key,kind:v.literal('SELL'),limitByLevel:v.pipe(v.array(SpeakeasyCountSchema),v.length(5)),
+    pricesByInfamy:v.pipe(v.array(v.strictObject({speakeasy:SpeakeasyCountSchema,premium:SpeakeasyCountSchema})),v.length(21))}),
+  v.strictObject({id:key,kind:v.literal('DELIVER'),rangeBonus:SpeakeasyCountSchema,
+    cardBonuses:v.array(v.strictObject({cardId:TileIdSchema,range:SpeakeasyCountSchema})),
+    edges:v.pipe(v.array(v.tuple([SpeakeasyDistrictIdSchema,SpeakeasyDistrictIdSchema])),v.minLength(1),v.maxLength(120))}),
   v.strictObject({id:key,kind:v.literal('GOONS')}),
   v.strictObject({id:key,kind:v.literal('PROTECT'),costByPosition:v.pipe(v.array(v.pipe(v.number(),v.safeInteger(),v.minValue(1),v.maxValue(4))),v.minLength(2),v.maxLength(4))}),
   v.strictObject({id:key,kind:v.literal('OPERATION'),operations:v.pipe(v.array(SpeakeasyDeckSchema),v.minLength(1),v.maxLength(4))}),
@@ -19,6 +25,10 @@ export function availableLocationActions(s:SpeakeasyLocationProgress) {
 export function parseLocationProgress(input:unknown):SpeakeasyLocationProgress {
   const s=v.parse(SpeakeasyLocationProgressSchema,input),ids=s.program.rows.flat().map(a=>a.id);
   if(s.program.location==='RESTAURANT'||new Set(ids).size!==ids.length||new Set(s.completed).size!==s.completed.length||s.completed.some(id=>!ids.includes(id))) throw new Error('Invalid location program.');
+  for(const a of s.program.rows.flat()) if(a.kind==='DELIVER') {
+    const edges=a.edges.map(([x,y])=>[Math.min(x,y),Math.max(x,y)].join(':'));
+    if(a.edges.some(([x,y])=>x===y)||new Set(edges).size!==edges.length||new Set(a.cardBonuses.map(b=>b.cardId)).size!==a.cardBonuses.length) throw new Error('Invalid delivery catalog.');
+  }
   let waiting=false;
   for(const row of s.program.rows) {
     if(waiting&&row.some(a=>s.completed.includes(a.id))) throw new Error('Location row skipped.');

@@ -132,3 +132,86 @@ test('Speakeasy ordinary locations complete 22 service turns with automatic act 
   assert.ok(final.round.economy.players.every(p=>p.books===4));assert.equal(parseSpeakeasyGameFlow(final).locationActions,null);
   const view=await service.snapshot(context(a));assert.ok(view.ok);assert.ok(view.view.result);
 });
+
+// Synthetic production/price tables and graph exercise authority, not printed component values.
+function logistics() {
+  const s=setup(),p=s.round.economy.players[0]!;
+  for(const [id,district] of [['stills-0',1],['bar-0-0',2]] as const) {
+    const index=p.reserves.findIndex(piece=>piece.tileId===id),piece=p.reserves.splice(index,1)[0]!;
+    s.round.economy.districts[district-1]!.slots[0]={piece,ownerId:a,barrelId:null,familyId:null};
+  }
+  const program:SpeakeasyLocationProgram={location:'CONTRACTOR',rows:[[{id:'produce',kind:'PRODUCE',quantityByLevel:[1,2,3,4,5]}],
+    [{id:'deliver',kind:'DELIVER',rangeBonus:0,cardBonuses:[{cardId:tile('installed-0'),range:2}],edges:[[1,2],[2,3],[3,4],[4,5],[5,6],[6,7]]}],
+    [{id:'sell',kind:'SELL',limitByLevel:[1,2,3,4,5],pricesByInfamy:Array.from({length:21},(_,i)=>({speakeasy:i+5,premium:i+10}))}]]};
+  const c={...catalog(s),locations:new Map(s.spaces.map(space=>[space.id,program]))};
+  return {s:enter(s,c),c,program};
+}
+const move=(district:number,truckId='truck-0-0')=>({kind:'MOVE',truckId,district});
+const load={kind:'LOAD',truckId:'truck-0-0',count:1};
+const unload={kind:'UNLOAD',truckId:'truck-0-0',buildingId:'bar-0-0'};
+
+test('Speakeasy production, delivery and sale use current levels and preserve every barrel',()=>{
+  let {s,c}=logistics();
+  s=run(s,'EXECUTE_LOCATION_ACTION',{actionId:'produce',choice:{kind:'PRODUCE'}},c).candidate;
+  assert.equal(s.round.economy.players[0]!.stock.length,2);
+  s=run(s,'EXECUTE_LOCATION_ACTION',{actionId:'deliver',choice:{kind:'DELIVER',steps:[move(1),load,move(2),unload]}},c).candidate;
+  assert.equal(s.round.economy.players[0]!.stock.length,1);
+  assert.ok(s.round.economy.districts[1]!.slots[0]!.barrelId);
+  const cash=s.round.economy.players[0]!.cash;
+  s=run(s,'EXECUTE_LOCATION_ACTION',{actionId:'sell',choice:{kind:'SELL',buildingIds:['bar-0-0']}},c).candidate;
+  assert.equal(s.round.economy.players[0]!.cash,cash+12);
+  assert.equal(s.round.economy.districts[1]!.slots[0]!.barrelId,null);
+  assert.equal(s.round.economy.barrelSupply.length,39);
+  assert.equal(run(s,'FINISH_LOCATION_ACTIONS',{},c).actorView.turn.stage,'DRAW_OPERATION');
+});
+
+test('Speakeasy invalid delivery tail rolls back loading, movement and action completion',()=>{
+  let {s,c}=logistics();s=run(s,'EXECUTE_LOCATION_ACTION',{actionId:'produce',choice:{kind:'PRODUCE'}},c).candidate;
+  const before=structuredClone(s);
+  for(const steps of [[move(1),load,move(3)],[move(1),load,move(2),unload,unload],
+    [move(1),load,move(2,'truck-1-0')],[move(1),load,move(2),{...unload,buildingId:'bar-1-0'}]]) {
+    assert.equal(prepareSpeakeasyPlayerCommand(s,a,body(s,'EXECUTE_LOCATION_ACTION',{actionId:'deliver',choice:{kind:'DELIVER',steps}}),c).ok,false);
+    assert.deepEqual(s,before);
+  }
+  assert.equal(s.locationActions!.completed.includes('deliver'),false);
+});
+
+test('Speakeasy delivery grants installed card range only and rejects client supplied rules',()=>{
+  let {s,c}=logistics();s=skip(s,'produce',c);
+  const steps=[1,2,3,4,5,6].map(n=>move(n));
+  const delivered=run(s,'EXECUTE_LOCATION_ACTION',{actionId:'deliver',choice:{kind:'DELIVER',steps}},c);
+  assert.equal(delivered.candidate.round.economy.players[0]!.trucks[0]!.district,6);
+  for(const choice of [{kind:'DELIVER',steps:[...steps,move(7)]},{kind:'DELIVER',steps,range:100},
+    {kind:'DELIVER',steps,edges:[[1,7]]},{kind:'DELIVER',steps:[]}]) {
+    assert.equal(prepareSpeakeasyPlayerCommand(s,a,body(s,'EXECUTE_LOCATION_ACTION',{actionId:'deliver',choice}),c).ok,false);
+  }
+  const p=s.round.economy.players[0]!;p.hand.push(...p.operations.splice(0));
+  assert.equal(prepareSpeakeasyPlayerCommand(s,a,body(s,'EXECUTE_LOCATION_ACTION',{actionId:'deliver',choice:{kind:'DELIVER',steps}}),c).ok,false);
+  p.levels.FLEET=2;
+  assert.equal(prepareSpeakeasyPlayerCommand(s,a,body(s,'EXECUTE_LOCATION_ACTION',{actionId:'deliver',choice:{kind:'DELIVER',steps:[move(1,'truck-0-1')]}}),c).ok,false);
+});
+
+test('Speakeasy logistics rejects closed businesses, duplicate sales and forged quantities',()=>{
+  let {s,c}=logistics();s.round.economy.districts[0]!.cop=true;
+  for(const choice of [{kind:'PRODUCE'},{kind:'PRODUCE',quantity:99}]) {
+    assert.equal(prepareSpeakeasyPlayerCommand(s,a,body(s,'EXECUTE_LOCATION_ACTION',{actionId:'produce',choice}),c).ok,false);
+  }
+  s.round.economy.districts[0]!.cop=false;
+  s=run(s,'EXECUTE_LOCATION_ACTION',{actionId:'produce',choice:{kind:'PRODUCE'}},c).candidate;
+  s=run(s,'EXECUTE_LOCATION_ACTION',{actionId:'deliver',choice:{kind:'DELIVER',steps:[move(1),load,move(2),unload]}},c).candidate;
+  for(const choice of [{kind:'SELL',buildingIds:['bar-0-0','bar-0-0']},{kind:'SELL',buildingIds:['bar-0-0'],speakeasy:100}]) {
+    assert.equal(prepareSpeakeasyPlayerCommand(s,a,body(s,'EXECUTE_LOCATION_ACTION',{actionId:'sell',choice}),c).ok,false);
+  }
+  s.round.economy.districts[1]!.cop=true;const before=structuredClone(s);
+  assert.equal(prepareSpeakeasyPlayerCommand(s,a,body(s,'EXECUTE_LOCATION_ACTION',{actionId:'sell',choice:{kind:'SELL',buildingIds:['bar-0-0']}}),c).ok,false);
+  assert.deepEqual(s,before);
+});
+
+test('Speakeasy server delivery graph and level tables must be complete and unambiguous',()=>{
+  const {program}=logistics();const delivery=program.rows[1]![0]!;
+  for(const invalid of [{...delivery,edges:[[1,1]]},{...delivery,edges:[[1,2],[2,1]]},
+    {...delivery,cardBonuses:[{cardId:'duplicate',range:2},{cardId:'duplicate',range:2}]}]) {
+    assert.throws(()=>parseLocationProgress({program:{...program,rows:[[invalid]]},completed:[]}));
+  }
+  assert.throws(()=>parseLocationProgress({program:{...program,rows:[[{id:'produce',kind:'PRODUCE',quantityByLevel:[1]}]]},completed:[]}));
+});

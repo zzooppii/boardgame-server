@@ -2,7 +2,7 @@ import type {PlayerId,SpeakeasyPlayerCommand} from '@hangul-rummikub/shared';
 import {parseSpeakeasyGameFlow,placeSpeakeasyCapo,finishSpeakeasyLocation,type SpeakeasyGameFlow} from '../domain/game-flow.js';
 import {parseLocationProgress,availableLocationActions} from '../domain/location-program.js';
 import {commitSpeakeasyRoundEconomy,speakeasyEffectivePosition} from '../domain/round-lifecycle.js';
-import {buildSpeakeasy,hireSpeakeasyGoons,protectSpeakeasy} from '../domain/economy.js';
+import {buildSpeakeasy,hireSpeakeasyGoons,protectSpeakeasy,produceSpeakeasy,deliverSpeakeasy,sellSpeakeasy,speakeasyInfamy} from '../domain/economy.js';
 import {playRestaurantOperation} from '../domain/restaurant-actions.js';
 import {cityTileDefinitions} from '../domain/city-tiles.js';
 import {speakeasyCandidate,ruleFailure,type SpeakeasyRuleResult,type SpeakeasyEconomy} from '../domain/model.js';
@@ -33,7 +33,22 @@ export function resolveSpeakeasyLocation(s:SpeakeasyGameFlow,actor:PlayerId,inpu
   const choice=input.command.choice;
   if(choice.kind!==action.kind) return ruleFailure('INVALID_ACTION');
   let outcome:SpeakeasyRuleResult<SpeakeasyEconomy>;
+  const player=candidate.round.economy.players.find(p=>p.playerId===actor)!;
   switch(choice.kind) {
+    case 'PRODUCE': {
+      if(action.kind!=='PRODUCE') return ruleFailure('INVALID_ACTION');
+      outcome=produceSpeakeasy(candidate.round.economy,actor,action.quantityByLevel[player.levels.STILLS-1]!);break;
+    }
+    case 'SELL': {
+      if(action.kind!=='SELL') return ruleFailure('INVALID_ACTION');
+      const prices=action.pricesByInfamy[speakeasyInfamy(player)-5]!;
+      outcome=sellSpeakeasy(candidate.round.economy,actor,choice.buildingIds,{...prices,limit:action.limitByLevel[player.levels.PARTY-1]!});break;
+    }
+    case 'DELIVER': {
+      if(action.kind!=='DELIVER') return ruleFailure('INVALID_ACTION');
+      const bonus=action.cardBonuses.filter(b=>player.operations.some(c=>c.tileId===b.cardId)).reduce((sum,b)=>sum+b.range,0);
+      outcome=deliverSpeakeasy(candidate.round.economy,actor,choice.steps,{range:player.levels.FLEET+action.rangeBonus+bonus,edges:action.edges});break;
+    }
     case 'BOOK': outcome=speakeasyCandidate(candidate.round.economy,e=>{
       const p=e.players.find(p=>p.playerId===actor)!;
       if(p.bookReserve===0) return 'CAPACITY';p.bookReserve--;p.books++;return null;
