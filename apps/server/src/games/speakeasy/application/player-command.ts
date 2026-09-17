@@ -1,3 +1,4 @@
+import type {SpeakeasyDockBenefit} from '../domain/family-actions.js';
 import type {SpeakeasyInfamyBenefit} from './level-command.js';
 import {safeParse} from 'valibot';
 import {placeAtSpeakeasyLocation,resolveSpeakeasyLocation} from './location-command.js';
@@ -22,6 +23,7 @@ export type SpeakeasyCommandCatalog = Readonly<{
   goals: readonly RestaurantBookGoal[];
   /** Every reachable infamy space must explicitly define a resolved benefit or null (no benefit). */
   infamyBenefits?: ReadonlyMap<number,SpeakeasyInfamyBenefit|null>;
+  dockBenefits?: ReadonlyMap<string,SpeakeasyDockBenefit|null>;
   locations?: ReadonlyMap<string,SpeakeasyLocationProgram>;
   buildingBenefits?: ReadonlyMap<TileId,(s:CityEffectState,actor:PlayerId)=>SpeakeasyRuleResult<CityEffectState>>;
 }>;

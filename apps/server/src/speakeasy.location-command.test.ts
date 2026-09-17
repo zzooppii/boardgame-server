@@ -282,3 +282,78 @@ test('Speakeasy lower levels require no discard and an explicitly empty infamy b
   assert.equal(result.candidate.round.economy.players[0]!.hand.length,4);
   assert.equal(prepareSpeakeasyPlayerCommand(result.candidate,a,body(result.candidate,'EXECUTE_LOCATION_ACTION',{actionId:'level',choice:{kind:'LEVEL',operation:'VIP',discardIds:[]}}),c).ok,false);
 });
+
+function familySetup() {
+  const s=setup(),p=s.round.economy.players[0]!,other=s.round.economy.players[1]!;
+  s.round.economy.docks=[{ownerId:a,familyId:p.familyReserve.shift()!,zone:0,space:0},
+    {ownerId:a,familyId:p.familyReserve.shift()!,zone:0,space:1},
+    {ownerId:b,familyId:other.familyReserve.shift()!,zone:1,space:0}];
+  const program:SpeakeasyLocationProgram={location:'CONTRACTOR',rows:[[{id:'family',kind:'FAMILY',vipCapacityByLevel:[2,3,4,5,6],
+    docks:[{zone:0,space:0},{zone:0,space:1},{zone:0,space:2},{zone:0,space:3},{zone:1,space:0}]}]]};
+  const c:SpeakeasyCommandCatalog={...catalog(s),locations:new Map(s.spaces.map(space=>[space.id,program])),
+    dockBenefits:new Map([['0:2',state=>{state.economy.players[0]!.cash+=4;return {ok:true,value:state};}]])};
+  return {s:enter(s,c),c};
+}
+const dockChoice=(moves:object[]=[],zone=0,space=2)=>({kind:'FAMILY',destination:{kind:'DOCK',zone,space,moves}});
+
+test('Speakeasy family acquisition fills VIP only to the current server capacity',()=>{
+  const {s,c}=familySetup(),before=s.round.economy.players[0]!.familyReserve.length;
+  const result=run(s,'EXECUTE_LOCATION_ACTION',{actionId:'family',choice:{kind:'FAMILY',destination:{kind:'VIP'}}},c);
+  assert.equal(result.candidate.round.economy.players[0]!.vip.length,3);
+  assert.equal(result.candidate.round.economy.players[0]!.familyReserve.length,before-1);
+  assert.equal(result.actorView.turn.stage,'FINISH_LOCATION');
+  s.round.economy.players[0]!.levels.VIP=1;
+  const denied=body(s,'EXECUTE_LOCATION_ACTION',{actionId:'family',choice:{kind:'FAMILY',destination:{kind:'VIP'}}});
+  assert.equal(prepareSpeakeasyPlayerCommand(s,a,denied,c).ok,false);
+  assert.equal(prepareSpeakeasyPlayerCommand(result.candidate,a,body(result.candidate,'EXECUTE_LOCATION_ACTION',{actionId:'family',choice:{kind:'FAMILY',destination:{kind:'VIP'}}}),c).ok,false);
+});
+
+test('Speakeasy new dock placement rewards once and sequential old-family moves earn no additional benefit',()=>{
+  const {s,c}=familySetup(),cash=s.round.economy.players[0]!.cash;
+  const result=run(s,'EXECUTE_LOCATION_ACTION',{actionId:'family',choice:dockChoice([
+    {familyId:'family-0-0',zone:0,space:3},{familyId:'family-0-1',zone:0,space:0},{familyId:'family-0-0',zone:0,space:1},
+  ])},c);
+  const e=result.candidate.round.economy;
+  assert.equal(e.players[0]!.cash,cash+4);assert.equal(e.docks.length,4);
+  assert.equal(e.docks.find(d=>d.familyId==='family-0-0')!.space,1);
+  assert.equal(e.docks.find(d=>d.familyId==='family-0-1')!.space,0);
+  assert.equal(e.docks.find(d=>d.familyId==='family-0-2')!.space,2);
+});
+
+test('Speakeasy dock relocation rejects occupied, unknown, opponent and new members without partial rewards',()=>{
+  const {s,c}=familySetup(),before=structuredClone(s);
+  const choices=[dockChoice([],1,0),dockChoice([],2,11),
+    dockChoice([{familyId:'family-0-0',zone:0,space:1}]),
+    dockChoice([{familyId:'family-1-0',zone:0,space:3}]),
+    dockChoice([{familyId:'family-0-2',zone:0,space:3}]),
+    dockChoice([{familyId:'missing',zone:0,space:3}]),
+    dockChoice([{familyId:'family-0-0',zone:0,space:3},{familyId:'family-0-1',zone:2,space:0}])];
+  for(const choice of choices) {
+    assert.equal(prepareSpeakeasyPlayerCommand(s,a,body(s,'EXECUTE_LOCATION_ACTION',{actionId:'family',choice}),c).ok,false);
+    assert.deepEqual(s,before);
+  }
+});
+
+test('Speakeasy missing, failed or invalid dock bonuses cannot consume a family member',()=>{
+  const {s,c}=familySetup(),before=structuredClone(s),input=body(s,'EXECUTE_LOCATION_ACTION',{actionId:'family',choice:dockChoice()});
+  assert.equal(prepareSpeakeasyPlayerCommand(s,a,input,{...c,dockBenefits:new Map()}).ok,false);
+  const benefits=new Map(c.dockBenefits);
+  benefits.set('0:2',state=>{state.economy.players[0]!.cash=999;return {ok:false,reason:'CAPACITY'};});
+  assert.equal(prepareSpeakeasyPlayerCommand(s,a,input,{...c,dockBenefits:benefits}).ok,false);
+  benefits.set('0:2',state=>{state.decks.PARTY.shift();return {ok:true,value:state};});
+  assert.throws(()=>prepareSpeakeasyPlayerCommand(s,a,input,{...c,dockBenefits:benefits}));
+  assert.deepEqual(s,before);
+});
+
+test('Speakeasy dock bonus can draw a card while input cannot override reward or VIP capacity',()=>{
+  const {s,c}=familySetup(),benefits=new Map(c.dockBenefits);
+  benefits.set('0:2',state=>{state.economy.players[0]!.hand.push(state.decks.PARTY.shift()!);return {ok:true,value:state};});
+  const result=run(s,'EXECUTE_LOCATION_ACTION',{actionId:'family',choice:dockChoice()},{...c,dockBenefits:benefits});
+  assert.equal(result.candidate.round.economy.players[0]!.hand.at(-1)!.tileId,tile('deck-PARTY-0'));
+  for(const choice of [{...dockChoice(),reward:99},{kind:'FAMILY',destination:{kind:'VIP',capacity:99}},
+    {kind:'FAMILY',destination:{kind:'VIP',moves:[]}}]) {
+    assert.equal(prepareSpeakeasyPlayerCommand(s,a,body(s,'EXECUTE_LOCATION_ACTION',{actionId:'family',choice}),c).ok,false);
+  }
+  const empty=structuredClone(s);empty.round.economy.players[0]!.removedFamily.push(...empty.round.economy.players[0]!.familyReserve.splice(0));
+  assert.equal(prepareSpeakeasyPlayerCommand(empty,a,body(empty,'EXECUTE_LOCATION_ACTION',{actionId:'family',choice:dockChoice()}),c).ok,false);
+});
