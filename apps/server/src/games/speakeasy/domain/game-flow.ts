@@ -17,7 +17,7 @@ import {ruleFailure, speakeasyInventory, type SpeakeasyEconomy, type SpeakeasyRu
 const Space = v.strictObject({id: v.pipe(v.string(), v.minLength(1), v.maxLength(100)), location: SpeakeasyLocationSchema});
 const Capos = v.strictObject({playerId: PlayerIdSchema, available: v.array(TileIdSchema), retired: v.array(TileIdSchema),
   placed: v.array(v.strictObject({tileId: TileIdSchema, spaceId: Space.entries.id}))});
-const State = v.strictObject({helperUses:v.optional(v.array(v.strictObject({playerId:PlayerIdSchema,cardId:TileIdSchema,act:v.picklist([1,2,3,4]),round:v.pipe(v.number(),v.safeInteger(),v.minValue(1),v.maxValue(4))})),()=>[]),locationActions:v.nullable(SpeakeasyLocationProgressSchema), awaitingCityReturn: v.boolean(), city: CityTilesSchema, round: v.unknown(), spaces: v.array(Space), capos: v.array(Capos),
+const State = v.strictObject({parkBenefit:v.optional(v.nullable(v.strictObject({playerId:PlayerIdSchema,capoId:TileIdSchema,spaceId:Space.entries.id})),null),helperUses:v.optional(v.array(v.strictObject({playerId:PlayerIdSchema,cardId:TileIdSchema,act:v.picklist([1,2,3,4]),round:v.pipe(v.number(),v.safeInteger(),v.minValue(1),v.maxValue(4))})),()=>[]),locationActions:v.nullable(SpeakeasyLocationProgressSchema), awaitingCityReturn: v.boolean(), city: CityTilesSchema, round: v.unknown(), spaces: v.array(Space), capos: v.array(Capos),
   active: v.nullable(v.strictObject({playerId: PlayerIdSchema, capoId: TileIdSchema, spaceId: Space.entries.id, restaurant: v.nullable(RestaurantChoicesSchema)})),
   luciano: v.nullable(v.unknown()), history: v.array(v.unknown())});
 export type SpeakeasyGameFlow = Omit<v.InferOutput<typeof State>, 'round' | 'luciano' | 'history'> & {
@@ -43,7 +43,8 @@ export function parseSpeakeasyGameFlow(input: unknown): SpeakeasyGameFlow {
   if(cityChoice?.current?.action==='CITY_TILES' && cityChoice.current.used!==s.city.played.length) throw new Error('City action count mismatch.');
   if(s.city.played.length && cityChoice?.current?.action!=='CITY_TILES' && !cityChoice?.completed.includes('CITY_TILES')) throw new Error('Unrecorded city action.');
   if(s.awaitingCityReturn && (r.phase!=='DRAW_OPERATION' || !s.active || cityReturnsNeeded(s.city,s.active.playerId,speakeasyCityTileLimit(r.economy,s.active.playerId))===0)) throw new Error('Invalid city return phase.');
-  if(!s.active && s.city.held.some(p=>p.tiles.length>speakeasyCityTileLimit(r.economy,p.playerId))) throw new Error('Unresolved city limit.');
+  // A Park reward outside one's turn or a pre-Capo helper may exceed the limit.
+  // Return cleanup is enforced after that owner's mandatory draw, not on receipt.
   if(s.locationActions) {
     s.locationActions=parseLocationProgress(s.locationActions);
     if(!s.active||s.active.restaurant||s.spaces.find(p=>p.id===s.active!.spaceId)?.location!==s.locationActions.program.location||
@@ -52,6 +53,9 @@ export function parseSpeakeasyGameFlow(input: unknown): SpeakeasyGameFlow {
   if(new Set(s.helperUses.map(h=>`${h.act}:${h.round}:${h.playerId}`)).size!==s.helperUses.length||new Set(s.helperUses.map(h=>h.cardId)).size!==s.helperUses.length||s.helperUses.some(h=>
     h.round>SPEAKEASY_ROUNDS[h.act-1]!||h.act>r.clock.act||(h.act===r.clock.act&&h.round>r.clock.round)||
     !r.economy.players.find(p=>p.playerId===h.playerId)?.helpers.some(card=>card.tileId===h.cardId&&card.used))) throw new Error('Invalid helper history.');
+  if(s.parkBenefit && (r.phase!=='PLAYING'||!s.active||s.parkBenefit.playerId===s.active.playerId||
+    s.spaces.find(space=>space.id===s.parkBenefit!.spaceId)?.location!=='PARK'||
+    !s.capos.find(p=>p.playerId===s.parkBenefit!.playerId)?.placed.some(c=>c.tileId===s.parkBenefit!.capoId&&c.spaceId===s.parkBenefit!.spaceId))) throw new Error('Invalid Park benefit.');
   const occupied: string[] = [];
   for (const p of s.capos) {
     const expected = terminal ? r.clock.round : r.clock.round - 1 +
@@ -110,11 +114,11 @@ function success(s: SpeakeasyGameFlow): SpeakeasyRuleResult<SpeakeasyGameFlow> {
 /** Placement and the mandatory Restaurant payment commit together; no stranded Capo on failure. */
 export function placeSpeakeasyCapo(original: SpeakeasyGameFlow, actor: PlayerId, input: unknown): SpeakeasyRuleResult<SpeakeasyGameFlow> {
   const command = v.safeParse(SpeakeasyPlaceCapoCommandSchema, input);
-  if (!command.success || !matches(original, command.output) || original.round.phase !== 'PLAYING' || original.active ||
+  if (!command.success || !matches(original, command.output) || original.round.phase !== 'PLAYING' || original.active || original.parkBenefit ||
     original.round.clock.order[original.round.clock.seat] !== actor) return ruleFailure('INVALID_ACTION');
   const c = command.output, s = parseSpeakeasyGameFlow(original), space = s.spaces.find(t => t.id === c.spaceId);
   const owner = s.capos.find(p => p.playerId === actor)!;
-  if (!space || !owner.available.includes(c.capoId) || (space.location !== 'RESTAURANT' &&
+  if (!space || space.location==='PARK' || !owner.available.includes(c.capoId) || (space.location !== 'RESTAURANT' &&
     (c.restaurant || s.capos.some(p => p.placed.some(t => t.spaceId === space.id))))) return ruleFailure('INVALID_ACTION');
   if (space.location === 'RESTAURANT') {
     if (!c.restaurant) return ruleFailure('INVALID_ACTION');
@@ -131,14 +135,14 @@ export function placeSpeakeasyCapo(original: SpeakeasyGameFlow, actor: PlayerId,
 /** Server-only: resolve an authorized location effect, including its bonuses, before committing it. */
 export function commitSpeakeasyLocationEconomy(original: SpeakeasyGameFlow, guard: SpeakeasyPhaseGuard,
   outcome: SpeakeasyRuleResult<SpeakeasyEconomy>): SpeakeasyRuleResult<SpeakeasyGameFlow> {
-  if (!matches(original, guard) || !original.active || original.active.restaurant) return ruleFailure('INVALID_ACTION');
+  if (!matches(original, guard) || original.parkBenefit || !original.active || original.active.restaurant) return ruleFailure('INVALID_ACTION');
   const result = commitSpeakeasyRoundEconomy(original.round, guard, outcome);
   if (!result.ok) return result;
   return success({...original, round: result.value});
 }
 /** Internal completion hook, only after the server location handler has resolved ALL choices. */
 export function finishSpeakeasyLocation(original: SpeakeasyGameFlow, guard: SpeakeasyPhaseGuard): SpeakeasyRuleResult<SpeakeasyGameFlow> {
-  if (!matches(original, guard) || !original.active) return ruleFailure('INVALID_ACTION');
+  if (!matches(original, guard) || original.parkBenefit || !original.active) return ruleFailure('INVALID_ACTION');
   if(original.locationActions&&availableLocationActions(original.locationActions).length) return ruleFailure('INVALID_ACTION');
   const choices = original.active.restaurant;
   if (choices && (choices.current || choices.completed.length !== 2)) return ruleFailure('INVALID_ACTION');
@@ -204,7 +208,7 @@ export function beginSpeakeasyNextAct(original: SpeakeasyGameFlow, guard: Speake
 }
 
 function restaurantActor(s: SpeakeasyGameFlow, actor: PlayerId, guard: SpeakeasyPhaseGuard): boolean {
-  return matches(s, guard) && s.round.phase === 'PLAYING' && s.active?.playerId === actor && s.active.restaurant !== null;
+  return !s.parkBenefit && matches(s, guard) && s.round.phase === 'PLAYING' && s.active?.playerId === actor && s.active.restaurant !== null;
 }
 export function chooseSpeakeasyRestaurantAction(original: SpeakeasyGameFlow, actor: PlayerId, input: unknown): SpeakeasyRuleResult<SpeakeasyGameFlow> {
   const parsed = v.safeParse(SpeakeasyRestaurantActionCommandSchema, input);

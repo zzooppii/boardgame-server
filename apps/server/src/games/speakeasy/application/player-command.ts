@@ -1,3 +1,4 @@
+import {exchangeSpeakeasyCapo,chooseSpeakeasyParkBenefit} from './park-command.js';
 import {useSpeakeasyHelper,type SpeakeasyHelperEffect} from '../domain/helper-actions.js';
 import type {SpeakeasyDockBenefit} from '../domain/family-actions.js';
 import type {SpeakeasyInfamyBenefit} from './level-command.js';
@@ -60,7 +61,10 @@ export function prepareSpeakeasyPlayerCommand(original: SpeakeasyGameFlow, actor
 
 function dispatch(s: SpeakeasyGameFlow, actor: PlayerId, input: SpeakeasyPlayerCommand,
   catalog: SpeakeasyCommandCatalog): SpeakeasyRuleResult<SpeakeasyGameFlow> {
+  if(s.parkBenefit && input.type!=='CHOOSE_PARK_BENEFIT') return ruleFailure('INVALID_ACTION');
   switch (input.type) {
+    case 'EXCHANGE_CAPO': return exchangeSpeakeasyCapo(s,actor,input,catalog);
+    case 'CHOOSE_PARK_BENEFIT': return chooseSpeakeasyParkBenefit(s,actor,input.command);
     case 'USE_HELPER': return useSpeakeasyHelper(s,actor,input.command.cardId,catalog.helpers);
     case 'PLACE_CAPO':
       if (s.spaces.find(space => space.id === input.command.spaceId)?.location !== 'RESTAURANT') return placeAtSpeakeasyLocation(s,actor,input,catalog);

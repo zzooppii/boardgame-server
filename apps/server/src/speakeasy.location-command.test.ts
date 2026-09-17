@@ -723,3 +723,146 @@ test('Speakeasy crate capacity never exempts played city tiles from mandatory re
   const returned=run(drawn.candidate,'RETURN_CITY_TILES',{placements:[{tileId:'played-limit-0',row:0},{tileId:'played-limit-1',row:1}]});
   assert.equal(returned.candidate.city.held[0]!.tiles.length,5);assert.equal(returned.candidate.city.played.length,0);
 });
+
+function parkSetup() {
+  const s=setup();s.spaces.push({id:'park-0',location:'PARK'},{id:'park-1',location:'PARK'},{id:'restaurant',location:'RESTAURANT'});
+  s.city.middle[0]=[{tileId:tile('park-city'),effectId:'example'}];
+  s.city.right[1]={tileId:tile('park-right'),effectId:'example'};
+  s.city.supply[2]=[{tileId:tile('park-hidden'),effectId:'example'}];
+  const c={...catalog(s),locations:new Map(s.spaces.filter(x=>x.location==='CONTRACTOR').map(x=>[x.id,{location:'CONTRACTOR' as const,rows:[[{id:'book',kind:'BOOK' as const}]]}]))};
+  return {s,c};
+}
+function parkReady() {
+  const initial=parkSetup(),c=initial.c;
+  let s=run(initial.s,'PLACE_CAPO',{capoId:'capo-0-0',spaceId:'office-0'},c).candidate;
+  s=run(s,'SKIP_LOCATION_ACTION',{actionId:'book'},c).candidate;
+  s=run(s,'FINISH_LOCATION_ACTIONS',{},c).candidate;
+  s=run(s,'DRAW_OPERATION',{deck:'VIP'},c).candidate;
+  return {s,c};
+}
+const exchangeFields={capoId:'capo-1-0',targetCapoId:'capo-0-0',parkSpaceId:'park-0'};
+
+test('Speakeasy Park exchange pauses for the displaced owner and then executes the target location',()=>{
+  const {s,c}=parkReady();let result=run(s,'EXCHANGE_CAPO',exchangeFields,c,b);
+  assert.equal(result.actorView.turn.stage,'PARK_BENEFIT');assert.equal(result.actorView.turn.actorId,a);
+  assert.equal(result.actorView.turn.active!.playerId,b);assert.equal(result.actorView.turn.parkBenefit!.spaceId,'park-0');
+  assert.equal(result.candidate.capos[0]!.placed[0]!.spaceId,'park-0');
+  assert.equal(result.candidate.capos[1]!.placed[0]!.spaceId,'office-0');
+  assert.equal(result.candidate.capos[1]!.available.length,3);
+  for(const actor of [a,b]) for(const [type,fields] of [
+    ['EXECUTE_LOCATION_ACTION',{actionId:'book',choice:{kind:'BOOK'}}],
+    ['SKIP_LOCATION_ACTION',{actionId:'book'}],['FINISH_LOCATION_ACTIONS',{}],['DRAW_OPERATION',{deck:'VIP'}],
+    ['EXCHANGE_CAPO',exchangeFields],['PLACE_CAPO',{capoId:'capo-1-1',spaceId:'office-1'}],
+  ] as const) assert.equal(prepareSpeakeasyPlayerCommand(result.candidate,actor,body(result.candidate,type,fields),c).ok,false);
+  assert.equal(prepareSpeakeasyPlayerCommand(result.candidate,b,body(result.candidate,'CHOOSE_PARK_BENEFIT',{choice:{kind:'BOOK'}}),c).ok,false);
+  result=run(result.candidate,'CHOOSE_PARK_BENEFIT',{choice:{kind:'LEVERAGE'}},c,a);
+  assert.equal(result.candidate.round.economy.players[0]!.leverageTokens,s.round.economy.players[0]!.leverageTokens+1);
+  assert.equal(result.actorView.turn.actorId,b);assert.equal(result.actorView.turn.stage,'LOCATION');assert.equal(result.actorView.turn.parkBenefit,null);
+  result=run(result.candidate,'EXECUTE_LOCATION_ACTION',{actionId:'book',choice:{kind:'BOOK'}},c,b);
+  assert.equal(result.candidate.round.economy.players[1]!.books,s.round.economy.players[1]!.books+1);
+  result=run(result.candidate,'FINISH_LOCATION_ACTIONS',{},c,b);assert.equal(result.actorView.turn.stage,'DRAW_OPERATION');
+  result=run(result.candidate,'DRAW_OPERATION',{deck:'VIP'},c,b);assert.equal(result.actorView.turn.stage,'ROUND_END');
+});
+
+test('Speakeasy Park exchange validates target, free Park space, fresh own Capo and registered target program atomically',()=>{
+  const {s,c}=parkReady(),before=structuredClone(s);
+  for(const fields of [
+    {...exchangeFields,targetCapoId:'capo-1-0'}, {...exchangeFields,targetCapoId:'missing'},
+    {...exchangeFields,capoId:'capo-0-1'}, {...exchangeFields,parkSpaceId:'office-1'},
+    {...exchangeFields,restaurant:{position:1,discardIds:['hand-1-0']}}, {...exchangeFields,bonus:'BOOK'},
+  ]) assert.equal(prepareSpeakeasyPlayerCommand(s,b,body(s,'EXCHANGE_CAPO',fields),c).ok,false);
+  assert.equal(prepareSpeakeasyPlayerCommand(s,a,body(s,'EXCHANGE_CAPO',exchangeFields),c).ok,false);
+  assert.equal(prepareSpeakeasyPlayerCommand(s,b,{type:'EXCHANGE_CAPO',command:{gameId,revision:0,...exchangeFields}},c).ok,false);
+  assert.equal(prepareSpeakeasyPlayerCommand(s,b,body(s,'EXCHANGE_CAPO',exchangeFields),{...c,locations:new Map()}).ok,false);
+  assert.equal(prepareSpeakeasyPlayerCommand(s,b,body(s,'PLACE_CAPO',{capoId:'capo-1-0',spaceId:'park-0'}),c).ok,false);
+  const parked=structuredClone(s);parked.capos[0]!.placed[0]!.spaceId='park-0';parseSpeakeasyGameFlow(parked);
+  assert.equal(prepareSpeakeasyPlayerCommand(parked,b,body(parked,'EXCHANGE_CAPO',exchangeFields),c).ok,false);
+  assert.equal(prepareSpeakeasyPlayerCommand(parked,b,body(parked,'EXCHANGE_CAPO',{...exchangeFields,parkSpaceId:'park-1'}),c).ok,false);
+  assert.deepEqual(s,before);
+});
+
+test('Speakeasy Park book and city choices are exclusive, validated, private and rollback on failure',()=>{
+  const {s,c}=parkReady(),pending=run(s,'EXCHANGE_CAPO',exchangeFields,c,b).candidate;
+  const book=run(pending,'CHOOSE_PARK_BENEFIT',{choice:{kind:'BOOK'}},c,a);
+  assert.equal(book.candidate.round.economy.players[0]!.books,4);assert.equal(book.candidate.round.economy.players[0]!.bookReserve,6);
+  assert.equal(prepareSpeakeasyPlayerCommand(book.candidate,a,body(book.candidate,'CHOOSE_PARK_BENEFIT',{choice:{kind:'BOOK'}}),c).ok,false);
+  const before=structuredClone(pending);
+  for(const choice of [{kind:'BOOK',amount:2},{kind:'CITY_TILE',column:'MIDDLE',row:1},{kind:'CITY_TILE',column:'RIGHT',row:1},
+    {kind:'CITY_TILE',column:'RIGHT',row:1,refill:0},{kind:'CITY_TILE',column:'MIDDLE',row:0,refill:2}])
+    assert.equal(prepareSpeakeasyPlayerCommand(pending,a,body(pending,'CHOOSE_PARK_BENEFIT',{choice}),c).ok,false);
+  assert.deepEqual(pending,before);
+  const empty=structuredClone(pending);empty.round.economy.players[0]!.books=10;empty.round.economy.players[0]!.bookReserve=0;
+  assert.equal(prepareSpeakeasyPlayerCommand(empty,a,body(empty,'CHOOSE_PARK_BENEFIT',{choice:{kind:'BOOK'}}),c).ok,false);
+  const city=run(pending,'CHOOSE_PARK_BENEFIT',{choice:{kind:'CITY_TILE',column:'RIGHT',row:1,refill:2}},c,a);
+  assert.equal(city.candidate.city.right[1]!.tileId,tile('park-hidden'));assert.equal(city.actorView.turn.self.cityTiles[0]!.tileId,tile('park-right'));
+  assert.ok(!JSON.stringify(book.actorView).includes('park-hidden'));
+  const broken=structuredClone(pending);broken.parkBenefit!.playerId=b;assert.throws(()=>parseSpeakeasyGameFlow(broken));
+});
+
+test('Speakeasy Park can exchange into Restaurant only with its mandatory payment and turn-position choice',()=>{
+  const {s:initial,c}=parkSetup();
+  let s=run(initial,'PLACE_CAPO',{capoId:'capo-0-0',spaceId:'restaurant',restaurant:{position:0,discardIds:['hand-0-0']}},c).candidate;
+  for(const action of ['BOOKS','CITY_TILES']) {
+    s=run(s,'CHOOSE_RESTAURANT_ACTION',{action},c).candidate;s=run(s,'FINISH_RESTAURANT_ACTION',{},c).candidate;
+  }
+  s=run(s,'FINISH_RESTAURANT',{},c).candidate;s=run(s,'DRAW_OPERATION',{deck:'VIP'},c).candidate;
+  assert.equal(prepareSpeakeasyPlayerCommand(s,b,body(s,'EXCHANGE_CAPO',exchangeFields),c).ok,false);
+  const before=structuredClone(s);
+  assert.equal(prepareSpeakeasyPlayerCommand(s,b,body(s,'EXCHANGE_CAPO',{...exchangeFields,restaurant:{position:0,discardIds:['hand-1-0']}}),c).ok,false);
+  assert.deepEqual(s,before);
+  const placed=run(s,'EXCHANGE_CAPO',{...exchangeFields,restaurant:{position:1,discardIds:['hand-1-0','hand-1-1']}},c,b);
+  assert.equal(placed.candidate.round.lowerRow[1],b);assert.equal(placed.candidate.round.economy.players[1]!.hand.length,s.round.economy.players[1]!.hand.length-2);
+  assert.equal(placed.candidate.locationActions,null);
+  const rewarded=run(placed.candidate,'CHOOSE_PARK_BENEFIT',{choice:{kind:'BOOK'}},c,a);
+  assert.equal(rewarded.actorView.turn.stage,'RESTAURANT_CHOICE');assert.equal(rewarded.actorView.turn.actorId,b);
+});
+
+test('Speakeasy Park outside-turn city gain waits until the owners next draw and service receipts do not repeat it',async()=>{
+  const {s,c}=parkSetup();s.city.held[0]!.tiles=Array.from({length:4},(_,i)=>({tileId:tile(`park-held-${i}`),effectId:'example'}));s.round.economy.players[0]!.cityTileCount=4;
+  const roomId=parse(RoomIdSchema,'park-room'),store=new InMemorySpeakeasyCommandStore();store.add(roomId,s,exampleActPlans());
+  const service=new SpeakeasyCommandService({store,catalog:c,executor:new KeyedSerialExecutor(),clock:{now:()=>parse(ServerTimeSchema,100)}});
+  const context=(actor:PlayerId)=>({roomId,actorPlayerId:actor,authorization:{isCurrent:()=>true}});
+  async function send(actor:PlayerId,type:string,fields:object={}) {
+    const state=(await store.read(roomId))!.state,request={requestId:`park-${state.round.revision}`,action:body(state,type,fields)};
+    const reply=await service.command(context(actor),request);assert.ok(reply.ok,JSON.stringify(reply));return {request,reply};
+  }
+  await send(a,'PLACE_CAPO',{capoId:'capo-0-0',spaceId:'office-0'});await send(a,'SKIP_LOCATION_ACTION',{actionId:'book'});
+  await send(a,'FINISH_LOCATION_ACTIONS');await send(a,'DRAW_OPERATION',{deck:'VIP'});
+  const swap=await send(b,'EXCHANGE_CAPO',exchangeFields);
+  const saved=await store.read(roomId);const replay=await service.command(context(b),swap.request);assert.ok(replay.ok&&replay.replayed);assert.deepEqual(await store.read(roomId),saved);
+  const gained=await send(a,'CHOOSE_PARK_BENEFIT',{choice:{kind:'CITY_TILE',column:'MIDDLE',row:0}});
+  assert.equal(gained.reply.view.turn.self.cityTiles.length,5);assert.equal(gained.reply.view.turn.self.returnCount,0);
+  const rewardSaved=await store.read(roomId);const rewardReplay=await service.command(context(a),gained.request);assert.ok(rewardReplay.ok&&rewardReplay.replayed);assert.deepEqual(await store.read(roomId),rewardSaved);
+  const other=await service.snapshot(context(b));assert.ok(other.ok);assert.ok(!JSON.stringify(other.view).includes('park-held-0'));
+  await send(b,'SKIP_LOCATION_ACTION',{actionId:'book'});await send(b,'FINISH_LOCATION_ACTIONS');await send(b,'DRAW_OPERATION',{deck:'VIP'});
+  assert.equal((await store.read(roomId))!.state.round.clock.round,2);
+  const next=(await store.read(roomId))!.state;
+  assert.equal(prepareSpeakeasyPlayerCommand(next,a,body(next,'EXCHANGE_CAPO',{capoId:'capo-0-1',targetCapoId:'capo-1-0',parkSpaceId:'park-0'}),c).ok,false);
+  await send(a,'EXCHANGE_CAPO',{capoId:'capo-0-1',targetCapoId:'capo-1-0',parkSpaceId:'park-1'});
+  await send(b,'CHOOSE_PARK_BENEFIT',{choice:{kind:'BOOK'}});
+  await send(a,'SKIP_LOCATION_ACTION',{actionId:'book'});await send(a,'FINISH_LOCATION_ACTIONS');
+  const draw=await send(a,'DRAW_OPERATION',{deck:'VIP'});assert.equal(draw.reply.view.turn.stage,'RETURN_CITY');assert.equal(draw.reply.view.turn.self.returnCount,1);
+  const done=await send(a,'RETURN_CITY_TILES',{placements:[{tileId:'park-city',row:0}]});assert.equal(done.reply.view.turn.actorId,b);assert.equal(done.reply.view.turn.self.cityTiles.length,4);
+});
+
+
+test('Speakeasy pre-Capo helper city gain also defers excess returns until after the turn draw',()=>{
+  const {s,c}=helperSetup();s.city.held[0]!.tiles=Array.from({length:4},(_,i)=>({tileId:tile(`helper-held-${i}`),effectId:'example'}));s.round.economy.players[0]!.cityTileCount=4;
+  s.city.middle[0]=[{tileId:tile('helper-city-gain'),effectId:'example'}];
+  const helpers=new Map(c.helpers);helpers.set(tile('helper-owned'),state=>{
+    state.city.held[0]!.tiles.push(state.city.middle[0]!.shift()!);return {ok:true,value:state};
+  });
+  const cat={...c,helpers};let r=run(s,'USE_HELPER',{cardId:'helper-owned'},cat);
+  assert.equal(r.actorView.turn.stage,'PLACE_CAPO');assert.equal(r.actorView.turn.self.cityTiles.length,5);
+  r=run(r.candidate,'PLACE_CAPO',{capoId:'capo-0-0',spaceId:'office-0'},cat);
+  r=run(r.candidate,'SKIP_LOCATION_ACTION',{actionId:'helper'},cat);r=run(r.candidate,'FINISH_LOCATION_ACTIONS',{},cat);
+  r=run(r.candidate,'DRAW_OPERATION',{deck:'VIP'},cat);assert.equal(r.actorView.turn.stage,'RETURN_CITY');assert.equal(r.actorView.turn.self.returnCount,1);
+});
+
+
+test('Speakeasy displaced owner may decline the optional Park reward without gaining resources',()=>{
+  const {s,c}=parkReady(),pending=run(s,'EXCHANGE_CAPO',exchangeFields,c,b).candidate;
+  const result=run(pending,'CHOOSE_PARK_BENEFIT',{choice:{kind:'SKIP'}},c,a);
+  assert.deepEqual(result.candidate.round.economy,pending.round.economy);assert.deepEqual(result.candidate.city,pending.city);
+  assert.equal(result.actorView.turn.stage,'LOCATION');assert.equal(result.actorView.turn.actorId,b);
+});

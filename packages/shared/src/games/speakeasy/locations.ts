@@ -19,6 +19,23 @@ export const SpeakeasyPlaceCapoCommandSchema = v.strictObject({
   })),
 });
 
+/** Park exchanges use a fresh Capo; the displaced owner chooses their own benefit. */
+export const SpeakeasyExchangeCapoCommandSchema = v.strictObject({
+  gameId: GameIdSchema, revision: SpeakeasyPlaceCapoCommandSchema.entries.revision,
+  capoId: TileIdSchema, targetCapoId: TileIdSchema,
+  parkSpaceId: SpeakeasyPlaceCapoCommandSchema.entries.spaceId,
+  restaurant: SpeakeasyPlaceCapoCommandSchema.entries.restaurant,
+});
+export const SpeakeasyParkBenefitCommandSchema = v.strictObject({
+  gameId: GameIdSchema, revision: SpeakeasyPlaceCapoCommandSchema.entries.revision,
+  choice: v.variant('kind', [
+    v.strictObject({kind:v.literal('SKIP')}),
+    v.strictObject({kind:v.literal('LEVERAGE')}),
+    v.strictObject({kind:v.literal('BOOK')}),
+    v.strictObject({kind:v.literal('CITY_TILE'),column:v.picklist(['MIDDLE','RIGHT']),row:v.picklist([0,1,2]),refill:v.optional(v.picklist([0,1,2]))}),
+  ]),
+});
+
 /** Per-viewer turn panel only; not a complete board snapshot or command authorization. */
 const count = v.pipe(v.number(), v.safeInteger(), v.minValue(0));
 const key = v.pipe(v.string(), v.minLength(1), v.maxLength(100));
@@ -26,7 +43,7 @@ const cityTile = v.strictObject({tileId: TileIdSchema, effectId: key});
 export const SpeakeasyTurnViewSchema = v.strictObject({
   gameId: GameIdSchema, revision: count, viewerId: PlayerIdSchema,
   act: v.picklist([1,2,3,4]), round: v.pipe(count,v.minValue(1),v.maxValue(4)),
-  stage: v.picklist(['PLACE_CAPO','LOCATION','RESTAURANT_CHOICE','RESTAURANT_ACTION','FINISH_LOCATION','DRAW_OPERATION','RETURN_CITY','ROUND_END','LUCIANO','FINAL_SCORING']),
+  stage: v.picklist(['PARK_BENEFIT','PLACE_CAPO','LOCATION','RESTAURANT_CHOICE','RESTAURANT_ACTION','FINISH_LOCATION','DRAW_OPERATION','RETURN_CITY','ROUND_END','LUCIANO','FINAL_SCORING']),
   actorId: v.nullable(PlayerIdSchema), order: v.array(PlayerIdSchema), lowerRow: v.array(v.nullable(PlayerIdSchema)),
   spaces: v.array(v.strictObject({id:key, location:SpeakeasyLocationSchema,
     occupants:v.array(v.strictObject({playerId:PlayerIdSchema,capoId:TileIdSchema}))})),
@@ -35,6 +52,7 @@ export const SpeakeasyTurnViewSchema = v.strictObject({
     completed:v.array(SpeakeasyRestaurantActionSchema),
     current:v.nullable(v.strictObject({action:SpeakeasyRestaurantActionSchema,used:count})),
   })),
+  parkBenefit:v.optional(v.nullable(v.strictObject({playerId:PlayerIdSchema,capoId:TileIdSchema,spaceId:key})),null),
   locationActions:v.nullable(SpeakeasyLocationActionsViewSchema),
   market: v.strictObject({
     middle:v.pipe(v.array(v.strictObject({count,top:v.nullable(cityTile)})),v.length(3)),

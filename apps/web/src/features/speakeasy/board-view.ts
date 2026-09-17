@@ -21,7 +21,7 @@ export function speakeasyBoardFocus(district:number,key:string,columns:2|4):numb
   return null;
 }
 export const SPEAKEASY_STAGE_LABELS:Record<SpeakeasyBoardView['turn']['stage'],string>={
-  PLACE_CAPO:'카포 배치 대기',LOCATION:'장소 행동 진행',RESTAURANT_CHOICE:'레스토랑 행동 선택',
+  PARK_BENEFIT:'공원 보상 선택',PLACE_CAPO:'카포 배치 대기',LOCATION:'장소 행동 진행',RESTAURANT_CHOICE:'레스토랑 행동 선택',
   RESTAURANT_ACTION:'레스토랑 행동 진행',FINISH_LOCATION:'장소 행동 마무리',DRAW_OPERATION:'운영 카드 뽑기',
   RETURN_CITY:'도시 타일 반환',ROUND_END:'라운드 정산',LUCIANO:'마피아 충돌',FINAL_SCORING:'최종 결과',
 };
