@@ -4,6 +4,7 @@ import {parseSpeakeasyGameFlow, type SpeakeasyGameFlow} from '../domain/game-flo
 import {projectSpeakeasyLuciano} from '../domain/luciano.js';
 import {speakeasyOperating} from '../domain/economy.js';
 import {speakeasyFinalScores,speakeasyWinners} from '../domain/scoring.js';
+import {projectSpeakeasyFixedGoals} from './goal-projector.js';
 import {projectSpeakeasyTurn} from './turn-projector.js';
 
 /** Build each authenticated recipient's screen separately. Never room-broadcast this snapshot.
@@ -24,7 +25,7 @@ export function projectSpeakeasyBoard(original:SpeakeasyGameFlow,viewer:PlayerId
       tileId:t.tileId,ownerId:p.playerId,district:t.district,load:t.barrels.length}])),
     docks:economy.docks.map(d=>({ownerId:d.ownerId,zone:d.zone,space:d.space})),
     placedBooks:economy.placedBooks.map(b=>({ownerId:b.ownerId,goalId:b.goalId,space:b.space})),
-    self:{levels:self.levels,leverageTokens:self.leverageTokens,
+    self:{fixedGoals:projectSpeakeasyFixedGoals(s,viewer),levels:self.levels,leverageTokens:self.leverageTokens,
       operations:self.operations.map(c=>({tileId:c.tileId,operation:c.operation,leverage:c.leverage})),
       reserves:self.reserves.map(b=>({tileId:b.tileId,kind:b.kind,cost:b.cost,group:b.group})),
       vip:self.vip.length,familyReserve:self.familyReserve.length,goons:self.goons.length,

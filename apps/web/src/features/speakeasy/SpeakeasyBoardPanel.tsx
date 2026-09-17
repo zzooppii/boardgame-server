@@ -2,6 +2,7 @@ import {useRef,useState,type KeyboardEvent} from 'react';
 import {SPEAKEASY_BUILDING_LABELS,SPEAKEASY_OPERATION_LABELS,type SpeakeasyBoardView,type PlayerId} from '@hangul-rummikub/shared';
 import {SpeakeasyBuildingArt,SpeakeasyToken} from './art.js';
 import {speakeasyBoardFocus,SPEAKEASY_STAGE_LABELS} from './board-view.js';
+import {FixedGoals} from './FixedGoals.js';
 import type {SpeakeasyCue} from './sound.js';
 
 type Props={view:SpeakeasyBoardView;onCue(cue:SpeakeasyCue):void};
@@ -44,6 +45,7 @@ function BoardContents({view,onCue}:Props) {
       <h4>공개 배치</h4><p>내 부두 {view.docks.filter(d=>d.ownerId===t.viewerId).length}곳 · 내 장부 배치 {view.placedBooks.filter(b=>b.ownerId===t.viewerId).length}곳</p>
       <p className="sp-rule-note">온라인 대국 연결 전의 화면 예시입니다. 카포 배치·카드 사용 명령은 전송하지 않습니다.</p>
     </aside></div>
+    <FixedGoals goals={view.self.fixedGoals} viewer={t.viewerId} owner={owner} onCue={onCue}/>
     {selected!==null&&<button type="button" className="sp-mobile-review" onClick={()=>{detail.current?.scrollIntoView({block:'start'});detail.current?.focus({preventScroll:true});}}>{selected}구역 상세 보기 ↓</button>}
     {view.result&&<section className="sp-snapshot-result"><h3>최종 결과</h3><p>승자 · {view.result.winners.map(owner).join(', ')}</p>{view.result.scores.map(score=><p key={score.playerId}>{owner(score.playerId)} · ${score.total} · 건물 ${score.buildingMoney} · 도우미 ${score.helperMoney}</p>)}</section>}
   </section>;

@@ -18,7 +18,7 @@ const api='/api/speakeasy-practice';
 const cues:Record<SpeakeasyPracticeAction['type'],SpeakeasyCue>={MOVE:'DELIVER',BUILD:'BUILD',PRODUCE:'PRODUCE',DELIVER:'DELIVER',SELL:'SELL',PROTECT:'PROTECT',END_TURN:'CARD_DRAW'};
 const labels:Record<SpeakeasyPracticeAction['type'],string>={MOVE:'이동',BUILD:'건설',PRODUCE:'생산',DELIVER:'운송',SELL:'판매',PROTECT:'보호',END_TURN:'턴 종료'};
 const problems={INVALID_COMMAND:'지금은 이 행동을 할 수 없습니다. 최신 상태를 확인해 주세요.',STALE_REVISION:'진행 상태가 바뀌었습니다. 최신 화면을 불러왔습니다.',SESSION_EXPIRED:'연습 대국이 종료되었거나 서버가 재시작되었습니다. 새 대국을 시작해 주세요.',CAPACITY:'연습 서버가 가득 찼습니다. 잠시 뒤 다시 시도해 주세요.',INTERNAL_ERROR:'서버가 행동을 처리하지 못했습니다. 현재 상태를 다시 확인해 주세요.'};
-export function SpeakeasyPractice({onExit}:{onExit():void}) {
+export function SpeakeasyPractice({onExit,onPreview}:{onExit():void;onPreview?():void}) {
   const [view,setView]=useState<SpeakeasyPracticeView|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState('');
   const [filter,setFilter]=useState<SpeakeasyPracticeAction['type']>('PRODUCE'),[district,setDistrict]=useState<number|null>(null);
   const [selected,setSelected]=useState<SpeakeasyPracticeView['choices'][number]|null>(null),[endConfirm,setEndConfirm]=useState(false),[exitConfirm,setExitConfirm]=useState(false);
@@ -95,7 +95,7 @@ export function SpeakeasyPractice({onExit}:{onExit():void}) {
     </section>
     <p className="sp-practice-error" role="alert" ref={message}>{error}</p>
     {error&&view&&<button type="button" disabled={busy} onClick={()=>void retry()}>현재 상태 다시 확인</button>}
-    {!view?<section className="sp-practice-start"><SpeakeasyBuildingArt kind="SPEAKEASY"/><h2>증류소 하나, 주점 하나.<br/>이제 첫 잔을 팔 차례입니다.</h2><p>생산 → 운송 → 판매 순서로 시작해 보세요. 행동을 고르면 적용 전에 비용과 결과를 확인할 수 있습니다.</p><button type="button" disabled={busy} onClick={()=>void start()}>{busy?'테이블 준비 중…':'연습 대국 시작'}</button></section>:<>
+    {!view?<section className="sp-practice-start"><SpeakeasyBuildingArt kind="SPEAKEASY"/><h2>증류소 하나, 주점 하나.<br/>이제 첫 잔을 팔 차례입니다.</h2><p>생산 → 운송 → 판매 순서로 시작해 보세요. 행동을 고르면 적용 전에 비용과 결과를 확인할 수 있습니다.</p><button type="button" disabled={busy} onClick={()=>void start()}>{busy?'테이블 준비 중…':'연습 대국 시작'}</button>{onPreview&&<button type="button" className="sp-goal-preview-link" disabled={busy} onClick={onPreview}>원작 보드·목표 미리보기</button>}</section>:<>
       <section className="sp-practice-status" aria-label="현재 진행"><strong>{view.finished?'최종 정산':`${view.turn} / 11턴`}</strong><span>남은 행동 {view.actionsLeft} / 2</span><span>현금 ${view.cash}</span><span>금고 ${view.safe}</span><span>저장 주류 {view.stock}</span><span>조직원 {view.family}</span></section>
       {view.finished&&<section ref={results} tabIndex={-1} className="sp-practice-results" aria-label="최종 결과"><p className="sp-eyebrow">THE NIGHT IS YOURS</p><h2>{view.scores.filter(s=>s.winner).length>1?'두 패밀리가 공동 승리했습니다':view.scores.find(s=>s.playerId===view.viewerId)?.winner?'당신의 패밀리가 승리했습니다':'컴퓨터 패밀리가 승리했습니다'}</h2><p>동점은 보호 건물 수, 전체 건물 수, 남은 조직원 수로 판정합니다. 끝까지 같으면 공동 승리입니다.</p>{view.scores.map(s=><div key={s.playerId}><strong>{own(s.playerId)} {s.winner?'· 승자':''}</strong><span>현금 ${s.cash} + 금고 ${s.safe} + 보호 건물 ${s.buildings}</span><b>${s.total}</b></div>)}<button type="button" disabled={busy} onClick={()=>void start()}>새 연습 대국</button></section>}
       <PracticeSettlement view={view} busy={busy} onInspect={inspectChoice}/>

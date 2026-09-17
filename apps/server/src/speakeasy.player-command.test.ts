@@ -1,3 +1,4 @@
+import {projectSpeakeasyBoard} from './games/speakeasy/application/board-projector.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {parse, safeParse} from 'valibot';
@@ -219,4 +220,38 @@ test('Speakeasy rejects server catalog overrides of printed fixed goal IDs atomi
     requirement: {kind: 'INFAMY', minimum: 1}, payout: 999, bonus: value => ({ok: true, value})}]};
   assert.throws(() => prepareSpeakeasyPlayerCommand(s, a, command(s, 'PLACE_BOOK', {goalId: 'fixed:infamy:10', space: 0}), catalog));
   assert.deepEqual(s, before);
+});
+
+test('Speakeasy board goal projection agrees with book commands and keeps progress per recipient', () => {
+  let s = setup(3); s.round.economy.players[0]!.crates = [1,2,3];
+  const initial = prepareSpeakeasyPlayerCommand(s,a,command(s,'PLACE_CAPO',{capoId:tile('capo-0-0'),spaceId:'restaurant',restaurant:{position:0,discardIds:[tile('hand-0-0')]}}),empty);
+  assert.ok(initial.ok);
+  assert.equal(initial.actorView.self.fixedGoals[0]!.status,'BOOK_ACTION_REQUIRED');
+  s = choose(initial.candidate,'BOOKS');
+  const result = prepareSpeakeasyPlayerCommand(s,a,command(s,'PLACE_BOOK',{goalId:'fixed:docks:1',space:0}),empty);
+  assert.ok(result.ok);
+  assert.equal(result.actorView.self.fixedGoals[0]!.status,'CLAIMED');
+  assert.equal(result.actorView.self.fixedGoals[1]!.status,'READY');
+  assert.equal(result.actorView.self.fixedGoals[0]!.spaces[0],a);
+  assert.equal(result.actorView.self.fixedGoals[0]!.progress,3);
+  const other = projectSpeakeasyBoard(result.candidate,b)!;
+  assert.equal(other.self.fixedGoals[0]!.progress,0);
+  assert.equal(other.self.fixedGoals[0]!.status,'REQUIREMENT');
+  result.actorView.self.fixedGoals[0]!.spaces[0]=null;
+  assert.equal(result.candidate.round.economy.placedBooks[0]!.ownerId,a);
+});
+
+test('Speakeasy goal view explains full slots, missing books and the action limit',()=>{
+  const s=choose(enter(setup(3)),'BOOKS');s.round.economy.players[0]!.crates=[1,2,3];
+  const status=()=>projectSpeakeasyBoard(s,a)!.self.fixedGoals[0]!.status;
+  assert.equal(status(),'READY');
+  s.active!.restaurant!.current!.used=3;assert.equal(status(),'ACTION_LIMIT');
+  assert.deepEqual(prepareSpeakeasyPlayerCommand(s,a,command(s,'PLACE_BOOK',{goalId:'fixed:docks:1',space:0}),empty),denied);
+  s.active!.restaurant!.current!.used=0;
+  s.round.economy.players[0]!.books=0;s.round.economy.players[0]!.bookReserve+=3;
+  assert.equal(status(),'NO_BOOKS');
+  for(const [space,p] of s.round.economy.players.slice(1).entries()) {
+    p.books--;s.round.economy.placedBooks.push({goalId:'fixed:docks:1',space:space===0?0:1,ownerId:p.playerId});
+  }
+  assert.equal(status(),'FULL');
 });

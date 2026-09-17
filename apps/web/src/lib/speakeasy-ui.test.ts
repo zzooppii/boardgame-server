@@ -128,3 +128,16 @@ test('Board keyboard focus follows four-column and mobile two-column geometry wi
   assert.equal(speakeasyBoardFocus(1,'ArrowUp',4),null);
   assert.equal(speakeasyBoardFocus(0,'ArrowRight',4),null);
 });
+
+test('Fixed goal cards render recipient progress, rewards, reasons and accessible disclosure controls',()=>{
+  const sample=createSpeakeasyBoardPreview();
+  sample.self.fixedGoals[0]!.status='CLAIMED';sample.self.fixedGoals[0]!.spaces[0]=sample.turn.viewerId;
+  sample.self.fixedGoals[1]!.status='FULL';sample.self.fixedGoals[2]!.status='NO_BOOKS';
+  sample.self.fixedGoals[3]!.status='ACTION_LIMIT';sample.self.fixedGoals[4]!.status='READY';
+  const html=renderToStaticMarkup(createElement(SpeakeasyBoardPanel,{view:sample,onCue:()=>{}}));
+  assert.equal((html.match(/<details/g)||[]).length,9);
+  for(const text of ['장부로 채우는 금고','금고 +$15','금고 +$20','이미 달성한 목표','장부 두 칸이 모두','사용할 장부가 없습니다','장부 3개를 모두','장부 배치 가능','서로 다른 구역','나 배치됨','배치 명령을 보내지 않습니다']) assert.ok(html.includes(text),text);
+  assert.match(html,/목표 진행/);assert.match(html,/레스토랑에서 장부 행동/);
+  const malformed=structuredClone(sample);malformed.self.fixedGoals.pop();
+  assert.equal(readSpeakeasyBoardView(malformed,sample.turn.gameId,sample.turn.viewerId),null);
+});

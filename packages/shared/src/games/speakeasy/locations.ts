@@ -52,6 +52,12 @@ export type SpeakeasyTurnView = v.InferOutput<typeof SpeakeasyTurnViewSchema>;
 
 const level = v.pipe(count,v.minValue(1),v.maxValue(5));
 const truck = v.strictObject({tileId:TileIdSchema,district:v.nullable(SpeakeasyDistrictIdSchema),barrels:v.array(TileIdSchema)});
+export const SpeakeasyFixedGoalViewSchema = v.strictObject({
+  id:key, kind:v.picklist(['CRATES','PROTECTED_DISTRICTS','INFAMY']), minimum:count, progress:count, payout:count,
+  spaces:v.pipe(v.array(v.nullable(PlayerIdSchema)),v.length(2)),
+  status:v.picklist(['READY','REQUIREMENT','CLAIMED','FULL','NO_BOOKS','BOOK_ACTION_REQUIRED','ACTION_LIMIT']),
+});
+export type SpeakeasyFixedGoalView = v.InferOutput<typeof SpeakeasyFixedGoalViewSchema>;
 /** Screen snapshot: visible board + authenticated player's personal board. No canonical state. */
 export const SpeakeasyBoardViewSchema = v.strictObject({
   turn:SpeakeasyTurnViewSchema,
@@ -61,6 +67,7 @@ export const SpeakeasyBoardViewSchema = v.strictObject({
   docks:v.array(v.strictObject({ownerId:PlayerIdSchema,zone:v.picklist([0,1,2]),space:count})),
   placedBooks:v.array(v.strictObject({ownerId:PlayerIdSchema,goalId:v.string(),space:v.picklist([0,1])})),
   self:v.strictObject({
+    fixedGoals:v.pipe(v.array(SpeakeasyFixedGoalViewSchema),v.length(9)),
     levels:v.strictObject({VIP:level,PARTY:level,STILLS:level,FLEET:level,STRENGTH:level}),
     leverageTokens:count,operations:SpeakeasyTurnViewSchema.entries.self.entries.hand,
     reserves:v.array(v.strictObject({tileId:TileIdSchema,kind:SpeakeasyBuildingKindSchema,cost:count,group:v.nullable(v.picklist([0,1,2]))})),

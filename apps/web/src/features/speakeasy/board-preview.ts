@@ -325,6 +325,116 @@ export function createSpeakeasyBoardPreview():SpeakeasyBoardView {
     }
   ],
   "self": {
+    "fixedGoals": [
+      {
+        "id": "fixed:docks:1",
+        "kind": "CRATES",
+        "minimum": 1,
+        "progress": 0,
+        "payout": 15,
+        "spaces": [
+          null,
+          null
+        ],
+        "status": "REQUIREMENT"
+      },
+      {
+        "id": "fixed:docks:2",
+        "kind": "CRATES",
+        "minimum": 2,
+        "progress": 0,
+        "payout": 15,
+        "spaces": [
+          null,
+          null
+        ],
+        "status": "REQUIREMENT"
+      },
+      {
+        "id": "fixed:docks:3",
+        "kind": "CRATES",
+        "minimum": 3,
+        "progress": 0,
+        "payout": 15,
+        "spaces": [
+          null,
+          null
+        ],
+        "status": "REQUIREMENT"
+      },
+      {
+        "id": "fixed:city-hall:3",
+        "kind": "PROTECTED_DISTRICTS",
+        "minimum": 3,
+        "progress": 1,
+        "payout": 20,
+        "spaces": [
+          null,
+          null
+        ],
+        "status": "REQUIREMENT"
+      },
+      {
+        "id": "fixed:city-hall:5",
+        "kind": "PROTECTED_DISTRICTS",
+        "minimum": 5,
+        "progress": 1,
+        "payout": 20,
+        "spaces": [
+          null,
+          null
+        ],
+        "status": "REQUIREMENT"
+      },
+      {
+        "id": "fixed:city-hall:7",
+        "kind": "PROTECTED_DISTRICTS",
+        "minimum": 7,
+        "progress": 1,
+        "payout": 20,
+        "spaces": [
+          null,
+          null
+        ],
+        "status": "REQUIREMENT"
+      },
+      {
+        "id": "fixed:infamy:10",
+        "kind": "INFAMY",
+        "minimum": 10,
+        "progress": 12,
+        "payout": 10,
+        "spaces": [
+          null,
+          null
+        ],
+        "status": "BOOK_ACTION_REQUIRED"
+      },
+      {
+        "id": "fixed:infamy:15",
+        "kind": "INFAMY",
+        "minimum": 15,
+        "progress": 12,
+        "payout": 15,
+        "spaces": [
+          null,
+          null
+        ],
+        "status": "REQUIREMENT"
+      },
+      {
+        "id": "fixed:infamy:22",
+        "kind": "INFAMY",
+        "minimum": 22,
+        "progress": 12,
+        "payout": 20,
+        "spaces": [
+          null,
+          null
+        ],
+        "status": "REQUIREMENT"
+      }
+    ],
     "levels": {
       "VIP": 2,
       "PARTY": 2,

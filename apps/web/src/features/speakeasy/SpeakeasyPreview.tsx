@@ -47,7 +47,7 @@ export default function SpeakeasyPreview({onExit}: {onExit(): void}) {
     if (revision !== interactionRevision.current) return;
     interactionRevision.current++; audio.play(scene.cue); setApplied(true); setStatus(scene.after);
   }
-  if(mode==='PRACTICE')return <SpeakeasyPractice onExit={onExit}/>;
+  if(mode==='PRACTICE')return <SpeakeasyPractice onExit={onExit} onPreview={()=>{setMode('BOARD');void audio.unlock();}}/>;
   const completed = applied ? scene.after : scene.before;
   return <main className="sp-root" onPointerDown={() => void audio.unlock()} onKeyDown={() => void audio.unlock()}>
     <header className="sp-header"><button type="button" className="sp-back" onClick={onExit}>← 게임 목록</button><div className="sp-wordmark">SPEAKEASY<span>MANHATTAN · 1920</span></div><span className="sp-preview-tag">개발 미리보기</span></header>
