@@ -26,7 +26,9 @@ export function resolveSpeakeasyFamily(original:SpeakeasyGameFlow,actor:PlayerId
   } else {
     const valid=(zone:number,space:number)=>action.docks.some(d=>d.zone===zone&&d.space===space);
     const occupied=(zone:number,space:number)=>s.round.economy.docks.some(d=>d.zone===zone&&d.space===space);
-    const key=`${target.zone}:${target.space}`;
+    const bonus=target.bonus??target;
+    if(target.bonus&&(!p.crates.some(c=>c===11||c===12)||!valid(bonus.zone,bonus.space))) return ruleFailure('INVALID_ACTION');
+    const key=`${bonus.zone}:${bonus.space}`;
     if(!valid(target.zone,target.space)||occupied(target.zone,target.space)||!benefits?.has(key)) return ruleFailure('INVALID_ACTION');
     const movable=new Set(s.round.economy.docks.filter(d=>d.ownerId===actor).map(d=>d.familyId));
     s.round.economy.docks.push({familyId:member,ownerId:actor,zone:target.zone,space:target.space});

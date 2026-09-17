@@ -63,7 +63,7 @@ export type SpeakeasyFixedGoalView = v.InferOutput<typeof SpeakeasyFixedGoalView
 /** Screen snapshot: visible board + authenticated player's personal board. No canonical state. */
 export const SpeakeasyBoardViewSchema = v.strictObject({
   ports:v.array(SpeakeasyDistrictIdSchema),
-  ships:v.array(v.strictObject({tileId:TileIdSchema,port:SpeakeasyDistrictIdSchema,barrels:SpeakeasyCountSchema,prices:v.array(SpeakeasyCountSchema)})),
+  ships:v.array(v.strictObject({tileId:TileIdSchema,port:SpeakeasyDistrictIdSchema,barrels:SpeakeasyCountSchema,crate:v.nullable(SpeakeasyCountSchema),prices:v.array(SpeakeasyCountSchema)})),
   turn:SpeakeasyTurnViewSchema,
   districts:v.pipe(v.array(v.strictObject({id:SpeakeasyDistrictIdSchema,blocked:v.boolean(),cop:v.boolean(),
     slots:v.array(v.nullable(SpeakeasyBuildingViewSchema)),mobsterSlots:v.array(v.picklist([0,1,2])),mobsterStrength:v.nullable(count)})),v.length(16)),

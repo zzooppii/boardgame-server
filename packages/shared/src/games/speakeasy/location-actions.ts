@@ -3,12 +3,19 @@ import {GameIdSchema,TileIdSchema} from '../../identifiers.js';
 import {SpeakeasyDistrictIdSchema,SpeakeasyCountSchema,SpeakeasyOperationSchema} from './contracts.js';
 const key=v.pipe(v.string(),v.minLength(1),v.maxLength(100));
 const guard={gameId:GameIdSchema,revision:v.pipe(v.number(),v.safeInteger(),v.minValue(0))};
-export const SpeakeasyLocationActionKindSchema=v.picklist(['BOOK','GOONS','PROTECT','OPERATION','BUILD','PRODUCE','DELIVER','SELL','LEVEL','FAMILY']);
+export const SpeakeasyLocationActionKindSchema=v.picklist(['BOOK','GOONS','PROTECT','OPERATION','BUILD','PRODUCE','DELIVER','SELL','LEVEL','FAMILY','AMBUSH']);
 export const SpeakeasyLocationChoiceSchema=v.variant('kind',[
   v.strictObject({kind:v.literal('BOOK')}),
+  v.strictObject({kind:v.literal('AMBUSH'),shipId:TileIdSchema,familyId:TileIdSchema,
+    borrowedFamilyIds:v.pipe(v.array(TileIdSchema),v.maxLength(36)),goons:v.pipe(SpeakeasyCountSchema,v.maxValue(6)),
+    destination:v.variant('kind',[
+      v.strictObject({kind:v.literal('BUILDING'),buildingId:TileIdSchema}),
+      v.strictObject({kind:v.literal('STILLS')}),v.strictObject({kind:v.literal('DISCARD')}),
+    ])}),
   v.strictObject({kind:v.literal('FAMILY'),destination:v.variant('kind',[
     v.strictObject({kind:v.literal('VIP')}),
     v.strictObject({kind:v.literal('DOCK'),zone:v.picklist([0,1,2]),space:v.pipe(SpeakeasyCountSchema,v.maxValue(11)),
+      bonus:v.optional(v.strictObject({zone:v.picklist([0,1,2]),space:v.pipe(SpeakeasyCountSchema,v.maxValue(11))})),
       moves:v.pipe(v.array(v.strictObject({familyId:TileIdSchema,zone:v.picklist([0,1,2]),space:v.pipe(SpeakeasyCountSchema,v.maxValue(11))})),v.maxLength(80))}),
   ])}),
   v.strictObject({kind:v.literal('LEVEL'),operation:SpeakeasyOperationSchema,discardIds:v.pipe(v.array(TileIdSchema),v.maxLength(2))}),

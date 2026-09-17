@@ -374,7 +374,7 @@ test('Speakeasy truck buys rightmost barrels and ship skips occupied ports after
   assert.equal(e.players[0]!.cash,4);assert.equal(e.ships[0]!.port,3);assert.equal(e.ships[0]!.barrels.length,0);
   assert.equal(e.players[0]!.trucks[0]!.barrels.length,1);assert.equal(e.districts[1]!.slots[0]!.barrelId,tile('barrel-1'));
   assert.deepEqual(result.actorView.ports,[1,2,3,4]);
-  assert.deepEqual(result.actorView.ships[0],{tileId:tile('ship-a'),port:3,barrels:0,prices:[6,5]});
+  assert.deepEqual(result.actorView.ships[0],{tileId:tile('ship-a'),port:3,barrels:0,crate:null,prices:[6,5]});
   assert.ok(!JSON.stringify(result.actorView.ships).includes('barrel-'));
   result.actorView.ships[0]!.prices[0]=999;assert.equal(e.ships[0]!.prices[0],6);
 });
@@ -425,5 +425,94 @@ test('Speakeasy exhausted barrel supply rolls back a mixed ship and supply purch
   e.players[1]!.stock.push(...e.barrelSupply.splice(0),e.ships[0]!.barrels.pop()!);
   const before=structuredClone(s);
   assert.equal(prepareSpeakeasyPlayerCommand(s,a,body(s,'EXECUTE_LOCATION_ACTION',{actionId:'deliver',choice:{kind:'DELIVER',steps:[move(1),buy()]}}),c).ok,false);
+  assert.deepEqual(s,before);
+});
+
+function ambushSetup(crate=9,defense=7) {
+  const {s}=shipSetup(),p=s.round.economy.players[0]!,other=s.round.economy.players[1]!;
+  s.round.economy.ships[0]!.crate=crate;s.round.economy.crateSupply=[18,5].filter(n=>n!==crate);
+  s.round.economy.docks=[{ownerId:a,zone:0,space:0,familyId:p.familyReserve.shift()!},
+    {ownerId:b,zone:0,space:1,familyId:other.familyReserve.shift()!}];
+  const program:SpeakeasyLocationProgram={location:'CONTRACTOR',rows:[[{id:'ambush',kind:'AMBUSH',vipCapacityByLevel:[1,3,4,5,6],
+    defenses:[{shipId:tile('ship-a'),byRemaining:[20,12,defense]}]}]]};
+  s.locationActions={program,completed:[]};
+  return {s,c:{...catalog(s),locations:new Map(s.spaces.map(space=>[space.id,program]))}};
+}
+const ambushChoice=()=>({kind:'AMBUSH',shipId:'ship-a',familyId:'family-0-0',borrowedFamilyIds:['family-1-0'],goons:1,destination:{kind:'BUILDING',buildingId:'bar-0-0'}});
+
+test('Speakeasy ambush requires strictly greater strength; cash hire, goons, crate, barrel, family and ship commit together',()=>{
+  const tied=ambushSetup();const before=structuredClone(tied.s);
+  assert.equal(prepareSpeakeasyPlayerCommand(tied.s,a,body(tied.s,'EXECUTE_LOCATION_ACTION',{actionId:'ambush',choice:ambushChoice()}),tied.c).ok,false);
+  assert.deepEqual(tied.s,before);
+  const {s,c}=ambushSetup(9,6),r=run(s,'EXECUTE_LOCATION_ACTION',{actionId:'ambush',choice:ambushChoice()},c),e=r.candidate.round.economy;
+  assert.equal(e.players[0]!.cash,29);assert.equal(e.players[1]!.cash,16);assert.equal(e.players[0]!.goons.length,0);
+  assert.deepEqual(e.players[0]!.crates,[9]);assert.equal(e.ships[0]!.crate,18);assert.deepEqual(e.crateSupply,[5]);
+  assert.equal(e.districts[1]!.slots[0]!.barrelId,tile('barrel-1'));assert.equal(e.ships[0]!.port,3);
+  assert.equal(e.players[0]!.vip.length,3);assert.equal(e.docks.length,1);assert.equal(r.actorView.ships[0]!.crate,18);
+  assert.equal(r.actorView.turn.stage,'FINISH_LOCATION');assert.ok(!JSON.stringify(r.actorView).includes('crateSupply'));
+});
+
+test('Speakeasy ambush crate income precedes family return and cargo placement; spent goons do not earn income',()=>{
+  for(const [crate,cash] of [[3,12],[4,0],[10,0],[17,8]] as const) {
+    const {s,c}=ambushSetup(crate,6),r=run(s,'EXECUTE_LOCATION_ACTION',{actionId:'ambush',choice:ambushChoice()},c);
+    assert.equal(r.candidate.round.economy.players[0]!.cash,14+cash);
+  }
+});
+
+test('Speakeasy ambush cannot use safe money, wrong-zone or repeated borrowed members, or forged defense',()=>{
+  const {s,c}=ambushSetup(9,6),before=structuredClone(s);
+  for(const choice of [{...ambushChoice(),borrowedFamilyIds:['family-1-0','family-1-0']},
+    {...ambushChoice(),familyId:'family-1-0'},{...ambushChoice(),borrowedFamilyIds:['family-0-0']},
+    {...ambushChoice(),defense:0},{...ambushChoice(),destination:{kind:'DISCARD'}}]) {
+    assert.equal(prepareSpeakeasyPlayerCommand(s,a,body(s,'EXECUTE_LOCATION_ACTION',{actionId:'ambush',choice}),c).ok,false);assert.deepEqual(s,before);
+  }
+  s.round.economy.players[0]!.cash=0;
+  assert.equal(prepareSpeakeasyPlayerCommand(s,a,body(s,'EXECUTE_LOCATION_ACTION',{actionId:'ambush',choice:ambushChoice()}),c).ok,false);
+  s.round.economy.players[0]!.cash=15;s.round.economy.docks[1]!.zone=1;
+  assert.equal(prepareSpeakeasyPlayerCommand(s,a,body(s,'EXECUTE_LOCATION_ACTION',{actionId:'ambush',choice:ambushChoice()}),c).ok,false);
+});
+
+test('Speakeasy ambush sends family to reserve when VIP is full and loads the Stills area',()=>{
+  const {s,c}=ambushSetup(9,6);s.round.economy.players[0]!.levels.VIP=1;
+  const r=run(s,'EXECUTE_LOCATION_ACTION',{actionId:'ambush',choice:{...ambushChoice(),destination:{kind:'STILLS'}}},c),p=r.candidate.round.economy.players[0]!;
+  assert.equal(p.vip.length,2);assert.ok(p.familyReserve.includes(tile('family-0-0')));assert.deepEqual(p.stock,[tile('barrel-1')]);
+});
+
+test('Speakeasy ambush discards cargo only without an eligible building and missing replacement crate rolls back',()=>{
+  const {s,c}=ambushSetup(9,6);s.round.economy.districts[0]!.cop=true;s.round.economy.districts[1]!.cop=true;
+  const r=run(s,'EXECUTE_LOCATION_ACTION',{actionId:'ambush',choice:{...ambushChoice(),destination:{kind:'DISCARD'}}},c);
+  assert.equal(r.candidate.round.economy.barrelSupply.length,s.round.economy.barrelSupply.length+1);
+  s.round.economy.crateSupply=[];const before=structuredClone(s);
+  assert.equal(prepareSpeakeasyPlayerCommand(s,a,body(s,'EXECUTE_LOCATION_ACTION',{actionId:'ambush',choice:{...ambushChoice(),destination:{kind:'DISCARD'}}}),c).ok,false);assert.deepEqual(s,before);
+});
+
+test('Speakeasy crate 11/12 permits choosing another registered dock bonus without moving the new family there',()=>{
+  const {s,c}=familySetup(),benefits=new Map(c.dockBenefits);
+  benefits.set('0:3',state=>{state.economy.players[0]!.cash+=8;return {ok:true,value:state};});
+  const choice={kind:'FAMILY',destination:{kind:'DOCK',zone:0,space:2,moves:[],bonus:{zone:0,space:3}}};
+  assert.equal(prepareSpeakeasyPlayerCommand(s,a,body(s,'EXECUTE_LOCATION_ACTION',{actionId:'family',choice}),{...c,dockBenefits:benefits}).ok,false);
+  s.round.economy.players[0]!.crates=[11];
+  const r=run(s,'EXECUTE_LOCATION_ACTION',{actionId:'family',choice},{...c,dockBenefits:benefits});
+  assert.equal(r.candidate.round.economy.players[0]!.cash,23);assert.equal(r.candidate.round.economy.docks.at(-1)!.space,2);
+});
+
+test('Speakeasy all eighteen crate income formulas apply during the authorized ambush',()=>{
+  const expected=[0,10,12,0,15,0,0,12,15,0,12,12,0,0,0,10,8,10];
+  expected.forEach((cash,index)=>{
+    const {s,c}=ambushSetup(index+1,6);
+    const r=run(s,'EXECUTE_LOCATION_ACTION',{actionId:'ambush',choice:ambushChoice()},c);
+    assert.equal(r.candidate.round.economy.players[0]!.cash,14+cash,`crate ${index+1}`);
+  });
+});
+
+test('Speakeasy empty-ship ambush uses supply and missing barrel restores all rewards and hired cash',()=>{
+  const {s,c}=ambushSetup(9,6),e=s.round.economy;
+  e.barrelSupply.push(...e.ships[0]!.barrels.splice(0));
+  const action=s.locationActions!.program.rows[0]![0]!;assert.equal(action.kind,'AMBUSH');
+  if(action.kind!=='AMBUSH') throw new Error('Expected ambush.');action.defenses[0]!.byRemaining[0]=6;
+  const r=run(s,'EXECUTE_LOCATION_ACTION',{actionId:'ambush',choice:ambushChoice()},c);
+  assert.equal(r.candidate.round.economy.barrelSupply.length,e.barrelSupply.length-1);
+  e.players[1]!.stock.push(...e.barrelSupply.splice(0));const before=structuredClone(s);
+  assert.equal(prepareSpeakeasyPlayerCommand(s,a,body(s,'EXECUTE_LOCATION_ACTION',{actionId:'ambush',choice:ambushChoice()}),c).ok,false);
   assert.deepEqual(s,before);
 });

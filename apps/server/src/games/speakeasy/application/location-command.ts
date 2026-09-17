@@ -1,3 +1,4 @@
+import {ambushSpeakeasyShip} from '../domain/ship-ambush.js';
 import {resolveSpeakeasyFamily} from '../domain/family-actions.js';
 import {resolveSpeakeasyLevel} from './level-command.js';
 import type {PlayerId,SpeakeasyPlayerCommand} from '@hangul-rummikub/shared';
@@ -39,6 +40,10 @@ export function resolveSpeakeasyLocation(s:SpeakeasyGameFlow,actor:PlayerId,inpu
   let outcome:SpeakeasyRuleResult<SpeakeasyEconomy>;
   const player=candidate.round.economy.players.find(p=>p.playerId===actor)!;
   switch(choice.kind) {
+    case 'AMBUSH': {
+      if(action.kind!=='AMBUSH') return ruleFailure('INVALID_ACTION');
+      outcome=ambushSpeakeasyShip(candidate.round.economy,actor,choice,action);break;
+    }
     case 'FAMILY': case 'LEVEL': return ruleFailure('INVALID_ACTION');
     case 'PRODUCE': {
       if(action.kind!=='PRODUCE') return ruleFailure('INVALID_ACTION');

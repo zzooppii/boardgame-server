@@ -28,8 +28,9 @@ const Player = v.strictObject({
 });
 
 export const SpeakeasyEconomySchema = v.strictObject({
+  crateSupply:v.optional(v.array(v.pipe(count,v.minValue(1),v.maxValue(18))),()=>[]),
   ports: v.optional(v.pipe(v.array(SpeakeasyDistrictIdSchema),v.maxLength(16)),()=>[]),
-  ships: v.optional(v.array(v.strictObject({tileId:TileIdSchema,port:SpeakeasyDistrictIdSchema,barrels:ids,
+  ships: v.optional(v.array(v.strictObject({tileId:TileIdSchema,port:SpeakeasyDistrictIdSchema,barrels:ids,crate:v.optional(v.pipe(count,v.minValue(1),v.maxValue(18))),
     prices:v.pipe(v.array(count),v.minLength(1),v.maxLength(40))})),()=>[]),
   players: v.pipe(v.array(Player), v.minLength(2), v.maxLength(4)),
   districts: v.pipe(v.array(v.strictObject({id: SpeakeasyDistrictIdSchema, blocked: v.boolean(), cop: v.boolean(),
