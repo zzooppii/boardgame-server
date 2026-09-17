@@ -1,4 +1,4 @@
-import {MARS_RESOURCES,MARS_RESOURCE_NAMES,type MarsProjection} from '@hangul-rummikub/shared';
+import {marsCard,MARS_CARD_RESOURCE_NAMES,MARS_RESOURCES,MARS_RESOURCE_NAMES,type MarsProjection} from '@hangul-rummikub/shared';
 
 export type MarsResourceChange={label:string;before:number;after:number};
 export type MarsResourceReceipt={generation:number;changes:MarsResourceChange[]};
@@ -15,6 +15,11 @@ export function marsResourceReceipt(previous:MarsProjection|null,current:MarsPro
   if(before.production[key]!==after.production[key])changes.push({label:MARS_RESOURCE_NAMES[key]+' 생산',before:before.production[key],after:after.production[key]});
  }
  if(before.tr!==after.tr)changes.push({label:'TR',before:before.tr,after:after.tr});
+ const previousCards=new Map(before.played.map(card=>[card.tileId,card]));
+ for(const card of after.played){
+  const definition=marsCard(card.definitionId),oldAmount=previousCards.get(card.tileId)?.resources??0;
+  if(definition.resource&&oldAmount!==card.resources)changes.push({label:`${definition.name} · ${MARS_CARD_RESOURCE_NAMES[definition.resource]}`,before:oldAmount,after:card.resources});
+ }
  return changes.length?{generation:current.generation,changes}:undefined;
 }
 export function ResourceReceipt({receipt}:{receipt:MarsResourceReceipt|null}){
@@ -24,7 +29,7 @@ export function ActionGuide({game:g}:{game:MarsProjection}){
  if(g.phase==='FINISHED'||g.stage==='SETUP'||g.stage==='RESEARCH'||g.activePlayerId!==g.privateState.playerId)return null;
  if(g.privateState.cardChoice)return null;
  if(g.privateState.offers.some(o=>o.id.startsWith('initial-award:')))return <div className="tm-action-guide" role="status"><strong>비토르의 첫 행동 · 기업상 무료 후원</strong><p>후원할 기업상을 선택하세요. 점수는 게임 종료 시 해당 기업상의 순위로 결정됩니다.</p></div>;
- if(g.privateState.offers.some(o=>o.id.startsWith('instant:')))return <div className="tm-action-guide" role="status"><strong>손패에서 프로젝트 1장을 실행하세요</strong><p>프렐류드의 할인 또는 전역 조건 완화는 이번 프로젝트에만 적용됩니다. 카드 선택 후 지불을 확정하세요.</p></div>;
+ if(g.privateState.offers.some(o=>o.id.startsWith('instant:')))return <div className="tm-action-guide" role="status"><strong>손패에서 프로젝트 1장을 실행하세요</strong><p>아래 실행 가능 목록이나 손패에서 선택하세요. 프렐류드의 할인 또는 전역 조건 완화는 이번 프로젝트에만 적용됩니다. 카드 선택 후 지불을 확정하세요.</p></div>;
  if(g.privateState.offers.some(o=>o.id.startsWith('prelude:')))return <div className="tm-action-guide" role="status"><strong>프렐류드 실행 순서를 선택하세요</strong><p>앞 카드에서 얻은 자원으로 다음 카드를 실행할 수 있습니다. 필수 효과를 실행할 수 없는 카드는 공개하고 버려 15 M€를 받습니다.</p></div>;
  if(g.privateState.offers.some(o=>o.id.startsWith('olympus:')))return <div className="tm-action-guide" role="status"><strong>과학 태그 효과를 선택하세요</strong><p>과학 자원을 추가하거나 기존 과학 자원 1개로 카드 1장을 뽑습니다. 과학 태그가 여러 개면 각각 처리합니다.</p></div>;
  if(g.privateState.offers.some(o=>o.id.startsWith('viral:')))return <div className="tm-action-guide" role="status"><strong>식물 또는 카드 자원을 선택하세요</strong><p>자원은 방금 낸 카드에만 추가할 수 있습니다. 대상 카드에 자원 칸이 없으면 식물을 얻습니다.</p></div>;

@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { MARS_RESOURCES, type MarsProjection, type MarsResource } from '@hangul-rummikub/shared';
-export type MarsCue = 'SELECT' | 'CARD' | 'PLACE' | 'WATER' | 'GREENERY' | 'HEAT' | 'PRODUCTION' | 'TURN' | 'CLAIM' | 'ATTACK' | 'FINISH' | 'ERROR';
+export type MarsCue = 'SELECT' | 'CARD' | 'CARD_RESOURCE' | 'PLACE' | 'WATER' | 'GREENERY' | 'HEAT' | 'PRODUCTION' | 'TURN' | 'CLAIM' | 'ATTACK' | 'FINISH' | 'ERROR';
 export function marsFeedback(previous: MarsProjection | null, current: MarsProjection, continuous: boolean): {
     cue: MarsCue | null;
     deltas: Partial<Record<MarsResource, number>>;
 } {
-    if (!continuous || !previous || previous.gameId !== current.gameId || current.gameRevision !== previous.gameRevision + 1)
+    if (!continuous || !previous || previous.gameId !== current.gameId || previous.privateState.playerId !== current.privateState.playerId || current.gameRevision !== previous.gameRevision + 1)
         return { cue: null, deltas: {} };
     const a = previous.playerStates.find(p => p.playerId === current.privateState.playerId), b = current.playerStates.find(p => p.playerId === current.privateState.playerId), deltas: Partial<Record<MarsResource, number>> = {};
     if (a && b)
@@ -15,7 +15,9 @@ export function marsFeedback(previous: MarsProjection | null, current: MarsProje
                 deltas[k] = n;
         }
     const event = current.history.at(-1), newEvent = event && event.id > (previous.history.at(-1)?.id ?? 0);
-    const cue: MarsCue | null = current.phase === 'FINISHED' && previous.phase !== 'FINISHED' ? (current.result.reason === 'SCORED' ? 'FINISH' : null) : current.generation !== previous.generation || newEvent && event.kind === 'PRODUCTION' ? 'PRODUCTION' : current.oceans > previous.oceans ? 'WATER' : current.tiles.length > previous.tiles.length ? (current.tiles.at(-1)?.kind === 'greenery' ? 'GREENERY' : 'PLACE') : current.temperature > previous.temperature ? 'HEAT' : newEvent && event.kind === 'CARD' || previous.privateState.cardChoice !== null && previous.privateState.cardChoice.id !== current.privateState.cardChoice?.id && current.privateState.hand.some(c => !previous.privateState.hand.some(old => old.tileId === c.tileId)) ? 'CARD' : newEvent && event.kind === 'ATTACK' ? 'ATTACK' : newEvent && event.kind === 'CLAIM' ? 'CLAIM' : current.activePlayerId !== previous.activePlayerId && current.activePlayerId === current.privateState.playerId ? 'TURN' : null;
+    const oldCards = new Map(a?.played.map(card => [card.tileId, card.resources]));
+    const cardResourcesChanged = b?.played.some(card => card.resources !== (oldCards.get(card.tileId) ?? 0)) ?? false;
+    const cue: MarsCue | null = current.phase === 'FINISHED' && previous.phase !== 'FINISHED' ? (current.result.reason === 'SCORED' ? 'FINISH' : null) : current.generation !== previous.generation || newEvent && event.kind === 'PRODUCTION' ? 'PRODUCTION' : current.oceans > previous.oceans ? 'WATER' : current.tiles.length > previous.tiles.length ? (current.tiles.at(-1)?.kind === 'greenery' ? 'GREENERY' : 'PLACE') : current.temperature > previous.temperature ? 'HEAT' : newEvent && event.kind === 'CARD' || previous.privateState.cardChoice !== null && previous.privateState.cardChoice.id !== current.privateState.cardChoice?.id && current.privateState.hand.some(c => !previous.privateState.hand.some(old => old.tileId === c.tileId)) ? 'CARD' : newEvent && event.kind === 'ATTACK' ? 'ATTACK' : newEvent && event.kind === 'CLAIM' ? 'CLAIM' : current.activePlayerId !== previous.activePlayerId && current.activePlayerId === current.privateState.playerId ? 'TURN' : cardResourcesChanged ? 'CARD_RESOURCE' : null;
     return { cue, deltas };
 }
 export function useMarsSound(g: MarsProjection | null, connected: boolean) {
@@ -63,6 +65,10 @@ export function useMarsSound(g: MarsProjection | null, connected: boolean) {
         else if (cue === 'CARD') {
             tone(680, 0, .11, 220, 'triangle');
             tone(390, .055, .12);
+        }
+        else if (cue === 'CARD_RESOURCE') {
+            tone(540, 0, .10, 540, 'triangle');
+            tone(810, .06, .14, 810, 'triangle');
         }
         else if (cue === 'TURN') {
             tone(523, 0, .17);

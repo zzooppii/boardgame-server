@@ -236,3 +236,143 @@ test('Mars card face exposes printed requirements visually and to assistive tech
  const noCondition=renderToStaticMarkup(createElement(MarsCardView,{card:{...card,definitionId:'PowerPlant'},onSelect(){}}));
  assert.doesNotMatch(noCondition,/tm-card-requirements|인쇄 조건/);
 });
+
+
+import {marsVisibleOffers} from '../features/mars/offers.js';
+test('Mars mandatory immediate project offers remain visible across old tabs and inspected card targets',()=>{
+ const g=game();g.privateState.offers=[{id:'instant:power',kind:'CARD',targetId:'power',label:'발전소',detail:'즉시 실행',cost:0},{id:'instant:space',kind:'CARD',targetId:'space',label:'우주 프로젝트',detail:'즉시 실행',cost:4}];
+ for(const group of ['all','project','claim'] as const)for(const target of [null,'old-inspected-card','power']){
+  assert.deepEqual(marsVisibleOffers(g.privateState.offers,true,target,group),g.privateState.offers);
+ }
+ const before=structuredClone(g.privateState.offers);marsVisibleOffers(g.privateState.offers,false,null,'claim');assert.deepEqual(g.privateState.offers,before);
+});
+test('Mars ordinary offer tabs and payment cancellation do not become forced project choices',()=>{
+ const g=game();g.privateState.offers=[{id:'project:ocean',kind:'PROJECT',targetId:'ocean',label:'해양',detail:'',cost:18},{id:'pass',kind:'PASS',targetId:'pass',label:'패스',detail:'',cost:0}];
+ assert.deepEqual(marsVisibleOffers(g.privateState.offers,false,null,'project').map(o=>o.id),['project:ocean']);
+ assert.deepEqual(marsVisibleOffers(g.privateState.offers,false,null,'all').map(o=>o.id),['pass']);
+ g.privateState.offers=[{id:'cancel',kind:'CANCEL',targetId:'cancel',label:'취소',detail:'',cost:0}];
+ assert.deepEqual(marsVisibleOffers(g.privateState.offers,false,null,'all'),[]);
+});
+
+
+import {marsMapFocus} from '../features/mars/map-keyboard.js';
+test('Mars map arrows skip illegal cells, follow row geometry and stop at edges',()=>{
+ const legal=['1-1','1-3','2-1','2-3','4-2','phobos'];
+ assert.equal(marsMapFocus(legal,null),'1-1');
+ assert.equal(marsMapFocus(legal,'1-1','ArrowRight'),'1-3');
+ assert.equal(marsMapFocus(legal,'1-3','ArrowLeft'),'1-1');
+ assert.equal(marsMapFocus(legal,'1-3','ArrowRight'),'1-3');
+ assert.equal(marsMapFocus(legal,'1-3','ArrowDown'),'2-3');
+ assert.equal(marsMapFocus(legal,'2-3','ArrowDown'),'4-2');
+ assert.equal(marsMapFocus(legal,'4-2','ArrowUp'),'2-1');
+ assert.equal(marsMapFocus(legal,'1-1','ArrowUp'),'1-1');
+ assert.equal(marsMapFocus(legal,'4-2','Home'),'1-1');
+ assert.equal(marsMapFocus(legal,'1-1','End'),'4-2');
+ assert.equal(marsMapFocus(legal,'1-2'),'1-1','Removed or illegal focus returns to the first legal space');
+ assert.equal(marsMapFocus(['phobos','ganymede'],null),null,'Off-world buttons keep their own navigation');
+ assert.equal(marsMapFocus([],null),null);
+});
+
+
+test('Mars unused action shortcuts exclude used cards and passive-only cards, and return next generation',()=>{
+ const p=game().playerStates[0]!;
+ p.played=['Ironworks','Psychrophiles','ResearchOutpost','Asteroid'].map((definitionId,i)=>({tileId:v.parse(TileIdSchema,'shortcut-'+i),definitionId,resources:0,usedGeneration:definitionId==='Ironworks'?1:0}));
+ const before=structuredClone(p);
+ assert.deepEqual(marsEngineSummary(p,1).unusedCards.map(c=>c.definitionId),['Psychrophiles']);
+ assert.deepEqual(marsEngineSummary(p,2).unusedCards.map(c=>c.definitionId),['Ironworks','Psychrophiles']);
+ assert.deepEqual(p,before);
+ const html=renderToStaticMarkup(createElement(EngineSummary,{player:p,generation:1,onInspect(){}}));
+ assert.match(html,/aria-label="미사용 카드 행동 바로가기"/);assert.match(html,/호냉성 미생물/);assert.match(html,/카드 확인 →/);
+ p.played[1]!.usedGeneration=1;
+ const used=renderToStaticMarkup(createElement(EngineSummary,{player:p,generation:1,onInspect(){}}));
+ assert.doesNotMatch(used,/미사용 카드 행동 바로가기/);assert.match(used,/이번 세대의 카드 행동을 모두 사용했습니다/);
+ const empty=renderToStaticMarkup(createElement(EngineSummary,{player:game().playerStates[0]!,generation:1,onInspect(){}}));
+ assert.doesNotMatch(empty,/모두 사용했습니다|미사용 카드 행동 바로가기/);
+});
+
+
+test('Mars receipt reports owned card resources, new card stocks and attacks without including opponents',()=>{
+ const before=game(),after=game(2);
+ const definitions=['Fish','Psychrophiles','OlympusConference','SecurityFleet'];
+ before.playerStates[0]!.played=definitions.map((definitionId,i)=>({tileId:v.parse(TileIdSchema,'receipt-'+i),definitionId,resources:2,usedGeneration:0}));
+ after.playerStates[0]!.played=before.playerStates[0]!.played.map((c,i)=>({...c,resources:i%2===0?3:0}));
+ after.playerStates[0]!.played.push({tileId:v.parse(TileIdSchema,'receipt-new'),definitionId:'Tardigrades',resources:1,usedGeneration:0});
+ after.playerStates[1]!.played=[{tileId:v.parse(TileIdSchema,'receipt-peer'),definitionId:'Fish',resources:9,usedGeneration:0}];
+ after.activePlayerId=after.playerStates[1]!.playerId;
+ const frozen=JSON.stringify([before,after]),receipt=marsResourceReceipt(before,after,true);
+ assert.ok(receipt);assert.equal(receipt.changes.length,5);
+ assert.deepEqual(receipt.changes.map(c=>[c.label.split(' · ')[1],c.before,c.after]),[['동물',2,3],['미생물',2,0],['과학',2,3],['전투기',2,0],['미생물',0,1]]);
+ const html=renderToStaticMarkup(createElement(ResourceReceipt,{receipt}));
+ assert.match(html,/호냉성 미생물 · 미생물/);assert.match(html,/\(-2\)/);assert.match(html,/\(\+1\)/);
+ assert.equal(JSON.stringify([before,after]),frozen);
+ assert.equal(marsResourceReceipt(before,after,false),null);
+ after.gameRevision=game(4).gameRevision;assert.equal(marsResourceReceipt(before,after,true),null);
+ const peerOnly=game(2);peerOnly.playerStates[1]!.played=after.playerStates[1]!.played;
+ assert.equal(marsResourceReceipt(game(),peerOnly,true),undefined);
+});
+
+
+test('Mars card resource sound follows owned confirmed changes and respects major cue priority',()=>{
+ const before=game(),after=game(2);
+ const card={tileId:v.parse(TileIdSchema,'sound-microbe'),definitionId:'Psychrophiles',resources:1,usedGeneration:0};
+ before.playerStates[0]!.played=[card];after.playerStates[0]!.played=[{...card,resources:2}];
+ assert.equal(marsFeedback(before,after,true).cue,'CARD_RESOURCE');
+ after.playerStates[0]!.played[0]!.resources=0;assert.equal(marsFeedback(before,after,true).cue,'CARD_RESOURCE');
+ after.history=[{id:1,generation:1,playerId:after.activePlayerId,kind:'ATTACK',text:'자원 제거'}];
+ assert.equal(marsFeedback(before,after,true).cue,'ATTACK');
+ after.history=[];after.oceans=1;assert.equal(marsFeedback(before,after,true).cue,'WATER');
+ after.oceans=0;after.generation=2;assert.equal(marsFeedback(before,after,true).cue,'PRODUCTION');
+ after.generation=1;before.activePlayerId=before.playerStates[1]!.playerId;assert.equal(marsFeedback(before,after,true).cue,'TURN');
+ assert.equal(marsFeedback(before,after,false).cue,null);
+ assert.equal(marsFeedback(after,after,true).cue,null);
+ after.gameRevision=game(4).gameRevision;assert.equal(marsFeedback(before,after,true).cue,null);
+ const peerOnly=game(2);peerOnly.playerStates[1]!.played=[card];assert.equal(marsFeedback(game(),peerOnly,true).cue,null);
+ const identity=game(2);identity.privateState.playerId=identity.playerStates[1]!.playerId;identity.playerStates[1]!.resources.money=99;
+ assert.deepEqual(marsFeedback(game(),identity,true),{cue:null,deltas:{}});
+});
+
+
+import {PlayedCards,filterMarsPlayed} from '../features/mars/PlayedCards.js';
+test('Mars played card exploration combines search with action, passive and resource filters without changing state',()=>{
+ const cards: MarsCard[]=['Asteroid','Ironworks','Psychrophiles','ResearchOutpost','Fish'].map((definitionId,i)=>({tileId:v.parse(TileIdSchema,'played-filter-'+i),definitionId,resources:definitionId==='Psychrophiles'?2:0,usedGeneration:definitionId==='Ironworks'?1:0}));
+ const frozen=JSON.stringify(cards),ids=(query:string,filter:Parameters<typeof filterMarsPlayed>[3],generation=1)=>filterMarsPlayed(cards,generation,query,filter,true).map(c=>c.definitionId);
+ assert.deepEqual(ids('','unused'),['Psychrophiles','Fish']);
+ assert.deepEqual(ids('','unused',2),['Ironworks','Psychrophiles','Fish']);
+ assert.deepEqual(ids('  PSYCHROPHILES  ','action'),['Psychrophiles']);
+ assert.deepEqual(ids('','passive'),['Psychrophiles','ResearchOutpost'],'A card may have both an action and a passive effect');
+ assert.deepEqual(ids('','resource'),['Psychrophiles']);
+ assert.deepEqual(ids('호냉성','resource'),['Psychrophiles']);
+ assert.deepEqual(ids('없는 카드','all'),[]);
+ assert.deepEqual(filterMarsPlayed(cards,1,'','all',false),cards,'Public cards preserve their played order');
+ assert.deepEqual(ids('','all'),['Ironworks','Psychrophiles','Fish','Asteroid','ResearchOutpost']);
+ assert.equal(JSON.stringify(cards),frozen);
+ const html=renderToStaticMarkup(createElement(PlayedCards,{cards,generation:1,selected:null,onSelect(){}}));
+ assert.match(html,/낸 카드 검색/);assert.match(html,/낸 카드 필터 초기화/);assert.match(html,/role="status"/);assert.match(html,/이번 세대 사용 완료/);
+ assert.match(renderToStaticMarkup(createElement(PlayedCards,{cards:[],generation:1,selected:null,onSelect(){}})),/아직 낸 카드가 없습니다/);
+});
+
+
+test('Mars card accessible name includes resource counts and only played card action state',()=>{
+ const card:MarsCard={tileId:v.parse(TileIdSchema,'accessible-card'),definitionId:'Psychrophiles',resources:2,usedGeneration:3};
+ const label=(generation?:number)=>renderToStaticMarkup(createElement(MarsCardView,{card,...(generation===undefined?{}:{generation}),onSelect(){}})).match(/aria-label="([^"]+)"/)![1]!;
+ assert.match(label(3),/미생물 2개 · 이번 세대 사용 완료/);
+ assert.match(label(4),/미생물 2개 · 이번 세대 행동 미사용/);
+ assert.doesNotMatch(label(),/이번 세대/,'Hand cards do not imply an unused action');
+ card.resources=0;assert.match(label(3),/미생물 0개/);
+ card.definitionId='PowerPlant';assert.doesNotMatch(label(3),/이번 세대|미생물/);
+});
+
+
+import {MarsArt,MARS_FEATURED_ART} from '../features/mars/cards.js';
+test('Mars featured illustrations map four cards to distinct atlas cells and retain the existing fallback',()=>{
+ const positions=['0% 0%','100% 0%','0% 100%','100% 100%'];
+ for(const [definitionId,cell] of Object.entries(MARS_FEATURED_ART)){
+  const html=renderToStaticMarkup(createElement(MarsArt,{cell:8,definitionId}));
+  assert.match(html,/featured-cards-v1.webp/);assert.ok(html.includes(`background-position:${positions[cell!]}`));
+  assert.match(html,/aria-hidden="true"/);
+ }
+ const fallback=renderToStaticMarkup(createElement(MarsArt,{cell:8,definitionId:'Tardigrades'}));
+ assert.doesNotMatch(fallback,/featured-cards/);assert.match(fallback,/background-position:0% 100%/);
+ const asset=readFileSync(new URL('../../public/images/mars/featured-cards-v1.webp',import.meta.url));
+ assert.equal(asset.subarray(8,12).toString(),'WEBP');assert.ok(asset.length<600_000,'Four-card artwork stays below 600 kB');
+});

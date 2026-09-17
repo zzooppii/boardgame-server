@@ -95,3 +95,31 @@ test('Mars lava city can touch another city and Ecology Experts ignores globals 
 test('Mars Valley Trust applies science discount for each printed tag, without turning wild into a discount',()=>{
  const s=actionReady(),p=s.players[0]!;p.corporationId='ValleyTrust';assert.equal(marsCost(p,marsCard('Research')),7);assert.equal(marsCost(p,marsCard('ResearchCoordination')),4);
 });
+
+
+test('Mars instant Prelude benefits never alter another player hand costs or eligibility',()=>{
+ for(const [preludeId,ownId,otherId] of [['EccentricSponsor','PowerPlant','Asteroid'],['EcologyExperts','Fish','Birds']] as const){
+  let s=create();const owner=s.players[0]!,prelude=move(s,preludeId,owner.preludes);
+  owner.preludes=[prelude,...owner.preludes.filter(c=>c!==prelude)];s=setup(s);
+  const actor=s.players[0]!,viewer=s.players[1]!;
+  actor.resources=marsResources({money:100});viewer.resources=marsResources({money:preludeId==='EccentricSponsor'?0:100});
+  s.temperature=-30;s.oxygen=0;
+  const own=move(s,ownId,actor.hand),other=move(s,otherId,viewer.hand);
+  const view=(state:MarsState,id=viewer.playerId)=>projectMars({gameId:state.gameId,gameRevision:state.revision,startedAt:now,finishedAt:null,state},id)!;
+  const before=view(s).privateState.cardStatus.find(c=>c.tileId===other.tileId)!;assert.notEqual(before.reason,null);
+  s=settlePreludeStart(s,prelude.tileId);
+  assert.equal(s.current?.effect.kind,'instantProject');
+  assert.deepEqual(view(s).privateState.cardStatus.find(c=>c.tileId===other.tileId),before,'Opponent keeps their own unmodified prices and requirements');
+  const ownStatus=view(s,actor.playerId).privateState.cardStatus.find(c=>c.tileId===own.tileId)!;
+  assert.equal(ownStatus.reason,null);if(preludeId==='EccentricSponsor')assert.equal(ownStatus.cost,0);
+  assert.deepEqual(view(s).privateState.offers,[]);
+  const frozen=JSON.stringify(s);assert.equal(applyMarsAction(s,viewer.playerId,{type:'TAKE',actionId:`instant:${other.tileId}`},now,s.transitionId,random).ok,false);assert.equal(JSON.stringify(s),frozen);
+ }
+});
+function settlePreludeStart(s:MarsState,cardId:string):MarsState{
+ s=command(s,{type:'TAKE',actionId:`prelude:${cardId}`});
+ for(let step=0;step<20&&s.current?.effect.kind!=='instantProject';step++){
+  const offer=marsOffers(s,s.activePlayerId)[0];assert.ok(offer);s=command(s,{type:'TAKE',actionId:offer.id});
+ }
+ return s;
+}

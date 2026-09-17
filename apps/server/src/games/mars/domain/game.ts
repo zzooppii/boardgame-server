@@ -160,7 +160,10 @@ function amountAvailable(p: Person, material = 'none'): number {
     return p.resources.money + (p.corporationId === 'Helion' ? p.resources.heat : 0) + (material === 'steel' || material === 'both' ? p.resources.steel * values.steelValue : 0) + (material === 'titanium' || material === 'both' ? p.resources.titanium * values.titaniumValue : 0);
 }
 export function marsCost(p: Person, c: MarsDefinition): number { return marsDiscountedCost(p, c, p.nextCardDiscount); }
-export function marsCurrentCardCost(s:MarsState,p:Person,c:MarsDefinition):number{return Math.max(0,marsCost(p,c)-(s.current?.effect.kind==='instantProject'?s.current.effect.discount:0));}
+function instantProjectFor(s: MarsState, p: Person) {
+    return s.activePlayerId === p.playerId && s.current?.effect.kind === 'instantProject' ? s.current.effect : null;
+}
+export function marsCurrentCardCost(s:MarsState,p:Person,c:MarsDefinition):number{return Math.max(0,marsCost(p,c)-(instantProjectFor(s,p)?.discount ?? 0));}
 function material(c: MarsDefinition): 'both' | 'steel' | 'titanium' | 'none' { return c.tags.includes('building') ? (c.tags.includes('space') ? 'both' : 'steel') : c.tags.includes('space') ? 'titanium' : 'none'; }
 function ownCard(p: Person, source: string) { return p.played.find(c => c.tileId === source); }
 function effectsPossible(s: MarsState, p: Person, effects: readonly MarsEffect[], source: string): boolean {
@@ -192,7 +195,7 @@ function effectsPossible(s: MarsState, p: Person, effects: readonly MarsEffect[]
     } });
 }
 export function marsCardReason(s: MarsState, p: Person, c: MarsDefinition): string | null {
-    const instant = s.current?.effect.kind==='instantProject'?s.current.effect:null;
+    const instant = instantProjectFor(s, p);
     const bonus = (instant?.ignoreGlobal?50:0) + (p.corporationId === 'Inventrix' ? 2 : 0) + (has(p, 'AdaptationTechnology') ? 2 : 0) + (p.specialDesign ? 2 : 0);
     const requirements=c.corporateRequirements ?? marsBaseRequirements(c.requirements);
     const deficit=requirements.reduce((n,req)=>n+(req.kind==='tag'&& !('max' in req && req.max) ? Math.max(0,req.amount-marsTags(p,req.tag)):0),0);

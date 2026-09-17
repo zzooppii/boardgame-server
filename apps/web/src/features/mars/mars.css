@@ -39,3 +39,5 @@
 /* Keep printed requirements visible before project purchase or selection. */
 .tm-card-requirements{display:block;padding:7px 9px;border-top:1px solid #b5aa8e;border-bottom:1px solid #b5aa8e;background:#f0e1bc;color:#463619;font-size:11px;line-height:1.6;overflow-wrap:anywhere;text-align:left}
 .tm-card-requirements b{display:block;font-size:10px;color:#65502b}
+
+.tm-unused-actions{margin-top:14px}.tm-unused-actions h3{font-size:13px;margin-bottom:8px}.tm-unused-actions>div{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:8px}.tm-unused-actions button{display:grid;gap:6px;text-align:left;min-height:44px;min-width:0;overflow-wrap:anywhere}.tm-unused-actions button span{font-size:12px;line-height:1.6;color:var(--tm-muted)}.tm-unused-actions button small{font-size:11px;color:#e7c385}
