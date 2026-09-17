@@ -3,7 +3,7 @@ import test from 'node:test';
 import * as v from 'valibot';
 import {readFileSync} from 'node:fs';
 import {MarsPlayingProjectionSchema, MARS_CARDS, marsCardDescription, marsResources} from '@hangul-rummikub/shared';
-import {marsFeedback} from '../features/mars/sound.js';
+import {marsFeedback,marsSoundPreferences} from '../features/mars/sound.js';
 import {GAME_CATALOG} from '../features/game-catalog/game-catalog.js';
 import {WEB_SUPPORTED_GAME_TYPES} from './snapshot-wire-decoder.js';
 function game(revision=1){return v.parse(MarsPlayingProjectionSchema,{gameType:'TERRAFORMING_MARS',gameId:'mars-feedback',gameRevision:revision,rulesVersion:'mars-base-v1',generation:1,stage:'ACTION',activePlayerId:'mars-a',startingPlayerId:'mars-a',actionsTaken:0,oxygen:0,temperature:-30,oceans:0,tiles:[],landClaims:[],milestones:[],awards:[],history:[],deckCount:137,discardCount:0,phase:'PLAYING',turnId:'mars-turn',playerStates:['mars-a','mars-b'].map(playerId=>({playerId,protectedHabitats:false,corporationId:'Beginner',resources:marsResources({money:42}),production:marsResources(),tr:20,handCount:0,played:[],passed:false,ready:true,generationStartTr:20,corporationUsedGeneration:0})),privateState:{playerId:'mars-a',nextCardDiscount:0,hand:[],research:[],corporations:[],offers:[],payment:null,cardChoice:null,cardStatus:[]}});}
@@ -332,7 +332,7 @@ test('Mars card resource sound follows owned confirmed changes and respects majo
 });
 
 
-import {PlayedCards,filterMarsPlayed} from '../features/mars/PlayedCards.js';
+import {PlayedCardRow,PlayedCards,filterMarsPlayed} from '../features/mars/PlayedCards.js';
 test('Mars played card exploration combines search with action, passive and resource filters without changing state',()=>{
  const cards: MarsCard[]=['Asteroid','Ironworks','Psychrophiles','ResearchOutpost','Fish'].map((definitionId,i)=>({tileId:v.parse(TileIdSchema,'played-filter-'+i),definitionId,resources:definitionId==='Psychrophiles'?2:0,usedGeneration:definitionId==='Ironworks'?1:0}));
  const frozen=JSON.stringify(cards),ids=(query:string,filter:Parameters<typeof filterMarsPlayed>[3],generation=1)=>filterMarsPlayed(cards,generation,query,filter,true).map(c=>c.definitionId);
@@ -363,7 +363,7 @@ test('Mars card accessible name includes resource counts and only played card ac
 });
 
 
-import {MarsArt,MARS_FEATURED_ART} from '../features/mars/cards.js';
+import {MarsArt,MARS_FEATURED_ART,MARS_ECOLOGY_ART} from '../features/mars/cards.js';
 test('Mars featured illustrations map four cards to distinct atlas cells and retain the existing fallback',()=>{
  const positions=['0% 0%','100% 0%','0% 100%','100% 100%'];
  for(const [definitionId,cell] of Object.entries(MARS_FEATURED_ART)){
@@ -371,8 +371,112 @@ test('Mars featured illustrations map four cards to distinct atlas cells and ret
   assert.match(html,/featured-cards-v1.webp/);assert.ok(html.includes(`background-position:${positions[cell!]}`));
   assert.match(html,/aria-hidden="true"/);
  }
- const fallback=renderToStaticMarkup(createElement(MarsArt,{cell:8,definitionId:'Tardigrades'}));
+ const fallback=renderToStaticMarkup(createElement(MarsArt,{cell:8,definitionId:'Ironworks'}));
  assert.doesNotMatch(fallback,/featured-cards/);assert.match(fallback,/background-position:0% 100%/);
  const asset=readFileSync(new URL('../../public/images/mars/featured-cards-v1.webp',import.meta.url));
  assert.equal(asset.subarray(8,12).toString(),'WEBP');assert.ok(asset.length<600_000,'Four-card artwork stays below 600 kB');
+});
+
+
+test('Mars compact played rows retain identity, resources, selection and action state',()=>{
+ const card:MarsCard={tileId:v.parse(TileIdSchema,'compact-card'),definitionId:'Psychrophiles',resources:3,usedGeneration:2};
+ const html=renderToStaticMarkup(createElement(PlayedCardRow,{card,generation:2,selected:true,onSelect(){}}));
+ assert.match(html,/aria-pressed="true"/);assert.match(html,/호냉성 미생물 · 미생물 3개 · 이번 세대 사용 완료 · 카드 상세 열기/);
+ assert.match(html,/Psychrophiles/);assert.match(html,/#P39/);assert.match(html,/featured-cards-v1.webp/);
+ const next=renderToStaticMarkup(createElement(PlayedCardRow,{card,generation:3,selected:false,onSelect(){}}));
+ assert.match(next,/이번 세대 행동 미사용/);assert.match(next,/aria-pressed="false"/);
+});
+
+
+test('Mars played sorting respects chronology, names, resource ties and filtered subsets without mutation',()=>{
+ const cards:MarsCard[]=['Fish','Psychrophiles','Asteroid','Tardigrades'].map((definitionId,i)=>({tileId:v.parse(TileIdSchema,'sort-played-'+i),definitionId,resources:[2,5,0,5][i]!,usedGeneration:0}));
+ const frozen=JSON.stringify(cards);
+ const ids=(sort:Parameters<typeof filterMarsPlayed>[5],query='')=>filterMarsPlayed(cards,1,query,'all',true,sort).map(c=>c.definitionId);
+ assert.deepEqual(ids('latest'),['Tardigrades','Asteroid','Psychrophiles','Fish']);
+ assert.deepEqual(ids('resources'),['Psychrophiles','Tardigrades','Fish','Asteroid'],'Equal resource counts retain played order');
+ assert.deepEqual(ids('latest','미생물'),['Tardigrades','Psychrophiles']);
+ const byName=filterMarsPlayed(cards,1,'','all',true,'name');
+ for(let i=1;i<byName.length;i++)assert.ok(marsCard(byName[i-1]!.definitionId).name.localeCompare(marsCard(byName[i]!.definitionId).name,'ko')<=0);
+ assert.deepEqual(filterMarsPlayed([],1,'','all',true,'latest'),[]);
+ assert.equal(JSON.stringify(cards),frozen);
+});
+
+
+test('Mars played tags match printed tags and combine with search, usage, sorting and public order',()=>{
+ const cards:MarsCard[]=['Psychrophiles','Tardigrades','Fish','ResearchOutpost'].map((definitionId,i)=>({tileId:v.parse(TileIdSchema,'tag-played-'+i),definitionId,resources:i,usedGeneration:definitionId==='Psychrophiles'?1:0}));
+ const before=JSON.stringify(cards);
+ const ids=(query:string,filter:Parameters<typeof filterMarsPlayed>[3],sort:Parameters<typeof filterMarsPlayed>[5],tag:string)=>filterMarsPlayed(cards,1,query,filter,true,sort,tag).map(c=>c.definitionId);
+ assert.deepEqual(ids('','all','latest','microbe'),['Tardigrades','Psychrophiles']);
+ assert.deepEqual(ids('','unused','default','microbe'),['Tardigrades']);
+ assert.deepEqual(ids('호냉성','all','default','microbe'),['Psychrophiles']);
+ assert.deepEqual(ids('호냉성','all','default','animal'),[]);
+ assert.deepEqual(ids('','resource','resources','microbe'),['Tardigrades']);
+ assert.deepEqual(ids('','all','default','science'),['ResearchOutpost']);
+ assert.deepEqual(filterMarsPlayed(cards,1,'','all',false,'default','microbe').map(c=>c.definitionId),['Psychrophiles','Tardigrades']);
+ assert.equal(JSON.stringify(cards),before);
+ const html=renderToStaticMarkup(createElement(PlayedCards,{cards,generation:1,selected:null,onSelect(){}}));
+ assert.match(html,/aria-label="낸 카드 태그"/);assert.match(html,/인쇄 태그/);assert.match(html,/모든 태그/);
+});
+
+
+test('Mars ecology illustrations keep distinct card, row and detail artwork within the asset budget',()=>{
+ const positions=['0% 0%','100% 0%','0% 100%','100% 100%'];
+ assert.deepEqual(Object.keys(MARS_ECOLOGY_ART),['Tardigrades','Birds','SmallAnimals','Livestock']);
+ for(const [definitionId,cell] of Object.entries(MARS_ECOLOGY_ART)){
+  const card:MarsCard={tileId:v.parse(TileIdSchema,'ecology-'+definitionId),definitionId,resources:0,usedGeneration:0};
+  const views=[createElement(MarsArt,{cell:marsCard(definitionId).art,definitionId}),createElement(MarsCardView,{card,onSelect(){}}),createElement(PlayedCardRow,{card,generation:1,selected:false,onSelect(){}})];
+  for(const view of views){const html=renderToStaticMarkup(view);assert.match(html,/ecology-cards-v1.webp/);assert.ok(html.includes(`background-position:${positions[cell!]}`));}
+ }
+ const asset=readFileSync(new URL('../../public/images/mars/ecology-cards-v1.webp',import.meta.url));
+ assert.equal(asset.subarray(8,12).toString(),'WEBP');assert.ok(asset.length<600_000,'Four-card ecology artwork stays below 600 kB');
+});
+
+
+import {CorporationChoice,CorporationIdentity,MARS_CORPORATION_ART} from '../features/mars/Corporation.js';
+import {marsCorporationCatalog,marsCorporation} from '@hangul-rummikub/shared';
+test('Mars corporation choices preserve all expansion identities, starting cash and repeated printed tags',()=>{
+ for(const id of ['Beginner',...marsCorporationCatalog(true,true).map(c=>c.id)]){
+  const corporation=marsCorporation(id);
+  const html=renderToStaticMarkup(createElement(CorporationChoice,{id,selected:true,onSelect(){}}));
+  assert.ok(html.includes(corporation.name));assert.ok(html.includes(corporation.text));
+  assert.ok(html.includes(`시작 자금 ${corporation.money} M€`));
+  assert.match(html,/aria-pressed="true"/);assert.match(html,/✓ 선택됨/);
+  const profile=renderToStaticMarkup(createElement(CorporationIdentity,{id}));
+  assert.doesNotMatch(profile,/시작 자금/,'Public identity does not imply starting cash is current money');
+  assert.ok(profile.includes(corporation.name));assert.ok(profile.includes(corporation.text));
+ }
+ const mining=renderToStaticMarkup(createElement(CorporationIdentity,{id:'MiningGuild'}));
+ assert.equal(mining.match(/<span>건물<\/span>/g)?.length,2,'Repeated printed tags are preserved');
+ const beginner=renderToStaticMarkup(createElement(CorporationChoice,{id:'Beginner',selected:false,onSelect(){}}));
+ assert.match(beginner,/태그 없음/);assert.match(beginner,/aria-pressed="false"/);assert.doesNotMatch(beginner,/✓ 선택됨/);
+});
+
+
+test('Mars corporation artwork maps four distinct panels in both choice and public identity with fallback',()=>{
+ const positions=['0% 0%','100% 0%','0% 100%','100% 100%'];
+ assert.deepEqual(Object.keys(MARS_CORPORATION_ART),['EcoLine','Helion','MiningGuild','TharsisRepublic']);
+ for(const [id,cell] of Object.entries(MARS_CORPORATION_ART)){
+  for(const view of [createElement(CorporationIdentity,{id}),createElement(CorporationChoice,{id,selected:false,onSelect(){}})]){
+   const html=renderToStaticMarkup(view);assert.match(html,/corporations-v1.webp/);assert.ok(html.includes(`background-position:${positions[cell!]}`));
+  }
+ }
+ const fallback=renderToStaticMarkup(createElement(CorporationIdentity,{id:'Beginner'}));
+ assert.doesNotMatch(fallback,/corporations-v1.webp/);assert.match(fallback,/tm-art/);
+ const asset=readFileSync(new URL('../../public/images/mars/corporations-v1.webp',import.meta.url));
+ assert.equal(asset.subarray(8,12).toString(),'WEBP');assert.ok(asset.length<600_000);
+});
+
+
+test('Mars audio preferences preserve mute and the previous positive volume with safe legacy defaults',()=>{
+ assert.deepEqual(marsSoundPreferences(null,null),{volume:30,restoreVolume:30});
+ assert.deepEqual(marsSoundPreferences('65',null),{volume:65,restoreVolume:65});
+ assert.deepEqual(marsSoundPreferences('0','65'),{volume:0,restoreVolume:65});
+ assert.deepEqual(marsSoundPreferences('0',null),{volume:0,restoreVolume:30});
+ assert.deepEqual(marsSoundPreferences('0','0'),{volume:0,restoreVolume:30});
+ assert.deepEqual(marsSoundPreferences('150','10'),{volume:100,restoreVolume:100});
+ assert.deepEqual(marsSoundPreferences('-5','150'),{volume:0,restoreVolume:100});
+ for(const invalid of ['','  ','oops','Infinity','NaN']){
+  assert.deepEqual(marsSoundPreferences(invalid,null),{volume:30,restoreVolume:30});
+  assert.deepEqual(marsSoundPreferences('0',invalid),{volume:0,restoreVolume:30});
+ }
 });

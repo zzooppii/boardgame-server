@@ -2,9 +2,12 @@ import {marsPrintedRequirements} from './requirements.js';
 import { marsCard, marsCardDescription, MARS_TAG_NAMES, MARS_CARD_RESOURCE_NAMES, type MarsCard, type MarsDefinition } from '@hangul-rummikub/shared';
 
 export const MARS_FEATURED_ART:Readonly<Partial<Record<string,number>>>={Fish:0,Psychrophiles:1,OlympusConference:2,SecurityFleet:3};
+export const MARS_ECOLOGY_ART:Readonly<Partial<Record<string,number>>>={Tardigrades:0,Birds:1,SmallAnimals:2,Livestock:3};
 export function MarsArt({cell,className='',definitionId}:{cell:number;className?:string;definitionId?:string}){
- const featured=definitionId?MARS_FEATURED_ART[definitionId]:undefined;
- return <span aria-hidden="true" className={'tm-art '+className} style={featured===undefined?{backgroundPosition:`${cell%4*100/3}% ${Math.floor(cell/4)*50}%`}:{backgroundImage:'url("/images/mars/featured-cards-v1.webp")',backgroundSize:'200% 200%',backgroundPosition:`${featured%2*100}% ${Math.floor(featured/2)*100}%`}}/>;
+ const ecology=definitionId?MARS_ECOLOGY_ART[definitionId]:undefined;
+ const featured=ecology??(definitionId?MARS_FEATURED_ART[definitionId]:undefined);
+ const atlas=ecology===undefined?'featured-cards-v1.webp':'ecology-cards-v1.webp';
+ return <span aria-hidden="true" className={'tm-art '+className} style={featured===undefined?{backgroundPosition:`${cell%4*100/3}% ${Math.floor(cell/4)*50}%`}:{backgroundImage:`url("/images/mars/${atlas}")`,backgroundSize:'200% 200%',backgroundPosition:`${featured%2*100}% ${Math.floor(featured/2)*100}%`}}/>;
 }
 export function marsScoreLabel(d:MarsDefinition){return d.score==='resources'&&d.resourceScore?`${MARS_CARD_RESOURCE_NAMES[d.resource??'']??'자원'} ${d.resourceScore.per}개당 ${d.resourceScore.points} VP`:d.score==='jovian'?'목성 태그당 1 VP':d.score==='cities'?'전체 도시 3개당 1 VP':d.score==='adjacentCities'?'인접 도시당 1 VP':d.score==='capital'?'인접 해양당 1 VP':d.score==='life'?'과학 자원 보유 시 3 VP':d.points?`${d.points} VP`:'';}
 export function marsCardActionStatus(card:MarsCard,generation?:number):string|null{

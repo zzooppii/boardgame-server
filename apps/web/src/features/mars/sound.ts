@@ -20,14 +20,16 @@ export function marsFeedback(previous: MarsProjection | null, current: MarsProje
     const cue: MarsCue | null = current.phase === 'FINISHED' && previous.phase !== 'FINISHED' ? (current.result.reason === 'SCORED' ? 'FINISH' : null) : current.generation !== previous.generation || newEvent && event.kind === 'PRODUCTION' ? 'PRODUCTION' : current.oceans > previous.oceans ? 'WATER' : current.tiles.length > previous.tiles.length ? (current.tiles.at(-1)?.kind === 'greenery' ? 'GREENERY' : 'PLACE') : current.temperature > previous.temperature ? 'HEAT' : newEvent && event.kind === 'CARD' || previous.privateState.cardChoice !== null && previous.privateState.cardChoice.id !== current.privateState.cardChoice?.id && current.privateState.hand.some(c => !previous.privateState.hand.some(old => old.tileId === c.tileId)) ? 'CARD' : newEvent && event.kind === 'ATTACK' ? 'ATTACK' : newEvent && event.kind === 'CLAIM' ? 'CLAIM' : current.activePlayerId !== previous.activePlayerId && current.activePlayerId === current.privateState.playerId ? 'TURN' : cardResourcesChanged ? 'CARD_RESOURCE' : null;
     return { cue, deltas };
 }
+export function marsSoundPreferences(volumeText:string|null,restoreText:string|null):{volume:number;restoreVolume:number}{
+    const parse=(text:string|null)=>{const value=text?.trim()?Number(text):NaN;return Number.isFinite(value)?Math.max(0,Math.min(100,value)):30;};
+    const volume=parse(volumeText);
+    return {volume,restoreVolume:volume>0?volume:parse(restoreText)||30};
+}
 export function useMarsSound(g: MarsProjection | null, connected: boolean) {
-    const [volume, setVolume] = useState(() => { try {
-        const n = Number(localStorage.getItem('mars-sound-volume') ?? '30');
-        return Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 30;
-    }
-    catch {
-        return 30;
-    } });
+    const [preferences,setPreferences]=useState(()=>{try{return marsSoundPreferences(localStorage.getItem('mars-sound-volume'),localStorage.getItem('mars-sound-restore-volume'));}catch{return marsSoundPreferences(null,null);}});
+    const {volume,restoreVolume}=preferences;
+    function setVolume(value:number){const next=Number.isFinite(value)?Math.max(0,Math.min(100,value)):30;setPreferences(old=>({volume:next,restoreVolume:next>0?next:old.restoreVolume}));}
+    function toggleMute(){setPreferences(old=>({...old,volume:old.volume>0?0:old.restoreVolume}));}
     const master = useRef<GainNode | null>(null),lastSelection=useRef(-Infinity);
     const context = useRef<AudioContext | null>(null), level = useRef(volume), previous = useRef<MarsProjection | null>(null), wasConnected = useRef(false);
     level.current = volume;
@@ -89,13 +91,14 @@ export function useMarsSound(g: MarsProjection | null, connected: boolean) {
     useEffect(() => {const c=context.current,node=master.current;if(c&&node){node.gain.cancelScheduledValues(c.currentTime);node.gain.setTargetAtTime(volume/100,c.currentTime,.01);}
         try {
         localStorage.setItem('mars-sound-volume', String(volume));
+        localStorage.setItem('mars-sound-restore-volume', String(restoreVolume));
     }
-    catch { /* Optional preference only. */ } }, [volume]);
+    catch { /* Optional preference only. */ } }, [volume,restoreVolume]);
     useEffect(() => { if (g) {
         const f = marsFeedback(previous.current, g, connected && wasConnected.current);
         if (f.cue)
             play(f.cue);
     } previous.current = g; wasConnected.current = connected; }, [g, connected]);
     useEffect(() => () => { void context.current?.close().catch(() => undefined); context.current = null; master.current=null; }, []);
-    return { volume, setVolume, play, unlock };
+    return { volume, setVolume, toggleMute, play, unlock };
 }
